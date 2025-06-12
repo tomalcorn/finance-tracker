@@ -8,3 +8,8 @@ dependencies = [
     "pandas-stubs",
     "streamlit",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff",
+]
