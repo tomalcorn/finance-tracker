@@ -1,9 +1,10 @@
 [project]
 name = "finance-tracker"
 version = "0.1.0"
-description = "Add your description here"
+description = "This is the finance-tracker package for managing personal finances!"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "pandas-stubs",
     "streamlit",
 ]
