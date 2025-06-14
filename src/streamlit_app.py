@@ -1,79 +1,96 @@
-import datetime
-
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import time
 
-import dataframe_handling as dfh
+if "dfa" not in st.session_state:
+    st.session_state["dfa"] = pd.DataFrame(
+        {
+            "Par": ["Apple", "Strawberry", "Banana"],
+            "Cat1": ["good", "good", "bad"],
+            "Cat2": ["healthy", "healthy", "unhealthy"],
+            "Active": [False, False, False],
+        }
+    )
 
-st.title("Finance Tracker")
 
-prices = [2, 3, 4, 20]
-saved = [1, 2, 4, 10]
+def active_dfa():
+    # Return filtered dataframe with reset index to avoid UI confusion
+    # Handle NaN values by filling them with False
+    active_col = st.session_state["dfa"]["Active"].fillna(False)
+    filtered_df = st.session_state["dfa"][active_col].copy()
+    # Store original index in a hidden column for reference
+    filtered_df["_original_index"] = filtered_df.index
+    # Reset the index for the UI display
+    return filtered_df.reset_index(drop=True)
 
-# Compute progress dynamically
-progress = [min(s / p, 1.0) for s, p in zip(saved, prices)]  # cap at 1.0 (100%)
 
-# Create a list of 10 datetime objects starting from now, 1 day apart
-date_list = [datetime.date(2025, 5, 31),
-             datetime.date(2025, 6, 27),
-             datetime.date(2025, 6, 27),
-             datetime.date(2025, 6, 27)]
+def get_original_index(row):
+    # Get the original index from the hidden column
+    return active_dfa().iloc[row]["_original_index"]
 
-# Print the list
-for date in date_list:
-    print(date)
 
-# Initialize in session state
-if "demo_df" not in st.session_state:
-    st.session_state.demo_df = pd.DataFrame({
-        "Saved": saved,
-        "Price": prices,
-        "Progress": progress,
-        "Date": date_list,
-    })
+def commit():
+    # Handle edited rows
+    if "edited_rows" in st.session_state.editor:
+        for row in st.session_state.editor["edited_rows"]:
+            original_idx = get_original_index(int(row))
+            for key, value in st.session_state.editor["edited_rows"][row].items():
+                if key != "_original_index":  # Don't modify our reference column
+                    st.session_state["dfa"].at[original_idx, key] = value
+    
+    # Handle added rows
+    if "added_rows" in st.session_state.editor:
+        for row in st.session_state.editor["added_rows"]:
+            # Create a new row with default values for all columns to prevent NaNs
+            new_row = {
+                "Par": "",
+                "Cat1": "",
+                "Cat2": "",
+                "Active": True  # Explicitly set to boolean True
+            }
+            # Update with any user-provided values
+            for key, value in row.items():
+                if key != "_original_index":  # Don't include our reference column
+                    new_row[key] = value
+            # Append the new row to the main dataframe
+            st.session_state["dfa"] = pd.concat(
+                [st.session_state["dfa"], pd.DataFrame([new_row])], 
+                ignore_index=True
+            )
+    
+    # Handle deleted rows
+    if "deleted_rows" in st.session_state.editor:
+        indices_to_delete = []
+        for row in st.session_state.editor["deleted_rows"]:
+            original_idx = get_original_index(int(row))
+            indices_to_delete.append(original_idx)
+        
+        # Delete rows from the original dataframe
+        if indices_to_delete:
+            st.session_state["dfa"] = st.session_state["dfa"].drop(indices_to_delete).reset_index(drop=True)
 
-use_filters = st.checkbox("Add filters")
 
-if use_filters:
-    filtered_df = dfh.filter_dataframe(st.session_state.demo_df)
-    st.session_state.filtered_df = filtered_df.copy()
-    working_df = st.session_state.filtered_df
+st.header("Filter and edit data")
+name = st.text_input("Search for ...")
+# Reset all active states first
+st.session_state["dfa"]["Active"] = False
+
+if name == "":
+    # If no search term, show all rows
+    st.session_state["dfa"]["Active"] = True
 else:
-    working_df = st.session_state.demo_df
+    # Filter based on search term
+    # Handle potential NaN values in Par column
+    mask = st.session_state["dfa"]["Par"].fillna("").str.contains(name, case=False)
+    st.session_state["dfa"].loc[mask, "Active"] = True
 
-# Editable DataFrame with filtered data
-edited_df = st.data_editor(
-    working_df,
-    key="demo_editor",
+# Display data editor with dynamic rows
+edited_dfa = st.data_editor(
+    active_dfa(), 
+    column_order=["Par", "Cat1", "Cat2"],
     num_rows="dynamic",
-    column_config={
-        "Price": st.column_config.NumberColumn(
-            "Price (in GBP)",
-            help="The price of the product in GBP",
-            min_value=0,
-            max_value=1000,
-            step=1,
-            format="£%d",
-        ),
-        "Progress": st.column_config.ProgressColumn(
-            "Complete",
-            help="Amount saved as a percent of price",
-            min_value=0,
-            max_value=1,
-            format="percent",
-        ),
-        "Date": st.column_config.DateColumn(
-            "Date",
-            disabled=False,
-            format="DD.MM.YYYY"
-        )
-    },
-    hide_index=True,
+    key="editor", 
+    on_change=commit
 )
-
-if use_filters:
-    # Update filtered_df and merge changes back into demo_df
-    st.session_state.filtered_df.update(edited_df)
-    st.session_state.demo_df.update(st.session_state.filtered_df)
-else:
-    st.session_state.demo_df = edited_df
+# Print for debugging if needed
+print(edited_dfa)
