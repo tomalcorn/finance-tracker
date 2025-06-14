@@ -5,6 +5,7 @@ description = "This is the finance-tracker package for managing personal finance
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "datetime",
     "pandas-stubs",
     "streamlit",
 ]
@@ -13,3 +14,7 @@ dependencies = [
 dev = [
     "ruff",
 ]
+
+[tool.mypy]
+ignore_missing_imports = true
+
