@@ -57,6 +57,7 @@ def commit():
                 [st.session_state["dfa"], pd.DataFrame([new_row])], 
                 ignore_index=True
             )
+            st.session_state["newly_added_row"] = new_row
     
     # Handle deleted rows
     if "deleted_rows" in st.session_state.editor:
@@ -78,16 +79,33 @@ st.session_state["dfa"]["Active"] = False
 if name == "":
     # If no search term, show all rows
     st.session_state["dfa"]["Active"] = True
+    st.session_state["newly_added_row"] = None  # Clear newly added row state
 else:
     # Filter based on search term
     # Handle potential NaN values in Par column
-    mask = st.session_state["dfa"]["Par"].fillna("").str.contains(name, case=False)
+    # Also mark true if row == st.session_state["newly_added_row"]
+    if "newly_added_row" in st.session_state:
+        mask = st.session_state["dfa"]["Par"].fillna("").str.contains(name, case=False)
+        if st.session_state["newly_added_row"] is not None:
+            # Compare only the relevant columns for matching
+            relevant_cols = ["Par", "Cat1", "Cat2"]
+            match_new_row = True
+            for col in relevant_cols:
+                match_new_row &= (st.session_state["dfa"][col] == st.session_state["newly_added_row"][col])
+            mask = mask | match_new_row
+    else:
+        mask = st.session_state["dfa"]["Par"].fillna("").str.contains(name, case=False)
     st.session_state["dfa"].loc[mask, "Active"] = True
 
 # Display data editor with dynamic rows
 edited_dfa = st.data_editor(
     active_dfa(), 
     column_order=["Par", "Cat1", "Cat2"],
+    column_config={
+        "Par": st.column_config.TextColumn("Product", disabled=False),
+        "Cat1": st.column_config.SelectboxColumn("Category 1", options=["good", "bad"]),
+        "Cat2": st.column_config.SelectboxColumn("Category 2", options=["healthy", "unhealthy"]),
+    },
     num_rows="dynamic",
     key="editor", 
     on_change=commit
