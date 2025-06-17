@@ -1,10 +1,12 @@
 """Main entry point."""
 
 import streamlit as st
+from st_supabase_connection import SupabaseConnection
 
 import dataframe_handling as dfh
 
-syncer = dfh.DFE(table_name="payments", editor_key="payments_editor")
+# Set up supabase connection
+conn = st.connection("supabase", type=SupabaseConnection)
 
 # Define column configuration
 column_config = {
@@ -13,14 +15,21 @@ column_config = {
     ),
     "amount": st.column_config.NumberColumn("💵 Price", format="£%.2f"),
     "payment_date": st.column_config.DateColumn("📆 Date", format="localized"),
-    "category": st.column_config.SelectboxColumn("⬇️ Category", options=["healthy", "unhealthy"]),
+    "category": st.column_config.SelectboxColumn(
+        "⬇️ Category",
+        options=["healthy", "unhealthy"],
+    ),
 }
 
-edited_df = st.data_editor(
-    syncer.original_df,
-    key="payments_editor",
+payments_dfe = dfh.DFE(
+    table_name="payments",
+    editor_key="payments_editor",
+    connection=conn,
     column_config=column_config,
-    column_order=["description", "amount", "payment_date", "category"],
-    num_rows="dynamic",
-    on_change=syncer.sync,
-)
+    column_order=[
+        "description",
+        "amount",
+        "payment_date",
+        "category",
+    ],
+).render()

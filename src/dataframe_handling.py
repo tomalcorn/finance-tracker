@@ -260,12 +260,17 @@ class DFE:
         self,
         table_name: str,
         editor_key: str,
+        connection: SupabaseConnection,
+        column_config: dict | None = None,
+        column_order: list[str] | None = None,
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
         self.table_name = table_name
         self.editor_key = editor_key
-        self.conn = st.connection("supabase", SupabaseConnection)
+        self.conn = connection
         self.table = self.conn.table(table_name)
+        self.column_config = column_config
+        self.column_order = column_order
 
         # Load and store original data
         self.original_df = pd.DataFrame(self.table.select("*").execute().data)
@@ -276,31 +281,69 @@ class DFE:
 
     def sync(self) -> None:
         """Sync the edited dataframe with the Supabase table."""
-        edited_df = st.session_state[self.editor_key]
+        # Get the editor state and original dataframe
+        editor_state = st.session_state[self.editor_key]
         original_df = st.session_state[f"{self.editor_key}_original"]
 
-        edited_df["payment_date"] = pd.to_datetime(edited_df["payment_date"])
+        # Get a working copy of the original dataframe to apply edits
+        working_df = original_df.copy()
 
-        # Insert new rows
-        new_rows = edited_df[
-            edited_df["id"].isna() | ~edited_df["id"].isin(original_df["id"])
-        ]
-        for _, row in new_rows.iterrows():
-            self.table.insert(row.drop("id").to_dict()).execute()
+        # Handle edited rows
+        if editor_state.get("edited_rows"):
+            for row_idx, changes in editor_state["edited_rows"].items():
+                row_idx_int = int(row_idx)  # Convert to integer
+                for col, value in changes.items():
+                    if col == "payment_date" and value is not None:
+                        converted_value = pd.to_datetime(value)
+                    else:
+                        converted_value = value
+                    working_df.loc[row_idx_int, col] = converted_value
 
-        # Delete removed rows
-        deleted_ids = original_df[~original_df["id"].isin(edited_df["id"])]["id"]
-        for row_id in deleted_ids:
-            self.table.delete().eq("id", row_id).execute()
+            # Update changed rows in Supabase
+            for row_idx in editor_state["edited_rows"]:
+                row_idx_int = int(row_idx)
+                row_id = working_df.loc[row_idx_int, "id"]
+                row_data = working_df.loc[row_idx_int].drop("id").to_dict()
+                self.table.update(row_data).eq("id", row_id).execute()
 
-        # Update changed rows
-        for row_id in set(original_df["id"]).intersection(edited_df["id"]):
-            orig_row = original_df[original_df["id"] == row_id].iloc[0]
-            edit_row = edited_df[edited_df["id"] == row_id].iloc[0]
-            if not orig_row.equals(edit_row):
-                self.table.update(edit_row.drop("id").to_dict()).eq(
-                    "id",
-                    row_id,
-                ).execute()
+        # Handle added rows
+        if editor_state.get("added_rows"):
+            for new_row_data in editor_state["added_rows"]:
+                if (
+                    "payment_date" in new_row_data
+                    and new_row_data["payment_date"] is not None
+                ):
+                    new_row_data["payment_date"] = pd.to_datetime(
+                        new_row_data["payment_date"],
+                    )
+
+                # Remove the id column if present (let DB generate it)
+                if "id" in new_row_data:
+                    new_row_data.pop("id")
+
+                self.table.insert(new_row_data).execute()
+
+        # Handle deleted rows
+        if editor_state.get("deleted_rows"):
+            for row_idx in editor_state["deleted_rows"]:
+                row_idx_int = int(row_idx)
+                row_id = original_df.loc[row_idx_int, "id"]
+                self.table.delete().eq("id", row_id).execute()
 
         st.toast(f"{self.table_name} updated!", icon="✅")
+
+    def render(self) -> pd.DataFrame:
+        """Render the dataframe editor with the original dataframe."""
+        # Ensure the original dataframe is in session state
+        if f"{self.editor_key}_original" not in st.session_state:
+            st.session_state[f"{self.editor_key}_original"] = self.original_df
+
+        # Display data editor with dynamic rows
+        return st.data_editor(
+            self.original_df,
+            key=self.editor_key,
+            column_config=self.column_config,
+            column_order=self.column_order,
+            num_rows="dynamic",
+            on_change=self.sync,
+        )
