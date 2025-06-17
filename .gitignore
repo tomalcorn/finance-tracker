@@ -194,5 +194,5 @@ cython_debug/
 .cursorindexingignore
 
 # My stuff
-secrets.toml
+.streamlit
 .vscode
