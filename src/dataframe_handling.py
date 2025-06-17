@@ -1,5 +1,7 @@
 """Module to handle dataframe loading and editing."""
 
+import contextlib
+
 import pandas as pd
 import streamlit as st
 from pandas.api.types import (
@@ -8,6 +10,8 @@ from pandas.api.types import (
     is_object_dtype,
 )
 from st_supabase_connection import SupabaseConnection
+
+MAX_UNIQUE_VALUES = 20
 
 
 class DFEWithFilters:
@@ -69,19 +73,26 @@ class DFEWithFilters:
 
     def commit_to_db(self) -> None:
         """Commit changes from the data editor to the session state dataframe."""
-        # Handle edited rows
+        self._commit_edited_rows()
+        self._commit_added_rows()
+        self._commit_deleted_rows()
+
+    def _commit_edited_rows(self) -> None:
+        """Handle edited rows and update the dataframe."""
         if "edited_rows" in st.session_state[self.editor_key]:
             for row in st.session_state[self.editor_key]["edited_rows"]:
                 original_idx = self.get_original_index(int(row))
-                for key, value in st.session_state[self.editor_key]["edited_rows"][row].items():
+                for key, value in st.session_state[self.editor_key]["edited_rows"][
+                    row
+                ].items():
                     if key != "_original_index":  # Don't modify our reference column
                         self.df.loc[original_idx, key] = value
 
-        # Handle added rows
+    def _commit_added_rows(self) -> None:
+        """Handle added rows and append them to the dataframe."""
         if "added_rows" in st.session_state[self.editor_key]:
             for row in st.session_state[self.editor_key]["added_rows"]:
-                # Get all columns from the dataframe
-                new_row = {}
+                new_row: dict = {}
                 for col in self.df.columns:
                     if col == "Active":
                         new_row[col] = True
@@ -94,36 +105,39 @@ class DFEWithFilters:
                     else:
                         new_row[col] = None
 
-                # Set Active to True
                 new_row["Active"] = True
 
-                # Update with any user-provided values
-                for key, value in row.items():
-                    if key != "_original_index":  # Don't include our reference column
-                        new_row[key] = value
+                new_row.update(
+                    {
+                        key: value
+                        for key, value in row.items()
+                        if key != "_original_index"
+                    },
+                )
 
-                # Append the new row to the main dataframe
                 st.session_state[self.session_key] = pd.concat(
                     [self.df, pd.DataFrame([new_row])],
                     ignore_index=True,
                 )
                 st.session_state[f"{self.session_key}_newly_added_row"] = new_row
 
-        # Handle deleted rows
+    def _commit_deleted_rows(self) -> None:
+        """Handle deleted rows and remove them from the dataframe."""
         if "deleted_rows" in st.session_state[self.editor_key]:
             indices_to_delete = []
             for row in st.session_state[self.editor_key]["deleted_rows"]:
                 original_idx = self.get_original_index(int(row))
                 indices_to_delete.append(original_idx)
 
-            # Delete rows from the original dataframe
             if indices_to_delete:
-                st.session_state[self.session_key] = self.df.drop(indices_to_delete).reset_index(
+                st.session_state[self.session_key] = self.df.drop(
+                    indices_to_delete,
+                ).reset_index(
                     drop=True,
                 )
 
-    def filter_dataframe(self):
-        """Filter the dataframe based on filters from the multiselect"""
+    def filter_dataframe(self) -> None:
+        """Filter the dataframe based on filters from the multiselect."""
         # Reset all active states first
         self.df["Active"] = False
 
@@ -134,7 +148,7 @@ class DFEWithFilters:
         if st.session_state[f"{self.session_key}_newly_added_row"] is not None:
             new_row = st.session_state[f"{self.session_key}_newly_added_row"]
             # Compare only the relevant columns for matching
-            match_new_row = pd.Series(True, index=self.df.index)
+            match_new_row = pd.Series(data=True, index=self.df.index)
             for col in self.df.columns:
                 if col in new_row and col != "Active":
                     col_match = self.df[col] == new_row[col]
@@ -144,17 +158,15 @@ class DFEWithFilters:
 
         self.df.loc[mask, "Active"] = True
 
-    def get_filter_mask(self):
+    def get_filter_mask(self) -> pd.Series:
         """Display filter options for the dataframe. Return a mask for filtering."""
         # Initialize mask with all True values
-        mask = pd.Series(True, index=self.df.index)
+        mask = pd.Series(data=True, index=self.df.index)
 
         for col in self.df.columns:
             if is_object_dtype(self.df[col]):
-                try:
+                with contextlib.suppress(Exception):
                     self.df[col] = pd.to_datetime(self.df[col])
-                except Exception:
-                    pass
 
             if is_datetime64_any_dtype(self.df[col]):
                 self.df[col] = self.df[col].dt.tz_localize(None)
@@ -168,7 +180,10 @@ class DFEWithFilters:
                 left, right = st.columns((1, 20))
                 # Treat columns with < 10 unique values as categorical
                 # - no but if you want to then ( or df[column].nunique() < 10)
-                if is_object_dtype(self.df[column]) and len(self.df[column].unique()) < 20:
+                if (
+                    is_object_dtype(self.df[column])
+                    and len(self.df[column].unique()) < MAX_UNIQUE_VALUES
+                ):
                     user_cat_input = right.multiselect(
                         f"Values for {column}",
                         self.df[column].unique(),
@@ -197,8 +212,8 @@ class DFEWithFilters:
                             self.df[column].max(),
                         ),
                     )
-                    if len(user_date_input) == 2:
-                        user_date_input = tuple(map(pd.to_datetime, user_date_input))  # type: ignore
+                    if len(user_date_input) == 2:  # noqa: PLR2004
+                        user_date_input = tuple(map(pd.to_datetime, user_date_input))  # type: ignore[assignment]
                         start_date, end_date = user_date_input
                         mask &= self.df[column].between(start_date, end_date)
 
@@ -207,12 +222,14 @@ class DFEWithFilters:
                         f"Substring or regex in {column}",
                     )
                     if user_text_input:
-                        mask &= self.df[column].astype(str).str.contains(user_text_input)
+                        mask &= (
+                            self.df[column].astype(str).str.contains(user_text_input)
+                        )
 
         return mask
 
     def render(self) -> pd.DataFrame:
-        """Render the dataframe editor with filter functionality
+        """Render the dataframe editor with filter functionality.
 
         Returns:
             The edited dataframe
@@ -226,7 +243,7 @@ class DFEWithFilters:
             self.column_config = {}
 
         # Display data editor with dynamic rows
-        edited_df = st.data_editor(
+        return st.data_editor(
             self.active_df(),
             column_order=self.column_order,
             column_config=self.column_config,
@@ -235,15 +252,16 @@ class DFEWithFilters:
             on_change=self.commit_to_db,
         )
 
-        return edited_df
-
 
 class DFE:
+    """A class that provides Streamlit dataframe editing functionality."""
+
     def __init__(
         self,
-        table_name,
-        editor_key,
-    ):
+        table_name: str,
+        editor_key: str,
+    ) -> None:
+        """Initialize the DataframeEditor with a Supabase table."""
         self.table_name = table_name
         self.editor_key = editor_key
         self.conn = st.connection("supabase", SupabaseConnection)
@@ -251,17 +269,22 @@ class DFE:
 
         # Load and store original data
         self.original_df = pd.DataFrame(self.table.select("*").execute().data)
-        self.original_df["payment_date"] = pd.to_datetime(self.original_df["payment_date"])
+        self.original_df["payment_date"] = pd.to_datetime(
+            self.original_df["payment_date"],
+        )
         st.session_state[f"{self.editor_key}_original"] = self.original_df
 
-    def sync(self):
+    def sync(self) -> None:
+        """Sync the edited dataframe with the Supabase table."""
         edited_df = st.session_state[self.editor_key]
         original_df = st.session_state[f"{self.editor_key}_original"]
 
         edited_df["payment_date"] = pd.to_datetime(edited_df["payment_date"])
 
         # Insert new rows
-        new_rows = edited_df[edited_df["id"].isna() | ~edited_df["id"].isin(original_df["id"])]
+        new_rows = edited_df[
+            edited_df["id"].isna() | ~edited_df["id"].isin(original_df["id"])
+        ]
         for _, row in new_rows.iterrows():
             self.table.insert(row.drop("id").to_dict()).execute()
 
@@ -275,6 +298,9 @@ class DFE:
             orig_row = original_df[original_df["id"] == row_id].iloc[0]
             edit_row = edited_df[edited_df["id"] == row_id].iloc[0]
             if not orig_row.equals(edit_row):
-                self.table.update(edit_row.drop("id").to_dict()).eq("id", row_id).execute()
+                self.table.update(edit_row.drop("id").to_dict()).eq(
+                    "id",
+                    row_id,
+                ).execute()
 
         st.toast(f"{self.table_name} updated!", icon="✅")
