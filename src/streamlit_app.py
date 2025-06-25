@@ -30,11 +30,7 @@ column_config = {
         options=bank_account_names,
     ),
 }
-
-payments_dfe = dfh.DFE(
-    table_name="payments",
-    editor_key="payments_editor",
-    connection=conn,
+dfe_config = dfh.DFEConfig(
     column_config=column_config,
     column_order=[
         "description",
@@ -43,4 +39,12 @@ payments_dfe = dfh.DFE(
         "category",
         "bank_account",
     ],
+    sorts=[("payment_date", "asc")],
+)
+
+payments_dfe = dfh.DFE(
+    table_name="payments",
+    editor_key="payments_editor",
+    connection=conn,
+    config=dfe_config,
 ).render()

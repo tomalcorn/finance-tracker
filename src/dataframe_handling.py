@@ -5,6 +5,7 @@ import json
 import typing
 
 import pandas as pd
+import pydantic
 import streamlit as st
 from pandas.api.types import (
     is_datetime64_any_dtype,
@@ -247,6 +248,14 @@ class DFEWithFilters:
         )
 
 
+class DFEConfig(pydantic.BaseModel):
+    """Pydantic config for optional attributes for DFE."""
+
+    column_config: dict[str, typing.Any] | None = None
+    column_order: list[str] | None = None
+    sorts: list[tuple[str, str]] | None = None
+
+
 class DFE:
     """A class that provides Streamlit dataframe editing functionality."""
 
@@ -255,16 +264,18 @@ class DFE:
         table_name: str,
         editor_key: str,
         connection: SupabaseConnection,
-        column_config: dict | None = None,
-        column_order: list[str] | None = None,
+        config: DFEConfig | None,
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
         self.table_name = table_name
         self.editor_key = editor_key
         self.conn = connection
         self.table = self.conn.table(table_name)
-        self.column_config = column_config
-        self.column_order = column_order
+
+        config = config or DFEConfig()
+        self.column_config = config.column_config
+        self.column_order = config.column_order
+        self.sorts = config.sorts
 
         # Load and store original data
         self.original_df = self._get_original_data()
@@ -277,6 +288,19 @@ class DFE:
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
         """Fetch original dataframe from backend."""
         return pd.DataFrame(_self.table.select("*").execute().data)
+
+    # @st.cache_data
+    def _sort_columns(
+        _self,  # noqa: N805
+        sorts: list[tuple[str, str]] | None,
+    ) -> pd.DataFrame:
+        """Sort the original dataframe by a list of column names."""
+        sorted_df = _self.original_df.copy()
+        if sorts is not None:
+            for col, direction in sorts:
+                ascending = direction.lower() == "asc"
+                sorted_df = sorted_df.sort_values(by=col, ascending=ascending)
+        return sorted_df.reset_index(drop=True)
 
     def _add_rows(self, added_rows: list[dict[str, typing.Any]]) -> None:
         """Add any rows in the DFE to backend."""
@@ -295,7 +319,6 @@ class DFE:
     def _edit_rows(
         self,
         edited_rows: dict[str, typing.Any],
-        working_df: pd.DataFrame,
     ) -> None:
         """Edit any rows in the DFE in backend."""
         for row_idx, changes in edited_rows.items():
@@ -304,13 +327,13 @@ class DFE:
                     converted_value = pd.to_datetime(value)
                 else:
                     converted_value = value
-                working_df.loc[row_idx, col] = converted_value
+                self.original_df.loc[row_idx, col] = converted_value
 
         # Update changed rows in Supabase
         for row_idx in edited_rows:
-            row_id = working_df.loc[row_idx, "id"]
+            row_id = self.original_df.loc[row_idx, "id"]
             row_data_json = (
-                working_df.loc[row_idx]
+                self.original_df.loc[row_idx]
                 .drop("id")
                 .to_json(
                     date_format="iso",
@@ -323,27 +346,22 @@ class DFE:
     def _delete_rows(
         self,
         deleted_rows: list[int],
-        original_df: pd.DataFrame,
     ) -> None:
         """Remove any rows from the backend."""
         for row_idx in deleted_rows:
             row_idx_int = int(row_idx)
-            row_id = original_df.loc[row_idx_int, "id"]
+            row_id = self.original_df.loc[row_idx_int, "id"]
             self.table.delete().eq("id", row_id).execute()
 
     def sync(self) -> None:
         """Sync the edited dataframe with the Supabase table."""
         # Get the editor state and original dataframe
         editor_state = st.session_state[self.editor_key]
-        original_df: pd.DataFrame = st.session_state[f"{self.editor_key}_original"]
-
-        # Get a working copy of the original dataframe to apply edits
-        working_df = original_df.copy()
 
         # Handle edited rows
         if editor_state.get("edited_rows"):
             edited_rows = editor_state["edited_rows"]
-            self._edit_rows(edited_rows, working_df)
+            self._edit_rows(edited_rows)
 
         # Handle added rows
         if editor_state.get("added_rows"):
@@ -353,13 +371,17 @@ class DFE:
         # Handle deleted rows
         if editor_state.get("deleted_rows"):
             deleted_rows = editor_state["deleted_rows"]
-            self._delete_rows(deleted_rows, original_df)
+            self._delete_rows(deleted_rows)
 
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
         # Ensure the original dataframe is in session state
         if f"{self.editor_key}_original" not in st.session_state:
             st.session_state[f"{self.editor_key}_original"] = self.original_df
+
+        # optionally sort dataframe
+        if self.sorts:
+            self.original_df = self._sort_columns(self.sorts)
 
         # Display data editor with dynamic rows
         return st.data_editor(
