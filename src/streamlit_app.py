@@ -8,16 +8,26 @@ import dataframe_handling as dfh
 # Set up supabase connection
 conn = st.connection("supabase", type=SupabaseConnection)
 
+bank_account_names = [
+    row["name"] for row in conn.table("bank_accounts").select("name").execute().data
+]
+
 # Define column configuration
 column_config = {
     "description": st.column_config.TextColumn(
         "🔠 Name",
+        required=True,
     ),
     "amount": st.column_config.NumberColumn("💵 Price", format="£%.2f"),
     "payment_date": st.column_config.DateColumn("📆 Date", format="localized"),
     "category": st.column_config.SelectboxColumn(
         "⬇️ Category",
         options=["healthy", "unhealthy"],
+    ),
+    "bank_account": st.column_config.SelectboxColumn(
+        "Bank Account",
+        help="Select a bank account",
+        options=bank_account_names,
     ),
 }
 
@@ -31,5 +41,6 @@ payments_dfe = dfh.DFE(
         "amount",
         "payment_date",
         "category",
+        "bank_account",
     ],
 ).render()

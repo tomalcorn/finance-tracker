@@ -1,6 +1,7 @@
 """Module to handle dataframe loading and editing."""
 
 import contextlib
+import json
 import typing
 
 import pandas as pd
@@ -293,19 +294,25 @@ class DFE:
     ) -> None:
         """Edit any rows in the DFE in backend."""
         for row_idx, changes in edited_rows.items():
-            row_idx_int = int(row_idx)  # Convert to integer
             for col, value in changes.items():
                 if col == "payment_date" and value is not None:
                     converted_value = pd.to_datetime(value)
                 else:
                     converted_value = value
-                working_df.loc[row_idx_int, col] = converted_value
+                working_df.loc[row_idx, col] = converted_value
 
         # Update changed rows in Supabase
         for row_idx in edited_rows:
-            row_idx_int = int(row_idx)
-            row_id = working_df.loc[row_idx_int, "id"]
-            row_data = working_df.loc[row_idx_int].drop("id").to_dict()
+            row_id = working_df.loc[row_idx, "id"]
+            row_data_json = (
+                working_df.loc[row_idx]
+                .drop("id")
+                .to_json(
+                    date_format="iso",
+                    date_unit="s",
+                )
+            )
+            row_data = json.loads(row_data_json)
             self.table.update(row_data).eq("id", row_id).execute()
 
     def _delete_rows(
@@ -323,7 +330,7 @@ class DFE:
         """Sync the edited dataframe with the Supabase table."""
         # Get the editor state and original dataframe
         editor_state = st.session_state[self.editor_key]
-        original_df = st.session_state[f"{self.editor_key}_original"]
+        original_df: pd.DataFrame = st.session_state[f"{self.editor_key}_original"]
 
         # Get a working copy of the original dataframe to apply edits
         working_df = original_df.copy()
@@ -342,8 +349,6 @@ class DFE:
         if editor_state.get("deleted_rows"):
             deleted_rows = editor_state["deleted_rows"]
             self._delete_rows(deleted_rows, original_df)
-
-        st.toast(f"{self.table_name} updated!", icon="✅")
 
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
