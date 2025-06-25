@@ -267,11 +267,16 @@ class DFE:
         self.column_order = column_order
 
         # Load and store original data
-        self.original_df = pd.DataFrame(self.table.select("*").execute().data)
+        self.original_df = self._get_original_data()
         self.original_df["payment_date"] = pd.to_datetime(
             self.original_df["payment_date"],
         )
         st.session_state[f"{self.editor_key}_original"] = self.original_df
+
+    @st.cache_data
+    def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
+        """Fetch original dataframe from backend."""
+        return pd.DataFrame(_self.table.select("*").execute().data)
 
     def _add_rows(self, added_rows: list[dict[str, typing.Any]]) -> None:
         """Add any rows in the DFE to backend."""
