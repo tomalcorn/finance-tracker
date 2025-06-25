@@ -1,7 +1,6 @@
 """Module to handle dataframe loading and editing."""
 
 import contextlib
-import json
 import typing
 
 import pandas as pd
@@ -282,9 +281,9 @@ class DFE:
         self.original_df["payment_date"] = pd.to_datetime(
             self.original_df["payment_date"],
         )
-        st.session_state[f"{self.editor_key}_original"] = self.original_df
+        st.session_state[f"{self.editor_key}_original"] = self.original_df.copy()
         if f"{self.editor_key}_edited" not in st.session_state:
-            st.session_state[f"{self.editor_key}_edited"] = self.original_df
+            st.session_state[f"{self.editor_key}_edited"] = self.original_df.copy()
 
     @st.cache_data
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
@@ -297,7 +296,7 @@ class DFE:
         _working_df: pd.DataFrame,
         sorts: list[tuple[str, str]] | None,
         *,
-        sorts_changed: bool,
+        sorts_changed: bool,  # noqa: ARG004
     ) -> pd.DataFrame:
         """Sort the original dataframe by a list of column names."""
         sorted_df = _working_df.copy()
@@ -323,8 +322,12 @@ class DFE:
             if "id" in new_row_data:
                 new_row_data.pop("id")
 
-            self.table.insert(new_row_data).execute()
-            working_df = pd.concat([working_df, pd.DataFrame([new_row_data])], ignore_index=True)
+            # Insert and get the new record with generated ID
+            result = self.table.insert(new_row_data).execute()
+            if result.data:
+                # Add the new record with its generated ID to working_df
+                new_record = result.data[0]
+                working_df = pd.concat([working_df, pd.DataFrame([new_record])], ignore_index=True)
 
         return working_df
 
@@ -334,28 +337,33 @@ class DFE:
         edited_rows: dict[str, typing.Any],
     ) -> pd.DataFrame:
         """Edit any rows in the DFE in backend and update working_df."""
-        for row_idx, changes in edited_rows.items():
+        for row_idx_str, changes in edited_rows.items():
+            row_idx = int(row_idx_str)
+
+            # Get the ID from the working dataframe at this index
+            if row_idx >= len(working_df) or "id" not in working_df.columns:
+                continue  # Skip if row doesn't exist or no ID column
+
+            row_id = working_df.iloc[row_idx]["id"]
+
+            # Build update data
+            update_data = {}
             for col, value in changes.items():
                 if col == "payment_date" and value is not None:
                     converted_value = pd.to_datetime(value)
+                    # Store ISO format for database
+                    update_data[col] = converted_value.isoformat()
                 else:
-                    converted_value = value
-                self.original_df.loc[row_idx, col] = converted_value
-                working_df.loc[row_idx, col] = converted_value
+                    update_data[col] = value
 
-        # Update changed rows in Supabase
-        for row_idx in edited_rows:
-            row_id = self.original_df.loc[row_idx, "id"]
-            row_data_json = (
-                self.original_df.loc[row_idx]
-                .drop("id")
-                .to_json(
-                    date_format="iso",
-                    date_unit="s",
+                # Update working dataframe
+                working_df.loc[working_df["id"] == row_id, col] = (
+                    converted_value if col == "payment_date" and value is not None else value
                 )
-            )
-            row_data = json.loads(row_data_json)
-            self.table.update(row_data).eq("id", row_id).execute()
+
+            # Update in Supabase using the row ID
+            if update_data:
+                self.table.update(update_data).eq("id", row_id).execute()
 
         return working_df
 
@@ -365,20 +373,28 @@ class DFE:
         deleted_rows: list[int],
     ) -> pd.DataFrame:
         """Remove any rows from the backend and update working_df."""
-        for row_idx in deleted_rows:
-            row_id = self.original_df.loc[row_idx, "id"]
+        # Sort in reverse order to maintain correct indexes during deletion
+        for row_idx in sorted(deleted_rows, reverse=True):
+            if row_idx >= len(working_df) or "id" not in working_df.columns:
+                continue  # Skip if row doesn't exist or no ID column
+
+            row_id = working_df.iloc[row_idx]["id"]
+
+            # Delete from Supabase
             self.table.delete().eq("id", row_id).execute()
-            working_df = working_df.drop(row_idx).reset_index(drop=True)
+
+            # Remove from working dataframe
+            working_df = working_df[working_df["id"] != row_id].reset_index(drop=True)
 
         return working_df
 
     def sync(self) -> None:
         """Sync the edited dataframe with the Supabase table."""
-        # Get the editor state and original dataframe
+        # Get the editor state and working dataframe
         editor_state = st.session_state[self.editor_key]
-        working_df = st.session_state[f"{self.editor_key}_edited"]
+        working_df = st.session_state[f"{self.editor_key}_edited"].copy()
 
-        # Handle edited rows
+        # Handle edited rows first
         if editor_state.get("edited_rows"):
             edited_rows = editor_state["edited_rows"]
             working_df = self._edit_rows(working_df, edited_rows)
@@ -393,16 +409,17 @@ class DFE:
             deleted_rows = editor_state["deleted_rows"]
             working_df = self._delete_rows(working_df, deleted_rows)
 
+        # Update session state with the modified dataframe
         st.session_state[f"{self.editor_key}_edited"] = working_df
 
-        print("hello")
+        print("Sync completed")
 
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
-        # Ensure the original dataframe is in session state
-        working_df: pd.DataFrame = st.session_state[f"{self.editor_key}_edited"]
+        # Get working dataframe from session state
+        working_df: pd.DataFrame = st.session_state[f"{self.editor_key}_edited"].copy()
 
-        # optionally sort dataframe
+        # Apply sorting if configured
         if self.sorts:
             sorts_changed = any(
                 not self.original_df[col].equals(working_df[col])
