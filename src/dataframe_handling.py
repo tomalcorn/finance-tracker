@@ -1,6 +1,7 @@
 """Module to handle dataframe loading and editing."""
 
 import contextlib
+import typing
 
 import pandas as pd
 import streamlit as st
@@ -82,9 +83,7 @@ class DFEWithFilters:
         if "edited_rows" in st.session_state[self.editor_key]:
             for row in st.session_state[self.editor_key]["edited_rows"]:
                 original_idx = self.get_original_index(int(row))
-                for key, value in st.session_state[self.editor_key]["edited_rows"][
-                    row
-                ].items():
+                for key, value in st.session_state[self.editor_key]["edited_rows"][row].items():
                     if key != "_original_index":  # Don't modify our reference column
                         self.df.loc[original_idx, key] = value
 
@@ -108,11 +107,7 @@ class DFEWithFilters:
                 new_row["Active"] = True
 
                 new_row.update(
-                    {
-                        key: value
-                        for key, value in row.items()
-                        if key != "_original_index"
-                    },
+                    {key: value for key, value in row.items() if key != "_original_index"},
                 )
 
                 st.session_state[self.session_key] = pd.concat(
@@ -222,9 +217,7 @@ class DFEWithFilters:
                         f"Substring or regex in {column}",
                     )
                     if user_text_input:
-                        mask &= (
-                            self.df[column].astype(str).str.contains(user_text_input)
-                        )
+                        mask &= self.df[column].astype(str).str.contains(user_text_input)
 
         return mask
 
@@ -279,6 +272,53 @@ class DFE:
         )
         st.session_state[f"{self.editor_key}_original"] = self.original_df
 
+    def _add_rows(self, added_rows: list[dict[str, typing.Any]]) -> None:
+        """Add any rows in the DFE to backend."""
+        for new_row_data in added_rows:
+            if "payment_date" in new_row_data and new_row_data["payment_date"] is not None:
+                new_row_data["payment_date"] = pd.to_datetime(
+                    new_row_data["payment_date"],
+                )
+
+            # Remove the id column if present (let DB generate it)
+            if "id" in new_row_data:
+                new_row_data.pop("id")
+
+            self.table.insert(new_row_data).execute()
+
+    def _edit_rows(
+        self,
+        edited_rows: dict[str, typing.Any],
+        working_df: pd.DataFrame,
+    ) -> None:
+        """Edit any rows in the DFE in backend."""
+        for row_idx, changes in edited_rows.items():
+            row_idx_int = int(row_idx)  # Convert to integer
+            for col, value in changes.items():
+                if col == "payment_date" and value is not None:
+                    converted_value = pd.to_datetime(value)
+                else:
+                    converted_value = value
+                working_df.loc[row_idx_int, col] = converted_value
+
+        # Update changed rows in Supabase
+        for row_idx in edited_rows:
+            row_idx_int = int(row_idx)
+            row_id = working_df.loc[row_idx_int, "id"]
+            row_data = working_df.loc[row_idx_int].drop("id").to_dict()
+            self.table.update(row_data).eq("id", row_id).execute()
+
+    def _delete_rows(
+        self,
+        deleted_rows: list[int],
+        original_df: pd.DataFrame,
+    ) -> None:
+        """Remove any rows from the backend."""
+        for row_idx in deleted_rows:
+            row_idx_int = int(row_idx)
+            row_id = original_df.loc[row_idx_int, "id"]
+            self.table.delete().eq("id", row_id).execute()
+
     def sync(self) -> None:
         """Sync the edited dataframe with the Supabase table."""
         # Get the editor state and original dataframe
@@ -290,45 +330,18 @@ class DFE:
 
         # Handle edited rows
         if editor_state.get("edited_rows"):
-            for row_idx, changes in editor_state["edited_rows"].items():
-                row_idx_int = int(row_idx)  # Convert to integer
-                for col, value in changes.items():
-                    if col == "payment_date" and value is not None:
-                        converted_value = pd.to_datetime(value)
-                    else:
-                        converted_value = value
-                    working_df.loc[row_idx_int, col] = converted_value
-
-            # Update changed rows in Supabase
-            for row_idx in editor_state["edited_rows"]:
-                row_idx_int = int(row_idx)
-                row_id = working_df.loc[row_idx_int, "id"]
-                row_data = working_df.loc[row_idx_int].drop("id").to_dict()
-                self.table.update(row_data).eq("id", row_id).execute()
+            edited_rows = editor_state["edited_rows"]
+            self._edit_rows(edited_rows, working_df)
 
         # Handle added rows
         if editor_state.get("added_rows"):
-            for new_row_data in editor_state["added_rows"]:
-                if (
-                    "payment_date" in new_row_data
-                    and new_row_data["payment_date"] is not None
-                ):
-                    new_row_data["payment_date"] = pd.to_datetime(
-                        new_row_data["payment_date"],
-                    )
-
-                # Remove the id column if present (let DB generate it)
-                if "id" in new_row_data:
-                    new_row_data.pop("id")
-
-                self.table.insert(new_row_data).execute()
+            added_rows = editor_state["added_rows"]
+            self._add_rows(added_rows)
 
         # Handle deleted rows
         if editor_state.get("deleted_rows"):
-            for row_idx in editor_state["deleted_rows"]:
-                row_idx_int = int(row_idx)
-                row_id = original_df.loc[row_idx_int, "id"]
-                self.table.delete().eq("id", row_id).execute()
+            deleted_rows = editor_state["deleted_rows"]
+            self._delete_rows(deleted_rows, original_df)
 
         st.toast(f"{self.table_name} updated!", icon="✅")
 
