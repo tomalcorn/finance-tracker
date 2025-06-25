@@ -283,27 +283,36 @@ class DFE:
             self.original_df["payment_date"],
         )
         st.session_state[f"{self.editor_key}_original"] = self.original_df
+        if f"{self.editor_key}_edited" not in st.session_state:
+            st.session_state[f"{self.editor_key}_edited"] = self.original_df
 
     @st.cache_data
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
         """Fetch original dataframe from backend."""
         return pd.DataFrame(_self.table.select("*").execute().data)
 
-    # @st.cache_data
+    @staticmethod
+    @st.cache_data
     def _sort_columns(
-        _self,  # noqa: N805
+        _working_df: pd.DataFrame,
         sorts: list[tuple[str, str]] | None,
+        *,
+        sorts_changed: bool,
     ) -> pd.DataFrame:
         """Sort the original dataframe by a list of column names."""
-        sorted_df = _self.original_df.copy()
+        sorted_df = _working_df.copy()
         if sorts is not None:
             for col, direction in sorts:
                 ascending = direction.lower() == "asc"
                 sorted_df = sorted_df.sort_values(by=col, ascending=ascending)
         return sorted_df.reset_index(drop=True)
 
-    def _add_rows(self, added_rows: list[dict[str, typing.Any]]) -> None:
-        """Add any rows in the DFE to backend."""
+    def _add_rows(
+        self,
+        working_df: pd.DataFrame,
+        added_rows: list[dict[str, typing.Any]],
+    ) -> pd.DataFrame:
+        """Add any rows in the DFE to backend and update working_df."""
         for new_row_data in added_rows:
             if "payment_date" in new_row_data and new_row_data["payment_date"] is not None:
                 new_row_data["payment_date"] = pd.to_datetime(
@@ -315,12 +324,16 @@ class DFE:
                 new_row_data.pop("id")
 
             self.table.insert(new_row_data).execute()
+            working_df = pd.concat([working_df, pd.DataFrame([new_row_data])], ignore_index=True)
+
+        return working_df
 
     def _edit_rows(
         self,
+        working_df: pd.DataFrame,
         edited_rows: dict[str, typing.Any],
-    ) -> None:
-        """Edit any rows in the DFE in backend."""
+    ) -> pd.DataFrame:
+        """Edit any rows in the DFE in backend and update working_df."""
         for row_idx, changes in edited_rows.items():
             for col, value in changes.items():
                 if col == "payment_date" and value is not None:
@@ -328,6 +341,7 @@ class DFE:
                 else:
                     converted_value = value
                 self.original_df.loc[row_idx, col] = converted_value
+                working_df.loc[row_idx, col] = converted_value
 
         # Update changed rows in Supabase
         for row_idx in edited_rows:
@@ -343,49 +357,67 @@ class DFE:
             row_data = json.loads(row_data_json)
             self.table.update(row_data).eq("id", row_id).execute()
 
+        return working_df
+
     def _delete_rows(
         self,
+        working_df: pd.DataFrame,
         deleted_rows: list[int],
-    ) -> None:
-        """Remove any rows from the backend."""
+    ) -> pd.DataFrame:
+        """Remove any rows from the backend and update working_df."""
         for row_idx in deleted_rows:
-            row_idx_int = int(row_idx)
-            row_id = self.original_df.loc[row_idx_int, "id"]
+            row_id = self.original_df.loc[row_idx, "id"]
             self.table.delete().eq("id", row_id).execute()
+            working_df = working_df.drop(row_idx).reset_index(drop=True)
+
+        return working_df
 
     def sync(self) -> None:
         """Sync the edited dataframe with the Supabase table."""
         # Get the editor state and original dataframe
         editor_state = st.session_state[self.editor_key]
+        working_df = st.session_state[f"{self.editor_key}_edited"]
 
         # Handle edited rows
         if editor_state.get("edited_rows"):
             edited_rows = editor_state["edited_rows"]
-            self._edit_rows(edited_rows)
+            working_df = self._edit_rows(working_df, edited_rows)
 
         # Handle added rows
         if editor_state.get("added_rows"):
             added_rows = editor_state["added_rows"]
-            self._add_rows(added_rows)
+            working_df = self._add_rows(working_df, added_rows)
 
         # Handle deleted rows
         if editor_state.get("deleted_rows"):
             deleted_rows = editor_state["deleted_rows"]
-            self._delete_rows(deleted_rows)
+            working_df = self._delete_rows(working_df, deleted_rows)
+
+        st.session_state[f"{self.editor_key}_edited"] = working_df
+
+        print("hello")
 
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
         # Ensure the original dataframe is in session state
-        if f"{self.editor_key}_original" not in st.session_state:
-            st.session_state[f"{self.editor_key}_original"] = self.original_df
+        working_df: pd.DataFrame = st.session_state[f"{self.editor_key}_edited"]
 
         # optionally sort dataframe
         if self.sorts:
-            self.original_df = self._sort_columns(self.sorts)
+            sorts_changed = any(
+                not self.original_df[col].equals(working_df[col])
+                for col, _ in self.sorts
+                if col in self.original_df.columns and col in working_df.columns
+            )
+            working_df = self._sort_columns(
+                _working_df=working_df,
+                sorts=self.sorts,
+                sorts_changed=sorts_changed,
+            )
 
         # Display data editor with dynamic rows
         return st.data_editor(
-            self.original_df,
+            working_df,
             key=self.editor_key,
             column_config=self.column_config,
             column_order=self.column_order,
