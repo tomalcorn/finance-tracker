@@ -278,9 +278,6 @@ class DFE:
 
         # Load and store original data
         self.original_df = self._get_original_data()
-        self.original_df["payment_date"] = pd.to_datetime(
-            self.original_df["payment_date"],
-        )
         st.session_state[f"{self.editor_key}_original"] = self.original_df.copy()
         if f"{self.editor_key}_edited" not in st.session_state:
             st.session_state[f"{self.editor_key}_edited"] = self.original_df.copy()
@@ -288,7 +285,9 @@ class DFE:
     @st.cache_data
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
         """Fetch original dataframe from backend."""
-        return pd.DataFrame(_self.table.select("*").execute().data)
+        original_df = pd.DataFrame(_self.table.select("*").execute().data)
+        original_df["payment_date"] = pd.to_datetime(original_df["payment_date"])
+        return original_df
 
     @staticmethod
     def _sort_columns(
