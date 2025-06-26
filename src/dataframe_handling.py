@@ -291,12 +291,9 @@ class DFE:
         return pd.DataFrame(_self.table.select("*").execute().data)
 
     @staticmethod
-    @st.cache_data
     def _sort_columns(
         _working_df: pd.DataFrame,
         sorts: list[tuple[str, str]] | None,
-        *,
-        sorts_changed: bool,  # noqa: ARG004
     ) -> pd.DataFrame:
         """Sort the original dataframe by a list of column names."""
         sorted_df = _working_df.copy()
@@ -417,20 +414,26 @@ class DFE:
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
         # Get working dataframe from session state
-        working_df: pd.DataFrame = st.session_state[f"{self.editor_key}_edited"].copy()
+        working_df: pd.DataFrame = st.session_state[f"{self.editor_key}_edited"]
 
         # Apply sorting if configured
         if self.sorts:
+            if f"{self.editor_key}_first_time" not in st.session_state:
+                st.session_state[f"{self.editor_key}_first_time"] = True
+            first_time = st.session_state[f"{self.editor_key}_first_time"] or True
             sorts_changed = any(
                 not self.original_df[col].equals(working_df[col])
                 for col, _ in self.sorts
                 if col in self.original_df.columns and col in working_df.columns
             )
-            working_df = self._sort_columns(
-                _working_df=working_df,
-                sorts=self.sorts,
-                sorts_changed=sorts_changed,
-            )
+            if sorts_changed or first_time:
+                working_df = self._sort_columns(
+                    _working_df=working_df,
+                    sorts=self.sorts,
+                )
+            st.session_state[f"{self.editor_key}_first_time"] = False
+
+        st.session_state[f"{self.editor_key}_edited"] = working_df
 
         # Display data editor with dynamic rows
         return st.data_editor(
