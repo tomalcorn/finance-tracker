@@ -12,10 +12,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
-    "ruff",
-]
+dev = ["ruff"]
 
 [tool.mypy]
 ignore_missing_imports = true
-
