@@ -1,6 +1,7 @@
 """Module to handle dataframe loading and editing."""
 
 import contextlib
+import time
 import typing
 
 import pandas as pd
@@ -277,29 +278,64 @@ class DFE:
         self.sorts = config.sorts
 
         # Load and store original data
-        self.original_df = self._get_original_data()
-        st.session_state[f"{self.editor_key}_original"] = self.original_df.copy()
-        if f"{self.editor_key}_edited" not in st.session_state:
-            st.session_state[f"{self.editor_key}_edited"] = self.original_df.copy()
+        if f"{self.editor_key}_working" not in st.session_state:
+            working_df = self._get_original_data()
+            if self.sorts:
+                working_df = self._sort_columns(working_df)
+            st.session_state[f"{self.editor_key}_working"] = working_df
 
     @st.cache_data
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
         """Fetch original dataframe from backend."""
+        start = time.time()
         original_df = pd.DataFrame(_self.table.select("*").execute().data)
         original_df["payment_date"] = pd.to_datetime(original_df["payment_date"])
+        print(f"Data fetch took {time.time() - start:.4f} seconds")
         return original_df
 
-    @staticmethod
+    def _check_for_sorts_updates(
+        self,
+        editor_state: dict[str, typing.Any],
+    ) -> bool:
+        """Check editor_state to see if changes made to sorts columns."""
+        start = time.time()
+        sorts_changed = False
+        if self.sorts:
+            sort_columns = [col for col, _ in self.sorts]
+
+            # Check for edits in sorted columns
+            if editor_state.get("edited_rows"):
+                for changes in editor_state["edited_rows"].values():
+                    if any(col in sort_columns for col in changes):
+                        sorts_changed = True
+                        break
+
+            # Check for additions that may affect sorted columns
+            if not sorts_changed and editor_state.get("added_rows"):
+                for new_row in editor_state["added_rows"]:
+                    if any(col in sort_columns for col in new_row):
+                        sorts_changed = True
+                        break
+
+            # Check for deletions
+            if not sorts_changed and editor_state.get("deleted_rows"):
+                sorts_changed = True  # Deletion affects sorting indirectly
+
+        print(f"Sorts check took {time.time() - start:.4f} seconds")
+        return sorts_changed
+
     def _sort_columns(
-        _working_df: pd.DataFrame,
-        sorts: list[tuple[str, str]] | None,
+        _self,  # noqa: N805
+        working_df: pd.DataFrame,
     ) -> pd.DataFrame:
         """Sort the original dataframe by a list of column names."""
-        sorted_df = _working_df.copy()
-        if sorts is not None:
-            for col, direction in sorts:
+        start = time.time()
+        sorted_df = working_df.copy()
+        if _self.sorts is not None:
+            for col, direction in _self.sorts:
                 ascending = direction.lower() == "asc"
                 sorted_df = sorted_df.sort_values(by=col, ascending=ascending)
+        print(f"Sort took {time.time() - start:.4f} seconds")
         return sorted_df.reset_index(drop=True)
 
     def _add_rows(
@@ -388,53 +424,42 @@ class DFE:
         """Sync the edited dataframe with the Supabase table."""
         # Get the editor state and working dataframe
         editor_state = st.session_state[self.editor_key]
-        working_df = st.session_state[f"{self.editor_key}_edited"].copy()
+        working_df = st.session_state[f"{self.editor_key}_working"].copy()
 
         # Handle edited rows first
         if editor_state.get("edited_rows"):
+            start = time.time()
             edited_rows = editor_state["edited_rows"]
             working_df = self._edit_rows(working_df, edited_rows)
+            print(f"edited rows took {time.time() - start:.4f} seconds")
 
         # Handle added rows
         if editor_state.get("added_rows"):
+            start = time.time()
             added_rows = editor_state["added_rows"]
             working_df = self._add_rows(working_df, added_rows)
+            print(f"added rows took {time.time() - start:.4f} seconds")
 
         # Handle deleted rows
         if editor_state.get("deleted_rows"):
+            start = time.time()
             deleted_rows = editor_state["deleted_rows"]
             working_df = self._delete_rows(working_df, deleted_rows)
+            print(f"deleted rows took {time.time() - start:.4f} seconds")
+
+        # Check if sorts are affected by changes
+        if self.sorts and self._check_for_sorts_updates(editor_state):
+            working_df = self._sort_columns(working_df)
 
         # Update session state with the modified dataframe
-        st.session_state[f"{self.editor_key}_edited"] = working_df
+        st.session_state[f"{self.editor_key}_working"] = working_df
 
-        print("Sync completed")
+        print(f"Sync took {time.time() - start:.4f} seconds")
 
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
         # Get working dataframe from session state
-        working_df: pd.DataFrame = st.session_state[f"{self.editor_key}_edited"]
-
-        # Apply sorting if configured
-        if self.sorts:
-            if f"{self.editor_key}_first_time" not in st.session_state:
-                st.session_state[f"{self.editor_key}_first_time"] = True
-            first_time = st.session_state[f"{self.editor_key}_first_time"] or True
-            sorts_changed = any(
-                not self.original_df[col].equals(working_df[col])
-                for col, _ in self.sorts
-                if col in self.original_df.columns and col in working_df.columns
-            )
-            if sorts_changed or first_time:
-                working_df = self._sort_columns(
-                    _working_df=working_df,
-                    sorts=self.sorts,
-                )
-            st.session_state[f"{self.editor_key}_first_time"] = False
-
-        st.session_state[f"{self.editor_key}_edited"] = working_df
-
-        # Display data editor with dynamic rows
+        working_df: pd.DataFrame = st.session_state[f"{self.editor_key}_working"]
         return st.data_editor(
             working_df,
             key=self.editor_key,
