@@ -484,3 +484,43 @@ class DFE:
             num_rows="dynamic",
             on_change=self.sync,
         )
+
+
+class DFEHandler:
+    """Client for handling data editor operations."""
+
+    def __init__(
+        self,
+        table_name: str,
+        editor_key: str,
+        connection: SupabaseConnection,
+        config: DFEConfig | None,
+    ) -> None:
+        """Initialize the DataframeEditor with a Supabase table."""
+        self.table_name = table_name
+        self.editor_key = editor_key
+        self.conn = connection
+        self.table = self.conn.table(table_name)
+
+        config = config or DFEConfig()
+        self.column_config = config.column_config
+        self.column_order = config.column_order
+        self.sorts = config.sorts
+
+    def get_original_data(self) -> pd.DataFrame:
+        """Fetch original dataframe from backend."""
+        original_df = pd.DataFrame(self.table.select("*").execute().data)
+        original_df["payment_date"] = pd.to_datetime(original_df["payment_date"])
+        return original_df
+
+    def add_changes_to_session_state(
+        self,
+        modified_df: pd.DataFrame,
+    ) -> None:
+        """Add changes from modified_df to session state queue of changes."""
+
+    def sync(
+        self,
+        queue: dict[str, typing.Any],
+    ) -> None:
+        """Send api requests to backend with changes in change queue."""
