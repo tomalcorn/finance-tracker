@@ -1,5 +1,8 @@
 """Main entry point."""
 
+import time
+
+import pandas as pd
 import streamlit as st
 from st_supabase_connection import SupabaseConnection
 
@@ -48,3 +51,43 @@ payments_dfe = dfh.DFE(
     connection=conn,
     config=dfe_config,
 ).render()
+
+
+simple_data = pd.DataFrame(
+    {
+        "description": ["Groceries", "Gym", "Coffee"],
+        "amount": [45.50, 29.99, 3.75],
+        "payment_date": pd.to_datetime(["2025-06-01", "2025-06-02", "2025-06-03"]),
+        "category": ["healthy", "healthy", "unhealthy"],
+        "bank_account": ["Bank A", "Bank B", "Bank A"],
+    },
+)
+modified_data = st.data_editor(
+    data=simple_data,
+    column_config=column_config,
+    num_rows="dynamic",
+)
+
+if st.session_state.get("current_df") is not None:
+    print(f"simple data pre --------------\n{st.session_state['current_df']}\n")
+print(f"simple data post --------------\n{modified_data}\n")
+time.sleep(5)
+st.session_state["current_df"] = modified_data
+
+
+"""DFEHandler attempt."""
+
+payments_client = dfh.DFEHandler(
+    table_name="payments",
+    editor_key="payments_v2",
+    connection=conn,
+    config=dfe_config,
+)
+
+current_df = payments_client.get_original_data()
+
+working_df = st.data_editor(
+    data=current_df,
+    column_config=payments_client.column_config,
+    num_rows="dynamic",
+)
