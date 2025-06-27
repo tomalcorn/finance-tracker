@@ -1,6 +1,7 @@
 """Module to handle dataframe loading and editing."""
 
 import contextlib
+import threading
 import time
 import typing
 
@@ -287,10 +288,8 @@ class DFE:
     @st.cache_data
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
         """Fetch original dataframe from backend."""
-        start = time.time()
         original_df = pd.DataFrame(_self.table.select("*").execute().data)
         original_df["payment_date"] = pd.to_datetime(original_df["payment_date"])
-        print(f"Data fetch took {time.time() - start:.4f} seconds")
         return original_df
 
     def _check_for_sorts_updates(
@@ -363,19 +362,28 @@ class DFE:
 
         return working_df
 
+    def _sync_edit_rows_in_background(
+        self,
+        updates: list[tuple[typing.Any, dict[str, typing.Any]]],
+    ) -> None:
+        """Run Supabase updates in a background thread."""
+
+        def _worker() -> None:
+            for row_id, update_data in updates:
+                self.table.update(update_data).eq("id", row_id).execute()
+
+        threading.Thread(target=_worker).start()
+
     def _edit_rows(
         self,
         working_df: pd.DataFrame,
-        edited_rows: dict[str, typing.Any],
+        edited_rows: dict[int, typing.Any],
     ) -> pd.DataFrame:
         """Edit any rows in the DFE in backend and update working_df."""
-        for row_idx_str, changes in edited_rows.items():
-            row_idx = int(row_idx_str)
-
-            # Get the ID from the working dataframe at this index
+        updates_for_backend = []
+        for row_idx, changes in edited_rows.items():
             if row_idx >= len(working_df) or "id" not in working_df.columns:
-                continue  # Skip if row doesn't exist or no ID column
-
+                continue
             row_id = working_df.iloc[row_idx]["id"]
 
             # Build update data
@@ -383,21 +391,28 @@ class DFE:
             for col, value in changes.items():
                 if col == "payment_date" and value is not None:
                     converted_value = pd.to_datetime(value)
-                    # Store ISO format for database
                     update_data[col] = converted_value.isoformat()
                 else:
                     update_data[col] = value
 
-                # Update working dataframe
                 working_df.loc[working_df["id"] == row_id, col] = (
                     converted_value if col == "payment_date" and value is not None else value
                 )
 
-            # Update in Supabase using the row ID
-            if update_data:
-                self.table.update(update_data).eq("id", row_id).execute()
+            updates_for_backend.append((row_id, update_data))
+
+        self._sync_edit_rows_in_background(updates=updates_for_backend)
 
         return working_df
+
+    def _sync_delete_rows_in_background(self, row_ids: list[typing.Any]) -> None:
+        """Run Supabase deletes in a background thread."""
+
+        def _worker() -> None:
+            for row_id in row_ids:
+                self.table.delete().eq("id", row_id).execute()
+
+        threading.Thread(target=_worker).start()
 
     def _delete_rows(
         self,
@@ -406,18 +421,19 @@ class DFE:
     ) -> pd.DataFrame:
         """Remove any rows from the backend and update working_df."""
         # Sort in reverse order to maintain correct indexes during deletion
+        deletions_for_the_backend = []
         for row_idx in sorted(deleted_rows, reverse=True):
             if row_idx >= len(working_df) or "id" not in working_df.columns:
                 continue  # Skip if row doesn't exist or no ID column
 
             row_id = working_df.iloc[row_idx]["id"]
-
-            # Delete from Supabase
-            self.table.delete().eq("id", row_id).execute()
+            deletions_for_the_backend.append(row_id)
 
             # Remove from working dataframe
             working_df = working_df[working_df["id"] != row_id].reset_index(drop=True)
 
+        # Delete from Supabase
+        self._sync_delete_rows_in_background(row_ids=deletions_for_the_backend)
         return working_df
 
     def sync(self) -> None:
