@@ -1,7 +1,5 @@
 """Main entry point."""
 
-import time
-
 import pandas as pd
 import streamlit as st
 from st_supabase_connection import SupabaseConnection
@@ -52,7 +50,6 @@ payments_dfe = dfh.DFE(
     config=dfe_config,
 ).render()
 
-
 simple_data = pd.DataFrame(
     {
         "description": ["Groceries", "Gym", "Coffee"],
@@ -71,23 +68,4 @@ modified_data = st.data_editor(
 if st.session_state.get("current_df") is not None:
     print(f"simple data pre --------------\n{st.session_state['current_df']}\n")
 print(f"simple data post --------------\n{modified_data}\n")
-time.sleep(5)
 st.session_state["current_df"] = modified_data
-
-
-"""DFEHandler attempt."""
-
-payments_client = dfh.DFEHandler(
-    table_name="payments",
-    editor_key="payments_v2",
-    connection=conn,
-    config=dfe_config,
-)
-
-current_df = payments_client.get_original_data()
-
-working_df = st.data_editor(
-    data=current_df,
-    column_config=payments_client.column_config,
-    num_rows="dynamic",
-)
