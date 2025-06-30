@@ -1,5 +1,7 @@
 """Main entry point."""
 
+import uuid
+
 import pandas as pd
 import streamlit as st
 from st_supabase_connection import SupabaseConnection
@@ -15,6 +17,11 @@ bank_account_names = [
 
 # Define column configuration
 column_config = {
+    "id": st.column_config.TextColumn(
+        "id",
+        required=True,
+        default=str(uuid.uuid4()),
+    ),
     "description": st.column_config.TextColumn(
         "🔠 Name",
         required=True,
@@ -34,6 +41,7 @@ column_config = {
 dfe_config = dfh.DFEConfig(
     column_config=column_config,
     column_order=[
+        "id",
         "description",
         "amount",
         "payment_date",
@@ -42,13 +50,28 @@ dfe_config = dfh.DFEConfig(
     ],
     sorts=[("payment_date", "asc")],
 )
-
+sample_data = pd.DataFrame(
+    {
+        "id": [str(uuid.uuid4())],
+        "description": ["Example Data"],
+        "amount": [0],
+        "payment_date": ["2025-06-01"],
+        "category": ["category"],
+        "created_at": ["2025-06-01"],
+        "bank_account": [bank_account_names[0]],
+    },
+)
 payments_dfe = dfh.DFE(
     table_name="payments",
-    editor_key="payments_editor",
+    sample_data=sample_data,
     connection=conn,
     config=dfe_config,
-).render()
+)
+
+modified_payments = payments_dfe.render()
+
+payments_dfe.write_changes_to_backend()
+
 
 simple_data = pd.DataFrame(
     {
