@@ -1,7 +1,7 @@
 """Module to handle dataframe loading and editing."""
 
 import contextlib
-import threading
+import re
 import time
 import typing
 import uuid
@@ -17,6 +17,7 @@ from pandas.api.types import (
 from st_supabase_connection import SupabaseConnection
 
 MAX_UNIQUE_VALUES = 20
+DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
 
 
 class DFEWithFilters:
@@ -51,7 +52,7 @@ class DFEWithFilters:
         self.column_order = column_order
 
         # Create a unique key for the editor
-        self.editor_key = f"{session_key}_editor"
+        self.table_name = f"{session_key}_editor"
 
         # Track newly added rows to ensure they're visible even with filtering
         if f"{session_key}_newly_added_row" not in st.session_state:
@@ -84,17 +85,17 @@ class DFEWithFilters:
 
     def _commit_edited_rows(self) -> None:
         """Handle edited rows and update the dataframe."""
-        if "edited_rows" in st.session_state[self.editor_key]:
-            for row in st.session_state[self.editor_key]["edited_rows"]:
+        if "edited_rows" in st.session_state[self.table_name]:
+            for row in st.session_state[self.table_name]["edited_rows"]:
                 original_idx = self.get_original_index(int(row))
-                for key, value in st.session_state[self.editor_key]["edited_rows"][row].items():
+                for key, value in st.session_state[self.table_name]["edited_rows"][row].items():
                     if key != "_original_index":  # Don't modify our reference column
                         self.df.loc[original_idx, key] = value
 
     def _commit_added_rows(self) -> None:
         """Handle added rows and append them to the dataframe."""
-        if "added_rows" in st.session_state[self.editor_key]:
-            for row in st.session_state[self.editor_key]["added_rows"]:
+        if "added_rows" in st.session_state[self.table_name]:
+            for row in st.session_state[self.table_name]["added_rows"]:
                 new_row: dict = {}
                 for col in self.df.columns:
                     if col == "Active":
@@ -122,9 +123,9 @@ class DFEWithFilters:
 
     def _commit_deleted_rows(self) -> None:
         """Handle deleted rows and remove them from the dataframe."""
-        if "deleted_rows" in st.session_state[self.editor_key]:
+        if "deleted_rows" in st.session_state[self.table_name]:
             indices_to_delete = []
-            for row in st.session_state[self.editor_key]["deleted_rows"]:
+            for row in st.session_state[self.table_name]["deleted_rows"]:
                 original_idx = self.get_original_index(int(row))
                 indices_to_delete.append(original_idx)
 
@@ -245,7 +246,7 @@ class DFEWithFilters:
             column_order=self.column_order,
             column_config=self.column_config,
             num_rows="dynamic",
-            key=self.editor_key,
+            key=self.table_name,
             on_change=self.commit_to_db,
         )
 
@@ -264,13 +265,12 @@ class DFE:
     def __init__(
         self,
         table_name: str,
-        editor_key: str,
+        sample_data: pd.DataFrame,
         connection: SupabaseConnection,
         config: DFEConfig | None,
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
         self.table_name = table_name
-        self.editor_key = editor_key
         self.conn = connection
         self.table = self.conn.table(table_name)
 
@@ -280,18 +280,40 @@ class DFE:
         self.sorts = config.sorts
 
         # Load and store original data
-        if f"{self.editor_key}_working" not in st.session_state:
-            working_df = self._get_original_data()
+        if f"{self.table_name}_working" not in st.session_state:
+            original_data = self._get_original_data()
+            working_df = self._convert_cols_to_datetime(
+                original_data if not original_data.empty else sample_data,
+            )
             if self.sorts:
                 working_df = self.sort_columns(working_df)
-            st.session_state[f"{self.editor_key}_working"] = working_df
+            st.session_state[f"{self.table_name}_working"] = working_df
+
+        # Set up backend updates session state dict
+        if f"{self.table_name}_backend_updates" not in st.session_state:
+            st.session_state[f"{self.table_name}_backend_updates"] = {
+                "added_rows": {},
+                "edited_rows": {},
+                "deleted_rows": [],
+            }
 
     @st.cache_data
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
         """Fetch original dataframe from backend."""
-        original_df = pd.DataFrame(_self.table.select("*").execute().data)
-        original_df["payment_date"] = pd.to_datetime(original_df["payment_date"])
-        return original_df
+        return pd.DataFrame(_self.table.select("*").execute().data)
+
+    def _convert_cols_to_datetime(
+        self,
+        dataframe: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Try to convert columns to datetime."""
+        for col in dataframe.columns:
+            if is_object_dtype(dataframe[col]):
+                sample_values = [val for val in dataframe[col].to_numpy()[:10] if val is not None]
+                if any(DATE_PATTERN.match(val) for val in sample_values):
+                    with contextlib.suppress(Exception):
+                        dataframe[col] = pd.to_datetime(dataframe[col])
+        return dataframe
 
     def _check_for_sorts_updates(
         self,
@@ -338,26 +360,40 @@ class DFE:
         print(f"Sort took {time.time() - start:.4f} seconds")
         return sorted_df.reset_index(drop=True)
 
-    def _sync_edit_rows_in_background(
+    def _add_rows_to_db(
         self,
-        updates: list[tuple[typing.Any, dict[str, typing.Any]]],
+        added_rows: dict[str, dict[str, typing.Any]],
+    ) -> dict[str, dict[str, typing.Any]]:
+        """Run Supabase inserts."""
+        for row_data in added_rows.values():
+            if not row_data.get("synced"):
+                self.table.insert(row_data).execute()
+                row_data["synced"] = True
+        return added_rows
+
+    def _edit_rows_in_db(
+        self,
+        updates: dict[typing.Any, dict[str, typing.Any]],
     ) -> None:
-        """Run Supabase updates in a background thread."""
+        """Run Supabase updates."""
+        for row_id, update_data in updates.items():
+            self.table.update(update_data).eq("id", row_id).execute()
 
-        def _worker() -> None:
-            for row_id, update_data in updates:
-                self.table.update(update_data).eq("id", row_id).execute()
+    def _delete_rows_in_db(self, row_ids: list[typing.Any]) -> list:
+        """Run Supabase deletes."""
+        for row_id in row_ids:
+            self.table.delete().eq("id", row_id).execute()
+        return []
 
-        threading.Thread(target=_worker).start()
-
-    def _sync_delete_rows_in_background(self, row_ids: list[typing.Any]) -> None:
-        """Run Supabase deletes in a background thread."""
-
-        def _worker() -> None:
-            for row_id in row_ids:
-                self.table.delete().eq("id", row_id).execute()
-
-        threading.Thread(target=_worker).start()
+    def _add_row_ids(
+        self,
+        added_rows: list[dict[str, typing.Any]],
+    ) -> list[dict[str, typing.Any]]:
+        """Add uuids to added rows."""
+        for new_row in added_rows:
+            if not new_row.get("id"):
+                new_row["id"] = str(uuid.uuid4())
+        return added_rows
 
     def _add_rows(
         self,
@@ -366,20 +402,11 @@ class DFE:
     ) -> pd.DataFrame:
         """Add any rows in the DFE to backend and update working_df."""
         for new_row_data in added_rows:
-            if "payment_date" in new_row_data and new_row_data["payment_date"] is not None:
-                new_row_data["payment_date"] = pd.to_datetime(
-                    new_row_data["payment_date"],
-                )
-
-            # Remove the id column if present (we generate it instead)
-            if "id" in new_row_data:
-                new_row_data.pop("id")
-
-            # Generate a random UUID for the row
-            new_row_data["id"] = str(uuid.uuid4())
+            new_row_df = pd.DataFrame(new_row_data)
+            new_row_df_conv = self._convert_cols_to_datetime(new_row_df)
 
             # Append the new row to the working dataframe
-            working_df = pd.concat([working_df, pd.DataFrame([new_row_data])], ignore_index=True)
+            working_df = pd.concat([working_df, new_row_df_conv], ignore_index=True)
 
         return working_df
 
@@ -453,8 +480,26 @@ class DFE:
         """Sync the edited dataframe with the Supabase table."""
         # Get the editor state and working dataframe
         start = time.time()
-        editor_state = st.session_state[self.editor_key]
-        working_df = st.session_state[f"{self.editor_key}_working"]
+        editor_state = st.session_state[self.table_name]
+        working_df: pd.DataFrame = st.session_state[f"{self.table_name}_working"]
+
+        # Add ids to added_rows, add session state to backend updates queue
+        added_rows = editor_state.get("added_rows")
+        added_rows = self._add_row_ids(added_rows)
+        edited_rows = editor_state.get("edited_rows")
+        deleted_rows = editor_state.get("deleted_rows")
+
+        backend_updates = st.session_state[f"{self.table_name}_backend_updates"]
+        for added_row in added_rows:
+            if added_row["id"] not in backend_updates["added_rows"]:
+                backend_updates["added_rows"][added_row["id"]] = added_row
+        for edited_row in edited_rows:
+            row_id = working_df.iloc[edited_row]["id"]
+            backend_updates["edited_rows"][row_id] = edited_rows[edited_row]
+        for deleted_row in deleted_rows:
+            if deleted_row < len(working_df):
+                row_id = working_df.iloc[deleted_row]["id"]
+                backend_updates["deleted_rows"].append(row_id)
 
         # Check if sorts are affected by changes
         if self.sorts and self._check_for_sorts_updates(editor_state):
@@ -462,17 +507,37 @@ class DFE:
             working_df = self.sort_columns(working_df)
 
         # Update session state with the modified dataframe
-        st.session_state[f"{self.editor_key}_working"] = working_df
+        st.session_state[f"{self.table_name}_working"] = working_df
 
         print(f"Sync took {time.time() - start:.4f} seconds")
+
+    def write_changes_to_backend(
+        self,
+    ) -> None:
+        """Write changes from modified_df to DB."""
+        backend_updates: dict[str, typing.Any] = st.session_state[
+            f"{self.table_name}_backend_updates"
+        ]
+        added_rows = backend_updates.get("added_rows")
+        edited_rows = backend_updates.get("edited_rows")
+        deleted_rows = backend_updates.get("deleted_rows")
+
+        if added_rows:
+            added_rows = self._add_rows_to_db(added_rows)
+
+        if edited_rows:
+            self._edit_rows_in_db(edited_rows)
+
+        if deleted_rows:
+            deleted_rows = self._delete_rows_in_db(deleted_rows)
 
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
         # Get working dataframe from session state
-        working_df: pd.DataFrame = st.session_state[f"{self.editor_key}_working"]
+        working_df: pd.DataFrame = st.session_state[f"{self.table_name}_working"]
         return st.data_editor(
             working_df,
-            key=self.editor_key,
+            key=self.table_name,
             column_config=self.column_config,
             column_order=self.column_order,
             num_rows="dynamic",
