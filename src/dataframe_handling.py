@@ -1,6 +1,7 @@
 """Module to handle dataframe loading and editing."""
 
 import contextlib
+import logging
 import re
 import time
 import typing
@@ -88,7 +89,9 @@ class DFEWithFilters:
         if "edited_rows" in st.session_state[self.table_name]:
             for row in st.session_state[self.table_name]["edited_rows"]:
                 original_idx = self.get_original_index(int(row))
-                for key, value in st.session_state[self.table_name]["edited_rows"][row].items():
+                for key, value in st.session_state[self.table_name]["edited_rows"][
+                    row
+                ].items():
                     if key != "_original_index":  # Don't modify our reference column
                         self.df.loc[original_idx, key] = value
 
@@ -112,7 +115,11 @@ class DFEWithFilters:
                 new_row["Active"] = True
 
                 new_row.update(
-                    {key: value for key, value in row.items() if key != "_original_index"},
+                    {
+                        key: value
+                        for key, value in row.items()
+                        if key != "_original_index"
+                    },
                 )
 
                 st.session_state[self.session_key] = pd.concat(
@@ -222,7 +229,9 @@ class DFEWithFilters:
                         f"Substring or regex in {column}",
                     )
                     if user_text_input:
-                        mask &= self.df[column].astype(str).str.contains(user_text_input)
+                        mask &= (
+                            self.df[column].astype(str).str.contains(user_text_input)
+                        )
 
         return mask
 
@@ -279,7 +288,7 @@ class DFE:
         self.column_order = config.column_order
         self.sorts = config.sorts
 
-        # Load and store original data
+        # Load and store original data in working and current session states variables
         if f"{self.table_name}_working" not in st.session_state:
             original_data = self._get_original_data()
             working_df = self._convert_cols_to_datetime(
@@ -289,10 +298,14 @@ class DFE:
                 working_df = self.sort_columns(working_df)
             st.session_state[f"{self.table_name}_working"] = working_df
 
+        if f"{self.table_name}_current" not in st.session_state:
+            st.session_state[f"{self.table_name}_current"] = st.session_state.get(
+                f"{self.table_name}_working",
+            )
         # Set up backend updates session state dict
         if f"{self.table_name}_backend_updates" not in st.session_state:
             st.session_state[f"{self.table_name}_backend_updates"] = {
-                "added_rows": {},
+                "added_rows": [],
                 "edited_rows": {},
                 "deleted_rows": [],
             }
@@ -309,7 +322,9 @@ class DFE:
         """Try to convert columns to datetime."""
         for col in dataframe.columns:
             if is_object_dtype(dataframe[col]):
-                sample_values = [val for val in dataframe[col].to_numpy()[:10] if val is not None]
+                sample_values = [
+                    val for val in dataframe[col].to_numpy()[:10] if val is not None
+                ]
                 if any(DATE_PATTERN.match(val) for val in sample_values):
                     with contextlib.suppress(Exception):
                         dataframe[col] = pd.to_datetime(dataframe[col])
@@ -320,7 +335,6 @@ class DFE:
         editor_state: dict[str, typing.Any],
     ) -> bool:
         """Check editor_state to see if changes made to sorts columns."""
-        start = time.time()
         sorts_changed = False
         if self.sorts:
             sort_columns = [col for col, _ in self.sorts]
@@ -342,8 +356,6 @@ class DFE:
             # Check for deletions
             if not sorts_changed and editor_state.get("deleted_rows"):
                 sorts_changed = True  # Deletion affects sorting indirectly
-
-        print(f"Sorts check took {time.time() - start:.4f} seconds")
         return sorts_changed
 
     def sort_columns(
@@ -351,25 +363,23 @@ class DFE:
         working_df: pd.DataFrame,
     ) -> pd.DataFrame:
         """Sort the original dataframe by a list of column names."""
-        start = time.time()
         sorted_df = working_df.copy()
         if _self.sorts is not None:
             for col, direction in _self.sorts:
                 ascending = direction.lower() == "asc"
                 sorted_df = sorted_df.sort_values(by=col, ascending=ascending)
-        print(f"Sort took {time.time() - start:.4f} seconds")
         return sorted_df.reset_index(drop=True)
 
     def _add_rows_to_db(
         self,
-        added_rows: dict[str, dict[str, typing.Any]],
-    ) -> dict[str, dict[str, typing.Any]]:
+        added_rows: list[dict[str, typing.Any]],
+    ) -> list:
         """Run Supabase inserts."""
-        for row_data in added_rows.values():
+        for row_data in added_rows:
             if not row_data.get("synced"):
                 self.table.insert(row_data).execute()
-                row_data["synced"] = True
-        return added_rows
+                row_data["synced"] = True  # Mark as synced
+        return []
 
     def _edit_rows_in_db(
         self,
@@ -385,16 +395,6 @@ class DFE:
             self.table.delete().eq("id", row_id).execute()
         return []
 
-    def _add_row_ids(
-        self,
-        added_rows: list[dict[str, typing.Any]],
-    ) -> list[dict[str, typing.Any]]:
-        """Add uuids to added rows."""
-        for new_row in added_rows:
-            if not new_row.get("id"):
-                new_row["id"] = str(uuid.uuid4())
-        return added_rows
-
     def _add_rows(
         self,
         working_df: pd.DataFrame,
@@ -402,7 +402,7 @@ class DFE:
     ) -> pd.DataFrame:
         """Add any rows in the DFE to backend and update working_df."""
         for new_row_data in added_rows:
-            new_row_df = pd.DataFrame(new_row_data)
+            new_row_df = pd.DataFrame([new_row_data])
             new_row_df_conv = self._convert_cols_to_datetime(new_row_df)
 
             # Append the new row to the working dataframe
@@ -431,7 +431,9 @@ class DFE:
                     update_data[col] = value
 
                 working_df.loc[working_df["id"] == row_id, col] = (
-                    converted_value if col == "payment_date" and value is not None else value
+                    converted_value
+                    if col == "payment_date" and value is not None
+                    else value
                 )
 
         return working_df
@@ -483,53 +485,25 @@ class DFE:
         editor_state = st.session_state[self.table_name]
         working_df: pd.DataFrame = st.session_state[f"{self.table_name}_working"]
 
-        # Add ids to added_rows, add session state to backend updates queue
-        added_rows = editor_state.get("added_rows")
-        added_rows = self._add_row_ids(added_rows)
-        edited_rows = editor_state.get("edited_rows")
-        deleted_rows = editor_state.get("deleted_rows")
-
-        backend_updates = st.session_state[f"{self.table_name}_backend_updates"]
-        for added_row in added_rows:
-            if added_row["id"] not in backend_updates["added_rows"]:
-                backend_updates["added_rows"][added_row["id"]] = added_row
-        for edited_row in edited_rows:
-            row_id = working_df.iloc[edited_row]["id"]
-            backend_updates["edited_rows"][row_id] = edited_rows[edited_row]
-        for deleted_row in deleted_rows:
-            if deleted_row < len(working_df):
-                row_id = working_df.iloc[deleted_row]["id"]
-                backend_updates["deleted_rows"].append(row_id)
+        # Identify rows that need IDs assigned
+        added_rows = editor_state["added_rows"]
+        backend_added_rows = st.session_state[f"{self.table_name}_backend_updates"][
+            "added_rows"
+        ].copy()
+        backend_added_rows_no_ids = [row.pop("id", None) for row in backend_added_rows]
+        newly_added_rows = [
+            row for row in added_rows if row not in backend_added_rows_no_ids
+        ]
+        for row in newly_added_rows:
+            row["id"] = str(uuid.uuid4())
 
         # Check if sorts are affected by changes
         if self.sorts and self._check_for_sorts_updates(editor_state):
             working_df = self._apply_changes_to_working_df(editor_state, working_df)
             working_df = self.sort_columns(working_df)
 
-        # Update session state with the modified dataframe
-        st.session_state[f"{self.table_name}_working"] = working_df
-
-        print(f"Sync took {time.time() - start:.4f} seconds")
-
-    def write_changes_to_backend(
-        self,
-    ) -> None:
-        """Write changes from modified_df to DB."""
-        backend_updates: dict[str, typing.Any] = st.session_state[
-            f"{self.table_name}_backend_updates"
-        ]
-        added_rows = backend_updates.get("added_rows")
-        edited_rows = backend_updates.get("edited_rows")
-        deleted_rows = backend_updates.get("deleted_rows")
-
-        if added_rows:
-            added_rows = self._add_rows_to_db(added_rows)
-
-        if edited_rows:
-            self._edit_rows_in_db(edited_rows)
-
-        if deleted_rows:
-            deleted_rows = self._delete_rows_in_db(deleted_rows)
+        logging.basicConfig(level=logging.INFO)
+        logging.getLogger(__name__).info("Sync took %.4f seconds", time.time() - start)
 
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
@@ -543,3 +517,66 @@ class DFE:
             num_rows="dynamic",
             on_change=self.sync,
         )
+
+    def update_and_get_backend_queue(
+        self,
+        modified_df: pd.DataFrame,
+    ) -> dict[str, typing.Any]:
+        """Update and return the backend queue with changes from modified_df."""
+        backend_updates: dict[str, typing.Any] = st.session_state[
+            f"{self.table_name}_backend_updates"
+        ]
+        current_df: pd.DataFrame = st.session_state[f"{self.table_name}_current"]
+
+        # Identify added, edited, and deleted rows
+        added_rows = (
+            modified_df[~modified_df.isin(current_df)]
+            .dropna(how="all")
+            .dropna(axis=1, how="all")
+        )
+        edited_rows = {
+            row["id"]: {
+                col: row[col]
+                for col in modified_df.columns
+                if col != "id"
+                and row[col]
+                != current_df.loc[
+                    current_df["id"] == row["id"],
+                    col,
+                ].to_numpy()[0]
+            }
+            for _, row in modified_df.iterrows()
+            if row["id"] in current_df["id"].to_numpy()
+        }
+        # Filter out entries with empty dictionary values
+        edited_rows = {key: value for key, value in edited_rows.items() if value}
+        deleted_rows = current_df[~current_df.isin(modified_df)].dropna(how="all")
+
+        # Update backend updates
+        backend_updates["added_rows"] = added_rows.to_dict(orient="records")
+        backend_updates["edited_rows"] = edited_rows
+        backend_updates["deleted_rows"] = deleted_rows["id"].tolist()
+
+        return backend_updates
+
+    def write_changes_to_backend(
+        self,
+        modified_df: pd.DataFrame,
+    ) -> None:
+        """Write changes from modified_df to DB."""
+        backend_updates = self.update_and_get_backend_queue(modified_df)
+
+        added_rows = backend_updates.get("added_rows", [])
+        edited_rows = backend_updates.get("edited_rows", {})
+        deleted_rows = backend_updates.get("deleted_rows", [])
+
+        if added_rows:
+            added_rows = self._add_rows_to_db(added_rows)
+
+        if edited_rows:
+            self._edit_rows_in_db(edited_rows)
+
+        if deleted_rows:
+            deleted_rows = self._delete_rows_in_db(deleted_rows)
+
+        st.session_state[f"{self.table_name}_current"] = modified_df.copy()
