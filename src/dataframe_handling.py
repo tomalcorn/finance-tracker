@@ -370,31 +370,6 @@ class DFE:
                 sorted_df = sorted_df.sort_values(by=col, ascending=ascending)
         return sorted_df.reset_index(drop=True)
 
-    def _add_rows_to_db(
-        self,
-        added_rows: list[dict[str, typing.Any]],
-    ) -> list:
-        """Run Supabase inserts."""
-        for row_data in added_rows:
-            if not row_data.get("synced"):
-                self.table.insert(row_data).execute()
-                row_data["synced"] = True  # Mark as synced
-        return []
-
-    def _edit_rows_in_db(
-        self,
-        updates: dict[typing.Any, dict[str, typing.Any]],
-    ) -> None:
-        """Run Supabase updates."""
-        for row_id, update_data in updates.items():
-            self.table.update(update_data).eq("id", row_id).execute()
-
-    def _delete_rows_in_db(self, row_ids: list[typing.Any]) -> list:
-        """Run Supabase deletes."""
-        for row_id in row_ids:
-            self.table.delete().eq("id", row_id).execute()
-        return []
-
     def _add_rows(
         self,
         working_df: pd.DataFrame,
@@ -483,24 +458,41 @@ class DFE:
         # Get the editor state and working dataframe
         start = time.time()
         editor_state = st.session_state[self.table_name]
-        working_df: pd.DataFrame = st.session_state[f"{self.table_name}_working"]
+        working_df: pd.DataFrame = st.session_state[f"{self.table_name}_working"].copy()
 
         # Identify rows that need IDs assigned
         added_rows = editor_state["added_rows"]
-        backend_added_rows = st.session_state[f"{self.table_name}_backend_updates"][
-            "added_rows"
-        ].copy()
-        backend_added_rows_no_ids = [row.pop("id", None) for row in backend_added_rows]
-        newly_added_rows = [
-            row for row in added_rows if row not in backend_added_rows_no_ids
-        ]
-        for row in newly_added_rows:
-            row["id"] = str(uuid.uuid4())
+        if f"{self.table_name}_prev_added_rows" not in st.session_state:
+            st.session_state[f"{self.table_name}_prev_added_rows"] = added_rows.copy()
+        backend_added_rows: list = st.session_state[
+            f"{self.table_name}_backend_updates"
+        ]["added_rows"]
+        # Deal with deleted added_rows
+        if len(added_rows) < len(backend_added_rows):
+            prev_added_rows = st.session_state[f"{self.table_name}_prev_added_rows"]
+            # Find indices of rows that were added but are no longer in the editor state
+            deleted_added_indices = [
+                i for i, row in enumerate(prev_added_rows) if row not in added_rows
+            ]
+            # Remove these from backend_added_rows
+            for idx in sorted(deleted_added_indices, reverse=True):
+                del backend_added_rows[idx]
+        st.session_state[f"{self.table_name}_prev_added_rows"] = added_rows.copy()
+        # Assign IDs to added rows: reuse IDs from backend_added_rows if available
+        for i, row in enumerate(added_rows):
+            if i < len(backend_added_rows) and "id" in backend_added_rows[i]:
+                row["id"] = backend_added_rows[i]["id"]
+            elif "id" not in row or not row["id"]:
+                row["id"] = str(uuid.uuid4())
+                backend_row = row.copy()
+                backend_row["synced"] = False  # Mark as not synced yet
+                backend_added_rows.append(backend_row)
 
         # Check if sorts are affected by changes
         if self.sorts and self._check_for_sorts_updates(editor_state):
             working_df = self._apply_changes_to_working_df(editor_state, working_df)
             working_df = self.sort_columns(working_df)
+            st.session_state[f"{self.table_name}_working"] = working_df
 
         logging.basicConfig(level=logging.INFO)
         logging.getLogger(__name__).info("Sync took %.4f seconds", time.time() - start)
@@ -528,12 +520,7 @@ class DFE:
         ]
         current_df: pd.DataFrame = st.session_state[f"{self.table_name}_current"]
 
-        # Identify added, edited, and deleted rows
-        added_rows = (
-            modified_df[~modified_df.isin(current_df)]
-            .dropna(how="all")
-            .dropna(axis=1, how="all")
-        )
+        # Identify edited, and deleted rows
         edited_rows = {
             row["id"]: {
                 col: row[col]
@@ -549,15 +536,46 @@ class DFE:
             if row["id"] in current_df["id"].to_numpy()
         }
         # Filter out entries with empty dictionary values
-        edited_rows = {key: value for key, value in edited_rows.items() if value}
-        deleted_rows = current_df[~current_df.isin(modified_df)].dropna(how="all")
+        # Remove entries where all edited values are NA/NaT
+        edited_rows = {
+            key: {col: val for col, val in value.items() if pd.notna(val)}
+            for key, value in edited_rows.items()
+            if any(pd.notna(val) for val in value.values())
+        }
+        # Find deleted rows: IDs in current_df but not in modified_df
+        deleted_ids = list(set(current_df["id"]) - set(modified_df["id"]))
 
         # Update backend updates
-        backend_updates["added_rows"] = added_rows.to_dict(orient="records")
         backend_updates["edited_rows"] = edited_rows
-        backend_updates["deleted_rows"] = deleted_rows["id"].tolist()
+        backend_updates["deleted_rows"] = deleted_ids
 
         return backend_updates
+
+    def _add_rows_to_db(
+        self,
+        added_rows: list[dict[str, typing.Any]],
+    ) -> None:
+        """Run Supabase inserts."""
+        for row_data in added_rows:
+            if not row_data.get("synced"):
+                row_data_copy = row_data.copy()
+                row_data_copy.pop("synced", None)
+                self.table.insert(row_data_copy).execute()
+                row_data["synced"] = True  # Mark as synced
+
+    def _edit_rows_in_db(
+        self,
+        updates: dict[typing.Any, dict[str, typing.Any]],
+    ) -> None:
+        """Run Supabase updates."""
+        for row_id, update_data in updates.items():
+            self.table.update(update_data).eq("id", row_id).execute()
+
+    def _delete_rows_in_db(self, row_ids: list[typing.Any]) -> list:
+        """Run Supabase deletes."""
+        for row_id in row_ids:
+            self.table.delete().eq("id", row_id).execute()
+        return []
 
     def write_changes_to_backend(
         self,
@@ -566,12 +584,12 @@ class DFE:
         """Write changes from modified_df to DB."""
         backend_updates = self.update_and_get_backend_queue(modified_df)
 
-        added_rows = backend_updates.get("added_rows", [])
+        added_rows = [row for row in backend_updates["added_rows"] if not row["synced"]]
         edited_rows = backend_updates.get("edited_rows", {})
         deleted_rows = backend_updates.get("deleted_rows", [])
 
         if added_rows:
-            added_rows = self._add_rows_to_db(added_rows)
+            self._add_rows_to_db(added_rows)
 
         if edited_rows:
             self._edit_rows_in_db(edited_rows)
