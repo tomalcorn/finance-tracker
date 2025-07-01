@@ -17,11 +17,6 @@ bank_account_names = [
 
 # Define column configuration
 column_config = {
-    "id": st.column_config.TextColumn(
-        "id",
-        required=True,
-        default=str(uuid.uuid4()),
-    ),
     "description": st.column_config.TextColumn(
         "🔠 Name",
         required=True,
@@ -41,7 +36,6 @@ column_config = {
 dfe_config = dfh.DFEConfig(
     column_config=column_config,
     column_order=[
-        "id",
         "description",
         "amount",
         "payment_date",
@@ -70,7 +64,7 @@ payments_dfe = dfh.DFE(
 
 modified_payments = payments_dfe.render()
 
-payments_dfe.write_changes_to_backend()
+payments_dfe.write_changes_to_backend(modified_payments)
 
 
 simple_data = pd.DataFrame(
@@ -88,7 +82,7 @@ modified_data = st.data_editor(
     num_rows="dynamic",
 )
 
-if st.session_state.get("current_df") is not None:
-    print(f"simple data pre --------------\n{st.session_state['current_df']}\n")
-print(f"simple data post --------------\n{modified_data}\n")
-st.session_state["current_df"] = modified_data
+# if st.session_state.get("current_df") is not None:
+#     print(f"simple data pre --------------\n{st.session_state['current_df']}\n")
+# print(f"simple data post --------------\n{modified_data}\n")
+# st.session_state["current_df"] = modified_data
