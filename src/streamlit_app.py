@@ -15,35 +15,63 @@ bank_account_names = [
     row["name"] for row in conn.table("bank_accounts").select("name").execute().data
 ]
 
-# Define column configuration
-column_config = {
-    "description": st.column_config.TextColumn(
-        "🔠 Name",
-        required=True,
+# Define column and add button configuration
+payments_config = [
+    dfh.DFEColumnConfig(
+        column="description",
+        column_config=st.column_config.TextColumn(
+            "🔠 Name",
+            required=True,
+        ),
+        button_label="Description",
+        input_widget=st.text_input,
     ),
-    "amount": st.column_config.NumberColumn("💵 Price", format="£%.2f"),
-    "payment_date": st.column_config.DateColumn("📆 Date", format="localized"),
-    "category": st.column_config.SelectboxColumn(
-        "⬇️ Category",
-        options=["healthy", "unhealthy"],
+    dfh.DFEColumnConfig(
+        column="amount",
+        column_config=st.column_config.NumberColumn(
+            "💵 Price",
+            format="£%.2f",
+        ),
+        button_label="Amount",
+        input_widget=st.number_input,
     ),
-    "bank_account": st.column_config.SelectboxColumn(
-        "Bank Account",
-        help="Select a bank account",
-        options=bank_account_names,
+    dfh.DFEColumnConfig(
+        column="payment_date",
+        column_config=st.column_config.DateColumn(
+            "📆 Date",
+            format="localized",
+        ),
+        button_label="Payment Date",
+        input_widget=st.date_input,
+        sorting="asc",
     ),
-}
-dfe_config = dfh.DFEConfig(
-    column_config=column_config,
-    column_order=[
-        "description",
-        "amount",
-        "payment_date",
-        "category",
-        "bank_account",
-    ],
-    sorts=[("payment_date", "asc")],
-)
+    dfh.DFEColumnConfig(
+        column="category",
+        column_config=st.column_config.SelectboxColumn(
+            "⬇️ Category",
+            options=["healthy", "unhealthy"],
+        ),
+        button_label="Category",
+        input_widget=st.selectbox,
+    ),
+    dfh.DFEColumnConfig(
+        column="bank_account",
+        column_config=st.column_config.SelectboxColumn(
+            "Bank Account",
+            help="Select a bank account",
+            options=bank_account_names,
+        ),
+        button_label="Bank Account",
+        input_widget=st.selectbox,
+    ),
+]
+payments_order = [
+    "description",
+    "amount",
+    "payment_date",
+    "category",
+    "bank_account",
+]
 sample_data = pd.DataFrame(
     {
         "id": [str(uuid.uuid4())],
@@ -59,7 +87,8 @@ payments_dfe = dfh.DFE(
     table_name="payments",
     sample_data=sample_data,
     connection=conn,
-    config=dfe_config,
+    config=payments_config,
+    column_order=payments_order,
 )
 
 modified_payments = payments_dfe.render()
@@ -81,8 +110,3 @@ modified_data = st.data_editor(
     column_config=column_config,
     num_rows="dynamic",
 )
-
-# if st.session_state.get("current_df") is not None:
-#     print(f"simple data pre --------------\n{st.session_state['current_df']}\n")
-# print(f"simple data post --------------\n{modified_data}\n")
-# st.session_state["current_df"] = modified_data

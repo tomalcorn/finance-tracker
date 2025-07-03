@@ -10,6 +10,15 @@ import uuid
 import pandas as pd
 import pydantic
 import streamlit as st
+import streamlit.elements.lib.column_types as st_column_types
+from streamlit.elements.widgets import (
+    text_widgets,
+    date_widgets,
+    number_widgets,
+    select_widgets,
+    multiselect_widgets,
+    
+)
 from pandas.api.types import (
     is_datetime64_any_dtype,
     is_numeric_dtype,
@@ -260,12 +269,14 @@ class DFEWithFilters:
         )
 
 
-class DFEConfig(pydantic.BaseModel):
-    """Pydantic config for optional attributes for DFE."""
+class DFEColumnConfig(pydantic.BaseModel):
+    """Configuration for a single column in the DataFrame Editor."""
 
-    column_config: dict[str, typing.Any] | None = None
-    column_order: list[str] | None = None
-    sorts: list[tuple[str, str]] | None = None
+    column: str
+    column_config: st_column_types.ColumnConfig
+    button_label: str | None = None
+    input_widget: text_widgets. | None = None
+    sorting: typing.Literal["asc", "desc", None] = None
 
 
 class DFE:
@@ -276,17 +287,18 @@ class DFE:
         table_name: str,
         sample_data: pd.DataFrame,
         connection: SupabaseConnection,
-        config: DFEConfig | None,
+        config: list[DFEColumnConfig],
+        column_order: list[str],
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
         self.table_name = table_name
         self.conn = connection
         self.table = self.conn.table(table_name)
+        self.config = config
 
-        config = config or DFEConfig()
-        self.column_config = config.column_config
-        self.column_order = config.column_order
-        self.sorts = config.sorts
+        self.column_config = {col.column: col.column_config for col in config}
+        self.column_order = column_order
+        self.sorts = [(col.column, col.sorting) for col in config if col.sorting]
 
         # Load and store original data in working and current session states variables
         if f"{self.table_name}_working" not in st.session_state:
@@ -318,10 +330,27 @@ class DFE:
         if f"{self.table_name}_prev_added_rows" not in st.session_state:
             st.session_state[f"{self.table_name}_prev_added_rows"] = []
 
+        # Set up buttons
+        self.add_row_button = st.button(
+            label="Add Row",
+            icon="➕",  # noqa: RUF001
+            key=f"{self.table_name}_add_row_button",
+        )
+        if self.add_row_button:
+            self.add_row_button_dialog()
+
     @st.cache_data
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
         """Fetch original dataframe from backend."""
         return pd.DataFrame(_self.table.select("*").execute().data)
+
+    @st.dialog("Add Row")
+    def add_row_button_dialog(self) -> None:
+        """Handle the add row button click event."""
+        st.write(f"Add a new row to **{self.table_name}**")
+        # Create a new row with default values
+        for column in self.config:
+            st.text_input()
 
     def _convert_cols_to_datetime(
         self,
