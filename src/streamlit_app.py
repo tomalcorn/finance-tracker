@@ -23,17 +23,24 @@ payments_config = [
             "🔠 Name",
             required=True,
         ),
-        button_label="Description",
+        button_label="Name",
         input_widget=st.text_input,
+        input_kwargs={
+            "value": None,
+        },
     ),
     dfh.DFEColumnConfig(
         column="amount",
         column_config=st.column_config.NumberColumn(
-            "💵 Price",
+            "💵 Amount",
             format="£%.2f",
         ),
         button_label="Amount",
         input_widget=st.number_input,
+        input_kwargs={
+            "value": None,
+            "format": "%.2f",
+        },
     ),
     dfh.DFEColumnConfig(
         column="payment_date",
@@ -53,6 +60,10 @@ payments_config = [
         ),
         button_label="Category",
         input_widget=st.selectbox,
+        input_kwargs={
+            "options": ["healthy", "unhealthy"],
+            "index": None,
+        },
     ),
     dfh.DFEColumnConfig(
         column="bank_account",
@@ -63,6 +74,10 @@ payments_config = [
         ),
         button_label="Bank Account",
         input_widget=st.selectbox,
+        input_kwargs={
+            "options": bank_account_names,
+            "index": None,
+        },
     ),
 ]
 payments_order = [
@@ -94,19 +109,3 @@ payments_dfe = dfh.DFE(
 modified_payments = payments_dfe.render()
 
 payments_dfe.write_changes_to_backend(modified_payments)
-
-
-simple_data = pd.DataFrame(
-    {
-        "description": ["Groceries", "Gym", "Coffee"],
-        "amount": [45.50, 29.99, 3.75],
-        "payment_date": pd.to_datetime(["2025-06-01", "2025-06-02", "2025-06-03"]),
-        "category": ["healthy", "healthy", "unhealthy"],
-        "bank_account": ["Bank A", "Bank B", "Bank A"],
-    },
-)
-modified_data = st.data_editor(
-    data=simple_data,
-    column_config=column_config,
-    num_rows="dynamic",
-)

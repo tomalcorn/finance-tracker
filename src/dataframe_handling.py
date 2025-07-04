@@ -1,6 +1,7 @@
 """Module to handle dataframe loading and editing."""
 
 import contextlib
+import datetime
 import logging
 import re
 import time
@@ -11,14 +12,6 @@ import pandas as pd
 import pydantic
 import streamlit as st
 import streamlit.elements.lib.column_types as st_column_types
-from streamlit.elements.widgets import (
-    text_widgets,
-    date_widgets,
-    number_widgets,
-    select_widgets,
-    multiselect_widgets,
-    
-)
 from pandas.api.types import (
     is_datetime64_any_dtype,
     is_numeric_dtype,
@@ -275,7 +268,8 @@ class DFEColumnConfig(pydantic.BaseModel):
     column: str
     column_config: st_column_types.ColumnConfig
     button_label: str | None = None
-    input_widget: text_widgets. | None = None
+    input_widget: typing.Any
+    input_kwargs: dict = {}
     sorting: typing.Literal["asc", "desc", None] = None
 
 
@@ -339,7 +333,6 @@ class DFE:
         if self.add_row_button:
             self.add_row_button_dialog()
 
-    @st.cache_data
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
         """Fetch original dataframe from backend."""
         return pd.DataFrame(_self.table.select("*").execute().data)
@@ -348,9 +341,33 @@ class DFE:
     def add_row_button_dialog(self) -> None:
         """Handle the add row button click event."""
         st.write(f"Add a new row to **{self.table_name}**")
-        # Create a new row with default values
-        for column in self.config:
-            st.text_input()
+        outputs = [
+            column.input_widget(
+                label=column.button_label or column.column,
+                key=f"{self.table_name}_new_row_{column.column}",
+                **column.input_kwargs,
+            )
+            for column in self.config
+        ]
+        options_unfilled = any(output is None or output == "" for output in outputs)
+        submit_button = st.button(
+            label="Submit",
+            key=f"{self.table_name}_submit_new_row_button",
+            disabled=options_unfilled,
+        )
+        if submit_button:
+            new_row = {
+                col.column: output
+                for col, output in zip(self.config, outputs, strict=False)
+            }
+            new_row["id"] = str(uuid.uuid4())
+            # convert date columns to ISO format
+            for col, value in new_row.items():
+                if isinstance(value, datetime.date):
+                    new_row[col] = value.isoformat()
+            self.table.upsert(new_row).execute()
+            st.session_state.pop(f"{self.table_name}_working", None)
+            st.rerun()
 
     def _convert_cols_to_datetime(
         self,
