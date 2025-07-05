@@ -51,6 +51,7 @@ payments_config = [
         button_label="Payment Date",
         input_widget=st.date_input,
         sorting="asc",
+        filtering={"gte": "2025-01-01", "lte": "2025-12-31"},
     ),
     dfh.DFEColumnConfig(
         column="category",

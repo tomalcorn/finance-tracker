@@ -272,6 +272,7 @@ class DFEColumnConfig(pydantic.BaseModel):
     input_widget: typing.Any
     input_kwargs: dict = {}
     sorting: typing.Literal["asc", "desc", None] = None
+    filtering: str | dict[str, str] | None = None
 
 
 class DFEButtons:
@@ -291,46 +292,61 @@ class DFEButtons:
         self.sorts = sorts
 
         # === Add button ===
-        button_cols = st.columns((0.2, 0.2, 0.6))
+        button_cols = st.columns((0.15, 0.1, 0.1, 0.6), border=False)
         with button_cols[0]:
             self.add_row_button = st.button(
-                label="Add Row",
+                label="New",
                 icon="➕",  # noqa: RUF001
                 key=f"{self.table_name}_add_row_button",
             )
             if self.add_row_button:
                 self.add_row_button_dialog()
 
-        # === Sort button ===
-        css_style = """
+        css_style_normal = """
         button {
             background-color: white;
             border: 1px solid #ccc;
             color: black;
         }
         """
-        if self.sorts:
-            css_style = """
-            button {
-            background-color: rgba(212, 237, 218, 0.5); /* Light green background */
-            border: 1px solid #ccc;
-            color: black;
-            }
-            """
+        css_style_active = """
+        button {
+        background-color: rgba(212, 237, 218, 0.5); /* Light green background */
+        border: 1px solid #ccc;
+        color: black;
+        }
+        """
+        # === Sort button ===
         with (
             button_cols[1],
             sc.stylable_container(
                 key=f"{self.table_name}_sort_button_container",
-                css_styles=css_style,
+                css_styles=css_style_active if not self.sorts else css_style_normal,
             ),
         ):
             self.sorting_button = st.button(
-                label="Sort",
-                icon="🔽",
+                label="",
+                icon="↕️",
                 key=f"{self.table_name}_sort_button",
             )
             if self.sorting_button:
                 self.sorting_button_dialog()
+
+        # === Filter button ===
+        with (
+            button_cols[2],
+            sc.stylable_container(
+                key=f"{self.table_name}_filter_button_container",
+                css_styles=css_style_active if not self.sorts else css_style_normal,
+            ),
+        ):
+            self.filtering_button = st.button(
+                label="",
+                icon="🔍",
+                key=f"{self.table_name}_filter_button",
+            )
+            if self.filtering_button:
+                self.filtering_button_dialog()
 
     @st.dialog("Add Row")
     def add_row_button_dialog(self) -> None:
@@ -394,6 +410,45 @@ class DFEButtons:
             st.session_state.pop(f"{self.table_name}_working", None)
             st.rerun()
 
+    @st.dialog("Filter Columns")
+    def filtering_button_dialog(self) -> None:
+        """Handle the filtering button click event."""
+        st.write(f"Filter **{self.table_name}** by column")
+        # Get filters dict from session state or initialize
+        filters_dict = st.session_state.get(f"{self.table_name}_filters", {})
+
+        for col in self.config:
+            if col.filtering is not None:
+                filters_dict[col.column] = col.filtering
+            else:
+                filters_dict[col.column] = None
+
+            if isinstance(filters_dict[col.column], dict):
+                for op, value in filters_dict[col.column].items():
+                    filters_dict[col.column][op] = st.text_input(
+                        f"Filter {col.button_label or col.column} {op}",
+                        value=value,
+                        key=f"{self.table_name}_filter_{col.column}_{op}",
+                    )
+            else:
+                filters_dict[col.column] = st.text_input(
+                    f"Filter {col.button_label or col.column}",
+                    value=filters_dict[col.column],
+                    key=f"{self.table_name}_filter_{col.column}",
+                )
+
+        submit_button = st.button(
+            label="Submit Filter",
+            key=f"{self.table_name}_submit_filter_button",
+        )
+        if submit_button:
+            # Update filters in session state
+            st.session_state[f"{self.table_name}_filters"] = {
+                col: val for col, val in filters_dict.items() if val is not None
+            }
+            st.session_state.pop(f"{self.table_name}_working", None)
+            st.rerun()
+
 
 class DFE:
     """A class that provides Streamlit dataframe editing functionality."""
@@ -419,10 +474,17 @@ class DFE:
             self.sorts = st.session_state[f"{self.table_name}_sorts"]
         else:
             self.sorts = [(col.column, col.sorting) for col in config if col.sorting]
+        # Retrieve filtering from session state or config
+        if f"{self.table_name}_filters" in st.session_state:
+            self.filters = st.session_state[f"{self.table_name}_filters"]
+        else:
+            self.filters = {
+                col.column: col.filtering for col in config if col.filtering is not None
+            }
 
         # Load and store original data in working and current session states variables
         if f"{self.table_name}_working" not in st.session_state:
-            original_data = self._get_original_data()
+            original_data = self._get_original_data(filters=self.filters)
             working_df = self._convert_cols_to_datetime(
                 original_data if not original_data.empty else sample_data,
             )
@@ -458,9 +520,19 @@ class DFE:
             sorts=self.sorts,
         )
 
-    def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
+    def _get_original_data(
+        self,
+        filters: dict[str, str | dict[str, str]],
+    ) -> pd.DataFrame:
         """Fetch original dataframe from backend."""
-        return pd.DataFrame(_self.table.select("*").execute().data)
+        query = self.table.select("*")
+        for col, condition in filters.items():
+            if isinstance(condition, dict):
+                for op, value in condition.items():
+                    query = query.filter(col, op, value)
+            else:
+                query = query.eq(col, condition)
+        return pd.DataFrame(query.execute().data)
 
     def _convert_cols_to_datetime(
         self,
@@ -476,6 +548,54 @@ class DFE:
                     with contextlib.suppress(Exception):
                         dataframe[col] = pd.to_datetime(dataframe[col])
         return dataframe
+
+    def _check_for_filters_updates(
+        self,
+        working_df: pd.DataFrame,
+    ) -> tuple[bool, pd.DataFrame]:
+        """Check working_df to see if changes fall outside current filters.
+
+        Args:
+            working_df: The DataFrame to check against filters
+
+        Returns:
+            A tuple of (bool, pd.DataFrame) where the bool indicates if the DataFrame
+            changed due to filtering, and the DataFrame is the possibly modified result
+
+        """
+        query_conditions = []
+        for col, condition in self.filters.items():
+            if isinstance(condition, dict):
+                for op in condition:
+                    if op == "gte":
+                        query_conditions.append(f"{col} >= @value_{col}_{op}")
+                    elif op == "lte":
+                        query_conditions.append(f"{col} <= @value_{col}_{op}")
+                    elif op == "eq":
+                        query_conditions.append(f"{col} == @value_{col}_{op}")
+                    else:
+                        query_conditions.append(f"{col} == @value_{col}_eq")
+
+        query_string = " and ".join(query_conditions)
+        query_params = {
+            f"value_{col}_{op}": pd.to_datetime(value)
+            if op in {"gte", "lte"}
+            else value
+            for col, condition in self.filters.items()
+            for op, value in (
+                condition.items()
+                if isinstance(condition, dict)
+                else [("eq", condition)]
+            )
+        }
+
+        filtered_df = working_df.query(query_string, local_dict=query_params)
+
+        # Check if any rows were filtered out
+        if len(filtered_df) != len(working_df):
+            return True, filtered_df.reset_index(drop=True)
+
+        return False, working_df
 
     def _check_for_sorts_updates(
         self,
@@ -640,10 +760,18 @@ class DFE:
             row_id = working_df.iloc[row_idx]["id"]
             backend_edited_rows[row_id] = changes
 
-        # Check if sorts are affected by changes
-        if self.sorts and self._check_for_sorts_updates(editor_state):
-            working_df = self._apply_changes_to_working_df(editor_state, working_df)
+        # First apply changes to working_df copy to check changes fall outside filter
+        # Return (bool, pd.DataFrame) tuple
+        # If true, override working_df with the copy
+        # Pass modified or unmodified working_df to sort method if necessary
+
+        # Apply changes to working_df and check changes still in filters
+        working_df = self._apply_changes_to_working_df(editor_state, working_df)
+        filters_changed, working_df = self._check_for_filters_updates(working_df)
+        sorts_changed = self.sorts and self._check_for_sorts_updates(editor_state)
+        if sorts_changed:
             working_df = self.sort_columns(working_df)
+        if sorts_changed or filters_changed:
             st.session_state[f"{self.table_name}_working"] = working_df
 
         logging.basicConfig(level=logging.INFO)
