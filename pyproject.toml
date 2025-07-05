@@ -9,6 +9,7 @@ dependencies = [
     "pandas-stubs",
     "st-supabase-connection",
     "streamlit",
+    "streamlit-extras",
 ]
 
 [dependency-groups]

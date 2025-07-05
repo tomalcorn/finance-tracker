@@ -18,6 +18,7 @@ from pandas.api.types import (
     is_object_dtype,
 )
 from st_supabase_connection import SupabaseConnection
+from streamlit_extras import stylable_container as sc
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -273,6 +274,127 @@ class DFEColumnConfig(pydantic.BaseModel):
     sorting: typing.Literal["asc", "desc", None] = None
 
 
+class DFEButtons:
+    """A class that provides Streamlit dataframe editing functionality with buttons."""
+
+    def __init__(
+        self,
+        table_name: str,
+        config: list[DFEColumnConfig],
+        table: SupabaseConnection,
+        sorts: list[tuple[str, str | None]] | None = None,
+    ) -> None:
+        """Initialize the DataframeEditor with a table name."""
+        self.table_name = table_name
+        self.config = config
+        self.table = table
+        self.sorts = sorts
+
+        # === Add button ===
+        button_cols = st.columns((0.2, 0.2, 0.6))
+        with button_cols[0]:
+            self.add_row_button = st.button(
+                label="Add Row",
+                icon="➕",  # noqa: RUF001
+                key=f"{self.table_name}_add_row_button",
+            )
+            if self.add_row_button:
+                self.add_row_button_dialog()
+
+        # === Sort button ===
+        css_style = """
+        button {
+            background-color: white;
+            border: 1px solid #ccc;
+            color: black;
+        }
+        """
+        if self.sorts:
+            css_style = """
+            button {
+            background-color: rgba(212, 237, 218, 0.5); /* Light green background */
+            border: 1px solid #ccc;
+            color: black;
+            }
+            """
+        with (
+            button_cols[1],
+            sc.stylable_container(
+                key=f"{self.table_name}_sort_button_container",
+                css_styles=css_style,
+            ),
+        ):
+            self.sorting_button = st.button(
+                label="Sort",
+                icon="🔽",
+                key=f"{self.table_name}_sort_button",
+            )
+            if self.sorting_button:
+                self.sorting_button_dialog()
+
+    @st.dialog("Add Row")
+    def add_row_button_dialog(self) -> None:
+        """Handle the add row button click event."""
+        st.write(f"Add a new row to **{self.table_name}**")
+        outputs = [
+            column.input_widget(
+                label=column.button_label or column.column,
+                key=f"{self.table_name}_new_row_{column.column}",
+                **column.input_kwargs,
+            )
+            for column in self.config
+        ]
+        options_unfilled = any(output is None or output == "" for output in outputs)
+        submit_button = st.button(
+            label="Submit",
+            key=f"{self.table_name}_submit_new_row_button",
+            disabled=options_unfilled,
+        )
+        if submit_button:
+            new_row = {
+                col.column: output
+                for col, output in zip(self.config, outputs, strict=False)
+            }
+            new_row["id"] = str(uuid.uuid4())
+            # convert date columns to ISO format
+            for col, value in new_row.items():
+                if isinstance(value, datetime.date):
+                    new_row[col] = value.isoformat()
+            self.table.upsert(new_row).execute()
+            st.session_state.pop(f"{self.table_name}_working", None)
+            st.rerun()
+
+    @st.dialog("Sort Columns")
+    def sorting_button_dialog(self) -> None:
+        """Handle the sorting button click event."""
+        st.write(f"Sort **{self.table_name}** by column")
+        # Get sorts dict from session state or initialize
+        sorts_dict = dict(self.sorts) if self.sorts else {}
+
+        for col in self.config:
+            sorts_dict[col.column] = st.selectbox(
+                f"Sort by {col.button_label or col.column}",
+                options=["asc", "desc", None],
+                key=f"{self.table_name}_sort_{col.column}",
+                index=["asc", "desc", None].index(sorts_dict.get(col.column))
+                if col.column in sorts_dict
+                else None,
+            )
+        submit_button = st.button(
+            label="Submit Sort",
+            key=f"{self.table_name}_submit_sort_button",
+        )
+        if submit_button:
+            # Update sorts in session state with string values
+            st.session_state[f"{self.table_name}_sorts"] = [
+                (col, direction)
+                for col, direction in sorts_dict.items()
+                if direction is not None
+            ]
+            st.session_state.pop(f"{self.table_name}_working", None)
+            st.rerun()
+
+
 class DFE:
     """A class that provides Streamlit dataframe editing functionality."""
 
@@ -329,86 +451,16 @@ class DFE:
             st.session_state[f"{self.table_name}_prev_added_rows"] = []
 
         # Set up buttons
-        button_cols = st.columns((0.2, 0.2, 0.6))
-        with button_cols[0]:
-            self.add_row_button = st.button(
-                label="Add Row",
-                icon="➕",  # noqa: RUF001
-                key=f"{self.table_name}_add_row_button",
-            )
-            if self.add_row_button:
-                self.add_row_button_dialog()
-        with button_cols[1]:
-            self.sorting_button = st.button(
-                label="Sort",
-                icon="🔽",
-                key=f"{self.table_name}_sort_button",
-            )
-            if self.sorting_button:
-                self.sorting_button_dialog()
+        DFEButtons(
+            table_name=self.table_name,
+            config=self.config,
+            table=self.table,
+            sorts=self.sorts,
+        )
 
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
         """Fetch original dataframe from backend."""
         return pd.DataFrame(_self.table.select("*").execute().data)
-
-    @st.dialog("Add Row")
-    def add_row_button_dialog(self) -> None:
-        """Handle the add row button click event."""
-        st.write(f"Add a new row to **{self.table_name}**")
-        outputs = [
-            column.input_widget(
-                label=column.button_label or column.column,
-                key=f"{self.table_name}_new_row_{column.column}",
-                **column.input_kwargs,
-            )
-            for column in self.config
-        ]
-        options_unfilled = any(output is None or output == "" for output in outputs)
-        submit_button = st.button(
-            label="Submit",
-            key=f"{self.table_name}_submit_new_row_button",
-            disabled=options_unfilled,
-        )
-        if submit_button:
-            new_row = {
-                col.column: output
-                for col, output in zip(self.config, outputs, strict=False)
-            }
-            new_row["id"] = str(uuid.uuid4())
-            # convert date columns to ISO format
-            for col, value in new_row.items():
-                if isinstance(value, datetime.date):
-                    new_row[col] = value.isoformat()
-            self.table.upsert(new_row).execute()
-            st.session_state.pop(f"{self.table_name}_working", None)
-            st.rerun()
-
-    @st.dialog("Sort Columns")
-    def sorting_button_dialog(self) -> None:
-        """Handle the sorting button click event."""
-        st.write(f"Sort **{self.table_name}** by column")
-
-        sorts_dict = {}
-        for col in self.config:
-            sorts_dict[col.column] = st.selectbox(
-                f"Sort by {col.button_label or col.column}",
-                options=["asc", "desc", None],
-                key=f"{self.table_name}_sort_{col.column}",
-                index=None,
-            )
-        submit_button = st.button(
-            label="Submit Sort",
-            key=f"{self.table_name}_submit_sort_button",
-        )
-        if submit_button:
-            # Update sorts in session state
-            st.session_state[f"{self.table_name}_sorts"] = [
-                (col, direction)
-                for col, direction in sorts_dict.items()
-                if direction is not None
-            ]
-            st.session_state.pop(f"{self.table_name}_working", None)
-            st.rerun()
 
     def _convert_cols_to_datetime(
         self,
