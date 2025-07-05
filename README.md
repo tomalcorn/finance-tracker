@@ -96,3 +96,27 @@ flowchart TD
     classDef Peach stroke-width:1px, stroke-dasharray:none, stroke:#FBB35A, fill:#FFEFDB, color:#8F632D
 
 ```
+
+### Filtering
+
+```mermaid
+---
+title: Filtering flow
+---
+flowchart TD
+    n1["Start"] -- init working df --> n2["Load working df from session state"]
+    n2 --> n3["filters button?"]
+    n3 -- yes --> n4["Dialog: update filters"]
+    n3 -- no --> n5["DFE changed?"]
+    n5 -- yes --> n6["change falls within filter?"]
+    n4 --> n1
+    n5 -- no --> n2
+    n6 -- yes --> n2
+    n6 -- no --> n7["Find item not in filter -&gt; upsert -&gt; remove from working df"]
+    n7 --> n2
+
+    n1@{ shape: start}
+    n3@{ shape: diam}
+    n5@{ shape: diam}
+    n6@{ shape: diam}
+```
