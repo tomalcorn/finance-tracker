@@ -292,7 +292,11 @@ class DFE:
 
         self.column_config = {col.column: col.column_config for col in config}
         self.column_order = column_order
-        self.sorts = [(col.column, col.sorting) for col in config if col.sorting]
+        # Retrieve sorting from session state or config
+        if f"{self.table_name}_sorts" in st.session_state:
+            self.sorts = st.session_state[f"{self.table_name}_sorts"]
+        else:
+            self.sorts = [(col.column, col.sorting) for col in config if col.sorting]
 
         # Load and store original data in working and current session states variables
         if f"{self.table_name}_working" not in st.session_state:
@@ -325,13 +329,23 @@ class DFE:
             st.session_state[f"{self.table_name}_prev_added_rows"] = []
 
         # Set up buttons
-        self.add_row_button = st.button(
-            label="Add Row",
-            icon="➕",  # noqa: RUF001
-            key=f"{self.table_name}_add_row_button",
-        )
-        if self.add_row_button:
-            self.add_row_button_dialog()
+        button_cols = st.columns((0.2, 0.2, 0.6))
+        with button_cols[0]:
+            self.add_row_button = st.button(
+                label="Add Row",
+                icon="➕",  # noqa: RUF001
+                key=f"{self.table_name}_add_row_button",
+            )
+            if self.add_row_button:
+                self.add_row_button_dialog()
+        with button_cols[1]:
+            self.sorting_button = st.button(
+                label="Sort",
+                icon="🔽",
+                key=f"{self.table_name}_sort_button",
+            )
+            if self.sorting_button:
+                self.sorting_button_dialog()
 
     def _get_original_data(_self) -> pd.DataFrame:  # noqa: N805
         """Fetch original dataframe from backend."""
@@ -366,6 +380,33 @@ class DFE:
                 if isinstance(value, datetime.date):
                     new_row[col] = value.isoformat()
             self.table.upsert(new_row).execute()
+            st.session_state.pop(f"{self.table_name}_working", None)
+            st.rerun()
+
+    @st.dialog("Sort Columns")
+    def sorting_button_dialog(self) -> None:
+        """Handle the sorting button click event."""
+        st.write(f"Sort **{self.table_name}** by column")
+
+        sorts_dict = {}
+        for col in self.config:
+            sorts_dict[col.column] = st.selectbox(
+                f"Sort by {col.button_label or col.column}",
+                options=["asc", "desc", None],
+                key=f"{self.table_name}_sort_{col.column}",
+                index=None,
+            )
+        submit_button = st.button(
+            label="Submit Sort",
+            key=f"{self.table_name}_submit_sort_button",
+        )
+        if submit_button:
+            # Update sorts in session state
+            st.session_state[f"{self.table_name}_sorts"] = [
+                (col, direction)
+                for col, direction in sorts_dict.items()
+                if direction is not None
+            ]
             st.session_state.pop(f"{self.table_name}_working", None)
             st.rerun()
 
