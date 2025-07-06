@@ -284,12 +284,14 @@ class DFEButtons:
         config: list[DFEColumnConfig],
         table: SupabaseConnection,
         sorts: list[tuple[str, str | None]] | None = None,
+        filters: dict[str, str | dict[str, str]] | None = None,
     ) -> None:
         """Initialize the DataframeEditor with a table name."""
         self.table_name = table_name
         self.config = config
         self.table = table
         self.sorts = sorts
+        self.filters = filters
 
         # === Add button ===
         button_cols = st.columns((0.15, 0.1, 0.1, 0.6), border=False)
@@ -337,7 +339,7 @@ class DFEButtons:
             button_cols[2],
             sc.stylable_container(
                 key=f"{self.table_name}_filter_button_container",
-                css_styles=css_style_active if not self.sorts else css_style_normal,
+                css_styles=css_style_active if not self.filters else css_style_normal,
             ),
         ):
             self.filtering_button = st.button(
@@ -347,6 +349,11 @@ class DFEButtons:
             )
             if self.filtering_button:
                 self.filtering_button_dialog()
+
+    def get_unique_values(self, column_name: str) -> list[typing.Any]:
+        """Get all unique values in a column from Supabase."""
+        query = self.table.select(column_name).distinct(column_name).execute()
+        return [row[column_name] for row in query.data]
 
     @st.dialog("Add Row")
     def add_row_button_dialog(self) -> None:
@@ -416,26 +423,6 @@ class DFEButtons:
         st.write(f"Filter **{self.table_name}** by column")
         # Get filters dict from session state or initialize
         filters_dict = st.session_state.get(f"{self.table_name}_filters", {})
-
-        for col in self.config:
-            if col.filtering is not None:
-                filters_dict[col.column] = col.filtering
-            else:
-                filters_dict[col.column] = None
-
-            if isinstance(filters_dict[col.column], dict):
-                for op, value in filters_dict[col.column].items():
-                    filters_dict[col.column][op] = st.text_input(
-                        f"Filter {col.button_label or col.column} {op}",
-                        value=value,
-                        key=f"{self.table_name}_filter_{col.column}_{op}",
-                    )
-            else:
-                filters_dict[col.column] = st.text_input(
-                    f"Filter {col.button_label or col.column}",
-                    value=filters_dict[col.column],
-                    key=f"{self.table_name}_filter_{col.column}",
-                )
 
         submit_button = st.button(
             label="Submit Filter",
