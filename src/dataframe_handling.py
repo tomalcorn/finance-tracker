@@ -4,7 +4,6 @@ import contextlib
 import datetime
 import logging
 import re
-import time
 import typing
 import uuid
 
@@ -19,6 +18,8 @@ from pandas.api.types import (
 )
 from st_supabase_connection import SupabaseConnection
 from streamlit_extras import stylable_container as sc
+
+import utils
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -284,14 +285,14 @@ class DFEButtons:
         config: list[DFEColumnConfig],
         table: SupabaseConnection,
         sorts: list[tuple[str, str | None]] | None = None,
-        filters: dict[str, str | dict[str, str]] | None = None,
+        filters: dict[str, dict[str, str]] | None = None,
     ) -> None:
         """Initialize the DataframeEditor with a table name."""
         self.table_name = table_name
         self.config = config
         self.table = table
         self.sorts = sorts
-        self.filters = filters
+        self.filters = filters if filters is not None else {}
 
         # === Add button ===
         button_cols = st.columns((0.15, 0.1, 0.1, 0.6), border=False)
@@ -350,10 +351,32 @@ class DFEButtons:
             if self.filtering_button:
                 self.filtering_button_dialog()
 
+    @st.cache_data
+    def get_column_values(
+        _self,  # noqa: N805
+        table_name: str,  # noqa: ARG002
+        column_name: str,
+    ) -> pd.Series:
+        """Get all values in a column by executing a select query."""
+        query = _self.table.select(column_name).execute()
+        if query.data:
+            column_data = [row[column_name] for row in query.data if column_name in row]
+            return pd.Series(column_data).dropna()
+        return pd.Series([])
+
     def get_unique_values(self, column_name: str) -> list[typing.Any]:
-        """Get all unique values in a column from Supabase."""
-        query = self.table.select(column_name).distinct(column_name).execute()
-        return [row[column_name] for row in query.data]
+        """Get all unique values in a column by executing a select query."""
+        vals = self.get_column_values(self.table_name, column_name)
+        if not vals.empty:
+            return vals.dropna().unique().tolist()
+        return []
+
+    def _get_min_max_values(self, column_name: str) -> tuple[float, float]:
+        """Get min and max values for numeric columns using pandas."""
+        column_data = self.get_column_values(self.table_name, column_name)
+        min_value = column_data.min() if not column_data.empty else 0.0
+        max_value = column_data.max() if not column_data.empty else 1.0
+        return (min_value, max_value)
 
     @st.dialog("Add Row")
     def add_row_button_dialog(self) -> None:
@@ -421,8 +444,56 @@ class DFEButtons:
     def filtering_button_dialog(self) -> None:
         """Handle the filtering button click event."""
         st.write(f"Filter **{self.table_name}** by column")
-        # Get filters dict from session state or initialize
-        filters_dict = st.session_state.get(f"{self.table_name}_filters", {})
+
+        for col in self.config:
+            # Date columns
+            if col.input_widget == st.date_input:
+                if self.filters.get(col.column) is not None:
+                    if len(self.filters[col.column]) == 1:
+                        default_date_s: str | tuple[str, str] = self.filters[
+                            col.column
+                        ]["eq"]
+                    else:
+                        default_date_s = (
+                            self.filters[col.column]["gte"],
+                            self.filters[col.column]["lte"],
+                        )
+                else:
+                    default_date_s = utils.get_start_and_end_of_month()
+                self.filters[col.column] = st.date_input(
+                    f"Filter by {col.button_label or col.column}",
+                    value=default_date_s,
+                    key=f"{self.table_name}_filter_{col.column}",
+                )
+            # Numeric columns
+            elif col.input_widget == st.number_input:
+                min_value, max_value = self._get_min_max_values(col.column)
+                step = (max_value - min_value) / 100
+                self.filters[col.column] = st.slider(
+                    f"Filter by {col.button_label or col.column}",
+                    min_value=min_value,
+                    max_value=max_value,
+                    value=self.filters.get(col.column, (min_value, max_value)),
+                    step=step,
+                    key=f"{self.table_name}_filter_{col.column}",
+                )
+            # Categorical columns
+            elif (unique_vals := self.get_unique_values(col.column)) and len(
+                unique_vals,
+            ) < MAX_UNIQUE_VALUES:
+                self.filters[col.column] = st.multiselect(
+                    f"Filter by {col.button_label or col.column}",
+                    options=unique_vals,
+                    default=self.filters.get(col.column, []),
+                    key=f"{self.table_name}_filter_{col.column}",
+                )
+            # Everything else
+            else:
+                self.filters[col.column] = st.text_input(
+                    f"Filter by {col.button_label or col.column}",
+                    value=self.filters.get(col.column, ""),
+                    key=f"{self.table_name}_filter_{col.column}",
+                )
 
         submit_button = st.button(
             label="Submit Filter",
@@ -431,7 +502,7 @@ class DFEButtons:
         if submit_button:
             # Update filters in session state
             st.session_state[f"{self.table_name}_filters"] = {
-                col: val for col, val in filters_dict.items() if val is not None
+                col: val for col, val in self.filters.items() if val is not None
             }
             st.session_state.pop(f"{self.table_name}_working", None)
             st.rerun()
@@ -505,6 +576,7 @@ class DFE:
             config=self.config,
             table=self.table,
             sorts=self.sorts,
+            filters=self.filters,
         )
 
     def _get_original_data(
@@ -710,7 +782,6 @@ class DFE:
     def sync(self) -> None:
         """Sync the edited dataframe with the Supabase table."""
         # Get the editor state and working dataframe
-        start = time.time()
         editor_state = st.session_state[self.table_name]
         working_df: pd.DataFrame = st.session_state[f"{self.table_name}_working"].copy()
 
@@ -747,11 +818,6 @@ class DFE:
             row_id = working_df.iloc[row_idx]["id"]
             backend_edited_rows[row_id] = changes
 
-        # First apply changes to working_df copy to check changes fall outside filter
-        # Return (bool, pd.DataFrame) tuple
-        # If true, override working_df with the copy
-        # Pass modified or unmodified working_df to sort method if necessary
-
         # Apply changes to working_df and check changes still in filters
         working_df = self._apply_changes_to_working_df(editor_state, working_df)
         filters_changed, working_df = self._check_for_filters_updates(working_df)
@@ -762,7 +828,6 @@ class DFE:
             st.session_state[f"{self.table_name}_working"] = working_df
 
         logging.basicConfig(level=logging.INFO)
-        logging.getLogger(__name__).info("Sync took %.4f seconds", time.time() - start)
 
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""

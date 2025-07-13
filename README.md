@@ -2,20 +2,6 @@
 
 This app helps manage your personal finances!
 
-## Management flow
-
-```mermaid
-flowchart TB
-    bank_accounts["Bank Accounts"] --> payments
-    payments --> budget_tracker
-    bank_accounts --> budget_tracker
-    subgraph budget_tracker["Budget Tracker"]
-        expenses
-        longer_term_spending["Longer Term Spending"]
-    end
-
-```
-
 ## DFE workflow
 
 For the first pass:
@@ -104,15 +90,15 @@ flowchart TD
 title: Filtering flow
 ---
 flowchart TD
-    n1["Start"] -- init working df --> n2["Load working df from session state"]
-    n2 --> n3["filters button?"]
+    n1["Start"] -- init session state --> n2["Load working df from session state"]
+    n2 --> n3["filters changed?"]
     n3 -- yes --> n4["Dialog: update filters"]
     n3 -- no --> n5["DFE changed?"]
     n5 -- yes --> n6["change falls within filter?"]
     n4 --> n1
     n5 -- no --> n2
     n6 -- yes --> n2
-    n6 -- no --> n7["Find item not in filter -&gt; upsert -&gt; remove from working df"]
+    n6 -- no --> n7["Find item not in filter –&gt; upsert –&gt; remove from working df"]
     n7 --> n2
 
     n1@{ shape: start}
