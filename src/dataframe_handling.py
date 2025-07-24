@@ -270,7 +270,7 @@ class DFEColumnConfig(pydantic.BaseModel):
     column: str
     column_config: st_column_types.ColumnConfig
     button_label: str | None = None
-    input_widget: typing.Any
+    input_widget: typing.Callable
     input_kwargs: dict = {}
     sorting: typing.Literal["asc", "desc", None] = None
     filtering: str | dict[str, str] | None = None
@@ -285,7 +285,7 @@ class DFEButtons:
         config: list[DFEColumnConfig],
         table: SupabaseConnection,
         sorts: list[tuple[str, str | None]] | None = None,
-        filters: dict[str, dict[str, str]] | None = None,
+        filters: dict[str, dict[str, typing.Any]] | None = None,
     ) -> None:
         """Initialize the DataframeEditor with a table name."""
         self.table_name = table_name
@@ -446,53 +446,75 @@ class DFEButtons:
         st.write(f"Filter **{self.table_name}** by column")
 
         for col in self.config:
-            # Date columns
+            # Date columns - currently default to current month
             if col.input_widget == st.date_input:
                 if self.filters.get(col.column) is not None:
-                    if len(self.filters[col.column]) == 1:
-                        default_date_s: str | tuple[str, str] = self.filters[
-                            col.column
-                        ]["eq"]
-                    else:
-                        default_date_s = (
-                            self.filters[col.column]["gte"],
-                            self.filters[col.column]["lte"],
-                        )
+                    default_date_s = (
+                        self.filters[col.column]["gte"],
+                        self.filters[col.column]["lte"],
+                    )
                 else:
                     default_date_s = utils.get_start_and_end_of_month()
-                self.filters[col.column] = st.date_input(
+                selected_dates = st.date_input(
                     f"Filter by {col.button_label or col.column}",
                     value=default_date_s,
                     key=f"{self.table_name}_filter_{col.column}",
                 )
+                # convert to dict
+                if isinstance(selected_dates, tuple) and len(selected_dates) > 1:
+                    self.filters[col.column] = {
+                        "gte": selected_dates[0].isoformat(),
+                        "lte": selected_dates[1].isoformat(),
+                    }
+                elif isinstance(selected_dates, tuple) and len(selected_dates) == 1:
+                    self.filters[col.column] = {
+                        "gte": selected_dates[0].isoformat(),
+                        "lte": selected_dates[0].isoformat(),
+                    }
+                else:
+                    self.filters[col.column] = {}
             # Numeric columns
             elif col.input_widget == st.number_input:
-                min_value, max_value = self._get_min_max_values(col.column)
+                if col.column in self.filters:
+                    min_value = self.filters[col.column]["gte"]
+                    max_value = self.filters[col.column]["lte"]
+                else:
+                    min_value, max_value = self._get_min_max_values(col.column)
                 step = (max_value - min_value) / 100
-                self.filters[col.column] = st.slider(
+                selected_values = st.slider(
                     f"Filter by {col.button_label or col.column}",
                     min_value=min_value,
                     max_value=max_value,
-                    value=self.filters.get(col.column, (min_value, max_value)),
+                    value=(min_value, max_value),
                     step=step,
                     key=f"{self.table_name}_filter_{col.column}",
                 )
+                self.filters[col.column] = {
+                    "gte": selected_values[0],
+                    "lte": selected_values[1],
+                }
             # Categorical columns
             elif (unique_vals := self.get_unique_values(col.column)) and len(
                 unique_vals,
             ) < MAX_UNIQUE_VALUES:
-                self.filters[col.column] = st.multiselect(
+                selected_values = st.multiselect(
                     f"Filter by {col.button_label or col.column}",
                     options=unique_vals,
                     default=self.filters.get(col.column, []),
                     key=f"{self.table_name}_filter_{col.column}",
                 )
+                self.filters[col.column] = (
+                    {"in": selected_values} if selected_values else {}
+                )
             # Everything else
             else:
-                self.filters[col.column] = st.text_input(
+                user_text_input = st.text_input(
                     f"Filter by {col.button_label or col.column}",
                     value=self.filters.get(col.column, ""),
                     key=f"{self.table_name}_filter_{col.column}",
+                )
+                self.filters[col.column] = (
+                    {"contains": user_text_input} if user_text_input else {}
                 )
 
         submit_button = st.button(
