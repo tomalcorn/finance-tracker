@@ -110,29 +110,16 @@ class DFEButtons:
             if self.filtering_button:
                 self.filtering_button_dialog()
 
-    @st.cache_data
-    def get_column_values(
-        _self,  # noqa: N805
-        table_name: str,  # noqa: ARG002
-        column_name: str,
-    ) -> pd.Series:
-        """Get all values in a column by executing a select query."""
-        query = _self.table.select(column_name).execute()
-        if query.data:
-            column_data = [row[column_name] for row in query.data if column_name in row]
-            return pd.Series(column_data).dropna()
-        return pd.Series([])
-
     def get_unique_values(self, column_name: str) -> list[typing.Any]:
         """Get all unique values in a column by executing a select query."""
-        vals = self.get_column_values(self.table_name, column_name)
+        vals = utils.get_column_values(self, column_name)
         if not vals.empty:
             return vals.dropna().unique().tolist()
         return []
 
     def _get_min_max_values(self, column_name: str) -> tuple[float, float]:
         """Get min and max values for numeric columns using pandas."""
-        column_data = self.get_column_values(self.table_name, column_name)
+        column_data = utils.get_column_values(self, column_name)
         min_value = column_data.min() if not column_data.empty else 0.0
         max_value = column_data.max() if not column_data.empty else 1.0
         return (min_value, max_value)
@@ -226,6 +213,7 @@ class DFEButtons:
                 col: val for col, val in self.filters.items() if val is not None
             }
             st.session_state.pop(f"{self.table_name}_working", None)
+            st.session_state.pop(f"{self.table_name}_current", None)
             st.rerun()
 
     def _handle_date_filter(self, col: DFEColumnConfig) -> None:
@@ -264,6 +252,9 @@ class DFEButtons:
             max_value = self.filters[col.column]["lte"]
         else:
             min_value, max_value = self._get_min_max_values(col.column)
+        if min_value == max_value:
+            self.filters.pop(col.column, None)
+            return  # No need to show slider if min and max are the same
         step = (max_value - min_value) / 100
         selected_values = st.slider(
             f"Filter by {col.button_label or col.column}",
@@ -273,10 +264,13 @@ class DFEButtons:
             step=step,
             key=f"{self.table_name}_filter_{col.column}",
         )
-        self.filters[col.column] = {
-            "gte": selected_values[0],
-            "lte": selected_values[1],
-        }
+        if selected_values == (min_value, max_value):
+            self.filters.pop(col.column, None)
+        else:
+            self.filters[col.column] = {
+                "gte": selected_values[0],
+                "lte": selected_values[1],
+            }
 
     def _handle_selectbox_filter(
         self,
