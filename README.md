@@ -106,3 +106,70 @@ flowchart TD
     n5@{ shape: diam}
     n6@{ shape: diam}
 ```
+
+##  Backend design
+
+```mermaid
+erDiagram
+    BANK_ACCOUNTS {
+        UUID id PK
+        STRING name
+        STRING account_number
+        FLOAT balance
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    PAYMENTS {
+        UUID id PK
+        UUID bank_account_id FK
+        UUID expense_source_id FK
+        UUID income_source_id FK
+        STRING description
+        FLOAT amount
+        DATE payment_date
+        STRING category
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    EXPENSE_SOURCES {
+        UUID id PK
+        STRING name
+        STRING description
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    INCOME_SOURCES {
+        UUID id PK
+        STRING name
+        STRING description
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    BUDGET_TRACKER {
+        UUID id PK
+        STRING name
+        FLOAT total_budget
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    FUN_SPENDING {
+        UUID id PK
+        UUID budget_tracker_id FK
+        STRING name
+        FLOAT amount
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    BANK_ACCOUNTS ||--o{ PAYMENTS : "has many"
+    EXPENSE_SOURCES ||--o{ PAYMENTS : "has many"
+    INCOME_SOURCES ||--o{ PAYMENTS : "has many"
+    BUDGET_TRACKER ||--o{ EXPENSE_SOURCES : "has many"
+    BUDGET_TRACKER ||--o{ INCOME_SOURCES : "has many"
+    BUDGET_TRACKER ||--o{ FUN_SPENDING : "has many"
+```
