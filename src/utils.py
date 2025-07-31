@@ -2,9 +2,11 @@
 
 import calendar
 import datetime
+import typing
 
 import pandas as pd
 import streamlit as st
+from st_supabase_connection import SupabaseConnection
 
 import dataframe_handling as dfh
 
@@ -27,14 +29,37 @@ def dfe_buttons_hash_func(dfe_buttons: dfh.DFEButtons) -> str:
     return dfe_buttons.table_name
 
 
-@st.cache_data(hash_funcs={dfh.DFEButtons: dfe_buttons_hash_func}, ttl=30)
+@st.cache_data(hash_funcs={dfh.DFEButtons: dfe_buttons_hash_func}, ttl=60)
 def get_column_values(
-    dfe_buttons: dfh.DFEButtons,
+    _conn: SupabaseConnection,
+    table_name: str,
     column_name: str,
 ) -> pd.Series:
     """Get all values in a column by executing a select query."""
-    query = dfe_buttons.table.select(column_name).execute()
-    if query.data:
-        column_data = [row[column_name] for row in query.data if column_name in row]
+    response = _conn.table(table_name).select(column_name).execute()
+    if response.data:
+        column_data = [row[column_name] for row in response.data if column_name in row]
         return pd.Series(column_data).dropna()
     return pd.Series([])
+
+
+@st.cache_data(ttl=60)
+def get_original_data(
+    _conn: SupabaseConnection,
+    table_name: str,
+    query_string: str,
+    filters: dict[str, str | dict[str, str]] | None = None,
+) -> list[dict[str, typing.Any]]:
+    """Get original data by executing a select query."""
+    query = _conn.table(table_name).select(query_string)
+    if filters:
+        for col, condition in filters.items():
+            if isinstance(condition, dict):
+                for op, value in condition.items():
+                    query = query.filter(col, op, value)
+            else:
+                query = query.eq(col, condition)
+    response = query.execute()
+    if response.data:
+        return response.data
+    return []

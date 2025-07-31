@@ -7,13 +7,19 @@ import streamlit as st
 from st_supabase_connection import SupabaseConnection
 
 import dataframe_handling as dfh
+import utils
 
 # Set up supabase connection
 conn = st.connection("supabase", type=SupabaseConnection)
 
-bank_account_names = [
-    row["name"] for row in conn.table("bank_accounts").select("name").execute().data
-]
+# Get bank accounts from the database
+bank_accounts = utils.get_original_data(
+    _conn=conn,
+    table_name="bank_accounts",
+    query_string="*",
+)
+bank_name_id_map = {account["name"]: account["id"] for account in bank_accounts}
+bank_account_names = list(bank_name_id_map.keys())
 
 # Define column and add button configuration
 payments_config = [
@@ -79,6 +85,7 @@ payments_config = [
             "options": bank_account_names,
             "index": None,
         },
+        foreign_key_mapping=bank_name_id_map,
     ),
 ]
 payments_order = [
