@@ -33,6 +33,7 @@ class DFEColumnConfig(pydantic.BaseModel):
     input_kwargs: dict = {}
     sorting: typing.Literal["asc", "desc", None] = None
     filtering: str | dict[str, str] | None = None
+    foreign_key_mapping: dict[str, str] | None = None
 
 
 class DFEButtons:
@@ -42,14 +43,15 @@ class DFEButtons:
         self,
         table_name: str,
         config: list[DFEColumnConfig],
-        table: SupabaseConnection,
+        connection: SupabaseConnection,
         sorts: list[tuple[str, str | None]] | None = None,
         filters: dict[str, dict[str, typing.Any]] | None = None,
     ) -> None:
         """Initialize the DataframeEditor with a table name."""
         self.table_name = table_name
         self.config = config
-        self.table = table
+        self.conn = connection
+        self.table = connection.table(table_name)
         self.sorts = sorts
         self.filters = filters if filters is not None else {}
 
@@ -112,14 +114,14 @@ class DFEButtons:
 
     def get_unique_values(self, column_name: str) -> list[typing.Any]:
         """Get all unique values in a column by executing a select query."""
-        vals = utils.get_column_values(self, column_name)
+        vals = utils.get_column_values(self.conn, self.table_name, column_name)
         if not vals.empty:
             return vals.dropna().unique().tolist()
         return []
 
     def _get_min_max_values(self, column_name: str) -> tuple[float, float]:
         """Get min and max values for numeric columns using pandas."""
-        column_data = utils.get_column_values(self, column_name)
+        column_data = utils.get_column_values(self.conn, self.table_name, column_name)
         min_value = column_data.min() if not column_data.empty else 0.0
         max_value = column_data.max() if not column_data.empty else 1.0
         return (min_value, max_value)
@@ -148,10 +150,14 @@ class DFEButtons:
                 for col, output in zip(self.config, outputs, strict=False)
             }
             new_row["id"] = str(uuid.uuid4())
-            # convert date columns to ISO format
-            for col, value in new_row.items():
+            # Handle foreign key mapping if provided
+            for col in self.config:
+                if col.foreign_key_mapping:
+                    new_row[col.column] = col.foreign_key_mapping[new_row[col.column]]
+            # convert date columns to ISO format, handle foreign keys
+            for column_name, value in new_row.items():
                 if isinstance(value, datetime.date):
-                    new_row[col] = value.isoformat()
+                    new_row[column_name] = value.isoformat()
             self.table.upsert(new_row).execute()
             st.session_state.pop(f"{self.table_name}_working", None)
             st.rerun()
@@ -315,13 +321,33 @@ class DFE:
         self.table = self.conn.table(table_name)
         self.config = config
 
+        self._initialize_column_settings(config, column_order)
+        self._initialize_session_state(sample_data)
+
+        # Set up buttons
+        DFEButtons(
+            table_name=self.table_name,
+            config=self.config,
+            connection=self.conn,
+            sorts=self.sorts,
+            filters=self.filters,
+        )
+
+    def _initialize_column_settings(
+        self,
+        config: list[DFEColumnConfig],
+        column_order: list[str],
+    ) -> None:
+        """Initialize column configuration and order."""
         self.column_config = {col.column: col.column_config for col in config}
         self.column_order = column_order
+
         # Retrieve sorting from session state or config
         if f"{self.table_name}_sorts" in st.session_state:
             self.sorts = st.session_state[f"{self.table_name}_sorts"]
         else:
             self.sorts = [(col.column, col.sorting) for col in config if col.sorting]
+
         # Retrieve filtering from session state or config
         if f"{self.table_name}_filters" in st.session_state:
             self.filters = st.session_state[f"{self.table_name}_filters"]
@@ -330,9 +356,24 @@ class DFE:
                 col.column: col.filtering for col in config if col.filtering is not None
             }
 
+    def _initialize_session_state(self, sample_data: pd.DataFrame) -> None:
+        """Initialize session state variables."""
         # Load and store original data in working and current session states variables
         if f"{self.table_name}_working" not in st.session_state:
-            original_data = self._get_original_data(filters=self.filters)
+            original_data = pd.DataFrame(
+                utils.get_original_data(
+                    _conn=self.conn,
+                    table_name=self.table_name,
+                    query_string="*",
+                    filters=self.filters,
+                ),
+            )
+            # Handle foreign key mapping if provided
+            for col in self.config:
+                if col.foreign_key_mapping:
+                    original_data[col.column] = original_data[col.column].map(
+                        col.foreign_key_mapping,
+                    )
             working_df = self._convert_cols_to_datetime(
                 original_data if not original_data.empty else sample_data,
             )
@@ -344,6 +385,7 @@ class DFE:
             st.session_state[f"{self.table_name}_current"] = st.session_state.get(
                 f"{self.table_name}_working",
             )
+
         # Set up backend updates session state dict
         if f"{self.table_name}_backend_updates" not in st.session_state:
             st.session_state[f"{self.table_name}_backend_updates"] = {
@@ -359,29 +401,6 @@ class DFE:
         # Set up previous added rows session state
         if f"{self.table_name}_prev_added_rows" not in st.session_state:
             st.session_state[f"{self.table_name}_prev_added_rows"] = []
-
-        # Set up buttons
-        DFEButtons(
-            table_name=self.table_name,
-            config=self.config,
-            table=self.table,
-            sorts=self.sorts,
-            filters=self.filters,
-        )
-
-    def _get_original_data(
-        self,
-        filters: dict[str, str | dict[str, str]],
-    ) -> pd.DataFrame:
-        """Fetch original dataframe from backend."""
-        query = self.table.select("*")
-        for col, condition in filters.items():
-            if isinstance(condition, dict):
-                for op, value in condition.items():
-                    query = query.filter(col, op, value)
-            else:
-                query = query.eq(col, condition)
-        return pd.DataFrame(query.execute().data)
 
     def _convert_cols_to_datetime(
         self,
@@ -641,6 +660,21 @@ class DFE:
         added_rows: list = backend_updates["added_rows"]
         edited_rows: dict = backend_updates["edited_rows"]
         deleted_rows: list = backend_updates["deleted_rows"]
+
+        # map foreign keys if provided
+        for col in self.config:
+            if col.foreign_key_mapping:
+                for row in added_rows:
+                    row[col.column] = col.foreign_key_mapping.get(
+                        row[col.column],
+                        row[col.column],
+                    )
+                for changes in edited_rows.values():
+                    if col.column in changes:
+                        changes[col.column] = col.foreign_key_mapping.get(
+                            changes[col.column],
+                            changes[col.column],
+                        )
 
         # === Deal with deleted rows ===
         current_df: pd.DataFrame = st.session_state[f"{self.table_name}_current"]
