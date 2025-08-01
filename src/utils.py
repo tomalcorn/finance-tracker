@@ -2,6 +2,7 @@
 
 import calendar
 import datetime
+import re
 import typing
 
 import pandas as pd
@@ -63,3 +64,26 @@ def get_original_data(
     if response.data:
         return response.data
     return []
+
+
+def enforce_unique_cols(
+    conn: SupabaseConnection,
+    table_name: str,
+    row: dict,
+    unique_columns: list[str],
+) -> None:
+    """Process a single row to enforce unique constraints."""
+    for col in unique_columns:
+        if col in row:
+            unique_values = get_column_values(
+                _conn=conn,
+                table_name=table_name,
+                column_name=col,
+            )
+            base_value = re.sub(r" \(\d+\)$", "", str(row[col]))
+            duplicates = unique_values[unique_values.str.startswith(base_value)]
+            if not duplicates.empty:
+                max_suffix = (
+                    duplicates.str.extract(r" \((\d+)\)$")[0].dropna().astype(int).max()
+                )
+                row[col] = f"{base_value} ({max_suffix + 1})"

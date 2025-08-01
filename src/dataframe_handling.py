@@ -2,7 +2,6 @@
 
 import contextlib
 import datetime
-import logging
 import re
 import typing
 import uuid
@@ -34,6 +33,7 @@ class DFEColumnConfig(pydantic.BaseModel):
     sorting: typing.Literal["asc", "desc", None] = None
     filtering: str | dict[str, str] | None = None
     foreign_key_mapping: dict[str, str] | None = None
+    enforce_unique: bool = False
 
 
 class DFEButtons:
@@ -150,6 +150,14 @@ class DFEButtons:
                 for col, output in zip(self.config, outputs, strict=False)
             }
             new_row["id"] = str(uuid.uuid4())
+            # Enfore unique constraint if specified
+            unique_columns = [col.column for col in self.config if col.enforce_unique]
+            utils.enforce_unique_cols(
+                conn=self.conn,
+                table_name=self.table_name,
+                row=new_row,
+                unique_columns=unique_columns,
+            )
             # Handle foreign key mapping if provided
             for col in self.config:
                 if col.foreign_key_mapping:
@@ -593,6 +601,8 @@ class DFE:
         # Get the editor state and working dataframe
         editor_state = st.session_state[self.table_name]
         working_df: pd.DataFrame = st.session_state[f"{self.table_name}_working"].copy()
+        working_df = self._apply_changes_to_working_df(editor_state, working_df)
+        unique_cols = [col.column for col in self.config if col.enforce_unique]
 
         # === Deal with added rows ===
         added_rows = editor_state["added_rows"]
@@ -611,6 +621,12 @@ class DFE:
         st.session_state[f"{self.table_name}_prev_added_rows"] = added_rows.copy()
         # Assign IDs to added rows: reuse IDs from row_ids if available
         for i, row in enumerate(added_rows):
+            utils.enforce_unique_cols(
+                conn=self.conn,
+                table_name=self.table_name,
+                row=row,
+                unique_columns=unique_cols,
+            )
             if i < len(row_ids):
                 row["id"] = row_ids[i]
             elif "id" not in row or not row["id"]:
@@ -624,19 +640,22 @@ class DFE:
             f"{self.table_name}_backend_updates"
         ]["edited_rows"]
         for row_idx, changes in edited_rows.items():
+            utils.enforce_unique_cols(
+                conn=self.conn,
+                table_name=self.table_name,
+                row=changes,
+                unique_columns=unique_cols,
+            )
             row_id = working_df.iloc[row_idx]["id"]
             backend_edited_rows[row_id] = changes
 
         # Apply changes to working_df and check changes still in filters
-        working_df = self._apply_changes_to_working_df(editor_state, working_df)
         filters_changed, working_df = self._check_for_filters_updates(working_df)
         sorts_changed = self.sorts and self._check_for_sorts_updates(editor_state)
         if sorts_changed:
             working_df = self.sort_columns(working_df)
         if sorts_changed or filters_changed:
             st.session_state[f"{self.table_name}_working"] = working_df
-
-        logging.basicConfig(level=logging.INFO)
 
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
