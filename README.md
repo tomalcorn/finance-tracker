@@ -111,65 +111,162 @@ flowchart TD
 
 ```mermaid
 erDiagram
-    BANK_ACCOUNTS {
-        UUID id PK
-        STRING name
-        STRING account_number
-        FLOAT balance
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
-    }
-
     PAYMENTS {
         UUID id PK
+        STRING description
+        FLOAT income
+        FLOAT expense
+        DATE payment_date
+        BOOL checked
         UUID bank_account_id FK
         UUID expense_source_id FK
         UUID income_source_id FK
-        STRING description
-        FLOAT amount
-        DATE payment_date
-        STRING category
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        UUID user_id FK
+        TIMESTAMP _created_at
+    }
+    
+    BANK_ACCOUNTS {
+        UUID id PK
+        STRING name
+        FLOAT starting_balance
+        UUID user_id FK
+        TIMESTAMP _created_at
+    }
+
+    BANK_ACCOUNTS_VIEW {
+        UUID id PK
+        STRING name
+        FLOAT starting_balance
+        FLOAT balance
+        UUID user_id FK
     }
 
     EXPENSE_SOURCES {
         UUID id PK
         STRING name
-        STRING description
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        FLOAT budget
+        LIST(UUID) budget_tracker_ids FK
+        UUID user_id FK
+        TIMESTAMP _created_at
+    }
+
+    EXPENSE_SOURCES_VIEW {
+        UUID id PK
+        STRING name
+        FLOAT budget
+        FLOAT current_month
+        LIST(UUID) budget_tracker_ids FK
+        UUID user_id FK
     }
 
     INCOME_SOURCES {
         UUID id PK
         STRING name
-        STRING description
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        LIST(UUID) budget_tracker_ids FK
+        UUID user_id FK
+        TIMESTAMP _created_at
+    }
+
+    INCOME_SOURCES_VIEW {
+        UUID id PK
+        STRING name
+        FLOAT current_month
+        LIST(UUID) budget_tracker_ids FK
+        UUID user_id FK
     }
 
     BUDGET_TRACKER {
         UUID id PK
         STRING name
         FLOAT total_budget
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        UUID user_id FK
+        TIMESTAMP _created_at
     }
 
     FUN_SPENDING {
         UUID id PK
-        UUID budget_tracker_id FK
         STRING name
-        FLOAT amount
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        FLOAT cost
+        FLOAT current_month
+        FLOAT banked
+        UUID budget_tracker_id FK
+        UUID user_id FK
+        TIMESTAMP _created_at
     }
 
-    BANK_ACCOUNTS ||--o{ PAYMENTS : "has many"
-    EXPENSE_SOURCES ||--o{ PAYMENTS : "has many"
-    INCOME_SOURCES ||--o{ PAYMENTS : "has many"
-    BUDGET_TRACKER ||--o{ EXPENSE_SOURCES : "has many"
-    BUDGET_TRACKER ||--o{ INCOME_SOURCES : "has many"
-    BUDGET_TRACKER ||--o{ FUN_SPENDING : "has many"
+    BUDGET_TRACKER_VIEW {
+        UUID id PK
+        STRING name
+        FLOAT total_budget
+        FLOAT prop
+        FLOAT current_month
+        UUID user_id FK
+    }
+
+    USER_INFO {
+        UUID user_id PK
+        STRING full_name
+        STRING email
+        TIMESTAMP created_at
+    }
+
+    BANK_ACCOUNTS ||..o{ PAYMENTS : "attributes"
+    EXPENSE_SOURCES ||--o{ PAYMENTS : "categorises"
+    INCOME_SOURCES ||--o{ PAYMENTS : "categorises"
+    BUDGET_TRACKER }o--o{ EXPENSE_SOURCES : "categorises"
+    BUDGET_TRACKER }o--o{ INCOME_SOURCES : "sums"
+    BUDGET_TRACKER ||--o{ FUN_SPENDING : "splits"
+    BANK_ACCOUNTS ||--|| BANK_ACCOUNTS_VIEW : "derived from"
+    EXPENSE_SOURCES ||--|| EXPENSE_SOURCES_VIEW : "derived from"
+    INCOME_SOURCES ||--|| INCOME_SOURCES_VIEW : "derived from"
+    BUDGET_TRACKER ||--|| BUDGET_TRACKER_VIEW : "derived from"
+
+```
+
+### Example expense sources view
+
+```SQL
+CREATE OR REPLACE VIEW EXPENSE_SOURCES_VIEW AS
+SELECT
+    es.id,
+    es.name,
+    es.budget,
+    COALESCE(SUM(p.income - p.expense), 0) AS current_month,
+    es.budget_tracker_ids,
+    es._created_at
+FROM
+    EXPENSE_SOURCES es
+LEFT JOIN
+    PAYMENTS p
+ON
+    es.id = p.expense_source_id
+WHERE
+    p.payment_date BETWEEN $1 AND $2
+GROUP BY
+    es.id, es.name, es.budget, es.budget_tracker_ids, es._created_at;
+```
+
+### Budget Tracker view
+
+```SQL
+CREATE OR REPLACE VIEW BUDGET_TRACKER_VIEW AS
+SELECT
+    bt.id,
+    bt.name,
+    bt.total_budget,
+    bt._created_at,
+    bt.total_budget / NULLIF(SUM(isv.current_month), 0) AS prop,
+    COALESCE(SUM(esv.current_month), 0) AS current_month
+FROM
+    BUDGET_TRACKER bt
+LEFT JOIN
+    EXPENSE_SOURCES es ON bt.id = ANY(es.budget_tracker_ids)
+LEFT JOIN
+    EXPENSE_SOURCES_VIEW esv ON es.id = esv.id
+LEFT JOIN
+    INCOME_SOURCES is ON bt.id = ANY(is.budget_tracker_ids)
+LEFT JOIN
+    INCOME_SOURCES_VIEW isv ON is.id = isv.id
+GROUP BY
+    bt.id, bt.name, bt.total_budget, bt._created_at;
 ```
