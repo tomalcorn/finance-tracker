@@ -198,7 +198,6 @@ erDiagram
         UUID id PK
         STRING name
         FLOAT total_budget
-        FLOAT prop
         FLOAT current_month
         UUID user_id FK
     }
@@ -216,10 +215,10 @@ erDiagram
     BUDGET_TRACKER }o--o{ EXPENSE_SOURCES : "categorises"
     BUDGET_TRACKER }o--o{ INCOME_SOURCES : "sums"
     BUDGET_TRACKER ||--o{ FUN_SPENDING : "splits"
-    BANK_ACCOUNTS ||--|| BANK_ACCOUNTS_VIEW : "derived from"
-    EXPENSE_SOURCES ||--|| EXPENSE_SOURCES_VIEW : "derived from"
-    INCOME_SOURCES ||--|| INCOME_SOURCES_VIEW : "derived from"
-    BUDGET_TRACKER ||--|| BUDGET_TRACKER_VIEW : "derived from"
+    BANK_ACCOUNTS ||--|| BANK_ACCOUNTS_VIEW : "derives"
+    EXPENSE_SOURCES ||--|| EXPENSE_SOURCES_VIEW : "derives"
+    INCOME_SOURCES ||--|| INCOME_SOURCES_VIEW : "derives"
+    BUDGET_TRACKER ||--|| BUDGET_TRACKER_VIEW : "derives"
 
 ```
 
@@ -255,7 +254,6 @@ SELECT
     bt.name,
     bt.total_budget,
     bt._created_at,
-    bt.total_budget / NULLIF(SUM(isv.current_month), 0) AS prop,
     COALESCE(SUM(esv.current_month), 0) AS current_month
 FROM
     BUDGET_TRACKER bt
@@ -270,3 +268,23 @@ LEFT JOIN
 GROUP BY
     bt.id, bt.name, bt.total_budget, bt._created_at;
 ```
+
+### Payments example
+
+```SQL
+CREATE TABLE PAYMENTS (
+    id UUID PRIMARY KEY,
+    description TEXT,
+    income FLOAT,
+    expense FLOAT,
+    payment_date DATE,
+    checked BOOLEAN,
+    bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
+    expense_source_id UUID REFERENCES EXPENSE_SOURCES(id),
+    income_source_id UUID REFERENCES INCOME_SOURCES(id),
+    user_id UUID REFERENCES USER_INFO(user_id),
+    _created_at TIMESTAMP
+)
+```
+
+###
