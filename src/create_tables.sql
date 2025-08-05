@@ -69,3 +69,60 @@ CREATE TABLE USER_INFO (
     email TEXT,
     created_at TIMESTAMP
 );
+
+-- Create the EXPENSE_SOURCES_VIEW view
+CREATE OR REPLACE VIEW EXPENSE_SOURCES_VIEW AS
+SELECT
+    es.id,
+    es.name,
+    es.budget,
+    COALESCE(SUM(p.income - p.expense), 0) AS current_month,
+    es.budget_tracker_ids,
+    es._created_at
+FROM
+    EXPENSE_SOURCES es
+LEFT JOIN
+    PAYMENTS p
+ON
+    es.id = p.expense_source_id
+GROUP BY
+    es.id, es.name, es.budget, es.budget_tracker_ids, es._created_at;
+
+-- Create the income_sources_view view
+CREATE OR REPLACE VIEW income_sources_view AS
+SELECT
+    "income_sources".id,
+    "income_sources".name,
+    COALESCE(SUM(payments.income - payments.expense), 0) AS current_month,
+    "income_sources".budget_tracker_ids
+FROM
+    "income_sources"
+LEFT JOIN
+    payments
+ON
+    "income_sources".id = payments.income_source_id
+GROUP BY
+    "income_sources".id, 
+    "income_sources".name, 
+    "income_sources".budget_tracker_ids;
+
+-- Create the BUDGET_TRACKER_VIEW view
+CREATE OR REPLACE VIEW BUDGET_TRACKER_VIEW AS
+SELECT
+    bt.id,
+    bt.name,
+    bt.total_budget,
+    bt._created_at,
+    COALESCE(SUM(esv.current_month), 0) AS current_month
+FROM
+    BUDGET_TRACKER bt
+LEFT JOIN
+    EXPENSE_SOURCES es ON bt.id = ANY(es.budget_tracker_ids)
+LEFT JOIN
+    EXPENSE_SOURCES_VIEW esv ON es.id = esv.id
+LEFT JOIN
+    INCOME_SOURCES inc ON bt.id = ANY(inc.budget_tracker_ids)
+LEFT JOIN
+    INCOME_SOURCES_VIEW incv ON inc.id = incv.id
+GROUP BY
+    bt.id, bt.name, bt.total_budget, bt._created_at;
