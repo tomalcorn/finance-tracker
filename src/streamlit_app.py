@@ -7,10 +7,20 @@ import streamlit as st
 from st_supabase_connection import SupabaseConnection
 
 import dataframe_handling as dfh
+import models
 import utils
 
-# Set up supabase connection
+# Set up supabase connection and authenticate user
 conn = st.connection("supabase", type=SupabaseConnection)
+
+auth_resp = conn.auth.sign_in_with_password(
+    {
+        "email": "tomalcorn777@icloud.com",
+        "password": "jiwQij-kirwi3-hedtyk",
+    },
+)
+conn.client.postgrest.auth(auth_resp.session.access_token)
+st.session_state[models.SSKeys.CURRENT_USER] = auth_resp.user
 
 # Get bank accounts from the database
 bank_accounts = utils.get_original_data(
@@ -103,7 +113,7 @@ sample_data = pd.DataFrame(
         "payment_date": ["2025-06-01"],
         "category": ["category"],
         "created_at": ["2025-06-01"],
-        "bank_account": [bank_account_names[0]],
+        "bank_account": ["Example bank account"],
     },
 )
 payments_dfe = dfh.DFE(
