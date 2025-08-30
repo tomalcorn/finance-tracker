@@ -9,8 +9,6 @@ import pandas as pd
 import streamlit as st
 from st_supabase_connection import SupabaseConnection
 
-import dataframe_handling as dfh
-
 
 def get_start_and_end_of_month() -> tuple[str, str]:
     """Get the start and end dates of the current month in ISO format."""
@@ -25,12 +23,7 @@ def get_start_and_end_of_month() -> tuple[str, str]:
     return start_of_month.isoformat(), last_day_of_month.isoformat()
 
 
-def dfe_buttons_hash_func(dfe_buttons: dfh.DFEButtons) -> str:
-    """Generate a hash for the DFEButtons object."""
-    return dfe_buttons.table_name
-
-
-@st.cache_data(hash_funcs={dfh.DFEButtons: dfe_buttons_hash_func}, ttl=60)
+@st.cache_data(ttl=300)
 def get_column_values(
     _conn: SupabaseConnection,
     table_name: str,
