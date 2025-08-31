@@ -6,6 +6,7 @@ import re
 import typing
 import uuid
 
+import gotrue
 import pandas as pd
 import pydantic
 import streamlit as st
@@ -16,6 +17,7 @@ from pandas.api.types import (
 from st_supabase_connection import SupabaseConnection
 from streamlit_extras import stylable_container as sc
 
+import models
 import utils
 
 MAX_UNIQUE_VALUES = 20
@@ -149,8 +151,14 @@ class DFEButtons:
                 col.column: output
                 for col, output in zip(self.config, outputs, strict=False)
             }
+            # Insert ID and user ID
             new_row["id"] = str(uuid.uuid4())
-            # Enfore unique constraint if specified
+            current_user: gotrue.types.User = st.session_state[
+                models.SSKeys.CURRENT_USER
+            ]
+            new_row["user_id"] = current_user.id
+
+            # Enforce unique constraint if specified
             unique_columns = [col.column for col in self.config if col.enforce_unique]
             utils.enforce_unique_cols(
                 conn=self.conn,
@@ -158,10 +166,12 @@ class DFEButtons:
                 row=new_row,
                 unique_columns=unique_columns,
             )
+
             # Handle foreign key mapping if provided
             for col in self.config:
                 if col.foreign_key_mapping:
                     new_row[col.column] = col.foreign_key_mapping[new_row[col.column]]
+
             # convert date columns to ISO format, handle foreign keys
             for column_name, value in new_row.items():
                 if isinstance(value, datetime.date):
@@ -420,7 +430,7 @@ class DFE:
                 sample_values = [
                     val for val in dataframe[col].to_numpy()[:10] if val is not None
                 ]
-                if any(DATE_PATTERN.match(val) for val in sample_values):
+                if any(DATE_PATTERN.match(str(val)) for val in sample_values):
                     with contextlib.suppress(Exception):
                         dataframe[col] = pd.to_datetime(dataframe[col])
         return dataframe
@@ -699,6 +709,15 @@ class DFE:
         current_df: pd.DataFrame = st.session_state[f"{self.table_name}_current"]
         deleted_ids = list(set(current_df["id"]) - set(modified_df["id"]))
         deleted_rows.extend(deleted_ids)
+
+        # Add user_id to all rows
+        current_user: gotrue.types.User = st.session_state[models.SSKeys.CURRENT_USER]
+        for row in added_rows:
+            row["user_id"] = current_user.id
+        for changes in edited_rows.values():
+            changes["user_id"] = current_user.id
+        for row in deleted_rows:
+            row["user_id"] = current_user.id
 
         if added_rows:
             self.table.upsert(added_rows).execute()
