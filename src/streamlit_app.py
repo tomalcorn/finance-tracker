@@ -83,7 +83,7 @@ payments_config = [
         },
     ),
     dfh.DFEColumnConfig(
-        column="bank_account",
+        column="bank_account_id",
         column_config=st.column_config.SelectboxColumn(
             "Bank Account",
             help="Select a bank account",
