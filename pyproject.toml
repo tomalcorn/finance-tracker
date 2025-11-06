@@ -9,13 +9,11 @@ dependencies = [
     "pandas-stubs",
     "st-supabase-connection",
     "streamlit",
+    "streamlit-extras",
 ]
 
 [dependency-groups]
-dev = [
-    "ruff",
-]
+dev = ["ruff"]
 
 [tool.mypy]
 ignore_missing_imports = true
-
