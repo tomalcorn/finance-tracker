@@ -2,7 +2,7 @@
 name: Tech Debt template
 about: Tech debt items to improve code hygiene
 title: "[tech-debt]"
-labels: ''
+labels: tech debt
 assignees: tomalcorn
 
 ---
