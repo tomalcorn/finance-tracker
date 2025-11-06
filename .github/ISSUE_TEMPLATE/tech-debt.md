@@ -1,5 +1,5 @@
 ---
-name: Tech Debt template
+name: Tech debt
 about: Tech debt items to improve code hygiene
 title: "[tech-debt]"
 labels: tech debt
