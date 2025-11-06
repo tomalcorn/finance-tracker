@@ -8,34 +8,19 @@ import uuid
 
 import gotrue
 import pandas as pd
-import pydantic
 import streamlit as st
-import streamlit.elements.lib.column_types as st_column_types
 from pandas.api.types import (
     is_object_dtype,
 )
 from st_supabase_connection import SupabaseConnection
 from streamlit_extras import stylable_container as sc
 
+import config
 import models
 import utils
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
-
-
-class DFEColumnConfig(pydantic.BaseModel):
-    """Configuration for a single column in the DataFrame Editor."""
-
-    column: str
-    column_config: st_column_types.ColumnConfig
-    button_label: str | None = None
-    input_widget: typing.Callable
-    input_kwargs: dict = {}
-    sorting: typing.Literal["asc", "desc", None] = None
-    filtering: str | dict[str, str] | None = None
-    foreign_key_mapping: dict[str, str] | None = None
-    enforce_unique: bool = False
 
 
 class DFEButtons:
@@ -44,7 +29,7 @@ class DFEButtons:
     def __init__(
         self,
         table_name: str,
-        config: list[DFEColumnConfig],
+        config: list[config.DFEColumnConfig],
         connection: SupabaseConnection,
         sorts: list[tuple[str, str | None]] | None = None,
         filters: dict[str, dict[str, typing.Any]] | None = None,
@@ -240,7 +225,7 @@ class DFEButtons:
             st.session_state.pop(f"{self.table_name}_current", None)
             st.rerun()
 
-    def _handle_date_filter(self, col: DFEColumnConfig) -> None:
+    def _handle_date_filter(self, col: config.DFEColumnConfig) -> None:
         """Handle filtering for date columns."""
         if self.filters.get(col.column) is not None:
             default_date_s = (
@@ -269,7 +254,7 @@ class DFEButtons:
         else:
             self.filters[col.column] = {}
 
-    def _handle_number_filter(self, col: DFEColumnConfig) -> None:
+    def _handle_number_filter(self, col: config.DFEColumnConfig) -> None:
         """Handle filtering for numeric columns."""
         if col.column in self.filters:
             min_value = self.filters[col.column]["gte"]
@@ -298,7 +283,7 @@ class DFEButtons:
 
     def _handle_selectbox_filter(
         self,
-        col: DFEColumnConfig,
+        col: config.DFEColumnConfig,
         unique_vals: list[typing.Any],
     ) -> None:
         """Handle filtering using a selectbox for columns with few unique values."""
@@ -310,7 +295,7 @@ class DFEButtons:
         )
         self.filters[col.column] = {"in": selected_values} if selected_values else {}
 
-    def _handle_generic_filter(self, col: DFEColumnConfig) -> None:
+    def _handle_generic_filter(self, col: config.DFEColumnConfig) -> None:
         """Handle generic filtering for other column types."""
         user_text_input = st.text_input(
             f"Filter by {col.button_label or col.column}",
@@ -330,7 +315,7 @@ class DFE:
         table_name: str,
         sample_data: pd.DataFrame,
         connection: SupabaseConnection,
-        config: list[DFEColumnConfig],
+        config: list[config.DFEColumnConfig],
         column_order: list[str],
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
@@ -353,7 +338,7 @@ class DFE:
 
     def _initialize_column_settings(
         self,
-        config: list[DFEColumnConfig],
+        config: list[config.DFEColumnConfig],
         column_order: list[str],
     ) -> None:
         """Initialize column configuration and order."""
