@@ -1,249 +1,324 @@
 """Module to handle dataframe loading and editing."""
 
 import contextlib
-import json
+import datetime
+import re
 import typing
+import uuid
 
+import gotrue
 import pandas as pd
+import pydantic
 import streamlit as st
+import streamlit.elements.lib.column_types as st_column_types
 from pandas.api.types import (
-    is_datetime64_any_dtype,
-    is_numeric_dtype,
     is_object_dtype,
 )
 from st_supabase_connection import SupabaseConnection
+from streamlit_extras import stylable_container as sc
+
+import models
+import utils
 
 MAX_UNIQUE_VALUES = 20
+DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
 
 
-class DFEWithFilters:
-    """A class that provides Streamlit dataframe editing functionality.
+class DFEColumnConfig(pydantic.BaseModel):
+    """Configuration for a single column in the DataFrame Editor."""
 
-    Filtering, search, and CRUD operations that maintain the original dataframe
-    structure.
-    """
+    column: str
+    column_config: st_column_types.ColumnConfig
+    button_label: str | None = None
+    input_widget: typing.Callable
+    input_kwargs: dict = {}
+    sorting: typing.Literal["asc", "desc", None] = None
+    filtering: str | dict[str, str] | None = None
+    foreign_key_mapping: dict[str, str] | None = None
+    enforce_unique: bool = False
+
+
+class DFEButtons:
+    """A class that provides Streamlit dataframe editing functionality with buttons."""
 
     def __init__(
         self,
-        df: pd.DataFrame,
-        session_key: str = "dfa",
-        column_config: dict | None = None,
-        column_order: list[str] | None = None,
+        table_name: str,
+        config: list[DFEColumnConfig],
+        connection: SupabaseConnection,
+        sorts: list[tuple[str, str | None]] | None = None,
+        filters: dict[str, dict[str, typing.Any]] | None = None,
     ) -> None:
-        """Initialize the DataframeEditor with a pandas DataFrame.
+        """Initialize the DataframeEditor with a table name."""
+        self.table_name = table_name
+        self.config = config
+        self.conn = connection
+        self.table = connection.table(table_name)
+        self.sorts = sorts
+        self.filters = filters if filters is not None else {}
 
-        Args:
-            df: The pandas DataFrame to edit
-            session_key: The key to use for storing the DataFrame in session_state
-            column_config: Streamlit column configuration dictionary
-            column_order: Order of columns to display
+        # === Add button ===
+        button_cols = st.columns((0.15, 0.1, 0.1, 0.6), border=False)
+        with button_cols[0]:
+            self.add_row_button = st.button(
+                label="New",
+                icon="➕",  # noqa: RUF001
+                key=f"{self.table_name}_add_row_button",
+            )
+            if self.add_row_button:
+                self.add_row_button_dialog()
 
+        css_style_normal = """
+        button {
+            background-color: white;
+            border: 1px solid #ccc;
+            color: black;
+        }
         """
-        # Initialize the dataframe in session state if not already present
-        if session_key not in st.session_state:
-            st.session_state[session_key] = df.copy()
-
-        self.session_key = session_key
-        self.column_config = column_config
-        self.column_order = column_order
-
-        # Create a unique key for the editor
-        self.editor_key = f"{session_key}_editor"
-
-        # Track newly added rows to ensure they're visible even with filtering
-        if f"{session_key}_newly_added_row" not in st.session_state:
-            st.session_state[f"{session_key}_newly_added_row"] = None
-
-    @property
-    def df(self) -> pd.DataFrame:
-        """Get the current dataframe from session state."""
-        return st.session_state[self.session_key]
-
-    def active_df(self) -> pd.DataFrame:
-        """Return filtered dataframe with reset index to avoid UI confusion."""
-        # Handle NaN values by filling them with False
-        active_col = self.df["Active"].fillna(value=False)
-        filtered_df = self.df[active_col].copy()
-        # Store original index in a hidden column for reference
-        filtered_df["_original_index"] = filtered_df.index
-        # Reset the index for the UI display
-        return filtered_df.reset_index(drop=True)
-
-    def get_original_index(self, row: int) -> int:
-        """Get the original index from the hidden column."""
-        return self.active_df().iloc[row]["_original_index"]
-
-    def commit_to_db(self) -> None:
-        """Commit changes from the data editor to the session state dataframe."""
-        self._commit_edited_rows()
-        self._commit_added_rows()
-        self._commit_deleted_rows()
-
-    def _commit_edited_rows(self) -> None:
-        """Handle edited rows and update the dataframe."""
-        if "edited_rows" in st.session_state[self.editor_key]:
-            for row in st.session_state[self.editor_key]["edited_rows"]:
-                original_idx = self.get_original_index(int(row))
-                for key, value in st.session_state[self.editor_key]["edited_rows"][row].items():
-                    if key != "_original_index":  # Don't modify our reference column
-                        self.df.loc[original_idx, key] = value
-
-    def _commit_added_rows(self) -> None:
-        """Handle added rows and append them to the dataframe."""
-        if "added_rows" in st.session_state[self.editor_key]:
-            for row in st.session_state[self.editor_key]["added_rows"]:
-                new_row: dict = {}
-                for col in self.df.columns:
-                    if col == "Active":
-                        new_row[col] = True
-                    elif is_numeric_dtype(self.df[col]):
-                        new_row[col] = 0
-                    elif is_datetime64_any_dtype(self.df[col]):
-                        new_row[col] = pd.Timestamp.now()
-                    elif is_object_dtype(self.df[col]):
-                        new_row[col] = ""
-                    else:
-                        new_row[col] = None
-
-                new_row["Active"] = True
-
-                new_row.update(
-                    {key: value for key, value in row.items() if key != "_original_index"},
-                )
-
-                st.session_state[self.session_key] = pd.concat(
-                    [self.df, pd.DataFrame([new_row])],
-                    ignore_index=True,
-                )
-                st.session_state[f"{self.session_key}_newly_added_row"] = new_row
-
-    def _commit_deleted_rows(self) -> None:
-        """Handle deleted rows and remove them from the dataframe."""
-        if "deleted_rows" in st.session_state[self.editor_key]:
-            indices_to_delete = []
-            for row in st.session_state[self.editor_key]["deleted_rows"]:
-                original_idx = self.get_original_index(int(row))
-                indices_to_delete.append(original_idx)
-
-            if indices_to_delete:
-                st.session_state[self.session_key] = self.df.drop(
-                    indices_to_delete,
-                ).reset_index(
-                    drop=True,
-                )
-
-    def filter_dataframe(self) -> None:
-        """Filter the dataframe based on filters from the multiselect."""
-        # Reset all active states first
-        self.df["Active"] = False
-
-        # Get filter mask from UI components
-        mask = self.get_filter_mask()
-
-        # Also mark true if row matches newly added row
-        if st.session_state[f"{self.session_key}_newly_added_row"] is not None:
-            new_row = st.session_state[f"{self.session_key}_newly_added_row"]
-            # Compare only the relevant columns for matching
-            match_new_row = pd.Series(data=True, index=self.df.index)
-            for col in self.df.columns:
-                if col in new_row and col != "Active":
-                    col_match = self.df[col] == new_row[col]
-                    match_new_row &= col_match
-
-            mask = mask | match_new_row
-
-        self.df.loc[mask, "Active"] = True
-
-    def get_filter_mask(self) -> pd.Series:
-        """Display filter options for the dataframe. Return a mask for filtering."""
-        # Initialize mask with all True values
-        mask = pd.Series(data=True, index=self.df.index)
-
-        for col in self.df.columns:
-            if is_object_dtype(self.df[col]):
-                with contextlib.suppress(Exception):
-                    self.df[col] = pd.to_datetime(self.df[col])
-
-            if is_datetime64_any_dtype(self.df[col]):
-                self.df[col] = self.df[col].dt.tz_localize(None)
-
-        modification_container = st.expander(label="Filter Options")
-
-        with modification_container:
-            to_filter_columns = st.multiselect("Filter dataframe on", self.df.columns)
-
-            for column in to_filter_columns:
-                left, right = st.columns((1, 20))
-                # Treat columns with < 10 unique values as categorical
-                # - no but if you want to then ( or df[column].nunique() < 10)
-                if (
-                    is_object_dtype(self.df[column])
-                    and len(self.df[column].unique()) < MAX_UNIQUE_VALUES
-                ):
-                    user_cat_input = right.multiselect(
-                        f"Values for {column}",
-                        self.df[column].unique(),
-                        default=list(self.df[column].unique()),
-                    )
-                    mask &= self.df[column].isin(user_cat_input)
-
-                elif is_numeric_dtype(self.df[column]):
-                    _min = float(self.df[column].min())
-                    _max = float(self.df[column].max())
-                    step = (_max - _min) / 100
-                    user_num_input = right.slider(
-                        f"Values for {column}",
-                        min_value=_min,
-                        max_value=_max,
-                        value=(_min, _max),
-                        step=step,
-                    )
-                    mask &= self.df[column].between(*user_num_input)
-
-                elif is_datetime64_any_dtype(self.df[column]):
-                    user_date_input = right.date_input(
-                        f"Values for {column}",
-                        value=(
-                            self.df[column].min(),
-                            self.df[column].max(),
-                        ),
-                    )
-                    if len(user_date_input) == 2:  # noqa: PLR2004
-                        user_date_input = tuple(map(pd.to_datetime, user_date_input))  # type: ignore[assignment]
-                        start_date, end_date = user_date_input
-                        mask &= self.df[column].between(start_date, end_date)
-
-                else:
-                    user_text_input = right.text_input(
-                        f"Substring or regex in {column}",
-                    )
-                    if user_text_input:
-                        mask &= self.df[column].astype(str).str.contains(user_text_input)
-
-        return mask
-
-    def render(self) -> pd.DataFrame:
-        """Render the dataframe editor with filter functionality.
-
-        Returns:
-            The edited dataframe
-
+        css_style_active = """
+        button {
+        background-color: rgba(212, 237, 218, 0.5); /* Light green background */
+        border: 1px solid #ccc;
+        color: black;
+        }
         """
-        # Filter dataframe based on UI filters
-        self.filter_dataframe()
+        # === Sort button ===
+        with (
+            button_cols[1],
+            sc.stylable_container(
+                key=f"{self.table_name}_sort_button_container",
+                css_styles=css_style_active if not self.sorts else css_style_normal,
+            ),
+        ):
+            self.sorting_button = st.button(
+                label="",
+                icon="↕️",
+                key=f"{self.table_name}_sort_button",
+            )
+            if self.sorting_button:
+                self.sorting_button_dialog()
 
-        # Prepare column config if not provided
-        if self.column_config is None:
-            self.column_config = {}
+        # === Filter button ===
+        with (
+            button_cols[2],
+            sc.stylable_container(
+                key=f"{self.table_name}_filter_button_container",
+                css_styles=css_style_active if not self.filters else css_style_normal,
+            ),
+        ):
+            self.filtering_button = st.button(
+                label="",
+                icon="🔍",
+                key=f"{self.table_name}_filter_button",
+            )
+            if self.filtering_button:
+                self.filtering_button_dialog()
 
-        # Display data editor with dynamic rows
-        return st.data_editor(
-            self.active_df(),
-            column_order=self.column_order,
-            column_config=self.column_config,
-            num_rows="dynamic",
-            key=self.editor_key,
-            on_change=self.commit_to_db,
+    def get_unique_values(self, column_name: str) -> list[typing.Any]:
+        """Get all unique values in a column by executing a select query."""
+        vals = utils.get_column_values(self.conn, self.table_name, column_name)
+        if not vals.empty:
+            return vals.dropna().unique().tolist()
+        return []
+
+    def _get_min_max_values(self, column_name: str) -> tuple[float, float]:
+        """Get min and max values for numeric columns using pandas."""
+        column_data = utils.get_column_values(self.conn, self.table_name, column_name)
+        min_value = column_data.min() if not column_data.empty else 0.0
+        max_value = column_data.max() if not column_data.empty else 1.0
+        return (min_value, max_value)
+
+    @st.dialog("Add Row")
+    def add_row_button_dialog(self) -> None:
+        """Handle the add row button click event."""
+        st.write(f"Add a new row to **{self.table_name}**")
+        outputs = [
+            column.input_widget(
+                label=column.button_label or column.column,
+                key=f"{self.table_name}_new_row_{column.column}",
+                **column.input_kwargs,
+            )
+            for column in self.config
+        ]
+        options_unfilled = any(output is None or output == "" for output in outputs)
+        submit_button = st.button(
+            label="Submit",
+            key=f"{self.table_name}_submit_new_row_button",
+            disabled=options_unfilled,
+        )
+        if submit_button:
+            new_row = {
+                col.column: output
+                for col, output in zip(self.config, outputs, strict=False)
+            }
+            # Insert ID and user ID
+            new_row["id"] = str(uuid.uuid4())
+            current_user: gotrue.types.User = st.session_state[
+                models.SSKeys.CURRENT_USER
+            ]
+            new_row["user_id"] = current_user.id
+
+            # Enforce unique constraint if specified
+            unique_columns = [col.column for col in self.config if col.enforce_unique]
+            utils.enforce_unique_cols(
+                conn=self.conn,
+                table_name=self.table_name,
+                row=new_row,
+                unique_columns=unique_columns,
+            )
+
+            # Handle foreign key mapping if provided
+            for col in self.config:
+                if col.foreign_key_mapping:
+                    new_row[col.column] = col.foreign_key_mapping[new_row[col.column]]
+
+            # convert date columns to ISO format, handle foreign keys
+            for column_name, value in new_row.items():
+                if isinstance(value, datetime.date):
+                    new_row[column_name] = value.isoformat()
+            self.table.upsert(new_row).execute()
+            st.session_state.pop(f"{self.table_name}_working", None)
+            st.rerun()
+
+    @st.dialog("Sort Columns")
+    def sorting_button_dialog(self) -> None:
+        """Handle the sorting button click event."""
+        st.write(f"Sort **{self.table_name}** by column")
+        # Get sorts dict from session state or initialize
+        sorts_dict = dict(self.sorts) if self.sorts else {}
+
+        for col in self.config:
+            sorts_dict[col.column] = st.selectbox(
+                f"Sort by {col.button_label or col.column}",
+                options=["asc", "desc", None],
+                key=f"{self.table_name}_sort_{col.column}",
+                index=["asc", "desc", None].index(sorts_dict.get(col.column))
+                if col.column in sorts_dict
+                else None,
+            )
+        submit_button = st.button(
+            label="Submit Sort",
+            key=f"{self.table_name}_submit_sort_button",
+        )
+        if submit_button:
+            # Update sorts in session state with string values
+            st.session_state[f"{self.table_name}_sorts"] = [
+                (col, direction)
+                for col, direction in sorts_dict.items()
+                if direction is not None
+            ]
+            st.session_state.pop(f"{self.table_name}_working", None)
+            st.rerun()
+
+    @st.dialog("Filter Columns")
+    def filtering_button_dialog(self) -> None:
+        """Handle the filtering button click event."""
+        st.write(f"Filter **{self.table_name}** by column")
+
+        for col in self.config:
+            if col.input_widget == st.date_input:
+                self._handle_date_filter(col)
+            elif col.input_widget == st.number_input:
+                self._handle_number_filter(col)
+            elif (unique_vals := self.get_unique_values(col.column)) and len(
+                unique_vals,
+            ) < MAX_UNIQUE_VALUES:
+                self._handle_selectbox_filter(col, unique_vals)
+            else:
+                self._handle_generic_filter(col)
+
+        submit_button = st.button(
+            label="Submit Filter",
+            key=f"{self.table_name}_submit_filter_button",
+        )
+        if submit_button:
+            # Update filters in session state
+            st.session_state[f"{self.table_name}_filters"] = {
+                col: val for col, val in self.filters.items() if val is not None
+            }
+            st.session_state.pop(f"{self.table_name}_working", None)
+            st.session_state.pop(f"{self.table_name}_current", None)
+            st.rerun()
+
+    def _handle_date_filter(self, col: DFEColumnConfig) -> None:
+        """Handle filtering for date columns."""
+        if self.filters.get(col.column) is not None:
+            default_date_s = (
+                self.filters[col.column]["gte"],
+                self.filters[col.column]["lte"],
+            )
+        else:
+            default_date_s = utils.get_start_and_end_of_month()
+
+        selected_dates = st.date_input(
+            f"Filter by {col.button_label or col.column}",
+            value=default_date_s,
+            key=f"{self.table_name}_filter_{col.column}",
+        )
+
+        if isinstance(selected_dates, tuple) and len(selected_dates) > 1:
+            self.filters[col.column] = {
+                "gte": selected_dates[0].isoformat(),
+                "lte": selected_dates[1].isoformat(),
+            }
+        elif isinstance(selected_dates, tuple) and len(selected_dates) == 1:
+            self.filters[col.column] = {
+                "gte": selected_dates[0].isoformat(),
+                "lte": selected_dates[0].isoformat(),
+            }
+        else:
+            self.filters[col.column] = {}
+
+    def _handle_number_filter(self, col: DFEColumnConfig) -> None:
+        """Handle filtering for numeric columns."""
+        if col.column in self.filters:
+            min_value = self.filters[col.column]["gte"]
+            max_value = self.filters[col.column]["lte"]
+        else:
+            min_value, max_value = self._get_min_max_values(col.column)
+        if min_value == max_value:
+            self.filters.pop(col.column, None)
+            return  # No need to show slider if min and max are the same
+        step = (max_value - min_value) / 100
+        selected_values = st.slider(
+            f"Filter by {col.button_label or col.column}",
+            min_value=min_value,
+            max_value=max_value,
+            value=(min_value, max_value),
+            step=step,
+            key=f"{self.table_name}_filter_{col.column}",
+        )
+        if selected_values == (min_value, max_value):
+            self.filters.pop(col.column, None)
+        else:
+            self.filters[col.column] = {
+                "gte": selected_values[0],
+                "lte": selected_values[1],
+            }
+
+    def _handle_selectbox_filter(
+        self,
+        col: DFEColumnConfig,
+        unique_vals: list[typing.Any],
+    ) -> None:
+        """Handle filtering using a selectbox for columns with few unique values."""
+        selected_values = st.multiselect(
+            f"Filter by {col.button_label or col.column}",
+            options=unique_vals,
+            default=self.filters.get(col.column, []),
+            key=f"{self.table_name}_filter_{col.column}",
+        )
+        self.filters[col.column] = {"in": selected_values} if selected_values else {}
+
+    def _handle_generic_filter(self, col: DFEColumnConfig) -> None:
+        """Handle generic filtering for other column types."""
+        user_text_input = st.text_input(
+            f"Filter by {col.button_label or col.column}",
+            value=self.filters.get(col.column, ""),
+            key=f"{self.table_name}_filter_{col.column}",
+        )
+        self.filters[col.column] = (
+            {"contains": user_text_input} if user_text_input else {}
         )
 
 
@@ -253,115 +328,406 @@ class DFE:
     def __init__(
         self,
         table_name: str,
-        editor_key: str,
+        sample_data: pd.DataFrame,
         connection: SupabaseConnection,
-        column_config: dict | None = None,
-        column_order: list[str] | None = None,
+        config: list[DFEColumnConfig],
+        column_order: list[str],
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
         self.table_name = table_name
-        self.editor_key = editor_key
         self.conn = connection
         self.table = self.conn.table(table_name)
-        self.column_config = column_config
+        self.config = config
+
+        self._initialize_column_settings(config, column_order)
+        self._initialize_session_state(sample_data)
+
+        # Set up buttons
+        DFEButtons(
+            table_name=self.table_name,
+            config=self.config,
+            connection=self.conn,
+            sorts=self.sorts,
+            filters=self.filters,
+        )
+
+    def _initialize_column_settings(
+        self,
+        config: list[DFEColumnConfig],
+        column_order: list[str],
+    ) -> None:
+        """Initialize column configuration and order."""
+        self.column_config = {col.column: col.column_config for col in config}
         self.column_order = column_order
 
-        # Load and store original data
-        self.original_df = pd.DataFrame(self.table.select("*").execute().data)
-        self.original_df["payment_date"] = pd.to_datetime(
-            self.original_df["payment_date"],
-        )
-        st.session_state[f"{self.editor_key}_original"] = self.original_df
+        # Retrieve sorting from session state or config
+        if f"{self.table_name}_sorts" in st.session_state:
+            self.sorts = st.session_state[f"{self.table_name}_sorts"]
+        else:
+            self.sorts = [(col.column, col.sorting) for col in config if col.sorting]
 
-    def _add_rows(self, added_rows: list[dict[str, typing.Any]]) -> None:
-        """Add any rows in the DFE to backend."""
+        # Retrieve filtering from session state or config
+        if f"{self.table_name}_filters" in st.session_state:
+            self.filters = st.session_state[f"{self.table_name}_filters"]
+        else:
+            self.filters = {
+                col.column: col.filtering for col in config if col.filtering is not None
+            }
+
+    def _initialize_session_state(self, sample_data: pd.DataFrame) -> None:
+        """Initialize session state variables."""
+        # Load and store original data in working and current session states variables
+        if f"{self.table_name}_working" not in st.session_state:
+            original_data = pd.DataFrame(
+                utils.get_original_data(
+                    _conn=self.conn,
+                    table_name=self.table_name,
+                    query_string="*",
+                    filters=self.filters,
+                ),
+            )
+            # Handle foreign key mapping if provided
+            for col in self.config:
+                if col.foreign_key_mapping:
+                    original_data[col.column] = original_data[col.column].map(
+                        col.foreign_key_mapping,
+                    )
+            working_df = self._convert_cols_to_datetime(
+                original_data if not original_data.empty else sample_data,
+            )
+            if self.sorts:
+                working_df = self.sort_columns(working_df)
+            st.session_state[f"{self.table_name}_working"] = working_df
+
+        if f"{self.table_name}_current" not in st.session_state:
+            st.session_state[f"{self.table_name}_current"] = st.session_state.get(
+                f"{self.table_name}_working",
+            )
+
+        # Set up backend updates session state dict
+        if f"{self.table_name}_backend_updates" not in st.session_state:
+            st.session_state[f"{self.table_name}_backend_updates"] = {
+                "added_rows": [],
+                "edited_rows": {},
+                "deleted_rows": [],
+            }
+
+        # Set up added row ids session state
+        if f"{self.table_name}_row_ids" not in st.session_state:
+            st.session_state[f"{self.table_name}_row_ids"] = []
+
+        # Set up previous added rows session state
+        if f"{self.table_name}_prev_added_rows" not in st.session_state:
+            st.session_state[f"{self.table_name}_prev_added_rows"] = []
+
+    def _convert_cols_to_datetime(
+        self,
+        dataframe: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Try to convert columns to datetime."""
+        for col in dataframe.columns:
+            if is_object_dtype(dataframe[col]):
+                sample_values = [
+                    val for val in dataframe[col].to_numpy()[:10] if val is not None
+                ]
+                if any(DATE_PATTERN.match(str(val)) for val in sample_values):
+                    with contextlib.suppress(Exception):
+                        dataframe[col] = pd.to_datetime(dataframe[col])
+        return dataframe
+
+    def _check_for_filters_updates(
+        self,
+        working_df: pd.DataFrame,
+    ) -> tuple[bool, pd.DataFrame]:
+        """Check working_df to see if changes fall outside current filters.
+
+        Args:
+            working_df: The DataFrame to check against filters
+
+        Returns:
+            A tuple of (bool, pd.DataFrame) where the bool indicates if the DataFrame
+            changed due to filtering, and the DataFrame is the possibly modified result
+
+        """
+        query_conditions = []
+        for col, condition in self.filters.items():
+            if isinstance(condition, dict):
+                for op in condition:
+                    if op == "gte":
+                        query_conditions.append(f"{col} >= @value_{col}_{op}")
+                    elif op == "lte":
+                        query_conditions.append(f"{col} <= @value_{col}_{op}")
+                    elif op == "eq":
+                        query_conditions.append(f"{col} == @value_{col}_{op}")
+                    else:
+                        query_conditions.append(f"{col} == @value_{col}_eq")
+
+        query_string = " and ".join(query_conditions)
+        query_params = {
+            f"value_{col}_{op}": pd.to_datetime(value)
+            if op in {"gte", "lte"}
+            else value
+            for col, condition in self.filters.items()
+            for op, value in (
+                condition.items()
+                if isinstance(condition, dict)
+                else [("eq", condition)]
+            )
+        }
+
+        filtered_df = working_df.query(query_string, local_dict=query_params)
+
+        # Check if any rows were filtered out
+        if len(filtered_df) != len(working_df):
+            return True, filtered_df.reset_index(drop=True)
+
+        return False, working_df
+
+    def _check_for_sorts_updates(
+        self,
+        editor_state: dict[str, typing.Any],
+    ) -> bool:
+        """Check editor_state to see if changes made to sorts columns."""
+        sorts_changed = False
+        if self.sorts:
+            sort_columns = [col for col, _ in self.sorts]
+
+            # Check for edits in sorted columns
+            if editor_state.get("edited_rows"):
+                for changes in editor_state["edited_rows"].values():
+                    if any(col in sort_columns for col in changes):
+                        sorts_changed = True
+                        break
+
+            # Check for additions that may affect sorted columns
+            if not sorts_changed and editor_state.get("added_rows"):
+                for new_row in editor_state["added_rows"]:
+                    if any(col in sort_columns for col in new_row):
+                        sorts_changed = True
+                        break
+
+            # Check for deletions
+            if not sorts_changed and editor_state.get("deleted_rows"):
+                sorts_changed = True  # Deletion affects sorting indirectly
+        return sorts_changed
+
+    def sort_columns(
+        _self,  # noqa: N805
+        working_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Sort the original dataframe by a list of column names."""
+        sorted_df = working_df.copy()
+        if _self.sorts is not None:
+            for col, direction in _self.sorts:
+                ascending = direction.lower() == "asc"
+                sorted_df = sorted_df.sort_values(by=col, ascending=ascending)
+        return sorted_df.reset_index(drop=True)
+
+    def _add_rows(
+        self,
+        working_df: pd.DataFrame,
+        added_rows: list[dict[str, typing.Any]],
+    ) -> pd.DataFrame:
+        """Add any rows in the DFE to backend and update working_df."""
         for new_row_data in added_rows:
-            if "payment_date" in new_row_data and new_row_data["payment_date"] is not None:
-                new_row_data["payment_date"] = pd.to_datetime(
-                    new_row_data["payment_date"],
-                )
+            new_row_df = pd.DataFrame([new_row_data])
+            new_row_df_conv = self._convert_cols_to_datetime(new_row_df)
 
-            # Remove the id column if present (let DB generate it)
-            if "id" in new_row_data:
-                new_row_data.pop("id")
+            # Append the new row to the working dataframe
+            working_df = pd.concat([working_df, new_row_df_conv], ignore_index=True)
 
-            self.table.insert(new_row_data).execute()
+        return working_df
 
     def _edit_rows(
         self,
-        edited_rows: dict[str, typing.Any],
         working_df: pd.DataFrame,
-    ) -> None:
-        """Edit any rows in the DFE in backend."""
+        edited_rows: dict[int, typing.Any],
+    ) -> pd.DataFrame:
+        """Edit any rows in the DFE in backend and update working_df."""
         for row_idx, changes in edited_rows.items():
+            if row_idx >= len(working_df) or "id" not in working_df.columns:
+                continue
+            row_id = working_df.iloc[row_idx]["id"]
+
+            # Build update data
+            update_data = {}
             for col, value in changes.items():
                 if col == "payment_date" and value is not None:
                     converted_value = pd.to_datetime(value)
+                    update_data[col] = converted_value.isoformat()
                 else:
-                    converted_value = value
-                working_df.loc[row_idx, col] = converted_value
+                    update_data[col] = value
 
-        # Update changed rows in Supabase
-        for row_idx in edited_rows:
-            row_id = working_df.loc[row_idx, "id"]
-            row_data_json = (
-                working_df.loc[row_idx]
-                .drop("id")
-                .to_json(
-                    date_format="iso",
-                    date_unit="s",
+                working_df.loc[working_df["id"] == row_id, col] = (
+                    converted_value
+                    if col == "payment_date" and value is not None
+                    else value
                 )
-            )
-            row_data = json.loads(row_data_json)
-            self.table.update(row_data).eq("id", row_id).execute()
+
+        return working_df
 
     def _delete_rows(
         self,
+        working_df: pd.DataFrame,
         deleted_rows: list[int],
-        original_df: pd.DataFrame,
-    ) -> None:
-        """Remove any rows from the backend."""
-        for row_idx in deleted_rows:
-            row_idx_int = int(row_idx)
-            row_id = original_df.loc[row_idx_int, "id"]
-            self.table.delete().eq("id", row_id).execute()
+    ) -> pd.DataFrame:
+        """Remove any rows from the backend and update working_df."""
+        # Sort in reverse order to maintain correct indexes during deletion
+        deletions_for_the_backend = []
+        for row_idx in sorted(deleted_rows, reverse=True):
+            if row_idx >= len(working_df) or "id" not in working_df.columns:
+                continue  # Skip if row doesn't exist or no ID column
+
+            row_id = working_df.iloc[row_idx]["id"]
+            deletions_for_the_backend.append(row_id)
+
+            # Remove from working dataframe
+            working_df = working_df[working_df["id"] != row_id].reset_index(drop=True)
+
+        return working_df
+
+    def _apply_changes_to_working_df(
+        self,
+        editor_state: dict[str, typing.Any],
+        working_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Apply changes from editor state to working_df."""
+        if editor_state.get("added_rows"):
+            added_rows = editor_state["added_rows"]
+            working_df = self._add_rows(working_df, added_rows)
+
+        if editor_state.get("edited_rows"):
+            edited_rows = editor_state["edited_rows"]
+            working_df = self._edit_rows(working_df, edited_rows)
+
+        if editor_state.get("deleted_rows"):
+            deleted_rows = editor_state["deleted_rows"]
+            working_df = self._delete_rows(working_df, deleted_rows)
+
+        return working_df
 
     def sync(self) -> None:
         """Sync the edited dataframe with the Supabase table."""
-        # Get the editor state and original dataframe
-        editor_state = st.session_state[self.editor_key]
-        original_df: pd.DataFrame = st.session_state[f"{self.editor_key}_original"]
+        # Get the editor state and working dataframe
+        editor_state = st.session_state[self.table_name]
+        working_df: pd.DataFrame = st.session_state[f"{self.table_name}_working"].copy()
+        working_df = self._apply_changes_to_working_df(editor_state, working_df)
+        unique_cols = [col.column for col in self.config if col.enforce_unique]
 
-        # Get a working copy of the original dataframe to apply edits
-        working_df = original_df.copy()
+        # === Deal with added rows ===
+        added_rows = editor_state["added_rows"]
+        row_ids: list = st.session_state[f"{self.table_name}_row_ids"]
+        backend_added_rows: list = st.session_state[
+            f"{self.table_name}_backend_updates"
+        ]["added_rows"]
+        # Deal with deleted added_rows
+        if len(added_rows) < len(row_ids):
+            prev_added_rows = st.session_state[f"{self.table_name}_prev_added_rows"]
+            deleted_added_indices = [
+                i for i, row in enumerate(prev_added_rows) if row not in added_rows
+            ]
+            for idx in sorted(deleted_added_indices, reverse=True):
+                del row_ids[idx]
+        st.session_state[f"{self.table_name}_prev_added_rows"] = added_rows.copy()
+        # Assign IDs to added rows: reuse IDs from row_ids if available
+        for i, row in enumerate(added_rows):
+            utils.enforce_unique_cols(
+                conn=self.conn,
+                table_name=self.table_name,
+                row=row,
+                unique_columns=unique_cols,
+            )
+            if i < len(row_ids):
+                row["id"] = row_ids[i]
+            elif "id" not in row or not row["id"]:
+                row["id"] = str(uuid.uuid4())
+                backend_row = row.copy()
+                backend_added_rows.append(backend_row)
 
-        # Handle edited rows
-        if editor_state.get("edited_rows"):
-            edited_rows = editor_state["edited_rows"]
-            self._edit_rows(edited_rows, working_df)
+        # === Deal with edited rows ===
+        edited_rows = editor_state["edited_rows"]
+        backend_edited_rows: dict[str, typing.Any] = st.session_state[
+            f"{self.table_name}_backend_updates"
+        ]["edited_rows"]
+        for row_idx, changes in edited_rows.items():
+            utils.enforce_unique_cols(
+                conn=self.conn,
+                table_name=self.table_name,
+                row=changes,
+                unique_columns=unique_cols,
+            )
+            row_id = working_df.iloc[row_idx]["id"]
+            backend_edited_rows[row_id] = changes
 
-        # Handle added rows
-        if editor_state.get("added_rows"):
-            added_rows = editor_state["added_rows"]
-            self._add_rows(added_rows)
-
-        # Handle deleted rows
-        if editor_state.get("deleted_rows"):
-            deleted_rows = editor_state["deleted_rows"]
-            self._delete_rows(deleted_rows, original_df)
+        # Apply changes to working_df and check changes still in filters
+        filters_changed, working_df = self._check_for_filters_updates(working_df)
+        sorts_changed = self.sorts and self._check_for_sorts_updates(editor_state)
+        if sorts_changed:
+            working_df = self.sort_columns(working_df)
+        if sorts_changed or filters_changed:
+            st.session_state[f"{self.table_name}_working"] = working_df
 
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
-        # Ensure the original dataframe is in session state
-        if f"{self.editor_key}_original" not in st.session_state:
-            st.session_state[f"{self.editor_key}_original"] = self.original_df
-
-        # Display data editor with dynamic rows
+        # Get working dataframe from session state
+        working_df: pd.DataFrame = st.session_state[f"{self.table_name}_working"]
         return st.data_editor(
-            self.original_df,
-            key=self.editor_key,
+            working_df,
+            key=self.table_name,
             column_config=self.column_config,
             column_order=self.column_order,
             num_rows="dynamic",
             on_change=self.sync,
         )
+
+    def write_changes_to_backend(
+        self,
+        modified_df: pd.DataFrame,
+    ) -> None:
+        """Write changes from modified_df to DB."""
+        backend_updates = st.session_state[f"{self.table_name}_backend_updates"]
+        added_rows: list = backend_updates["added_rows"]
+        edited_rows: dict = backend_updates["edited_rows"]
+        deleted_rows: list = backend_updates["deleted_rows"]
+
+        # map foreign keys if provided
+        for col in self.config:
+            if col.foreign_key_mapping:
+                for row in added_rows:
+                    row[col.column] = col.foreign_key_mapping.get(
+                        row[col.column],
+                        row[col.column],
+                    )
+                for changes in edited_rows.values():
+                    if col.column in changes:
+                        changes[col.column] = col.foreign_key_mapping.get(
+                            changes[col.column],
+                            changes[col.column],
+                        )
+
+        # === Deal with deleted rows ===
+        current_df: pd.DataFrame = st.session_state[f"{self.table_name}_current"]
+        deleted_ids = list(set(current_df["id"]) - set(modified_df["id"]))
+        deleted_rows.extend(deleted_ids)
+
+        # Add user_id to all rows
+        current_user: gotrue.types.User = st.session_state[models.SSKeys.CURRENT_USER]
+        for row in added_rows:
+            row["user_id"] = current_user.id
+        for changes in edited_rows.values():
+            changes["user_id"] = current_user.id
+        for row in deleted_rows:
+            row["user_id"] = current_user.id
+
+        if added_rows:
+            self.table.upsert(added_rows).execute()
+
+        if edited_rows:
+            for row_id, update_data in edited_rows.items():
+                self.table.update(update_data).eq("id", row_id).execute()
+
+        if deleted_rows:
+            self.table.delete().in_("id", deleted_rows).execute()
+            deleted_rows = []
+
+        st.session_state[f"{self.table_name}_current"] = modified_df.copy()
