@@ -13,7 +13,11 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ruff"]
+dev = [
+    "pyright",
+    "pytest",
+    "ruff",
+]
 
 [tool.mypy]
 ignore_missing_imports = true
