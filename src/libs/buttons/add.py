@@ -1,7 +1,8 @@
 """Module for the AddButton class."""
 
-import config
 import streamlit as st
+
+from src.libs import config
 
 
 class AddButton:
