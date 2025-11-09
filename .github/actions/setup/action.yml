@@ -4,4 +4,4 @@ runs:
   using: composite
   steps:
     - name: install uv
-      uses: astral-sh/setup-uv
+      uses: astral-sh/setup-uv@v7
