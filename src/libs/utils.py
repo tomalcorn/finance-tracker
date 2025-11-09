@@ -28,12 +28,12 @@ def get_column_values(
     _conn: SupabaseConnection,
     table_name: str,
     column_name: str,
-) -> pd.Series:
+) -> pd.Series[str | float | int]:
     """Get all values in a column by executing a select query."""
     response = _conn.table(table_name).select(column_name).execute()
     if response.data:
         column_data = [row[column_name] for row in response.data if column_name in row]
-        return pd.Series(column_data).dropna()
+        return pd.Series(column_data).dropna()  # type: ignore[no-any-return]
     return pd.Series([])
 
 
@@ -53,16 +53,14 @@ def get_original_data(
                     query = query.filter(col, op, value)
             else:
                 query = query.eq(col, condition)
-    response = query.execute()
-    if response.data:
-        return response.data
-    return []
+    response: list[dict[str, typing.Any]] = query.execute().data
+    return response or []
 
 
 def enforce_unique_cols(
     conn: SupabaseConnection,
     table_name: str,
-    row: dict,
+    row: dict[str, typing.Any],
     unique_columns: list[str],
 ) -> None:
     """Process a single row to enforce unique constraints."""

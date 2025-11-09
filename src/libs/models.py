@@ -85,7 +85,7 @@ class FunSpendingItemModel(FinanceTrackerBaseModel):
 class IncomeSourceModel(FinanceTrackerBaseModel):
     """Model representing an income source."""
 
-    budget_tracker_ids: list[str] = pydantic.Field(
+    budget_tracker_ids: list[uuid.UUID] = pydantic.Field(
         description="List of associated budget tracker item IDs.",
         default_factory=list,
     )
@@ -94,21 +94,21 @@ class IncomeSourceModel(FinanceTrackerBaseModel):
 class PaymentsModel(FinanceTrackerBaseModel):
     """Model representing a payment."""
 
-    income: float = pydantic.Field(
+    income: float | None = pydantic.Field(
         description="The income amount for the payment.",
-        default=0.0,
+        default=None,
     )
-    expense: float = pydantic.Field(
+    expense: float | None = pydantic.Field(
         description="The expense amount for the payment.",
-        default=0.0,
+        default=None,
     )
-    income_source_id: str = pydantic.Field(
+    income_source_id: uuid.UUID | None = pydantic.Field(
         description="The associated income source ID.",
-        default="",
+        default=None,
     )
-    expense_source_id: str = pydantic.Field(
+    expense_source_id: uuid.UUID | None = pydantic.Field(
         description="The associated expense source ID.",
-        default="",
+        default=None,
     )
     payment_date: datetime.date = pydantic.Field(
         description="The date of the payment.",
@@ -118,9 +118,8 @@ class PaymentsModel(FinanceTrackerBaseModel):
         description="Whether the payment has been checked/verified.",
         default=False,
     )
-    bank_account_id: str = pydantic.Field(
+    bank_account_id: uuid.UUID = pydantic.Field(
         description="The associated bank account ID.",
-        default="",
     )
 
 
