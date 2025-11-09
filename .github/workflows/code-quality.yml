@@ -1,4 +1,6 @@
 name: Python Code Quality
+env:
+  PYTHONPATH: "${{ github.workspace }}"
 on:
   push:
     branches: ["main"]
