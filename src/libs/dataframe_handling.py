@@ -6,36 +6,22 @@ import re
 import typing
 import uuid
 
-import gotrue
+import config
+import models
 import pandas as pd
-import pydantic
 import streamlit as st
-import streamlit.elements.lib.column_types as st_column_types
+import utils
 from pandas.api.types import (
     is_object_dtype,
 )
 from st_supabase_connection import SupabaseConnection
 from streamlit_extras import stylable_container as sc
 
-import models
-import utils
+if typing.TYPE_CHECKING:
+    import gotrue
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
-
-
-class DFEColumnConfig(pydantic.BaseModel):
-    """Configuration for a single column in the DataFrame Editor."""
-
-    column: str
-    column_config: st_column_types.ColumnConfig
-    button_label: str | None = None
-    input_widget: typing.Callable
-    input_kwargs: dict = {}
-    sorting: typing.Literal["asc", "desc", None] = None
-    filtering: str | dict[str, str] | None = None
-    foreign_key_mapping: dict[str, str] | None = None
-    enforce_unique: bool = False
 
 
 class DFEButtons:
@@ -44,7 +30,7 @@ class DFEButtons:
     def __init__(
         self,
         table_name: str,
-        config: list[DFEColumnConfig],
+        config: list[config.DFEColumnConfig],
         connection: SupabaseConnection,
         sorts: list[tuple[str, str | None]] | None = None,
         filters: dict[str, dict[str, typing.Any]] | None = None,
@@ -118,7 +104,8 @@ class DFEButtons:
         """Get all unique values in a column by executing a select query."""
         vals = utils.get_column_values(self.conn, self.table_name, column_name)
         if not vals.empty:
-            return vals.dropna().unique().tolist()
+            vals_list = vals.dropna().unique().tolist()
+            return vals_list if isinstance(vals_list, list) else []
         return []
 
     def _get_min_max_values(self, column_name: str) -> tuple[float, float]:
@@ -134,8 +121,8 @@ class DFEButtons:
         st.write(f"Add a new row to **{self.table_name}**")
         outputs = [
             column.input_widget(
-                label=column.button_label or column.column,
-                key=f"{self.table_name}_new_row_{column.column}",
+                label=column.button_label or column.column_name,
+                key=f"{self.table_name}_new_row_{column.column_name}",
                 **column.input_kwargs,
             )
             for column in self.config
@@ -148,7 +135,7 @@ class DFEButtons:
         )
         if submit_button:
             new_row = {
-                col.column: output
+                col.column_name: output
                 for col, output in zip(self.config, outputs, strict=False)
             }
             # Insert ID and user ID
@@ -159,7 +146,9 @@ class DFEButtons:
             new_row["user_id"] = current_user.id
 
             # Enforce unique constraint if specified
-            unique_columns = [col.column for col in self.config if col.enforce_unique]
+            unique_columns = [
+                col.column_name for col in self.config if col.enforce_unique
+            ]
             utils.enforce_unique_cols(
                 conn=self.conn,
                 table_name=self.table_name,
@@ -170,7 +159,9 @@ class DFEButtons:
             # Handle foreign key mapping if provided
             for col in self.config:
                 if col.foreign_key_mapping:
-                    new_row[col.column] = col.foreign_key_mapping[new_row[col.column]]
+                    new_row[col.column_name] = col.foreign_key_mapping[
+                        new_row[col.column_name]
+                    ]
 
             # convert date columns to ISO format, handle foreign keys
             for column_name, value in new_row.items():
@@ -188,12 +179,12 @@ class DFEButtons:
         sorts_dict = dict(self.sorts) if self.sorts else {}
 
         for col in self.config:
-            sorts_dict[col.column] = st.selectbox(
-                f"Sort by {col.button_label or col.column}",
+            sorts_dict[col.column_name] = st.selectbox(
+                f"Sort by {col.button_label or col.column_name}",
                 options=["asc", "desc", None],
-                key=f"{self.table_name}_sort_{col.column}",
-                index=["asc", "desc", None].index(sorts_dict.get(col.column))
-                if col.column in sorts_dict
+                key=f"{self.table_name}_sort_{col.column_name}",
+                index=["asc", "desc", None].index(sorts_dict.get(col.column_name))
+                if col.column_name in sorts_dict
                 else None,
             )
         submit_button = st.button(
@@ -220,7 +211,7 @@ class DFEButtons:
                 self._handle_date_filter(col)
             elif col.input_widget == st.number_input:
                 self._handle_number_filter(col)
-            elif (unique_vals := self.get_unique_values(col.column)) and len(
+            elif (unique_vals := self.get_unique_values(col.column_name)) and len(
                 unique_vals,
             ) < MAX_UNIQUE_VALUES:
                 self._handle_selectbox_filter(col, unique_vals)
@@ -240,84 +231,86 @@ class DFEButtons:
             st.session_state.pop(f"{self.table_name}_current", None)
             st.rerun()
 
-    def _handle_date_filter(self, col: DFEColumnConfig) -> None:
+    def _handle_date_filter(self, col: config.DFEColumnConfig) -> None:
         """Handle filtering for date columns."""
-        if self.filters.get(col.column) is not None:
+        if self.filters.get(col.column_name) is not None:
             default_date_s = (
-                self.filters[col.column]["gte"],
-                self.filters[col.column]["lte"],
+                self.filters[col.column_name]["gte"],
+                self.filters[col.column_name]["lte"],
             )
         else:
             default_date_s = utils.get_start_and_end_of_month()
 
         selected_dates = st.date_input(
-            f"Filter by {col.button_label or col.column}",
+            f"Filter by {col.button_label or col.column_name}",
             value=default_date_s,
-            key=f"{self.table_name}_filter_{col.column}",
+            key=f"{self.table_name}_filter_{col.column_name}",
         )
 
         if isinstance(selected_dates, tuple) and len(selected_dates) > 1:
-            self.filters[col.column] = {
+            self.filters[col.column_name] = {
                 "gte": selected_dates[0].isoformat(),
                 "lte": selected_dates[1].isoformat(),
             }
         elif isinstance(selected_dates, tuple) and len(selected_dates) == 1:
-            self.filters[col.column] = {
+            self.filters[col.column_name] = {
                 "gte": selected_dates[0].isoformat(),
                 "lte": selected_dates[0].isoformat(),
             }
         else:
-            self.filters[col.column] = {}
+            self.filters[col.column_name] = {}
 
-    def _handle_number_filter(self, col: DFEColumnConfig) -> None:
+    def _handle_number_filter(self, col: config.DFEColumnConfig) -> None:
         """Handle filtering for numeric columns."""
-        if col.column in self.filters:
-            min_value = self.filters[col.column]["gte"]
-            max_value = self.filters[col.column]["lte"]
+        if col.column_name in self.filters:
+            min_value = self.filters[col.column_name]["gte"]
+            max_value = self.filters[col.column_name]["lte"]
         else:
-            min_value, max_value = self._get_min_max_values(col.column)
+            min_value, max_value = self._get_min_max_values(col.column_name)
         if min_value == max_value:
-            self.filters.pop(col.column, None)
+            self.filters.pop(col.column_name, None)
             return  # No need to show slider if min and max are the same
         step = (max_value - min_value) / 100
         selected_values = st.slider(
-            f"Filter by {col.button_label or col.column}",
+            f"Filter by {col.button_label or col.column_name}",
             min_value=min_value,
             max_value=max_value,
             value=(min_value, max_value),
             step=step,
-            key=f"{self.table_name}_filter_{col.column}",
+            key=f"{self.table_name}_filter_{col.column_name}",
         )
         if selected_values == (min_value, max_value):
-            self.filters.pop(col.column, None)
+            self.filters.pop(col.column_name, None)
         else:
-            self.filters[col.column] = {
+            self.filters[col.column_name] = {
                 "gte": selected_values[0],
                 "lte": selected_values[1],
             }
 
     def _handle_selectbox_filter(
         self,
-        col: DFEColumnConfig,
+        col: config.DFEColumnConfig,
         unique_vals: list[typing.Any],
     ) -> None:
         """Handle filtering using a selectbox for columns with few unique values."""
         selected_values = st.multiselect(
-            f"Filter by {col.button_label or col.column}",
+            f"Filter by {col.button_label or col.column_name}",
             options=unique_vals,
-            default=self.filters.get(col.column, []),
-            key=f"{self.table_name}_filter_{col.column}",
+            default=self.filters.get(col.column_name, []),
+            key=f"{self.table_name}_filter_{col.column_name}",
         )
-        self.filters[col.column] = {"in": selected_values} if selected_values else {}
+        self.filters[col.column_name] = (
+            {"in": selected_values} if selected_values else {}
+        )
 
-    def _handle_generic_filter(self, col: DFEColumnConfig) -> None:
+    def _handle_generic_filter(self, col: config.DFEColumnConfig) -> None:
         """Handle generic filtering for other column types."""
         user_text_input = st.text_input(
-            f"Filter by {col.button_label or col.column}",
-            value=self.filters.get(col.column, ""),
-            key=f"{self.table_name}_filter_{col.column}",
+            f"Filter by {col.button_label or col.column_name}",
+            value=self.filters.get(col.column_name, ""),
+            key=f"{self.table_name}_filter_{col.column_name}",
         )
-        self.filters[col.column] = (
+        self.filters[col.column_name] = (
             {"contains": user_text_input} if user_text_input else {}
         )
 
@@ -330,7 +323,7 @@ class DFE:
         table_name: str,
         sample_data: pd.DataFrame,
         connection: SupabaseConnection,
-        config: list[DFEColumnConfig],
+        config: list[config.DFEColumnConfig],
         column_order: list[str],
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
@@ -353,25 +346,29 @@ class DFE:
 
     def _initialize_column_settings(
         self,
-        config: list[DFEColumnConfig],
+        config: list[config.DFEColumnConfig],
         column_order: list[str],
     ) -> None:
         """Initialize column configuration and order."""
-        self.column_config = {col.column: col.column_config for col in config}
+        self.column_config = {col.column_name: col.column_config for col in config}
         self.column_order = column_order
 
         # Retrieve sorting from session state or config
         if f"{self.table_name}_sorts" in st.session_state:
             self.sorts = st.session_state[f"{self.table_name}_sorts"]
         else:
-            self.sorts = [(col.column, col.sorting) for col in config if col.sorting]
+            self.sorts = [
+                (col.column_name, col.sorting) for col in config if col.sorting
+            ]
 
         # Retrieve filtering from session state or config
         if f"{self.table_name}_filters" in st.session_state:
             self.filters = st.session_state[f"{self.table_name}_filters"]
         else:
             self.filters = {
-                col.column: col.filtering for col in config if col.filtering is not None
+                col.column_name: col.filtering
+                for col in config
+                if col.filtering is not None
             }
 
     def _initialize_session_state(self, sample_data: pd.DataFrame) -> None:
@@ -389,7 +386,7 @@ class DFE:
             # Handle foreign key mapping if provided
             for col in self.config:
                 if col.foreign_key_mapping:
-                    original_data[col.column] = original_data[col.column].map(
+                    original_data[col.column_name] = original_data[col.column_name].map(
                         col.foreign_key_mapping,
                     )
             working_df = self._convert_cols_to_datetime(
@@ -612,12 +609,12 @@ class DFE:
         editor_state = st.session_state[self.table_name]
         working_df: pd.DataFrame = st.session_state[f"{self.table_name}_working"].copy()
         working_df = self._apply_changes_to_working_df(editor_state, working_df)
-        unique_cols = [col.column for col in self.config if col.enforce_unique]
+        unique_cols = [col.column_name for col in self.config if col.enforce_unique]
 
         # === Deal with added rows ===
         added_rows = editor_state["added_rows"]
-        row_ids: list = st.session_state[f"{self.table_name}_row_ids"]
-        backend_added_rows: list = st.session_state[
+        row_ids: list[int] = st.session_state[f"{self.table_name}_row_ids"]
+        backend_added_rows: list[int] = st.session_state[
             f"{self.table_name}_backend_updates"
         ]["added_rows"]
         # Deal with deleted added_rows
@@ -680,29 +677,29 @@ class DFE:
             on_change=self.sync,
         )
 
-    def write_changes_to_backend(
+    def write_changes_to_backend(  # noqa: C901 - will resolve later
         self,
         modified_df: pd.DataFrame,
     ) -> None:
         """Write changes from modified_df to DB."""
         backend_updates = st.session_state[f"{self.table_name}_backend_updates"]
-        added_rows: list = backend_updates["added_rows"]
-        edited_rows: dict = backend_updates["edited_rows"]
-        deleted_rows: list = backend_updates["deleted_rows"]
+        added_rows: list[dict[str, typing.Any]] = backend_updates["added_rows"]
+        edited_rows: dict[str, dict[str, typing.Any]] = backend_updates["edited_rows"]
+        deleted_rows: list[dict[str, typing.Any]] = backend_updates["deleted_rows"]
 
         # map foreign keys if provided
         for col in self.config:
             if col.foreign_key_mapping:
                 for row in added_rows:
-                    row[col.column] = col.foreign_key_mapping.get(
-                        row[col.column],
-                        row[col.column],
+                    row[col.column_name] = col.foreign_key_mapping.get(
+                        row[col.column_name],
+                        row[col.column_name],
                     )
                 for changes in edited_rows.values():
-                    if col.column in changes:
-                        changes[col.column] = col.foreign_key_mapping.get(
-                            changes[col.column],
-                            changes[col.column],
+                    if col.column_name in changes:
+                        changes[col.column_name] = col.foreign_key_mapping.get(
+                            changes[col.column_name],
+                            changes[col.column_name],
                         )
 
         # === Deal with deleted rows ===
