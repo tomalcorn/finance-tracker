@@ -17,9 +17,6 @@ from pandas.api.types import (
 from st_supabase_connection import SupabaseConnection
 from streamlit_extras import stylable_container as sc
 
-if typing.TYPE_CHECKING:
-    import gotrue
-
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
 
@@ -140,7 +137,7 @@ class DFEButtons:
             }
             # Insert ID and user ID
             new_row["id"] = str(uuid.uuid4())
-            current_user: gotrue.types.User = st.session_state[
+            current_user: models.UserModel = st.session_state[
                 models.SSKeys.CURRENT_USER
             ]
             new_row["user_id"] = current_user.id
@@ -708,7 +705,7 @@ class DFE:
         deleted_rows.extend(deleted_ids)
 
         # Add user_id to all rows
-        current_user: gotrue.types.User = st.session_state[models.SSKeys.CURRENT_USER]
+        current_user: models.UserModel = st.session_state[models.SSKeys.CURRENT_USER]
         for row in added_rows:
             row["user_id"] = current_user.id
         for changes in edited_rows.values():
