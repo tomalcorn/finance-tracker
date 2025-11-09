@@ -19,14 +19,14 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The label for the input button.",
         default=None,
     )
-    input_widget: typing.Callable = pydantic.Field(
+    input_widget: typing.Callable = pydantic.Field(  # type: ignore[type-arg]
         description="The input widget callable from Streamlit.",
     )
-    input_kwargs: dict = pydantic.Field(
+    input_kwargs: dict[str, typing.Any] = pydantic.Field(
         description="The keyword arguments for the input widget.",
         default={},
     )
-    sorting: typing.Literal["asc", "desc", None] = pydantic.Field(
+    sorting: typing.Literal["asc", "desc"] | None = pydantic.Field(
         description="The sorting direction for the column.",
         default=None,
     )

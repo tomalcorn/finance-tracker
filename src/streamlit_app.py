@@ -2,13 +2,12 @@
 
 import uuid
 
-import pandas as pd
-import streamlit as st
-from st_supabase_connection import SupabaseConnection
-
 import dataframe_handling as dfh
 import models
+import pandas as pd
+import streamlit as st
 import utils
+from st_supabase_connection import SupabaseConnection
 
 # Set up supabase connection and authenticate user
 conn = st.connection("supabase", type=SupabaseConnection)
