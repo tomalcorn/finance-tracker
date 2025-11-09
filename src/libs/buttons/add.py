@@ -1,5 +1,7 @@
 """Module for the AddButton class."""
 
+import typing
+
 import streamlit as st
 
 from src.libs import config
@@ -17,7 +19,7 @@ class AddButton:
         self._table_name = table_name
         self._col_configs = col_configs
 
-    def _submit_new_row(self, new_row: dict) -> None:
+    def _submit_new_row(self, new_row: dict[str, typing.Any]) -> None:
         """Handle the submission of a new row."""
         msg = "This method should be implemented to handle new row submission."
         raise NotImplementedError(msg)

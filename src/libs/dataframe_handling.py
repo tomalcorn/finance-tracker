@@ -7,7 +7,6 @@ import typing
 import uuid
 
 import config
-import gotrue
 import models
 import pandas as pd
 import streamlit as st
@@ -17,6 +16,9 @@ from pandas.api.types import (
 )
 from st_supabase_connection import SupabaseConnection
 from streamlit_extras import stylable_container as sc
+
+if typing.TYPE_CHECKING:
+    import gotrue
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -102,7 +104,8 @@ class DFEButtons:
         """Get all unique values in a column by executing a select query."""
         vals = utils.get_column_values(self.conn, self.table_name, column_name)
         if not vals.empty:
-            return vals.dropna().unique().tolist()
+            vals_list = vals.dropna().unique().tolist()
+            return vals_list if isinstance(vals_list, list) else []
         return []
 
     def _get_min_max_values(self, column_name: str) -> tuple[float, float]:
@@ -610,8 +613,8 @@ class DFE:
 
         # === Deal with added rows ===
         added_rows = editor_state["added_rows"]
-        row_ids: list = st.session_state[f"{self.table_name}_row_ids"]
-        backend_added_rows: list = st.session_state[
+        row_ids: list[int] = st.session_state[f"{self.table_name}_row_ids"]
+        backend_added_rows: list[int] = st.session_state[
             f"{self.table_name}_backend_updates"
         ]["added_rows"]
         # Deal with deleted added_rows
@@ -674,15 +677,15 @@ class DFE:
             on_change=self.sync,
         )
 
-    def write_changes_to_backend(
+    def write_changes_to_backend(  # noqa: C901 - will resolve later
         self,
         modified_df: pd.DataFrame,
     ) -> None:
         """Write changes from modified_df to DB."""
         backend_updates = st.session_state[f"{self.table_name}_backend_updates"]
-        added_rows: list = backend_updates["added_rows"]
-        edited_rows: dict = backend_updates["edited_rows"]
-        deleted_rows: list = backend_updates["deleted_rows"]
+        added_rows: list[dict[str, typing.Any]] = backend_updates["added_rows"]
+        edited_rows: dict[str, dict[str, typing.Any]] = backend_updates["edited_rows"]
+        deleted_rows: list[dict[str, typing.Any]] = backend_updates["deleted_rows"]
 
         # map foreign keys if provided
         for col in self.config:
