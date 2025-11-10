@@ -3,7 +3,7 @@
 import typing
 
 import pydantic
-import streamlit.elements.lib.column_types as st_column_types
+import streamlit as st
 
 
 class DFEColumnConfig(pydantic.BaseModel):
@@ -12,8 +12,12 @@ class DFEColumnConfig(pydantic.BaseModel):
     column_name: str = pydantic.Field(
         description="The name of the column in the DataFrame.",
     )
-    column_config: st_column_types.ColumnConfig = pydantic.Field(
-        description="The Streamlit column configuration.",
+    column_config: dict[str, typing.Any] = pydantic.Field(
+        description=(
+            "The Streamlit column configuration. Needs to be converted from streamlit "
+            "column_config objects to dictionaries due to type checking problems. "
+            "Needs to be converted back to streamlit column_config objects before use."
+        ),
     )
     button_label: str | None = pydantic.Field(
         description="The label for the input button.",
@@ -42,3 +46,23 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="Whether to enforce unique values in the column.",
         default=False,
     )
+
+
+test_config = DFEColumnConfig(
+    column_name="example_column",
+    column_config={
+        "label": "Example Column",
+        "disabled": True,
+    },
+    button_label="Example Column",
+    input_widget=st.text_input,
+    input_kwargs={},
+    sorting=None,
+    filtering=None,
+    foreign_key_mapping=None,
+    enforce_unique=False,
+)
+
+column_config = st.column_config.TextColumn(**test_config.column_config)
+
+print(column_config)
