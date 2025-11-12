@@ -60,7 +60,7 @@ class SortButton(base.BaseButton):
 
             col_config.sorting = sort_order
         # Store configs in session state
-        if st.button("Apply Sorting"):
+        if st.button("Apply Sorting", key=f"{self._table_name}_apply_sorting_button"):
             st.session_state[f"{self._table_name}_{models.SSKeys.COL_CONFIGS}"] = (
                 self._col_configs
             )

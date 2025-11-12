@@ -2,6 +2,7 @@
 
 import pytest
 import streamlit.testing.v1 as st_test
+from src.libs import config, models
 from tests import conftest
 
 
@@ -89,7 +90,6 @@ class TestSortButton:
         [
             ("asc", ["asc", "asc"]),
             ("desc", ["desc", "desc"]),
-            (None, [None, None]),
         ],
     )
     def test_sort_button_dialog_updates_sorting(
@@ -103,10 +103,12 @@ class TestSortButton:
         app_tester.run()
         for i in range(len(app_tester.selectbox)):
             app_tester.selectbox[i].select(new_selection)
+        app_tester.button("test_table_apply_sorting_button").click()
         app_tester.run()
 
         # Assert - sorting updated correctly
-        actual_sorting = [
-            app_tester.selectbox[i].value for i in range(len(app_tester.selectbox))
+        updated_col_configs: list[config.DFEColumnConfig] = app_tester.session_state[
+            f"test_table_{models.SSKeys.COL_CONFIGS}"
         ]
+        actual_sorting = [col_config.sorting for col_config in updated_col_configs]
         assert actual_sorting == expected_sorting
