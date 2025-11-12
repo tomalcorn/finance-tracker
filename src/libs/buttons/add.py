@@ -5,9 +5,10 @@ import typing
 import streamlit as st
 
 from src.libs import config
+from src.libs.buttons import base
 
 
-class AddButton:
+class AddButton(base.BaseButton):
     """Class representing an 'Add' button in the UI."""
 
     def __init__(
