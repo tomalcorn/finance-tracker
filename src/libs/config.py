@@ -3,7 +3,6 @@
 import typing
 
 import pydantic
-import streamlit as st
 
 
 class DFEColumnConfig(pydantic.BaseModel):
@@ -56,23 +55,3 @@ class DFEColumnConfig(pydantic.BaseModel):
             msg = f"Invalid sorting value: {value}. Must be one of {valid_sortings}."
             raise ValueError(msg)
         return value
-
-
-test_config = DFEColumnConfig(
-    column_name="example_column",
-    column_config={
-        "label": "Example Column",
-        "disabled": True,
-    },
-    button_label="Example Column",
-    input_widget=st.text_input,
-    input_kwargs={},
-    sorting=None,
-    filtering=None,
-    foreign_key_mapping=None,
-    enforce_unique=False,
-)
-
-column_config = st.column_config.TextColumn(**test_config.column_config)
-
-print(column_config)
