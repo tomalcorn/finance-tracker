@@ -187,8 +187,3 @@ class TestSortButtonDialog:
         ]
         actual_sorting = [col_config.sorting for col_config in updated_col_configs]
         assert actual_sorting == expected_sorting
-
-
-def test_dummy_test() -> None:
-    """Dummy test to ensure at least one test is present."""
-    assert 1 == 2
