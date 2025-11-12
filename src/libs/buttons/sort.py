@@ -8,6 +8,7 @@ if available.
 """
 
 import streamlit as st
+from streamlit_extras import stylable_container
 
 from src.libs import config, models
 from src.libs.buttons import base
@@ -32,6 +33,12 @@ class SortButton(base.BaseButton):
         """Override column configs from session state if available."""
         session_key = f"{self._table_name}_{models.SSKeys.COL_CONFIGS}"
         return st.session_state.get(session_key, None)
+
+    def _current_css_style(self) -> str:
+        """Get the current CSS style based on whether sorting is applied."""
+        if any(col_config.sorting is not None for col_config in self._col_configs):
+            return self.css_style_active
+        return self.css_style_normal
 
     @st.dialog("Sort Columns")
     def _sorting_button_dialog(self) -> None:
@@ -72,14 +79,18 @@ class SortButton(base.BaseButton):
             Otherwise, returns the original column configs.
 
         """
-        if st.button(
-            label="Sort",
-            icon="↕️",
-            key=f"{self._table_name}_sort_button",
+        with stylable_container.stylable_container(
+            key=f"{self._table_name}_sort_button_container",
+            css_styles=self._current_css_style(),
         ):
-            self._sorting_button_dialog()
+            if st.button(
+                label="Sort",
+                icon="↕️",
+                key=f"{self._table_name}_sort_button",
+            ):
+                self._sorting_button_dialog()
         returned_configs: list[config.DFEColumnConfig] = st.session_state.get(
-            f"{self._table_name}_col_configs",
+            f"{self._table_name}_{models.SSKeys.COL_CONFIGS}",
             self._col_configs,
         )
         return returned_configs

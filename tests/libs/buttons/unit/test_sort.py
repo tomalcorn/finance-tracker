@@ -42,18 +42,24 @@ def _app_tester() -> st_test.AppTest:
     )
 
 
-def test_override_configs_from_session_state_returns_none() -> None:
-    """Test _override_configs_from_session_state returns None when no session state."""
-    # Arrange
-    dfe_configs = [
+@pytest.fixture(name="col_configs")
+def _col_configs() -> list[config.DFEColumnConfig]:
+    return [
         config.DFEColumnConfig(
             column_name="col1",
             column_config={},
             input_widget=st.text_input,
-            sorting="asc",
+            sorting=None,
         ),
     ]
-    sort_button = sort.SortButton("test_table", dfe_configs)
+
+
+def test_override_configs_from_session_state_returns_none(
+    col_configs: list[config.DFEColumnConfig],
+) -> None:
+    """Test _override_configs_from_session_state returns None when no session state."""
+    # Arrange
+    sort_button = sort.SortButton("test_table", col_configs)
 
     # Act
     result = sort_button._override_configs_from_session_state()
@@ -62,28 +68,51 @@ def test_override_configs_from_session_state_returns_none() -> None:
     assert result is None
 
 
-def test_override_configs_from_session_state_returns_configs() -> None:
+def test_override_configs_from_session_state_returns_configs(
+    col_configs: list[config.DFEColumnConfig],
+) -> None:
     """Test _override_configs_from_session_state returns configs from session state."""
     # Arrange
-    dfe_configs = [
-        config.DFEColumnConfig(
-            column_name="col1",
-            column_config={},
-            input_widget=st.text_input,
-            sorting="asc",
-        ),
-    ]
     sort_button = sort.SortButton("test_table", [])
 
     # Set session state
     session_key = f"test_table_{models.SSKeys.COL_CONFIGS}"
-    st.session_state[session_key] = dfe_configs
+    st.session_state[session_key] = col_configs
 
     # Act
     result = sort_button._override_configs_from_session_state()
 
     # Assert
-    assert result == dfe_configs
+    assert result == col_configs
+
+
+def test_current_css_style_no_sorting(
+    col_configs: list[config.DFEColumnConfig],
+) -> None:
+    """Test _current_css_style returns normal style when no sorting applied."""
+    # Arrange
+    sort_button = sort.SortButton("test_table_1", col_configs)
+
+    # Act
+    result = sort_button._current_css_style()
+
+    # Assert
+    assert result == sort_button.css_style_normal
+
+
+def test_current_css_style_with_sorting(
+    col_configs: list[config.DFEColumnConfig],
+) -> None:
+    """Test _current_css_style returns active style when sorting is applied."""
+    # Arrange
+    col_configs_w_sorting = [col_configs[0].model_copy(update={"sorting": "asc"})]
+    sort_button = sort.SortButton("test_table_2", col_configs_w_sorting)
+
+    # Act
+    result = sort_button._current_css_style()
+
+    # Assert
+    assert result == sort_button.css_style_active
 
 
 class TestSortButtonDialog:
