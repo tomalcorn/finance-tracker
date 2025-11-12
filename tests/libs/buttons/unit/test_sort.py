@@ -1,8 +1,10 @@
 """Unit tests for the sort button module."""
 
 import pytest
+import streamlit as st
 import streamlit.testing.v1 as st_test
 from src.libs import config, models
+from src.libs.buttons import sort
 from tests import conftest
 
 
@@ -40,8 +42,52 @@ def _app_tester() -> st_test.AppTest:
     )
 
 
-class TestSortButton:
-    """Tests for the SortButton class."""
+def test_override_configs_from_session_state_returns_none() -> None:
+    """Test _override_configs_from_session_state returns None when no session state."""
+    # Arrange
+    dfe_configs = [
+        config.DFEColumnConfig(
+            column_name="col1",
+            column_config={},
+            input_widget=st.text_input,
+            sorting="asc",
+        ),
+    ]
+    sort_button = sort.SortButton("test_table", dfe_configs)
+
+    # Act
+    result = sort_button._override_configs_from_session_state()
+
+    # Assert
+    assert result is None
+
+
+def test_override_configs_from_session_state_returns_configs() -> None:
+    """Test _override_configs_from_session_state returns configs from session state."""
+    # Arrange
+    dfe_configs = [
+        config.DFEColumnConfig(
+            column_name="col1",
+            column_config={},
+            input_widget=st.text_input,
+            sorting="asc",
+        ),
+    ]
+    sort_button = sort.SortButton("test_table", [])
+
+    # Set session state
+    session_key = f"test_table_{models.SSKeys.COL_CONFIGS}"
+    st.session_state[session_key] = dfe_configs
+
+    # Act
+    result = sort_button._override_configs_from_session_state()
+
+    # Assert
+    assert result == dfe_configs
+
+
+class TestSortButtonDialog:
+    """Tests for the SortButton dialog method."""
 
     def test_sort_button_dialog_text_renders(self, app_tester: st_test.AppTest) -> None:
         """Test _sorting_button_dialog renders text successfully."""
