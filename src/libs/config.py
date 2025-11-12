@@ -30,7 +30,7 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The keyword arguments for the input widget.",
         default={},
     )
-    sorting: typing.Literal["asc", "desc"] | None = pydantic.Field(
+    sorting: str | None = pydantic.Field(
         description="The sorting direction for the column.",
         default=None,
     )
@@ -46,6 +46,16 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="Whether to enforce unique values in the column.",
         default=False,
     )
+
+    @pydantic.field_validator("sorting", mode="after")
+    @classmethod
+    def validate_sorting(cls, value: str | None) -> str | None:
+        """Validate the sorting value."""
+        valid_sortings = {"asc", "desc", None}
+        if value not in valid_sortings:
+            msg = f"Invalid sorting value: {value}. Must be one of {valid_sortings}."
+            raise ValueError(msg)
+        return value
 
 
 test_config = DFEColumnConfig(
