@@ -3,7 +3,7 @@
 
 ## Summary
 
-Provide a one-line summary of the change and the motivation.
+*Provide a one-line summary of the change and the motivation.*
 
 - What: (e.g. moved `sort` button into `libs/buttons/sort.py`)
 - Why: (brief motivation)
