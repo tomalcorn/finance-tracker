@@ -31,9 +31,7 @@ class SortButton(base.BaseButton):
     ) -> list[config.DFEColumnConfig] | None:
         """Override column configs from session state if available."""
         session_key = f"{self._table_name}_{models.SSKeys.COL_CONFIGS}"
-        if session_key in st.session_state:
-            return st.session_state[session_key]
-        return None
+        return st.session_state.get(session_key, None)
 
     @st.dialog("Sort Columns")
     def _sorting_button_dialog(self) -> None:
