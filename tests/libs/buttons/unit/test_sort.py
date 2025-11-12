@@ -171,7 +171,7 @@ class TestSortButtonDialog:
         self,
         app_tester: st_test.AppTest,
         new_selection: str,
-        expected_sorting: str | None,
+        expected_sorting: list[str | None],
     ) -> None:
         """Test _sorting_button_dialog updates sorting based on user input."""
         # Act - render button and make selections
