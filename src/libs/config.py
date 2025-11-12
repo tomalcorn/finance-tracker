@@ -3,7 +3,6 @@
 import typing
 
 import pydantic
-import streamlit.elements.lib.column_types as st_column_types
 
 
 class DFEColumnConfig(pydantic.BaseModel):
@@ -12,8 +11,12 @@ class DFEColumnConfig(pydantic.BaseModel):
     column_name: str = pydantic.Field(
         description="The name of the column in the DataFrame.",
     )
-    column_config: st_column_types.ColumnConfig = pydantic.Field(
-        description="The Streamlit column configuration.",
+    column_config: dict[str, typing.Any] = pydantic.Field(
+        description=(
+            "The Streamlit column configuration. Needs to be converted from streamlit "
+            "column_config objects to dictionaries due to type checking problems. "
+            "Needs to be converted back to streamlit column_config objects before use."
+        ),
     )
     button_label: str | None = pydantic.Field(
         description="The label for the input button.",
@@ -26,7 +29,7 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The keyword arguments for the input widget.",
         default={},
     )
-    sorting: typing.Literal["asc", "desc"] | None = pydantic.Field(
+    sorting: str | None = pydantic.Field(
         description="The sorting direction for the column.",
         default=None,
     )
@@ -42,3 +45,13 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="Whether to enforce unique values in the column.",
         default=False,
     )
+
+    @pydantic.field_validator("sorting", mode="after")
+    @classmethod
+    def validate_sorting(cls, value: str | None) -> str | None:
+        """Validate the sorting value."""
+        valid_sortings = {"asc", "desc", None}
+        if value not in valid_sortings:
+            msg = f"Invalid sorting value: {value}. Must be one of {valid_sortings}."
+            raise ValueError(msg)
+        return value

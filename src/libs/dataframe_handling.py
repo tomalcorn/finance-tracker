@@ -17,9 +17,6 @@ from pandas.api.types import (
 from st_supabase_connection import SupabaseConnection
 from streamlit_extras import stylable_container as sc
 
-if typing.TYPE_CHECKING:
-    import gotrue
-
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
 
@@ -140,7 +137,7 @@ class DFEButtons:
             }
             # Insert ID and user ID
             new_row["id"] = str(uuid.uuid4())
-            current_user: gotrue.types.User = st.session_state[
+            current_user: models.UserModel = st.session_state[
                 models.SSKeys.CURRENT_USER
             ]
             new_row["user_id"] = current_user.id
@@ -509,15 +506,17 @@ class DFE:
         return sorts_changed
 
     def sort_columns(
-        _self,  # noqa: N805
+        self,
         working_df: pd.DataFrame,
     ) -> pd.DataFrame:
         """Sort the original dataframe by a list of column names."""
         sorted_df = working_df.copy()
-        if _self.sorts is not None:
-            for col, direction in _self.sorts:
-                ascending = direction.lower() == "asc"
-                sorted_df = sorted_df.sort_values(by=col, ascending=ascending)
+        for col in self.config:
+            if col.sorting is not None:
+                sorted_df = sorted_df.sort_values(
+                    by=col.column_name,
+                    ascending=col.sorting == "asc",
+                )
         return sorted_df.reset_index(drop=True)
 
     def _add_rows(
@@ -708,7 +707,7 @@ class DFE:
         deleted_rows.extend(deleted_ids)
 
         # Add user_id to all rows
-        current_user: gotrue.types.User = st.session_state[models.SSKeys.CURRENT_USER]
+        current_user: models.UserModel = st.session_state[models.SSKeys.CURRENT_USER]
         for row in added_rows:
             row["user_id"] = current_user.id
         for changes in edited_rows.values():
