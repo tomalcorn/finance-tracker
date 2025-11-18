@@ -12,6 +12,11 @@ class Filters(pydantic.BaseModel):
         description="Equality filter value.",
         default=None,
     )
+    in_: list[typing.Any] | None = pydantic.Field(
+        description="In filter values.",
+        alias="in",
+        default=None,
+    )
     lt: typing.Any | None = pydantic.Field(
         description="Less than filter value.",
         default=None,
@@ -26,6 +31,10 @@ class Filters(pydantic.BaseModel):
     )
     gte: typing.Any | None = pydantic.Field(
         description="Greater than or equal to filter value.",
+        default=None,
+    )
+    contains: str | None = pydantic.Field(
+        description="Contains filter value for string matching.",
         default=None,
     )
 

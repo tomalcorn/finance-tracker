@@ -1,6 +1,9 @@
 """Module for the FilterButton class."""
 
+import typing
+
 import streamlit as st
+from streamlit_extras import stylable_container
 
 from src.libs import config, constants, utils
 from src.libs.buttons import base
@@ -16,6 +19,12 @@ class FilterButton(base.BaseButton):
     ) -> None:
         """Initialize the FilterButton instance."""
         super().__init__(table_name, col_configs)
+
+    def _current_css_style(self) -> str:
+        """Get the current CSS style based on whether filtering is applied."""
+        if any(col_config.filtering is not None for col_config in self._col_configs):
+            return self.css_style_active
+        return self.css_style_normal
 
     def _handle_date_filtering(
         self,
@@ -80,14 +89,34 @@ class FilterButton(base.BaseButton):
     def _handle_selectbox_filtering(
         self,
         col_config: config.DFEColumnConfig,
+        unique_values: set[typing.Any],
     ) -> config.Filters | None:
         """Handle filtering using a selectbox for columns with limited unique values."""
+        # Safely get default selected values
+        default_selected: set[typing.Any] = set()
+        if col_config.filtering:
+            default_selected = set(col_config.filtering.eq or col_config.filtering.in_)
+            default_selected &= unique_values
+
+        selected_values = st.multiselect(
+            label=f"Filter by {col_config.button_label or col_config.column_name}",
+            options=unique_values,
+            default=list(default_selected) if default_selected else None,
+            key=f"{self._table_name}_filter_selectbox_{col_config.column_name}",
+        )
+        return config.Filters(in_=selected_values) if selected_values else None
 
     def _handle_generic_filtering(
         self,
         col_config: config.DFEColumnConfig,
     ) -> config.Filters | None:
         """Handle generic filtering using a text input."""
+        user_text_input = st.text_input(
+            label=f"Filter by {col_config.button_label or col_config.column_name}",
+            value=col_config.filtering.eq if col_config.filtering else "",
+            key=f"{self._table_name}_filter_text_{col_config.column_name}",
+        )
+        return config.Filters(contains=user_text_input) if user_text_input else None
 
     @st.dialog("Filter Columns")
     def _filtering_button_dialog(self) -> None:
@@ -124,3 +153,27 @@ class FilterButton(base.BaseButton):
                 self._col_configs
             )
             st.rerun()
+
+    def __call__(self) -> list[config.DFEColumnConfig]:
+        """Render the filter button in the UI.
+
+        Returns:
+            If clicked and filtering options selected, returns updated column configs.
+            Otherwise, returns the original column configs.
+
+        """
+        with stylable_container.stylable_container(
+            key=f"{self._table_name}_filter_button_container",
+            css_styles=self._current_css_style(),
+        ):
+            if st.button(
+                label="Filter",
+                icon="🔍",
+                key=f"{self._table_name}_filter_button",
+            ):
+                self._filtering_button_dialog()
+        returned_configs: list[config.DFEColumnConfig] = st.session_state.get(
+            f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}",
+            self._col_configs,
+        )
+        return returned_configs

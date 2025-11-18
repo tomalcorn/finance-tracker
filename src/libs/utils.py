@@ -41,13 +41,13 @@ def get_column_values(
 def get_unique_values(
     table_name: str,
     column_name: str,
-) -> list[typing.Any]:
+) -> set[typing.Any]:
     """Get all unique values in a column by executing a select query."""
     vals = get_column_values(table_name, column_name)
     if not vals.empty:
         vals_list = vals.dropna().unique().tolist()
-        return vals_list if isinstance(vals_list, list) else []
-    return []
+        return set(vals_list) if isinstance(vals_list, list) else set()
+    return set()
 
 
 def get_min_max_values(table_name: str, column_name: str) -> tuple[float, float]:
