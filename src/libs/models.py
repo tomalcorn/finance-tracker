@@ -1,17 +1,9 @@
 """Pydantic models for backend model validation."""
 
 import datetime
-import enum
 import uuid
 
 import pydantic
-
-
-class SSKeys(enum.StrEnum):
-    """Keys for session state management."""
-
-    CURRENT_USER = enum.auto()
-    COL_CONFIGS = enum.auto()
 
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):

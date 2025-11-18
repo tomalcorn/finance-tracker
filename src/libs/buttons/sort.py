@@ -23,19 +23,7 @@ class SortButton(base.BaseButton):
         col_configs: list[config.DFEColumnConfig],
     ) -> None:
         """Initialize the SortButton instance."""
-        super().__init__()
-        self._table_name = table_name
-        self._col_configs = self._override_configs_from_session_state() or col_configs
-
-    def _override_configs_from_session_state(
-        self,
-    ) -> list[config.DFEColumnConfig] | None:
-        """Override column configs from session state if available."""
-        session_key = f"{self._table_name}_{models.SSKeys.COL_CONFIGS}"
-        if session_key in st.session_state:
-            configs: list[config.DFEColumnConfig] = st.session_state[session_key]
-            return configs
-        return None
+        super().__init__(table_name, col_configs)
 
     def _current_css_style(self) -> str:
         """Get the current CSS style based on whether sorting is applied."""
