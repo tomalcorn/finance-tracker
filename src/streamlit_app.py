@@ -2,12 +2,12 @@
 
 import uuid
 
-import dataframe_handling as dfh
-import models
 import pandas as pd
 import streamlit as st
-import utils
 from st_supabase_connection import SupabaseConnection
+
+import src.libs.dataframe_handling as dfh
+from src.libs import constants, utils
 
 # Set up supabase connection and authenticate user
 conn = st.connection("supabase", type=SupabaseConnection)
@@ -19,7 +19,7 @@ auth_resp = conn.auth.sign_in_with_password(
     },
 )
 conn.client.postgrest.auth(auth_resp.session.access_token)
-st.session_state[models.SSKeys.CURRENT_USER] = auth_resp.user
+st.session_state[constants.SSKeys.CURRENT_USER] = auth_resp.user
 
 # Get bank accounts from the database
 bank_accounts = utils.get_original_data(

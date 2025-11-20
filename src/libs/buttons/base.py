@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from src.libs import config, models
+from src.libs import config, constants
 
 
 class BaseButton:
@@ -35,7 +35,7 @@ class BaseButton:
         self,
     ) -> list[config.DFEColumnConfig] | None:
         """Override column configs from session state if available."""
-        session_key = f"{self._table_name}_{models.SSKeys.COL_CONFIGS}"
+        session_key = f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"
         if session_key in st.session_state:
             configs: list[config.DFEColumnConfig] = st.session_state[session_key]
             return configs

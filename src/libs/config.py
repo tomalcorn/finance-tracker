@@ -1,5 +1,6 @@
 """Module for pydantic configs."""
 
+import datetime
 import typing
 
 import pydantic
@@ -17,19 +18,19 @@ class Filters(pydantic.BaseModel):
         alias="in",
         default=None,
     )
-    lt: typing.Any | None = pydantic.Field(
+    lt: float | datetime.date | datetime.datetime | None = pydantic.Field(
         description="Less than filter value.",
         default=None,
     )
-    lte: typing.Any | None = pydantic.Field(
+    lte: float | datetime.date | datetime.datetime | None = pydantic.Field(
         description="Less than or equal to filter value.",
         default=None,
     )
-    gt: typing.Any | None = pydantic.Field(
+    gt: float | datetime.date | datetime.datetime | None = pydantic.Field(
         description="Greater than filter value.",
         default=None,
     )
-    gte: typing.Any | None = pydantic.Field(
+    gte: float | datetime.date | datetime.datetime | None = pydantic.Field(
         description="Greater than or equal to filter value.",
         default=None,
     )
