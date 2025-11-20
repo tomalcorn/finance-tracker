@@ -29,13 +29,13 @@ def get_start_and_end_of_month() -> tuple[str, str]:
 def get_column_values(
     table_name: str,
     column_name: str,
-) -> pd.Series[str | float | int]:
+) -> pd.Series:
     """Get all values in a column by executing a select query."""
     response = CONN.table(table_name).select(column_name).execute()
     if response.data:
         column_data = [row[column_name] for row in response.data if column_name in row]
         return pd.Series(column_data).dropna()  # type: ignore[no-any-return]
-    return pd.Series([])
+    return pd.Series()
 
 
 def get_unique_values(

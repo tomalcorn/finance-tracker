@@ -1,9 +1,8 @@
 """Unit tests for the sort button module."""
 
 import pytest
-import streamlit as st
 import streamlit.testing.v1 as st_test
-from src.libs import config, models
+from src.libs import config, constants
 from src.libs.buttons import sort
 from tests import conftest
 
@@ -183,7 +182,7 @@ class TestSortButtonDialog:
 
         # Assert - sorting updated correctly
         updated_col_configs: list[config.DFEColumnConfig] = app_tester.session_state[
-            f"test_table_{models.SSKeys.COL_CONFIGS}"
+            f"test_table_{constants.SSKeys.COL_CONFIGS}"
         ]
         actual_sorting = [col_config.sorting for col_config in updated_col_configs]
         assert actual_sorting == expected_sorting
