@@ -31,10 +31,9 @@ class FilterButton(base.BaseButton):
         col_config: config.DFEColumnConfig,
     ) -> config.Filters | None:
         """Handle filtering for date columns."""
+        default_dates = None
         if col_config.filtering:
             default_dates = (col_config.filtering.gte, col_config.filtering.lte)
-        else:
-            default_dates = utils.get_start_and_end_of_month()
 
         selected_dates = st.date_input(
             label=f"Filter by {col_config.button_label or col_config.column_name}",
@@ -60,8 +59,8 @@ class FilterButton(base.BaseButton):
     ) -> config.Filters | None:
         """Handle filtering for numeric columns."""
         if col_config.filtering:
-            default_min = col_config.filtering.gte
-            default_max = col_config.filtering.lte
+            default_min = float(col_config.filtering.gte)
+            default_max = float(col_config.filtering.lte)
         else:
             default_min, default_max = utils.get_min_max_values(
                 self._table_name,
@@ -95,8 +94,23 @@ class FilterButton(base.BaseButton):
         # Safely get default selected values
         default_selected: set[typing.Any] = set()
         if col_config.filtering:
-            default_selected = set(col_config.filtering.eq or col_config.filtering.in_)
-            default_selected &= unique_values
+            default_selected: set[typing.Any] = set()
+            if col_config.filtering:
+                # Prefer 'in_' (multiple exact values), then 'eq' (single exact value),
+                # then 'contains' (substring match against available unique values).
+                if col_config.filtering.in_:
+                    default_selected = set(col_config.filtering.in_)
+                elif col_config.filtering.eq is not None:
+                    default_selected = {col_config.filtering.eq}
+                elif col_config.filtering.contains:
+                    substr = str(col_config.filtering.contains).lower()
+                    default_selected = {
+                        v for v in unique_values if substr in str(v).lower()
+                    }
+                else:
+                    default_selected = set()
+                # Ensure defaults are limited to the actual unique values
+                default_selected &= unique_values
 
         selected_values = st.multiselect(
             label=f"Filter by {col_config.button_label or col_config.column_name}",
