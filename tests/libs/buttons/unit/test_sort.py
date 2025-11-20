@@ -41,50 +41,6 @@ def _app_tester() -> st_test.AppTest:
     )
 
 
-@pytest.fixture(name="col_configs")
-def _col_configs() -> list[config.DFEColumnConfig]:
-    return [
-        config.DFEColumnConfig(
-            column_name="col1",
-            column_config={},
-            input_widget=st.text_input,
-            sorting=None,
-        ),
-    ]
-
-
-def test_override_configs_from_session_state_returns_none(
-    col_configs: list[config.DFEColumnConfig],
-) -> None:
-    """Test _override_configs_from_session_state returns None when no session state."""
-    # Arrange
-    sort_button = sort.SortButton("test_table", col_configs)
-
-    # Act
-    result = sort_button._override_configs_from_session_state()
-
-    # Assert
-    assert result is None
-
-
-def test_override_configs_from_session_state_returns_configs(
-    col_configs: list[config.DFEColumnConfig],
-) -> None:
-    """Test _override_configs_from_session_state returns configs from session state."""
-    # Arrange
-    sort_button = sort.SortButton("test_table", [])
-
-    # Set session state
-    session_key = f"test_table_{models.SSKeys.COL_CONFIGS}"
-    st.session_state[session_key] = col_configs
-
-    # Act
-    result = sort_button._override_configs_from_session_state()
-
-    # Assert
-    assert result == col_configs
-
-
 def test_current_css_style_no_sorting(
     col_configs: list[config.DFEColumnConfig],
 ) -> None:
