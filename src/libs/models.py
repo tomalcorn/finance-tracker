@@ -119,6 +119,10 @@ class PaymentsModel(FinanceTrackerBaseModel):
 class UserModel(pydantic.BaseModel):
     """Model representing a user."""
 
+    id: uuid.UUID = pydantic.Field(
+        description="TO BE DEPRECATED. The unique identifier for the user.",
+        default_factory=uuid.uuid4,
+    )
     first_name: str = pydantic.Field(
         description="The first name of the user.",
         default="",

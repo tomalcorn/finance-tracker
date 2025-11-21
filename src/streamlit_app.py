@@ -7,7 +7,7 @@ import streamlit as st
 from st_supabase_connection import SupabaseConnection
 
 import src.libs.dataframe_handling as dfh
-from src.libs import constants, utils
+from src.libs import config, constants, utils
 
 # Set up supabase connection and authenticate user
 conn = st.connection("supabase", type=SupabaseConnection)
@@ -23,7 +23,6 @@ st.session_state[constants.SSKeys.CURRENT_USER] = auth_resp.user
 
 # Get bank accounts from the database
 bank_accounts = utils.get_original_data(
-    _conn=conn,
     table_name="bank_accounts",
     query_string="*",
 )
@@ -32,8 +31,8 @@ bank_account_names = list(bank_name_id_map.keys())
 
 # Define column and add button configuration
 payments_config = [
-    dfh.DFEColumnConfig(
-        column="description",
+    config.DFEColumnConfig(
+        column_name="description",
         column_config=st.column_config.TextColumn(
             "🔠 Name",
             required=True,
@@ -44,8 +43,8 @@ payments_config = [
             "value": None,
         },
     ),
-    dfh.DFEColumnConfig(
-        column="amount",
+    config.DFEColumnConfig(
+        column_name="amount",
         column_config=st.column_config.NumberColumn(
             "💵 Amount",
             format="£%.2f",
@@ -57,8 +56,8 @@ payments_config = [
             "format": "%.2f",
         },
     ),
-    dfh.DFEColumnConfig(
-        column="payment_date",
+    config.DFEColumnConfig(
+        column_name="payment_date",
         column_config=st.column_config.DateColumn(
             "📆 Date",
             format="localized",
@@ -68,8 +67,8 @@ payments_config = [
         sorting="asc",
         filtering={"gte": "2025-01-01", "lte": "2025-12-31"},
     ),
-    dfh.DFEColumnConfig(
-        column="category",
+    config.DFEColumnConfig(
+        column_name="category",
         column_config=st.column_config.SelectboxColumn(
             "⬇️ Category",
             options=["healthy", "unhealthy"],
@@ -81,8 +80,8 @@ payments_config = [
             "index": None,
         },
     ),
-    dfh.DFEColumnConfig(
-        column="bank_account_id",
+    config.DFEColumnConfig(
+        column_name="bank_account_id",
         column_config=st.column_config.SelectboxColumn(
             "Bank Account",
             help="Select a bank account",
