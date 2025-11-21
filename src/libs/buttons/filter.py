@@ -43,13 +43,13 @@ class FilterButton(base.BaseButton):
 
         if isinstance(selected_dates, tuple) and len(selected_dates) > 1:
             return config.Filters(
-                gte=selected_dates[0].isoformat(),
-                lte=selected_dates[1].isoformat(),
+                gte=selected_dates[0],
+                lte=selected_dates[1],
             )
         if isinstance(selected_dates, tuple) and len(selected_dates) == 1:
             return config.Filters(
-                gte=selected_dates[0].isoformat(),
-                lte=selected_dates[0].isoformat(),
+                gte=selected_dates[0],
+                lte=selected_dates[0],
             )
         return None
 
