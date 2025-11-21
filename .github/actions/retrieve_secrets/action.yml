@@ -1,0 +1,7 @@
+name: "Retrieve Secrets"
+description: "Retrieve secrets from GitHub Actions and set them as environment variables"
+runs:
+  using: ubuntu-latest
+  env:
+    SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
