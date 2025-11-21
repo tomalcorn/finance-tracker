@@ -81,16 +81,16 @@ class FilterButton(base.BaseButton):
         )
 
         if selected_values == (default_min, default_max):
-            return None
+            return None  # No change in filtering
 
         return config.Filters(gte=selected_values[0], lte=selected_values[1])
 
-    def _handle_selectbox_filtering(
+    def _handle_multiselect_filtering(
         self,
         col_config: config.DFEColumnConfig,
         unique_values: set[typing.Any],
     ) -> config.Filters | None:
-        """Handle filtering using a selectbox for columns with limited unique values."""
+        """Filter using a multiselect for columns with limited unique values."""
         # Safely get default selected values
         default_selected: set[typing.Any] = set()
         if col_config.filtering:
@@ -151,7 +151,7 @@ class FilterButton(base.BaseButton):
                     col_config.column_name,
                 )
             ) and len(unique_vals) < constants.MAX_UNIQUE_VALUES:
-                col_config.filtering = self._handle_selectbox_filtering(
+                col_config.filtering = self._handle_multiselect_filtering(
                     col_config,
                     unique_vals,
                 )
