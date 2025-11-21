@@ -13,8 +13,10 @@ from tests import conftest
 
 def _filter_button_dialog_wrapper() -> None:
     """Call the _filtering_button_dialog method."""
+    from unittest import mock
+
     import streamlit as st
-    from src.libs import config
+    from src.libs import config, utils
     from src.libs.buttons import filter  # noqa: A004
 
     # Mock utils.get_unique_values to return test data
@@ -175,3 +177,148 @@ class TestFilterHandling:
                 gte=datetime.date(2024, 1, 1),
                 lte=datetime.date(2024, 1, 31),
             )
+
+    def test_handle_numeric_filtering_no_filtering(
+        self,
+        filter_button: filter.FilterButton,
+    ) -> None:
+        """Test _handle_numeric_filtering returns None when no filtering applied."""
+        # Arrange
+        with mock.patch.object(
+            utils,
+            "get_min_max_values",
+        ) as mock_get_min_max:
+            mock_get_min_max.return_value = (0.0, 100.0)
+            numeric_col_config = config.DFEColumnConfig(
+                column_name="numeric_col",
+                column_config={},
+                input_widget=st.number_input,
+                filtering=None,
+            )
+
+            # Act
+            result = filter_button._handle_numeric_filtering(numeric_col_config)
+
+            # Assert
+            assert result is None
+
+    def test_handle_numeric_filtering_with_filtering(self) -> None:
+        """Test _handle_numeric_filtering returns Filters when filtering is applied.
+
+        Have to mock streamlit slider because impossible to return config from app
+        tester.
+        """
+        # Arrange
+        with mock.patch.object(st, "slider") as mock_slider:
+            mock_slider.return_value = (20.0, 80.0)
+
+            filter_button = filter.FilterButton("test_table", [])
+
+            numeric_col_config = config.DFEColumnConfig(
+                column_name="numeric_col",
+                column_config={},
+                input_widget=st.number_input,
+                filtering=config.Filters(gte=10.0, lte=100.0),
+            )
+
+            # Act
+            result = filter_button._handle_numeric_filtering(numeric_col_config)
+
+            # Assert
+            assert result == config.Filters(gte=20.0, lte=80.0)
+
+    def test_handle_multiselect_filtering_no_filtering(
+        self,
+        filter_button: filter.FilterButton,
+    ) -> None:
+        """Test _handle_multiselect_filtering returns None when no filtering applied."""
+        # Arrange
+        select_col_config = config.DFEColumnConfig(
+            column_name="select_col",
+            column_config={},
+            input_widget=st.multiselect,
+            filtering=None,
+        )
+        unique_values = {"value1", "value2", "value3"}
+
+        # Act
+        result = filter_button._handle_multiselect_filtering(
+            col_config=select_col_config,
+            unique_values=unique_values,
+        )
+
+        # Assert
+        assert result is None
+
+    def test_handle_multiselect_filtering_with_filtering(self) -> None:
+        """Test _handle_multiselect_filtering returns Filters when filtering is applied.
+
+        Have to mock streamlit multiselect because impossible to return config from app
+        tester.
+        """
+        # Arrange
+        with mock.patch.object(st, "multiselect") as mock_multiselect:
+            mock_multiselect.return_value = ["value1", "value3"]
+
+            filter_button = filter.FilterButton("test_table", [])
+            unique_values = {"value1", "value2", "value3"}
+
+            select_col_config = config.DFEColumnConfig(
+                column_name="select_col",
+                column_config={},
+                input_widget=st.multiselect,
+                filtering=config.Filters(in_=["value2"]),
+            )
+
+            # Act
+            result = filter_button._handle_multiselect_filtering(
+                col_config=select_col_config,
+                unique_values=unique_values,
+            )
+
+            # Assert
+            assert result == config.Filters(in_=["value1", "value3"])
+
+    def test_generic_filtering_no_filtering(
+        self,
+        filter_button: filter.FilterButton,
+    ) -> None:
+        """Test _handle_generic_filtering returns None when no filtering applied."""
+        # Arrange
+        generic_col_config = config.DFEColumnConfig(
+            column_name="generic_col",
+            column_config={},
+            input_widget=st.text_input,
+            filtering=None,
+        )
+
+        # Act
+        result = filter_button._handle_generic_filtering(generic_col_config)
+
+        # Assert
+        assert result is None
+
+    def test_handle_generic_filtering_with_filtering(self) -> None:
+        """Test _handle_generic_filtering returns Filters when filtering is applied.
+
+        Have to mock streamlit text_input because impossible to return config from app
+        tester.
+        """
+        # Arrange
+        with mock.patch.object(st, "text_input") as mock_text_input:
+            mock_text_input.return_value = "new_filter"
+
+            filter_button = filter.FilterButton("test_table", [])
+
+            generic_col_config = config.DFEColumnConfig(
+                column_name="generic_col",
+                column_config={},
+                input_widget=st.text_input,
+                filtering=config.Filters(contains="old_filter"),
+            )
+
+            # Act
+            result = filter_button._handle_generic_filtering(generic_col_config)
+
+            # Assert
+            assert result == config.Filters(contains="new_filter")
