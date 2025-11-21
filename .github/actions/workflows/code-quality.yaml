@@ -39,6 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      - uses: ./.github/actions/retrieve_secrets
       - run: uv run pytest -v
   build:
     runs-on: ubuntu-latest
