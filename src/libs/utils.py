@@ -9,6 +9,8 @@ import pandas as pd
 import streamlit as st
 from st_supabase_connection import SupabaseConnection
 
+CONN = st.connection("supabase", type=SupabaseConnection)
+
 
 def get_start_and_end_of_month() -> tuple[str, str]:
     """Get the start and end dates of the current month in ISO format."""
@@ -25,27 +27,45 @@ def get_start_and_end_of_month() -> tuple[str, str]:
 
 @st.cache_data(ttl=300)
 def get_column_values(
-    _conn: SupabaseConnection,
     table_name: str,
     column_name: str,
-) -> pd.Series[str | float | int]:
+) -> pd.Series:
     """Get all values in a column by executing a select query."""
-    response = _conn.table(table_name).select(column_name).execute()
+    response = CONN.table(table_name).select(column_name).execute()
     if response.data:
         column_data = [row[column_name] for row in response.data if column_name in row]
         return pd.Series(column_data).dropna()  # type: ignore[no-any-return]
-    return pd.Series([])
+    return pd.Series()
+
+
+def get_unique_values(
+    table_name: str,
+    column_name: str,
+) -> set[typing.Any]:
+    """Get all unique values in a column by executing a select query."""
+    vals = get_column_values(table_name, column_name)
+    if not vals.empty:
+        vals_list = vals.dropna().unique().tolist()
+        return set(vals_list) if isinstance(vals_list, list) else set()
+    return set()
+
+
+def get_min_max_values(table_name: str, column_name: str) -> tuple[float, float]:
+    """Get min and max values for numeric columns using pandas."""
+    column_data = get_column_values(table_name, column_name)
+    min_value = column_data.min() if not column_data.empty else 0.0
+    max_value = column_data.max() if not column_data.empty else 1.0
+    return (min_value, max_value)
 
 
 @st.cache_data(ttl=60)
 def get_original_data(
-    _conn: SupabaseConnection,
     table_name: str,
     query_string: str,
     filters: dict[str, str | dict[str, str]] | None = None,
 ) -> list[dict[str, typing.Any]]:
     """Get original data by executing a select query."""
-    query = _conn.table(table_name).select(query_string)
+    query = CONN.table(table_name).select(query_string)
     if filters:
         for col, condition in filters.items():
             if isinstance(condition, dict):
@@ -58,7 +78,6 @@ def get_original_data(
 
 
 def enforce_unique_cols(
-    conn: SupabaseConnection,
     table_name: str,
     row: dict[str, typing.Any],
     unique_columns: list[str],
@@ -67,7 +86,6 @@ def enforce_unique_cols(
     for col in unique_columns:
         if col in row:
             unique_values = get_column_values(
-                _conn=conn,
                 table_name=table_name,
                 column_name=col,
             )

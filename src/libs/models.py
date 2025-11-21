@@ -1,17 +1,9 @@
 """Pydantic models for backend model validation."""
 
 import datetime
-import enum
 import uuid
 
 import pydantic
-
-
-class SSKeys(enum.StrEnum):
-    """Keys for session state management."""
-
-    CURRENT_USER = enum.auto()
-    COL_CONFIGS = enum.auto()
 
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):
@@ -127,6 +119,10 @@ class PaymentsModel(FinanceTrackerBaseModel):
 class UserModel(pydantic.BaseModel):
     """Model representing a user."""
 
+    id: uuid.UUID = pydantic.Field(
+        description="TO BE DEPRECATED. The unique identifier for the user.",
+        default_factory=uuid.uuid4,
+    )
     first_name: str = pydantic.Field(
         description="The first name of the user.",
         default="",

@@ -5,6 +5,40 @@ import typing
 import pydantic
 
 
+class Filters(pydantic.BaseModel):
+    """Model for a column filter."""
+
+    eq: typing.Any | None = pydantic.Field(
+        description="Equality filter value.",
+        default=None,
+    )
+    in_: list[typing.Any] | None = pydantic.Field(
+        description="In filter values.",
+        alias="in",
+        default=None,
+    )
+    lt: typing.Any | None = pydantic.Field(
+        description="Less than filter value.",
+        default=None,
+    )
+    lte: typing.Any | None = pydantic.Field(
+        description="Less than or equal to filter value.",
+        default=None,
+    )
+    gt: typing.Any | None = pydantic.Field(
+        description="Greater than filter value.",
+        default=None,
+    )
+    gte: typing.Any | None = pydantic.Field(
+        description="Greater than or equal to filter value.",
+        default=None,
+    )
+    contains: str | None = pydantic.Field(
+        description="Contains filter value for string matching.",
+        default=None,
+    )
+
+
 class DFEColumnConfig(pydantic.BaseModel):
     """Configuration for a single column in the DataFrame Editor."""
 
@@ -33,7 +67,7 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The sorting direction for the column.",
         default=None,
     )
-    filtering: str | dict[str, str] | None = pydantic.Field(
+    filtering: Filters | None = pydantic.Field(
         description="The filtering criteria for the column.",
         default=None,
     )
