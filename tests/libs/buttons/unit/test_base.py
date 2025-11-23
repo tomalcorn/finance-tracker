@@ -1,12 +1,14 @@
 """Tests for the BaseButton class."""
 
 import streamlit as st
-from src.libs import config, constants
+from src.libs import constants
 from src.libs.buttons import base
+
+from libs import frontend_models
 
 
 def test_override_configs_from_session_state_returns_none(
-    col_configs: list[config.DFEColumnConfig],
+    col_configs: list[frontend_models.DFEColumnConfig],
 ) -> None:
     """Test _override_configs_from_session_state returns None when no session state."""
     # Arrange
@@ -20,7 +22,7 @@ def test_override_configs_from_session_state_returns_none(
 
 
 def test_override_configs_from_session_state_returns_configs(
-    col_configs: list[config.DFEColumnConfig],
+    col_configs: list[frontend_models.DFEColumnConfig],
 ) -> None:
     """Test _override_configs_from_session_state returns configs from session state."""
     # Arrange

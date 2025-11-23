@@ -3,7 +3,8 @@
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from src.libs import config
+
+from libs import frontend_models
 
 
 def get_rendered_texts(app_tester: st_test.AppTest) -> list[str]:
@@ -22,9 +23,9 @@ def get_rendered_texts(app_tester: st_test.AppTest) -> list[str]:
 
 
 @pytest.fixture(name="col_configs")
-def _col_configs() -> list[config.DFEColumnConfig]:
+def _col_configs() -> list[frontend_models.DFEColumnConfig]:
     return [
-        config.DFEColumnConfig(
+        frontend_models.DFEColumnConfig(
             column_name="col1",
             column_config={},
             input_widget=st.text_input,
