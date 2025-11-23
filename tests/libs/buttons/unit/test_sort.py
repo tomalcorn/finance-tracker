@@ -2,25 +2,28 @@
 
 import pytest
 import streamlit.testing.v1 as st_test
-from src.libs import config, constants
+from src.libs import constants
 from src.libs.buttons import sort
 from tests import conftest
+
+from libs import frontend_models
 
 
 def _sort_button_dialog_wrapper() -> None:
     """Call the _sorting_button_dialog method."""
     import streamlit as st
-    from src.libs import config
     from src.libs.buttons import sort
 
+    from libs import frontend_models
+
     dfe_configs = [
-        config.DFEColumnConfig(
+        frontend_models.DFEColumnConfig(
             column_name="col1",
             column_config={},
             input_widget=st.text_input,
             sorting="asc",
         ),
-        config.DFEColumnConfig(
+        frontend_models.DFEColumnConfig(
             column_name="col2",
             column_config={},
             input_widget=st.number_input,
@@ -42,7 +45,7 @@ def _app_tester() -> st_test.AppTest:
 
 
 def test_current_css_style_no_sorting(
-    col_configs: list[config.DFEColumnConfig],
+    col_configs: list[frontend_models.DFEColumnConfig],
 ) -> None:
     """Test _current_css_style returns normal style when no sorting applied."""
     # Arrange
@@ -56,7 +59,7 @@ def test_current_css_style_no_sorting(
 
 
 def test_current_css_style_with_sorting(
-    col_configs: list[config.DFEColumnConfig],
+    col_configs: list[frontend_models.DFEColumnConfig],
 ) -> None:
     """Test _current_css_style returns active style when sorting is applied."""
     # Arrange
@@ -137,8 +140,8 @@ class TestSortButtonDialog:
         app_tester.run()
 
         # Assert - sorting updated correctly
-        updated_col_configs: list[config.DFEColumnConfig] = app_tester.session_state[
-            f"test_table_{constants.SSKeys.COL_CONFIGS}"
-        ]
+        updated_col_configs: list[frontend_models.DFEColumnConfig] = (
+            app_tester.session_state[f"test_table_{constants.SSKeys.COL_CONFIGS}"]
+        )
         actual_sorting = [col_config.sorting for col_config in updated_col_configs]
         assert actual_sorting == expected_sorting

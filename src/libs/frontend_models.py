@@ -1,4 +1,4 @@
-"""Module for pydantic configs."""
+"""Module for pydantic configs for the frontend models."""
 
 import typing
 

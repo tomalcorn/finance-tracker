@@ -4,8 +4,8 @@ import typing
 
 import streamlit as st
 
-from src.libs import config
-from src.libs.buttons import base
+from libs import frontend_models
+from libs.buttons import base
 
 
 class AddButton(base.BaseButton):
@@ -14,7 +14,7 @@ class AddButton(base.BaseButton):
     def __init__(
         self,
         table_name: str,
-        col_configs: list[config.DFEColumnConfig],
+        col_configs: list[frontend_models.DFEColumnConfig],
     ) -> None:
         """Initialize the AddButton instance."""
         self._table_name = table_name
