@@ -17,6 +17,7 @@ dev = [
     "mypy",
     "pytest",
     "ruff",
+    "ty",
 ]
 
 [tool.mypy]
@@ -26,3 +27,5 @@ disable_error_code = "import-untyped"
 ignore_missing_imports = true
 plugins = ['pydantic.mypy']
 explicit_package_bases = true
+
+

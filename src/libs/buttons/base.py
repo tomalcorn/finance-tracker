@@ -16,20 +16,29 @@ class BaseButton:
         """Initialize the BaseButton instance."""
         self._table_name = table_name
         self._col_configs = col_configs
-        self.css_style_normal = """
-            button {
-                background-color: white;
-                border: 1px solid #ccc;
-                color: black;
-            }
-            """
-        self.css_style_active = """
-            button {
-            background-color: rgba(212, 237, 218, 0.5); /* Light green background */
-            border: 1px solid #ccc;
-            color: black;
-            }
-            """
+
+    @property
+    @staticmethod
+    def css_style_normal() -> str:
+        """CSS for the normal button state."""
+        return """
+button {
+    background-color: white;
+    border: 1px solid #ccc;
+    color: black;
+}
+"""
+
+    @property
+    def css_style_active(self) -> str:
+        """CSS for the active button state."""
+        return """
+button {
+    background-color: rgba(212, 237, 218, 0.5); /* Light green background */
+    border: 1px solid #ccc;
+    color: black;
+}
+"""
 
     def _override_configs_from_session_state(
         self,
