@@ -138,5 +138,3 @@ payments_dfe = dfh.DFE(
 )
 
 modified_payments = payments_dfe.render()
-
-payments_dfe.write_changes_to_backend(modified_payments)
