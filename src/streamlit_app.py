@@ -4,22 +4,37 @@ import uuid
 
 import pandas as pd
 import streamlit as st
+import supabase_auth
 from st_supabase_connection import SupabaseConnection
 
-import src.libs.dataframe_handling as dfh
+import libs.dataframe_handling as dfh
 from libs import constants, frontend_models, utils
 
 # Set up supabase connection and authenticate user
 conn = st.connection("supabase", type=SupabaseConnection)
 
-auth_resp = conn.auth.sign_in_with_password(
-    {
-        "email": "tomalcorn777@icloud.com",
-        "password": "jiwQij-kirwi3-hedtyk",
-    },
+email_password_creds = supabase_auth.SignInWithEmailAndPasswordCredentials(
+    email="tomalcorn777@icloud.com",
+    password="jiwQij-kirwi3-hedtyk",  # noqa: S106 - only temporary for dev testing
 )
-conn.client.postgrest.auth(auth_resp.session.access_token)
-st.session_state[constants.SSKeys.CURRENT_USER] = auth_resp.user
+
+with st.spinner("Signing in..."):
+    auth_resp = conn.auth.sign_in_with_password(email_password_creds)
+
+    access_token = None
+    user = None
+
+    # Support multiple response shapes (object or dict)
+    if hasattr(auth_resp, "session") and auth_resp.session:
+        access_token = auth_resp.session.access_token
+        user = auth_resp.user
+
+    if not access_token:
+        st.error("Authentication failed. Please check your credentials.")
+        st.stop()
+
+    conn.client.postgrest.auth(access_token)
+    st.session_state[constants.SSKeys.CURRENT_USER] = user
 
 # Get bank accounts from the database
 bank_accounts = utils.get_original_data(
@@ -65,7 +80,7 @@ payments_config = [
         button_label="Payment Date",
         input_widget=st.date_input,
         sorting="asc",
-        filtering={"gte": "2025-01-01", "lte": "2025-12-31"},
+        filtering=config.Filters(gte="2024-01-01", lte="2025-12-31"),
     ),
     frontend_models.DFEColumnConfig(
         column_name="category",
