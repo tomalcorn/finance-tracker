@@ -20,124 +20,116 @@ def _execute_query(
     return response.data or []
 
 
-class DataClient:
-    """Class for interacting with the Supabase backend."""
+def _apply_filters_to_query(
+    query: st_supabase_connection.SyncSelectRequestBuilder,
+    config: frontend_models.DFEColumnConfig,
+) -> st_supabase_connection.SyncSelectRequestBuilder:
+    """Apply filters from column configurations to the query."""
+    if config.filtering:
+        for filter_key, filter_value in config.filtering.model_dump(
+            exclude_none=True,
+        ).items():
+            query = query.filter(config.column_name, filter_key, filter_value)
+    return query
 
-    def __init__(self, connection: st_supabase_connection.SupabaseConnection) -> None:
-        """Initialize the DataClient with Supabase credentials."""
-        self._conn = connection
 
-    def _apply_filters_to_query(
-        self,
-        query: st_supabase_connection.SyncSelectRequestBuilder,
-        config: frontend_models.DFEColumnConfig,
-    ) -> st_supabase_connection.SyncSelectRequestBuilder:
-        """Apply filters from column configurations to the query."""
-        if config.filtering:
-            for filter_key, filter_value in config.filtering.model_dump(
-                exclude_none=True,
-            ).items():
-                query = query.filter(config.column_name, filter_key, filter_value)
-        return query
+def _apply_sorting_to_query(
+    query: st_supabase_connection.SyncSelectRequestBuilder,
+    config: frontend_models.DFEColumnConfig,
+) -> st_supabase_connection.SyncSelectRequestBuilder:
+    """Apply sorting from column configurations to the query."""
+    if config.sorting:
+        query = query.order(
+            config.column_name,
+            desc=config.sorting == constants.SortingValues.DESCENDING,
+        )
+    return query
 
-    def _apply_sorting_to_query(
-        self,
-        query: st_supabase_connection.SyncSelectRequestBuilder,
-        config: frontend_models.DFEColumnConfig,
-    ) -> st_supabase_connection.SyncSelectRequestBuilder:
-        """Apply sorting from column configurations to the query."""
-        if config.sorting:
-            query = query.order(
-                config.column_name,
-                desc=config.sorting == constants.SortingValues.DESCENDING,
-            )
-        return query
 
-    def get_data(
-        self,
-        table_name: str,
-        query_string: str,
-        configs: list[frontend_models.DFEColumnConfig] | None = None,
-    ) -> list[dict[str, typing.Any]]:
-        """Fetch data from the specified table with optional filters.
+def get_data(
+    table_name: str,
+    query_string: str,
+    configs: list[frontend_models.DFEColumnConfig] | None = None,
+) -> list[dict[str, typing.Any]]:
+    """Fetch data from the specified table with optional filters.
 
-        Args:
-            table_name: The name of the table to query.
-            query_string: The select query string.
-            configs: Optional list of column configurations for filtering and sorting.
+    Args:
+        table_name: The name of the table to query.
+        query_string: The select query string.
+        configs: Optional list of column configurations for filtering and sorting.
 
-        Returns:
-            A list of dictionaries representing the queried data.
+    Returns:
+        A list of dictionaries representing the queried data.
 
-        """
-        query = self._conn.table(table_name).select(query_string)
-        if configs:
-            for config in configs:
-                query = self._apply_filters_to_query(query, config)
-                query = self._apply_sorting_to_query(query, config)
-        return _execute_query(query)
+    """
+    query = CONN.table(table_name).select(query_string)
+    if configs:
+        for config in configs:
+            query = _apply_filters_to_query(query, config)
+            query = _apply_sorting_to_query(query, config)
+    return _execute_query(query)
 
-    def get_column_values(
-        self,
-        table_name: str,
-        column_name: str,
-        *,
-        unique: bool = False,
-    ) -> pd.Series:
-        """Get all values in a column by executing a select query.
 
-        Args:
-            table_name: The name of the table to query.
-            column_name: The name of the column to retrieve values from.
-            unique: Whether to return only unique values.
+def get_column_values(
+    table_name: str,
+    column_name: str,
+    *,
+    unique: bool = False,
+) -> pd.Series:
+    """Get all values in a column by executing a select query.
 
-        Returns:
-            A pandas Series containing the column values.
+    Args:
+        table_name: The name of the table to query.
+        column_name: The name of the column to retrieve values from.
+        unique: Whether to return only unique values.
 
-        """
-        query = self._conn.table(table_name).select(column_name)
-        response = _execute_query(query)
-        if not response:
-            return pd.Series()
-        all_col_values = pd.Series(
-            [row[column_name] for row in response if column_name in row],
-        ).dropna()
-        if unique:
-            return all_col_values.drop_duplicates().reset_index(drop=True)
-        return all_col_values.reset_index(drop=True)
+    Returns:
+        A pandas Series containing the column values.
 
-    def update_backend(
-        self,
-        table_name: str,
-        updates: frontend_models.BackendUpdates,
-        current_df: pd.DataFrame,
-        modified_df: pd.DataFrame,
-    ) -> frontend_models.BackendUpdates:
-        """Update the backend with the provided changes.
+    """
+    query = CONN.table(table_name).select(column_name)
+    response = _execute_query(query)
+    if not response:
+        return pd.Series()
+    all_col_values = pd.Series(
+        [row[column_name] for row in response if column_name in row],
+    ).dropna()
+    if unique:
+        return all_col_values.drop_duplicates().reset_index(drop=True)
+    return all_col_values.reset_index(drop=True)
 
-        Args:
-            table_name: The name of the table to update.
-            updates: The BackendUpdates object containing added, edited, and deleted rows.
-            current_df: The current DataFrame before modifications.
-            modified_df: The modified DataFrame after user edits.
 
-        Returns:
-            The updated BackendUpdates object reflecting all changes made.
+def update_backend(
+    table_name: str,
+    updates: frontend_models.BackendUpdates,
+    current_df: pd.DataFrame,
+    modified_df: pd.DataFrame,
+) -> frontend_models.BackendUpdates:
+    """Update the backend with the provided changes.
 
-        """
-        deleted_ids = list(set(current_df["id"]) - set(modified_df["id"]))
-        updates.deleted_rows.extend(deleted_ids)
+    Args:
+        table_name: The name of the table to update.
+        updates: The BackendUpdates object containing added, edited, and deleted rows.
+        current_df: The current DataFrame before modifications.
+        modified_df: The modified DataFrame after user edits.
 
-        if updates.added_rows:
-            self._conn.table(table_name).insert(updates.added_rows).execute()
-        if updates.edited_rows:
-            for row_id, changes in updates.edited_rows.items():
-                self._conn.table(table_name).update(changes).eq("id", row_id).execute()
-        if updates.deleted_rows:
-            self._conn.table(table_name).delete().in_(
-                "id",
-                updates.deleted_rows,
-            ).execute()
-            updates.deleted_rows.clear()
+    Returns:
+        The updated BackendUpdates object reflecting all changes made.
 
-        return updates
+    """
+    deleted_ids = list(set(current_df["id"]) - set(modified_df["id"]))
+    updates.deleted_rows.extend(deleted_ids)
+
+    if updates.added_rows:
+        CONN.table(table_name).insert(updates.added_rows).execute()
+    if updates.edited_rows:
+        for row_id, changes in updates.edited_rows.items():
+            CONN.table(table_name).update(changes).eq("id", row_id).execute()
+    if updates.deleted_rows:
+        CONN.table(table_name).delete().in_(
+            "id",
+            updates.deleted_rows,
+        ).execute()
+        updates.deleted_rows.clear()
+
+    return updates
