@@ -4,6 +4,8 @@ import typing
 
 import pydantic
 
+from libs import constants
+
 
 class Filters(pydantic.BaseModel):
     """Model for a column filter."""
@@ -63,7 +65,7 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The keyword arguments for the input widget.",
         default={},
     )
-    sorting: str | None = pydantic.Field(
+    sorting: constants.SortingValues | None = pydantic.Field(
         description="The sorting direction for the column.",
         default=None,
     )

@@ -34,7 +34,7 @@ def get_column_values(
     response = CONN.table(table_name).select(column_name).execute()
     if response.data:
         column_data = [row[column_name] for row in response.data if column_name in row]
-        return pd.Series(column_data).dropna()  # type: ignore[no-any-return]
+        return pd.Series(column_data).dropna()
     return pd.Series()
 
 

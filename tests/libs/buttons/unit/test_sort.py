@@ -21,13 +21,13 @@ def _sort_button_dialog_wrapper() -> None:
             column_name="col1",
             column_config={},
             input_widget=st.text_input,
-            sorting="asc",
+            sorting=constants.SortingValues.ASCENDING,
         ),
         frontend_models.DFEColumnConfig(
             column_name="col2",
             column_config={},
             input_widget=st.number_input,
-            sorting="desc",
+            sorting=constants.SortingValues.DESCENDING,
         ),
     ]
 

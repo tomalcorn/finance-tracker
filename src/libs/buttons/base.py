@@ -18,27 +18,26 @@ class BaseButton:
         self._col_configs = col_configs
 
     @property
-    @staticmethod
-    def css_style_normal() -> str:
+    def css_style_normal(self) -> str:
         """CSS for the normal button state."""
         return """
-button {
-    background-color: white;
-    border: 1px solid #ccc;
-    color: black;
-}
-"""
+            button {
+                background-color: white;
+                border: 1px solid #ccc;
+                color: black;
+            }
+        """
 
     @property
     def css_style_active(self) -> str:
         """CSS for the active button state."""
         return """
-button {
-    background-color: rgba(212, 237, 218, 0.5); /* Light green background */
-    border: 1px solid #ccc;
-    color: black;
-}
-"""
+            button {
+                background-color: rgba(212, 237, 218, 0.5); /* Light green background */
+                border: 1px solid #ccc;
+                color: black;
+            }
+        """
 
     def _override_configs_from_session_state(
         self,

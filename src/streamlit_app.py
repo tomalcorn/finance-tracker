@@ -79,8 +79,8 @@ payments_config = [
         ),
         button_label="Payment Date",
         input_widget=st.date_input,
-        sorting="asc",
-        filtering=config.Filters(gte="2024-01-01", lte="2025-12-31"),
+        sorting=constants.SortingValues.DESCENDING,
+        filtering=frontend_models.Filters(gte="2024-01-01", lte="2025-12-31"),
     ),
     frontend_models.DFEColumnConfig(
         column_name="category",
