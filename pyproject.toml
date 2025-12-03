@@ -19,14 +19,6 @@ dev = [
     "ty",
 ]
 
-[tool.mypy]
-strict = true
-python_version = "3.12"
-disable_error_code = "import-untyped"
-ignore_missing_imports = true
-plugins = ['pydantic.mypy']
-explicit_package_bases = true
-
 [tool.ty.src]
 # To be removed in #23
 exclude = ["src/libs/dataframe_handling.py"]
