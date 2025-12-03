@@ -14,7 +14,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "mypy",
     "pytest",
     "ruff",
     "ty",
@@ -28,4 +27,6 @@ ignore_missing_imports = true
 plugins = ['pydantic.mypy']
 explicit_package_bases = true
 
-
+[tool.ty.src]
+# To be removed in #23
+exclude = ["src/libs/dataframe_handling.py"]
