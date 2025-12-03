@@ -10,3 +10,10 @@ class SSKeys(enum.StrEnum):
 
     CURRENT_USER = enum.auto()
     COL_CONFIGS = enum.auto()
+
+
+class SortingValues(enum.StrEnum):
+    """Sorting direction values."""
+
+    ASCENDING = "asc"
+    DESCENDING = "desc"
