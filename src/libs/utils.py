@@ -1,8 +1,6 @@
 """Utility functions for handling dates and other common operations."""
 
-import calendar
 import contextlib
-import datetime
 import re
 import typing
 
@@ -12,19 +10,6 @@ from st_supabase_connection import SupabaseConnection
 from libs import data_client
 
 CONN = st.connection("supabase", type=SupabaseConnection)
-
-
-def get_start_and_end_of_month() -> tuple[str, str]:
-    """Get the start and end dates of the current month in ISO format."""
-    # Get the current date
-    today = datetime.datetime.now(tz=datetime.UTC).date()
-    start_of_month = today.replace(day=1)
-    last_day_of_month = today.replace(
-        day=calendar.monthrange(today.year, today.month)[1],
-    )
-
-    # Return the start and end dates in ISO format
-    return start_of_month.isoformat(), last_day_of_month.isoformat()
 
 
 def enforce_unique_cols(
@@ -48,7 +33,8 @@ def enforce_unique_cols(
                 str(v) for v in unique_values if str(v).startswith(base_value)
             ]
             if duplicates:
-                # Extract numeric suffixes like " (123)" and take the max; if none found, start from 0
+                # Extract numeric suffixes like " (123)" and take the max; if none
+                # found, start from 0
                 suffixes = []
                 for val in duplicates:
                     match = re.search(r" \((\d+)\)$", val)

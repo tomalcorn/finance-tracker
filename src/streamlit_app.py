@@ -8,7 +8,7 @@ import supabase_auth
 from st_supabase_connection import SupabaseConnection
 
 import libs.dataframe_handling as dfh
-from libs import constants, frontend_models, utils
+from libs import constants, data_client, frontend_models
 
 # Set up supabase connection and authenticate user
 conn = st.connection("supabase", type=SupabaseConnection)
@@ -37,7 +37,7 @@ with st.spinner("Signing in..."):
     st.session_state[constants.SSKeys.CURRENT_USER] = user
 
 # Get bank accounts from the database
-bank_accounts = utils.get_original_data(
+bank_accounts = data_client.get_data(
     table_name="bank_accounts",
     query_string="*",
 )
