@@ -12,6 +12,7 @@ from libs import data_client
 CONN = st.connection("supabase", type=SupabaseConnection)
 
 
+# To be removed in #25
 def enforce_unique_cols(
     table_name: str,
     row: dict[str, typing.Any],
