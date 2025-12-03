@@ -5,7 +5,7 @@ import typing
 import streamlit as st
 from streamlit_extras import stylable_container
 
-from libs import constants, frontend_models, utils
+from libs import constants, data_client, frontend_models
 from libs.buttons import base
 
 
@@ -25,6 +25,17 @@ class FilterButton(base.BaseButton):
         if any(col_config.filtering is not None for col_config in self._col_configs):
             return self.css_style_active
         return self.css_style_normal
+
+    def _get_min_max_values(
+        self,
+        table_name: str,
+        column_name: str,
+    ) -> tuple[float, float]:
+        """Get min and max values for numeric columns using pandas."""
+        col_vals = data_client.get_column_values(table_name, column_name)
+        min_value = col_vals.min() if not col_vals.empty else 0.0
+        max_value = col_vals.max() if not col_vals.empty else 1.0
+        return (min_value, max_value)
 
     def _handle_date_filtering(
         self,
@@ -69,7 +80,7 @@ class FilterButton(base.BaseButton):
             default_min = float(col_config.filtering.gte)
             default_max = float(col_config.filtering.lte)
         else:
-            default_min, default_max = utils.get_min_max_values(
+            default_min, default_max = self._get_min_max_values(
                 self._table_name,
                 col_config.column_name,
             )
@@ -155,9 +166,12 @@ class FilterButton(base.BaseButton):
             elif col_config.input_widget == st.number_input:
                 col_config.filtering = self._handle_numeric_filtering(col_config)
             elif (
-                unique_vals := utils.get_unique_values(
-                    self._table_name,
-                    col_config.column_name,
+                unique_vals := set(
+                    data_client.get_column_values(
+                        self._table_name,
+                        col_config.column_name,
+                        unique=True,
+                    ),
                 )
             ) and len(unique_vals) < constants.MAX_UNIQUE_VALUES:
                 col_config.filtering = self._handle_multiselect_filtering(
