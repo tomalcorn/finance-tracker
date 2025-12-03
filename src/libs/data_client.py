@@ -59,7 +59,17 @@ class DataClient:
         query_string: str,
         configs: list[frontend_models.DFEColumnConfig] | None = None,
     ) -> list[dict[str, typing.Any]]:
-        """Fetch data from the specified table with optional filters."""
+        """Fetch data from the specified table with optional filters.
+
+        Args:
+            table_name: The name of the table to query.
+            query_string: The select query string.
+            configs: Optional list of column configurations for filtering and sorting.
+
+        Returns:
+            A list of dictionaries representing the queried data.
+
+        """
         query = self._conn.table(table_name).select(query_string)
         if configs:
             for config in configs:
@@ -74,7 +84,17 @@ class DataClient:
         *,
         unique: bool = False,
     ) -> pd.Series:
-        """Get all values in a column by executing a select query."""
+        """Get all values in a column by executing a select query.
+
+        Args:
+            table_name: The name of the table to query.
+            column_name: The name of the column to retrieve values from.
+            unique: Whether to return only unique values.
+
+        Returns:
+            A pandas Series containing the column values.
+
+        """
         query = self._conn.table(table_name).select(column_name)
         response = _execute_query(query)
         if not response:
@@ -85,3 +105,39 @@ class DataClient:
         if unique:
             return all_col_values.drop_duplicates().reset_index(drop=True)
         return all_col_values.reset_index(drop=True)
+
+    def update_backend(
+        self,
+        table_name: str,
+        updates: frontend_models.BackendUpdates,
+        current_df: pd.DataFrame,
+        modified_df: pd.DataFrame,
+    ) -> frontend_models.BackendUpdates:
+        """Update the backend with the provided changes.
+
+        Args:
+            table_name: The name of the table to update.
+            updates: The BackendUpdates object containing added, edited, and deleted rows.
+            current_df: The current DataFrame before modifications.
+            modified_df: The modified DataFrame after user edits.
+
+        Returns:
+            The updated BackendUpdates object reflecting all changes made.
+
+        """
+        deleted_ids = list(set(current_df["id"]) - set(modified_df["id"]))
+        updates.deleted_rows.extend(deleted_ids)
+
+        if updates.added_rows:
+            self._conn.table(table_name).insert(updates.added_rows).execute()
+        if updates.edited_rows:
+            for row_id, changes in updates.edited_rows.items():
+                self._conn.table(table_name).update(changes).eq("id", row_id).execute()
+        if updates.deleted_rows:
+            self._conn.table(table_name).delete().in_(
+                "id",
+                updates.deleted_rows,
+            ).execute()
+            updates.deleted_rows.clear()
+
+        return updates
