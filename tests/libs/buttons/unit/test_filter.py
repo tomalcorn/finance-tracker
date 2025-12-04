@@ -6,11 +6,10 @@ from unittest import mock
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from src.libs import utils
-from src.libs.buttons import filter  # noqa: A004
 from tests import conftest
 
-from libs import frontend_models
+from libs import frontend_models, utils
+from libs.buttons import filter  # noqa: A004
 
 
 def _filter_button_dialog_wrapper() -> None:
