@@ -3,12 +3,13 @@
 import datetime
 from unittest import mock
 
+import pandas as pd
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
 
-from libs import frontend_models
+from libs import data_client, frontend_models
 from libs.buttons import filter  # noqa: A004
 
 
@@ -88,6 +89,43 @@ def test_current_css_style_with_filtering(
 
     # Assert
     assert result == filter_button.css_style_active
+
+
+@pytest.mark.parametrize(
+    ("mocked_values", "expected_min", "expected_max"),
+    [
+        (pd.Series([10, 20, 30, 40, 50]), 10, 50),
+        (pd.Series([-5, 0, 5, 10]), -5, 10),
+        (pd.Series([0.1, 0.5, 0.9]), 0.1, 0.9),
+        (pd.Series([]), 0.0, 1.0),  # Edge case: empty series
+    ],
+)
+def test_get_min_max_values(
+    filter_button: filter.FilterButton,
+    mocked_values: pd.Series,
+    expected_min: float,
+    expected_max: float,
+) -> None:
+    """Test _get_min_max_values returns correct min and max values."""
+    with mock.patch.object(
+        data_client,
+        "get_column_values",
+    ) as mock_get_column_values:
+        mock_get_column_values.return_value = mocked_values
+
+        # Act
+        min_value, max_value = filter_button._get_min_max_values(
+            table_name="test_table",
+            column_name="test_numeric_column",
+        )
+
+    # Assert
+    assert all(
+        [
+            min_value == expected_min,
+            max_value == expected_max,
+        ],
+    )
 
 
 class TestFilterButtonDialog:
