@@ -8,7 +8,8 @@ from tests import conftest
 def _add_button_dialog_wrapper() -> None:
     """Call the _add_button_dialog method."""
     import streamlit as st  # noqa: F401 - needed for app_test from_function
-    from src.libs.buttons import add
+
+    from libs.buttons import add
 
     add_button = add.AddButton("test_table", [])
 
