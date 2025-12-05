@@ -1,10 +1,9 @@
 """Tests for the BaseButton class."""
 
 import streamlit as st
-from src.libs import constants
-from src.libs.buttons import base
 
-from libs import frontend_models
+from libs import constants, frontend_models
+from libs.buttons import base
 
 
 def test_override_configs_from_session_state_returns_none(

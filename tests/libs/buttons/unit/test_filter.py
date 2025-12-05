@@ -8,7 +8,7 @@ import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
 
-from libs import frontend_models, utils
+from libs import frontend_models
 from libs.buttons import filter  # noqa: A004
 
 
@@ -16,13 +16,15 @@ def _filter_button_dialog_wrapper() -> None:
     """Call the _filtering_button_dialog method."""
     from unittest import mock
 
+    import pandas as pd
     import streamlit as st
-    from src.libs import utils
-    from src.libs.buttons import filter  # noqa: A004
+
+    from libs import data_client, frontend_models
+    from libs.buttons import filter  # noqa: A004
 
     # Mock utils.get_unique_values to return test data
-    with mock.patch.object(utils, "get_unique_values") as mock_func:
-        mock_func.return_value = {"value1", "value2", "value3"}
+    with mock.patch.object(data_client, "get_column_values") as mock_func:
+        mock_func.return_value = pd.Series(["value1", "value2", "value3"])
 
         dfe_configs = [
             frontend_models.DFEColumnConfig(
@@ -186,8 +188,8 @@ class TestFilterHandling:
         """Test _handle_numeric_filtering returns None when no filtering applied."""
         # Arrange
         with mock.patch.object(
-            utils,
-            "get_min_max_values",
+            filter_button,
+            "_get_min_max_values",
         ) as mock_get_min_max:
             mock_get_min_max.return_value = (0.0, 100.0)
             numeric_col_config = frontend_models.DFEColumnConfig(
