@@ -1,73 +1,73 @@
--- Create the PAYMENTS table
-CREATE TABLE PAYMENTS (
+-- Create the users table
+CREATE TABLE users (
     id UUID PRIMARY KEY,
-    description TEXT,
-    income FLOAT,
-    expense FLOAT,
-    payment_date DATE,
-    checked BOOLEAN,
-    bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
-    expense_source_id UUID REFERENCES EXPENSE_SOURCES(id),
-    income_source_id UUID REFERENCES INCOME_SOURCES(id),
-    user_id UUID REFERENCES profiles(id),
-    _created_at TIMESTAMP
+    first_name TEXT,
+    last_name TEXT
 );
 
 -- Create the BANK_ACCOUNTS table
 CREATE TABLE BANK_ACCOUNTS (
     id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
     name TEXT,
-    starting_balance FLOAT,
-    user_id UUID REFERENCES profiles(id),
+    balance FLOAT,
     _created_at TIMESTAMP
 );
 
 -- Create the EXPENSE_SOURCES table
 CREATE TABLE EXPENSE_SOURCES (
     id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
     name TEXT,
     budget FLOAT,
     budget_tracker_ids UUID[],
-    user_id UUID REFERENCES profiles(id),
     _created_at TIMESTAMP
 );
 
 -- Create the INCOME_SOURCES table
 CREATE TABLE INCOME_SOURCES (
     id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
     name TEXT,
     budget_tracker_ids UUID[],
-    user_id UUID REFERENCES profiles(id),
     _created_at TIMESTAMP
 );
+
+-- Create the PAYMENTS table
+CREATE TABLE PAYMENTS (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    name TEXT,
+    income FLOAT,
+    expense FLOAT,
+    income_source_id UUID REFERENCES INCOME_SOURCES(id),
+    expense_source_id UUID REFERENCES EXPENSE_SOURCES(id),
+    payment_date DATE,
+    checked BOOLEAN,
+    bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
+    _created_at TIMESTAMP
+);
+
 
 -- Create the BUDGET_TRACKER table
 CREATE TABLE BUDGET_TRACKER (
     id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
     name TEXT,
     total_budget FLOAT,
-    user_id UUID REFERENCES profiles(id),
     _created_at TIMESTAMP
 );
 
 -- Create the FUN_SPENDING table
 CREATE TABLE FUN_SPENDING (
     id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
     name TEXT,
     cost FLOAT,
     current_month FLOAT,
     banked FLOAT,
     budget_tracker_id UUID REFERENCES BUDGET_TRACKER(id),
-    user_id UUID REFERENCES profiles(id),
     _created_at TIMESTAMP
-);
-
--- Create the profiles table
-CREATE TABLE profiles (
-    id UUID PRIMARY KEY,
-    full_name TEXT,
-    email TEXT,
-    created_at TIMESTAMP
 );
 
 -- Create the EXPENSE_SOURCES_VIEW view
