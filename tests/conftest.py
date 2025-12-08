@@ -4,7 +4,7 @@ import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
 
-from libs import frontend_models
+from libs import constants, frontend_models
 
 
 def get_rendered_texts(app_tester: st_test.AppTest) -> list[str]:
@@ -29,6 +29,7 @@ def _col_configs() -> list[frontend_models.DFEColumnConfig]:
             column_name="col1",
             column_config={},
             input_widget=st.text_input,
-            sorting=None,
+            sorting=constants.SortingValues.ASCENDING,
+            filtering=frontend_models.Filters(lte="2023-01-01", gte="2022-01-01"),
         ),
     ]
