@@ -11,7 +11,18 @@ from libs import constants, frontend_models
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
 
-@st.cache_data(ttl=300)
+def _hash_func_for_query(
+    query: st_supabase_connection.SyncSelectRequestBuilder,
+) -> str:
+    """Generate a hash for the given query to use in caching."""
+    query_str = str(query)
+    return str(hash(query_str))
+
+
+@st.cache_data(
+    ttl=300,
+    hash_funcs={st_supabase_connection.SyncSelectRequestBuilder: _hash_func_for_query},
+)
 def _execute_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
 ) -> list[dict[str, typing.Any]]:
@@ -50,6 +61,7 @@ def get_data(
     table_name: str,
     query_string: str,
     configs: list[frontend_models.DFEColumnConfig] | None = None,
+    connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> list[dict[str, typing.Any]]:
     """Fetch data from the specified table with optional filters.
 
@@ -57,12 +69,13 @@ def get_data(
         table_name: The name of the table to query.
         query_string: The select query string.
         configs: Optional list of column configurations for filtering and sorting.
+        connection: The Supabase connection to use.
 
     Returns:
         A list of dictionaries representing the queried data.
 
     """
-    query = CONN.table(table_name).select(query_string)
+    query = connection.table(table_name).select(query_string)
     if configs:
         for config in configs:
             query = _apply_filters_to_query(query, config)
@@ -75,6 +88,7 @@ def get_column_values(
     column_name: str,
     *,
     unique: bool = False,
+    connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> pd.Series:
     """Get all values in a column by executing a select query.
 
@@ -82,12 +96,13 @@ def get_column_values(
         table_name: The name of the table to query.
         column_name: The name of the column to retrieve values from.
         unique: Whether to return only unique values.
+        connection: The Supabase connection to use.
 
     Returns:
         A pandas Series containing the column values.
 
     """
-    query = CONN.table(table_name).select(column_name)
+    query = connection.table(table_name).select(column_name)
     response = _execute_query(query)
     if not response:
         return pd.Series()
@@ -104,6 +119,7 @@ def update_backend(
     updates: frontend_models.BackendUpdates,
     current_df: pd.DataFrame,
     modified_df: pd.DataFrame,
+    connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> frontend_models.BackendUpdates:
     """Update the backend with the provided changes.
 
@@ -112,6 +128,7 @@ def update_backend(
         updates: The BackendUpdates object containing added, edited, and deleted rows.
         current_df: The current DataFrame before modifications.
         modified_df: The modified DataFrame after user edits.
+        connection: The Supabase connection to use.
 
     Returns:
         The updated BackendUpdates object reflecting all changes made.
@@ -121,12 +138,12 @@ def update_backend(
     updates.deleted_rows.extend(deleted_ids)
 
     if updates.added_rows:
-        CONN.table(table_name).insert(updates.added_rows).execute()
+        connection.table(table_name).insert(updates.added_rows).execute()
     if updates.edited_rows:
         for row_id, changes in updates.edited_rows.items():
-            CONN.table(table_name).update(changes).eq("id", row_id).execute()
+            connection.table(table_name).update(changes).eq("id", row_id).execute()
     if updates.deleted_rows:
-        CONN.table(table_name).delete().in_(
+        connection.table(table_name).delete().in_(
             "id",
             updates.deleted_rows,
         ).execute()
