@@ -50,7 +50,7 @@ def _setup_test_env() -> typing.Generator[None, None, None]:
 def _connection() -> st_supabase_connection.SupabaseConnection:
     """Provide a Supabase connection for tests."""
     return st.connection(
-        "supabase",
+        "testing",
         type=st_supabase_connection.SupabaseConnection,
     )
 
