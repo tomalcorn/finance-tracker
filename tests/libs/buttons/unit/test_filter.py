@@ -67,7 +67,11 @@ def test_current_css_style_no_filtering(
 ) -> None:
     """Test _current_css_style returns normal style when no filtering applied."""
     # Arrange
-    filter_button = filter.FilterButton("test_table_1", col_configs)
+    col_configs_no_filters = [
+        col_configs[i].model_copy(update={"filtering": None})
+        for i in range(len(col_configs))
+    ]
+    filter_button = filter.FilterButton("test_table_1", col_configs_no_filters)
 
     # Act
     result = filter_button._current_css_style()

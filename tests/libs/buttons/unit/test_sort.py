@@ -48,7 +48,11 @@ def test_current_css_style_no_sorting(
 ) -> None:
     """Test _current_css_style returns normal style when no sorting applied."""
     # Arrange
-    sort_button = sort.SortButton("test_table_1", col_configs)
+    col_configs_no_sorting = [
+        col_configs[i].model_copy(update={"sorting": None})
+        for i in range(len(col_configs))
+    ]
+    sort_button = sort.SortButton("test_table_1", col_configs_no_sorting)
 
     # Act
     result = sort_button._current_css_style()
