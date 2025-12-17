@@ -11,6 +11,15 @@ from libs import constants, frontend_models
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
 
+class DataClientError(Exception):
+    """Custom exception for data client errors."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize DataClientError with a message."""
+        super().__init__(message)
+        self.message = message
+
+
 def _hash_func_for_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
 ) -> str:
@@ -134,6 +143,10 @@ def update_backend(
         The updated BackendUpdates object reflecting all changes made.
 
     """
+    if "id" not in current_df.columns or "id" not in modified_df.columns:
+        msg = "Both DataFrames must contain an 'id' column."
+        raise DataClientError(msg)
+
     deleted_ids = list(set(current_df["id"]) - set(modified_df["id"]))
     updates.deleted_rows.extend(deleted_ids)
 
