@@ -258,3 +258,28 @@ def test_update_backend_adds_and_edits_and_deletes_rows(
             deleted_user_not_found,
         ],
     )
+
+
+def test_update_backend_updates_backend_updates_model(
+    yield_sample_user: backend_models.UserModel,
+    connection: st_supabase_connection.SupabaseConnection,
+) -> None:
+    """Test that BackendUpdates model is updated correctly after backend update."""
+    # Arrange
+    updates = frontend_models.BackendUpdates(
+        deleted_rows=[str(yield_sample_user.id)],
+    )
+    current_df = pd.DataFrame({"id": []})
+    modified_df = pd.DataFrame({"id": []})
+
+    # Act
+    updated_updates = data_client.update_backend(
+        table_name="users",
+        updates=updates,
+        current_df=current_df,
+        modified_df=modified_df,
+        connection=connection,
+    )
+
+    # Assert
+    assert len(updated_updates.deleted_rows) == 0
