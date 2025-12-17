@@ -104,8 +104,8 @@ class BackendUpdates(pydantic.BaseModel):
         description="Dictionary of IDs to updated row data.",
         default_factory=dict,
     )
-    deleted_rows: list[dict[str, typing.Any]] = pydantic.Field(
-        description="List of row data entries to be deleted.",
+    deleted_rows: list[str] = pydantic.Field(
+        description="List of row ids to be deleted.",
         default_factory=list,
     )
     row_ids: list[str] = pydantic.Field(
