@@ -6,7 +6,6 @@ import re
 import typing
 import uuid
 
-import config
 import pandas as pd
 import streamlit as st
 import utils
@@ -16,7 +15,7 @@ from pandas.api.types import (
 from st_supabase_connection import SupabaseConnection
 from streamlit_extras import stylable_container as sc
 
-from src.libs import constants, models
+from libs import backend_models, constants, frontend_models
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -28,7 +27,7 @@ class DFEButtons:
     def __init__(
         self,
         table_name: str,
-        config: list[config.DFEColumnConfig],
+        config: list[frontend_models.DFEColumnConfig],
         connection: SupabaseConnection,
         sorts: list[tuple[str, str | None]] | None = None,
         filters: dict[str, dict[str, typing.Any]] | None = None,
@@ -138,7 +137,7 @@ class DFEButtons:
             }
             # Insert ID and user ID
             new_row["id"] = str(uuid.uuid4())
-            current_user: models.UserModel = st.session_state[
+            current_user: backend_models.UserModel = st.session_state[
                 constants.SSKeys.CURRENT_USER
             ]
             new_row["user_id"] = current_user.id
@@ -229,7 +228,7 @@ class DFEButtons:
             st.session_state.pop(f"{self.table_name}_current", None)
             st.rerun()
 
-    def _handle_date_filter(self, col: config.DFEColumnConfig) -> None:
+    def _handle_date_filter(self, col: frontend_models.DFEColumnConfig) -> None:
         """Handle filtering for date columns."""
         if self.filters.get(col.column_name) is not None:
             default_date_s = (
@@ -258,7 +257,7 @@ class DFEButtons:
         else:
             self.filters[col.column_name] = {}
 
-    def _handle_number_filter(self, col: config.DFEColumnConfig) -> None:
+    def _handle_number_filter(self, col: frontend_models.DFEColumnConfig) -> None:
         """Handle filtering for numeric columns."""
         if col.column_name in self.filters:
             min_value = self.filters[col.column_name]["gte"]
@@ -287,7 +286,7 @@ class DFEButtons:
 
     def _handle_selectbox_filter(
         self,
-        col: config.DFEColumnConfig,
+        col: frontend_models.DFEColumnConfig,
         unique_vals: list[typing.Any],
     ) -> None:
         """Handle filtering using a selectbox for columns with few unique values."""
@@ -301,7 +300,7 @@ class DFEButtons:
             {"in": selected_values} if selected_values else {}
         )
 
-    def _handle_generic_filter(self, col: config.DFEColumnConfig) -> None:
+    def _handle_generic_filter(self, col: frontend_models.DFEColumnConfig) -> None:
         """Handle generic filtering for other column types."""
         user_text_input = st.text_input(
             f"Filter by {col.button_label or col.column_name}",
@@ -321,7 +320,7 @@ class DFE:
         table_name: str,
         sample_data: pd.DataFrame,
         connection: SupabaseConnection,
-        config: list[config.DFEColumnConfig],
+        config: list[frontend_models.DFEColumnConfig],
         column_order: list[str],
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
@@ -344,7 +343,7 @@ class DFE:
 
     def _initialize_column_settings(
         self,
-        config: list[config.DFEColumnConfig],
+        config: list[frontend_models.DFEColumnConfig],
         column_order: list[str],
     ) -> None:
         """Initialize column configuration and order."""
@@ -676,55 +675,3 @@ class DFE:
             num_rows="dynamic",
             on_change=self.sync,
         )
-
-    def write_changes_to_backend(  # noqa: C901 - will resolve later
-        self,
-        modified_df: pd.DataFrame,
-    ) -> None:
-        """Write changes from modified_df to DB."""
-        backend_updates = st.session_state[f"{self.table_name}_backend_updates"]
-        added_rows: list[dict[str, typing.Any]] = backend_updates["added_rows"]
-        edited_rows: dict[str, dict[str, typing.Any]] = backend_updates["edited_rows"]
-        deleted_rows: list[dict[str, typing.Any]] = backend_updates["deleted_rows"]
-
-        # map foreign keys if provided
-        for col in self.config:
-            if col.foreign_key_mapping:
-                for row in added_rows:
-                    row[col.column_name] = col.foreign_key_mapping.get(
-                        row[col.column_name],
-                        row[col.column_name],
-                    )
-                for changes in edited_rows.values():
-                    if col.column_name in changes:
-                        changes[col.column_name] = col.foreign_key_mapping.get(
-                            changes[col.column_name],
-                            changes[col.column_name],
-                        )
-
-        # === Deal with deleted rows ===
-        current_df: pd.DataFrame = st.session_state[f"{self.table_name}_current"]
-        deleted_ids = list(set(current_df["id"]) - set(modified_df["id"]))
-        deleted_rows.extend(deleted_ids)
-
-        # Add user_id to all rows
-        current_user: models.UserModel = st.session_state[constants.SSKeys.CURRENT_USER]
-        for row in added_rows:
-            row["user_id"] = current_user.id
-        for changes in edited_rows.values():
-            changes["user_id"] = current_user.id
-        for row in deleted_rows:
-            row["user_id"] = current_user.id
-
-        if added_rows:
-            self.table.upsert(added_rows).execute()
-
-        if edited_rows:
-            for row_id, update_data in edited_rows.items():
-                self.table.update(update_data).eq("id", row_id).execute()
-
-        if deleted_rows:
-            self.table.delete().in_("id", deleted_rows).execute()
-            deleted_rows = []
-
-        st.session_state[f"{self.table_name}_current"] = modified_df.copy()

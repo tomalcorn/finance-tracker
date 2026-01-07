@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from src.libs import config, constants
+from libs import constants, frontend_models
 
 
 class BaseButton:
@@ -11,32 +11,42 @@ class BaseButton:
     def __init__(
         self,
         table_name: str,
-        col_configs: list[config.DFEColumnConfig],
+        col_configs: list[frontend_models.DFEColumnConfig],
     ) -> None:
         """Initialize the BaseButton instance."""
         self._table_name = table_name
         self._col_configs = col_configs
-        self.css_style_normal = """
+
+    @property
+    def css_style_normal(self) -> str:
+        """CSS for the normal button state."""
+        return """
             button {
                 background-color: white;
                 border: 1px solid #ccc;
                 color: black;
             }
-            """
-        self.css_style_active = """
+        """
+
+    @property
+    def css_style_active(self) -> str:
+        """CSS for the active button state."""
+        return """
             button {
-            background-color: rgba(212, 237, 218, 0.5); /* Light green background */
-            border: 1px solid #ccc;
-            color: black;
+                background-color: rgba(212, 237, 218, 0.5); /* Light green background */
+                border: 1px solid #ccc;
+                color: black;
             }
-            """
+        """
 
     def _override_configs_from_session_state(
         self,
-    ) -> list[config.DFEColumnConfig] | None:
+    ) -> list[frontend_models.DFEColumnConfig] | None:
         """Override column configs from session state if available."""
         session_key = f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"
         if session_key in st.session_state:
-            configs: list[config.DFEColumnConfig] = st.session_state[session_key]
+            configs: list[frontend_models.DFEColumnConfig] = st.session_state[
+                session_key
+            ]
             return configs
         return None
