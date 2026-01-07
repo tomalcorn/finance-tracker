@@ -2,29 +2,31 @@
 
 import pytest
 import streamlit.testing.v1 as st_test
-from src.libs import config, constants
-from src.libs.buttons import sort
 from tests import conftest
+
+from libs import constants, frontend_models
+from libs.buttons import sort
 
 
 def _sort_button_dialog_wrapper() -> None:
     """Call the _sorting_button_dialog method."""
     import streamlit as st
-    from src.libs import config
-    from src.libs.buttons import sort
+
+    from libs import constants, frontend_models
+    from libs.buttons import sort
 
     dfe_configs = [
-        config.DFEColumnConfig(
+        frontend_models.DFEColumnConfig(
             column_name="col1",
             column_config={},
             input_widget=st.text_input,
-            sorting="asc",
+            sorting=constants.SortingValues.ASCENDING,
         ),
-        config.DFEColumnConfig(
+        frontend_models.DFEColumnConfig(
             column_name="col2",
             column_config={},
             input_widget=st.number_input,
-            sorting="desc",
+            sorting=constants.SortingValues.DESCENDING,
         ),
     ]
 
@@ -42,11 +44,15 @@ def _app_tester() -> st_test.AppTest:
 
 
 def test_current_css_style_no_sorting(
-    col_configs: list[config.DFEColumnConfig],
+    col_configs: list[frontend_models.DFEColumnConfig],
 ) -> None:
     """Test _current_css_style returns normal style when no sorting applied."""
     # Arrange
-    sort_button = sort.SortButton("test_table_1", col_configs)
+    col_configs_no_sorting = [
+        col_configs[i].model_copy(update={"sorting": None})
+        for i in range(len(col_configs))
+    ]
+    sort_button = sort.SortButton("test_table_1", col_configs_no_sorting)
 
     # Act
     result = sort_button._current_css_style()
@@ -56,7 +62,7 @@ def test_current_css_style_no_sorting(
 
 
 def test_current_css_style_with_sorting(
-    col_configs: list[config.DFEColumnConfig],
+    col_configs: list[frontend_models.DFEColumnConfig],
 ) -> None:
     """Test _current_css_style returns active style when sorting is applied."""
     # Arrange
@@ -137,8 +143,8 @@ class TestSortButtonDialog:
         app_tester.run()
 
         # Assert - sorting updated correctly
-        updated_col_configs: list[config.DFEColumnConfig] = app_tester.session_state[
-            f"test_table_{constants.SSKeys.COL_CONFIGS}"
-        ]
+        updated_col_configs: list[frontend_models.DFEColumnConfig] = (
+            app_tester.session_state[f"test_table_{constants.SSKeys.COL_CONFIGS}"]
+        )
         actual_sorting = [col_config.sorting for col_config in updated_col_configs]
         assert actual_sorting == expected_sorting

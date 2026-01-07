@@ -1,8 +1,10 @@
-"""Module for pydantic configs."""
+"""Module for pydantic configs for the frontend models."""
 
 import typing
 
 import pydantic
+
+from libs import constants
 
 
 class Filters(pydantic.BaseModel):
@@ -63,7 +65,7 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The keyword arguments for the input widget.",
         default={},
     )
-    sorting: str | None = pydantic.Field(
+    sorting: constants.SortingValues | None = pydantic.Field(
         description="The sorting direction for the column.",
         default=None,
     )
@@ -89,3 +91,28 @@ class DFEColumnConfig(pydantic.BaseModel):
             msg = f"Invalid sorting value: {value}. Must be one of {valid_sortings}."
             raise ValueError(msg)
         return value
+
+
+class BackendUpdates(pydantic.BaseModel):
+    """Model for backend updates tracking."""
+
+    added_rows: list[dict[str, typing.Any]] = pydantic.Field(
+        description="List of new row data entries.",
+        default_factory=list,
+    )
+    edited_rows: dict[str, dict[str, typing.Any]] = pydantic.Field(
+        description="Dictionary of IDs to updated row data.",
+        default_factory=dict,
+    )
+    deleted_rows: list[str] = pydantic.Field(
+        description="List of row ids to be deleted.",
+        default_factory=list,
+    )
+    row_ids: list[str] = pydantic.Field(
+        description="List of all row IDs currently tracked.",
+        default_factory=list,
+    )
+    prev_added_rows: list[dict[str, typing.Any]] = pydantic.Field(
+        description="List of previously added row data entries.",
+        default_factory=list,
+    )

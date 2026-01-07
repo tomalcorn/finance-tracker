@@ -8,7 +8,7 @@ import supabase_auth
 from st_supabase_connection import SupabaseConnection
 
 import libs.dataframe_handling as dfh
-from libs import config, constants, utils
+from libs import constants, data_client, frontend_models
 
 # Set up supabase connection and authenticate user
 conn = st.connection("supabase", type=SupabaseConnection)
@@ -37,7 +37,7 @@ with st.spinner("Signing in..."):
     st.session_state[constants.SSKeys.CURRENT_USER] = user
 
 # Get bank accounts from the database
-bank_accounts = utils.get_original_data(
+bank_accounts = data_client.get_data(
     table_name="bank_accounts",
     query_string="*",
 )
@@ -46,7 +46,7 @@ bank_account_names = list(bank_name_id_map.keys())
 
 # Define column and add button configuration
 payments_config = [
-    config.DFEColumnConfig(
+    frontend_models.DFEColumnConfig(
         column_name="description",
         column_config=st.column_config.TextColumn(
             "🔠 Name",
@@ -58,7 +58,7 @@ payments_config = [
             "value": None,
         },
     ),
-    config.DFEColumnConfig(
+    frontend_models.DFEColumnConfig(
         column_name="amount",
         column_config=st.column_config.NumberColumn(
             "💵 Amount",
@@ -71,7 +71,7 @@ payments_config = [
             "format": "%.2f",
         },
     ),
-    config.DFEColumnConfig(
+    frontend_models.DFEColumnConfig(
         column_name="payment_date",
         column_config=st.column_config.DateColumn(
             "📆 Date",
@@ -79,10 +79,10 @@ payments_config = [
         ),
         button_label="Payment Date",
         input_widget=st.date_input,
-        sorting="asc",
-        filtering=config.Filters(gte="2024-01-01", lte="2025-12-31"),
+        sorting=constants.SortingValues.DESCENDING,
+        filtering=frontend_models.Filters(gte="2024-01-01", lte="2025-12-31"),
     ),
-    config.DFEColumnConfig(
+    frontend_models.DFEColumnConfig(
         column_name="category",
         column_config=st.column_config.SelectboxColumn(
             "⬇️ Category",
@@ -95,7 +95,7 @@ payments_config = [
             "index": None,
         },
     ),
-    config.DFEColumnConfig(
+    frontend_models.DFEColumnConfig(
         column_name="bank_account_id",
         column_config=st.column_config.SelectboxColumn(
             "Bank Account",
@@ -138,5 +138,3 @@ payments_dfe = dfh.DFE(
 )
 
 modified_payments = payments_dfe.render()
-
-payments_dfe.write_changes_to_backend(modified_payments)

@@ -10,8 +10,8 @@ if available.
 import streamlit as st
 from streamlit_extras import stylable_container
 
-from src.libs import config, constants
-from src.libs.buttons import base
+from libs import constants, frontend_models
+from libs.buttons import base
 
 
 class SortButton(base.BaseButton):
@@ -20,7 +20,7 @@ class SortButton(base.BaseButton):
     def __init__(
         self,
         table_name: str,
-        col_configs: list[config.DFEColumnConfig],
+        col_configs: list[frontend_models.DFEColumnConfig],
     ) -> None:
         """Initialize the SortButton instance."""
         super().__init__(table_name, col_configs)
@@ -62,7 +62,7 @@ class SortButton(base.BaseButton):
             )
             st.rerun()
 
-    def __call__(self) -> list[config.DFEColumnConfig]:
+    def __call__(self) -> list[frontend_models.DFEColumnConfig]:
         """Render the sort button in the UI.
 
         Returns:
@@ -80,7 +80,7 @@ class SortButton(base.BaseButton):
                 key=f"{self._table_name}_sort_button",
             ):
                 self._sorting_button_dialog()
-        returned_configs: list[config.DFEColumnConfig] = st.session_state.get(
+        returned_configs: list[frontend_models.DFEColumnConfig] = st.session_state.get(
             f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}",
             self._col_configs,
         )

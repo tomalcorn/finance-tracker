@@ -1,7 +1,8 @@
-"""Unit tests for the config module."""
+"""Unit tests for the frontend models module."""
 
 import pytest
-from src.libs import config
+
+from libs import frontend_models
 
 
 class TestDFEColumnConfig:
@@ -13,7 +14,7 @@ class TestDFEColumnConfig:
     )
     def test_validate_sorting_with_valid_values(self, value: str | None) -> None:
         """Test validate_sorting with valid sorting values."""
-        result = config.DFEColumnConfig.validate_sorting(value)
+        result = frontend_models.DFEColumnConfig.validate_sorting(value)
         assert result == value
 
     def test_validate_sorting_with_invalid_value(self) -> None:
@@ -23,4 +24,4 @@ class TestDFEColumnConfig:
             ValueError,
             match=f"Invalid sorting value: {invalid_value}.",
         ):
-            config.DFEColumnConfig.validate_sorting(invalid_value)
+            frontend_models.DFEColumnConfig.validate_sorting(invalid_value)
