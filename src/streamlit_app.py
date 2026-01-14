@@ -9,6 +9,7 @@ from st_supabase_connection import SupabaseConnection
 
 import libs.dataframe_handling as dfh
 from libs import constants, data_client, frontend_models
+from libs.dfes import base_dfe
 
 # Set up supabase connection and authenticate user
 conn = st.connection("supabase", type=SupabaseConnection)
@@ -79,7 +80,7 @@ payments_config = [
         ),
         button_label="Payment Date",
         input_widget=st.date_input,
-        sorting=constants.SortingValues.DESCENDING,
+        sorting=constants.SortingValues.DESC,
         filtering=frontend_models.Filters(gte="2024-01-01", lte="2025-12-31"),
     ),
     frontend_models.DFEColumnConfig(
@@ -116,7 +117,7 @@ payments_order = [
     "amount",
     "payment_date",
     "category",
-    "bank_account",
+    "bank_account_id",
 ]
 sample_data = pd.DataFrame(
     {
@@ -126,7 +127,7 @@ sample_data = pd.DataFrame(
         "payment_date": ["2025-06-01"],
         "category": ["category"],
         "created_at": ["2025-06-01"],
-        "bank_account": ["Example bank account"],
+        "bank_account_id": ["Example bank account"],
     },
 )
 payments_dfe = dfh.DFE(
@@ -137,4 +138,13 @@ payments_dfe = dfh.DFE(
     column_order=payments_order,
 )
 
+
 modified_payments = payments_dfe.render()
+
+payments_dfe_new = base_dfe.DFE(
+    table_name="payments",
+    configs=payments_config,
+    column_order=payments_order,
+)
+
+modified_payments_new = payments_dfe_new.load_input_data(sample_data).render()
