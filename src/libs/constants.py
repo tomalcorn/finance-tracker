@@ -10,6 +10,8 @@ class SSKeys(enum.StrEnum):
 
     CURRENT_USER = enum.auto()
     COL_CONFIGS = enum.auto()
+    WORKING_DF = enum.auto()
+    CURRENT_DF = enum.auto()
 
 
 class SortingValues(enum.StrEnum):
