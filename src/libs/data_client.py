@@ -46,10 +46,10 @@ def _apply_filters_to_query(
 ) -> st_supabase_connection.SyncSelectRequestBuilder:
     """Apply filters from column configurations to the query."""
     if config.filtering:
-        for filter_key, filter_value in config.filtering.model_dump(
+        for operator, criteria in config.filtering.model_dump(
             exclude_none=True,
         ).items():
-            query = query.filter(config.column_name, filter_key, filter_value)
+            query = query.filter(config.column_name, operator, criteria)
     return query
 
 
@@ -61,7 +61,7 @@ def _apply_sorting_to_query(
     if config.sorting:
         query = query.order(
             config.column_name,
-            desc=config.sorting == constants.SortingValues.DESCENDING,
+            desc=config.sorting == constants.SortingValues.DESC,
         )
     return query
 
