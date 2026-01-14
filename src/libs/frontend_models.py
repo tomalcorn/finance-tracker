@@ -3,8 +3,28 @@
 import typing
 
 import pydantic
+import streamlit as st
 
 from libs import constants
+
+type StreamlitColumnConfig = (
+    st.column_config.NumberColumn
+    | st.column_config.TextColumn
+    | st.column_config.CheckboxColumn
+    | st.column_config.SelectboxColumn
+    | st.column_config.LinkColumn
+    | st.column_config.DateColumn
+    | st.column_config.ListColumn
+    | st.column_config.DatetimeColumn
+    | st.column_config.TimeColumn
+    | st.column_config.ProgressColumn
+    | st.column_config.LineChartColumn
+    | st.column_config.BarChartColumn
+    | st.column_config.AreaChartColumn
+    | st.column_config.ImageColumn
+    | st.column_config.MultiselectColumn
+    | st.column_config.JsonColumn
+)
 
 
 class Filters(pydantic.BaseModel):
@@ -47,11 +67,11 @@ class DFEColumnConfig(pydantic.BaseModel):
     column_name: str = pydantic.Field(
         description="The name of the column in the DataFrame.",
     )
-    column_config: dict[str, typing.Any] = pydantic.Field(
+    column_config: StreamlitColumnConfig = pydantic.Field(
         description=(
-            "The Streamlit column configuration. Needs to be converted from streamlit "
-            "column_config objects to dictionaries due to type checking problems. "
-            "Needs to be converted back to streamlit column_config objects before use."
+            "The Streamlit column configuration. Can be a Streamlit column_config "
+            "object (TextColumn, NumberColumn, DateColumn, SelectboxColumn, etc.) "
+            "or a dict representation for serialization."
         ),
     )
     button_label: str | None = pydantic.Field(
@@ -106,13 +126,5 @@ class BackendUpdates(pydantic.BaseModel):
     )
     deleted_rows: list[str] = pydantic.Field(
         description="List of row ids to be deleted.",
-        default_factory=list,
-    )
-    row_ids: list[str] = pydantic.Field(
-        description="List of all row IDs currently tracked.",
-        default_factory=list,
-    )
-    prev_added_rows: list[dict[str, typing.Any]] = pydantic.Field(
-        description="List of previously added row data entries.",
         default_factory=list,
     )
