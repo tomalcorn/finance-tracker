@@ -21,7 +21,6 @@ class DFE:
     def __init__(
         self,
         table_name: str,
-        sample_data: pd.DataFrame,
         configs: list[frontend_models.DFEColumnConfig],
         column_order: list[str],
     ) -> None:
@@ -34,34 +33,77 @@ class DFE:
         }
         self._column_order = column_order
 
-        self._initialize_session_state(sample_data)
-
-    def _initialize_session_state(self, sample_data: pd.DataFrame) -> None:
-        """Initialize session state variables."""
-        # Load and store original data in working and current session states variables
+    @property
+    def working_df(self) -> pd.DataFrame | None:
+        """Get the working dataframe from session state."""
         working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
-        if working_df_key not in st.session_state:
-            original_data = pd.DataFrame(
-                data_client.get_data(
-                    table_name=self.table_name,
-                    query_string="*",
-                    configs=self.configs,
-                ),
-            )
-            working_df = self._convert_cols_to_datetime(
-                original_data if not original_data.empty else sample_data,
-            )
-            st.session_state[working_df_key] = working_df
+        return st.session_state.get(working_df_key, None)
 
-        current_df_key = f"{self.table_name}_{constants.SSKeys.CURRENT_DF}"
-        if current_df_key not in st.session_state:
-            st.session_state[current_df_key] = st.session_state.get(
-                working_df_key,
-            )
+    @working_df.setter
+    def working_df(self, df: pd.DataFrame) -> None:
+        """Set the working dataframe in session state."""
+        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
+        st.session_state[working_df_key] = df
 
+    def clear_working_df(self) -> None:
+        """Clear the working dataframe from session state."""
+        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
+        if working_df_key in st.session_state:
+            del st.session_state[working_df_key]
+
+    @property
+    def original_df(self) -> pd.DataFrame | None:
+        """Get the original dataframe from session state."""
+        original_df_key = f"{self.table_name}_{constants.SSKeys.ORIGINAL_DF}"
+        return st.session_state.get(original_df_key, None)
+
+    @original_df.setter
+    def original_df(self, df: pd.DataFrame) -> None:
+        """Set the original dataframe in session state."""
+        original_df_key = f"{self.table_name}_{constants.SSKeys.ORIGINAL_DF}"
+        st.session_state[original_df_key] = df
+
+    def load_input_data(self, sample_data: pd.DataFrame) -> typing.Self:
+        """Load data into the dataframe editor.
+
+        Ideally uses the working_df from session state, but if the data served from the
+        data_client is different to original_df, then flushes working_df and uses
+        data_client data.
+        """
+        # Initialize row IDs tracking
         row_ids_key = f"{self.table_name}_{constants.SSKeys.ROW_IDS}"
         if row_ids_key not in st.session_state:
             st.session_state[row_ids_key] = []
+
+        # Load current data from database
+        current_df = pd.DataFrame(
+            data_client.get_data(
+                table_name=self.table_name,
+                query_string="*",
+                configs=self.configs,
+            ),
+        )
+
+        # Initialize original_df on first load
+        if self.original_df is None:
+            self.original_df = current_df
+
+        # If database data has changed, reset working state
+        elif not current_df.equals(self.original_df):
+            self.clear_working_df()
+            self.original_df = current_df
+
+        # Initialize working_df if needed
+        if self.working_df is None:
+            source_df = (
+                self.original_df
+                if (self.original_df and not self.original_df.empty)
+                else sample_data
+            )
+            working_df = self._convert_cols_to_datetime(source_df)
+            self.working_df = working_df
+
+        return self
 
     def _convert_cols_to_datetime(
         self,
@@ -273,10 +315,11 @@ class DFE:
     def render(self) -> pd.DataFrame:
         """Render the dataframe editor with the original dataframe."""
         # Get working dataframe from session state
-        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
-        working_df: pd.DataFrame = st.session_state[working_df_key]
+        if self.working_df is None:
+            msg = "Working dataframe is not initialized."
+            raise ValueError(msg)
         return st.data_editor(
-            working_df,
+            self.working_df,
             key=self.table_name,
             column_config=self._column_config,
             column_order=self._column_order,
