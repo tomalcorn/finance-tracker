@@ -176,33 +176,33 @@ class DFE:
 
     def _check_for_sorts_updates(
         self,
+        working_df: pd.DataFrame,
         added_rows: dict[str, typing.Any] | None = None,
         edited_rows: dict[str, dict[str, typing.Any]] | None = None,
         deleted_rows: list[int] | None = None,
-    ) -> bool:
+    ) -> tuple[bool, pd.DataFrame]:
         """Check editor_state to see if changes made to sorts columns."""
         if deleted_rows:
-            return True
+            return True, self._sort_columns(working_df)
 
         sorts_changed = False
         for config in self.configs:
-            if config.sorting is not None:
-                col = config.column_name
+            if config.sorting is None:
+                continue
 
-                if edited_rows:
-                    for changes in edited_rows.values():
-                        if col in changes:
-                            sorts_changed = True
-                            break
+            col = config.column_name
+            if edited_rows:
+                for changes in edited_rows.values():
+                    if col in changes:
+                        return True, self._sort_columns(working_df)
 
-                if not sorts_changed and added_rows:
-                    for row in added_rows:
-                        if col in row:
-                            sorts_changed = True
-                            break
-        return sorts_changed
+            if not sorts_changed and added_rows:
+                for row in added_rows:
+                    if col in row:
+                        return True, self._sort_columns(working_df)
+        return False, working_df
 
-    def sort_columns(
+    def _sort_columns(
         self,
         working_df: pd.DataFrame,
     ) -> pd.DataFrame:
@@ -220,33 +220,98 @@ class DFE:
         self,
         row: dict[str, typing.Any],
         unique_columns: list[str],
-    ) -> None:
+    ) -> dict[str, typing.Any]:
         """Process a single row to enforce unique constraints."""
         for col in unique_columns:
-            if col in row:
-                unique_values = set(
-                    data_client.get_column_values(
-                        table_name=self.table_name,
-                        column_name=col,
-                        unique=True,
-                    ),
-                )
-                base_value = re.sub(r" \(\d+\)$", "", str(row[col]))
-                # Filter unique_values for entries that start with base_value
-                duplicates = [
-                    str(v) for v in unique_values if str(v).startswith(base_value)
-                ]
-                if duplicates:
-                    # Extract numeric suffixes like " (123)" and take the max; if none
-                    # found, start from 0
-                    suffixes = []
-                    for val in duplicates:
-                        match = re.search(r" \((\d+)\)$", val)
-                        if match:
-                            with contextlib.suppress(ValueError):
-                                suffixes.append(int(match.group(1)))
-                    max_suffix = max(suffixes) if suffixes else 0
-                    row[col] = f"{base_value} ({max_suffix + 1})"
+            if col not in row:
+                continue
+
+            unique_values = set(
+                data_client.get_column_values(
+                    table_name=self.table_name,
+                    column_name=col,
+                    unique=True,
+                ),
+            )
+            base_value = re.sub(r" \(\d+\)$", "", str(row[col]))
+            # Filter unique_values for entries that start with base_value
+            duplicates = [
+                str(v) for v in unique_values if str(v).startswith(base_value)
+            ]
+            if duplicates:
+                # Extract numeric suffixes like " (123)" and take the max; if none
+                # found, start from 0
+                suffixes = []
+                for val in duplicates:
+                    match = re.search(r" \((\d+)\)$", val)
+                    if match:
+                        with contextlib.suppress(ValueError):
+                            suffixes.append(int(match.group(1)))
+                max_suffix = max(suffixes) if suffixes else 0
+                row[col] = f"{base_value} ({max_suffix + 1})"
+        return row
+
+    def _get_backend_updates_added_rows(
+        self,
+        unique_cols: list[str],
+    ) -> list[dict[str, typing.Any]]:
+        """Enforce unique cols, manage row IDs, return backend updates added rows."""
+        beu_added_rows: list[dict[str, typing.Any]] = []
+        row_ids_key = f"{self.table_name}_{constants.SSKeys.ROW_IDS}"
+        row_ids: list[str] = st.session_state[row_ids_key]
+
+        # Deal with deleted added_rows
+        if len(self.added_rows) < len(row_ids):
+            deleted_added_indices = [
+                i
+                for i, row in enumerate(self.prev_added_rows)
+                if row not in self.added_rows
+            ]
+            for idx in sorted(deleted_added_indices, reverse=True):
+                del row_ids[idx]
+        self.prev_added_rows = self.added_rows
+
+        # Assign IDs to added rows: reuse IDs from row_ids if available
+        for i, row in enumerate(self.added_rows):
+            unique_row = self._enforce_unique_cols(
+                row=row,
+                unique_columns=unique_cols,
+            )
+            if i < len(row_ids):
+                unique_row["id"] = row_ids[i]
+            elif "id" not in unique_row or not unique_row["id"]:
+                unique_row["id"] = str(uuid.uuid4())
+                beu_added_rows.append(unique_row)
+        return beu_added_rows
+
+    def _get_backend_updates_edited_rows(
+        self,
+        unique_cols: list[str],
+        working_df: pd.DataFrame,
+    ) -> dict[str, dict[str, typing.Any]]:
+        """Get backend updates for edited rows."""
+        beu_edited_rows: dict[str, dict[str, typing.Any]] = {}
+        for row_idx, changes in self.edited_rows.items():
+            unique_changes = self._enforce_unique_cols(
+                row=changes,
+                unique_columns=unique_cols,
+            )
+            row_id = working_df.iloc[row_idx]["id"]
+            beu_edited_rows[row_id] = unique_changes
+
+    def _get_backend_updates_deleted_rows(self) -> list[str]:
+        """Get backend updates for deleted rows."""
+        beu_deleted_rows: list[str] = []
+        for row_idx in self.deleted_rows:
+            row_id = self.working_df.iloc[row_idx]["id"]
+            beu_deleted_rows.append(row_id)
+        return beu_deleted_rows
+
+    def clear_working_df(self) -> None:
+        """Clear the working dataframe from session state."""
+        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
+        if working_df_key in st.session_state:
+            del st.session_state[working_df_key]
 
     def sync(
         self,
@@ -254,79 +319,26 @@ class DFE:
         modified_df: pd.DataFrame,
     ) -> frontend_models.BackendUpdates:
         """Sync the edited dataframe with the Supabase table."""
-        # Get the editor state and working dataframe
-        editor_state = st.session_state[self.table_name]
         unique_cols = [col.column_name for col in self.configs if col.enforce_unique]
 
-        # === Deal with added rows ===
-        added_rows_key = constants.SSKeys.ADDED_ROWS
-        beu_added_rows: list[dict[str, typing.Any]] = []
-        added_rows: list[dict[str, typing.Any]] = editor_state[added_rows_key]
-
-        row_ids_key = f"{self.table_name}_{constants.SSKeys.ROW_IDS}"
-        row_ids: list[str] = st.session_state[row_ids_key]
-
-        prev_added_rows_key = f"{self.table_name}_{constants.SSKeys.PREV_ADDED_ROWS}"
-        prev_added_rows: list[dict[str, typing.Any]] = st.session_state[
-            prev_added_rows_key
-        ]
-
-        # Deal with deleted added_rows
-        if len(added_rows) < len(row_ids):
-            deleted_added_indices = [
-                i for i, row in enumerate(prev_added_rows) if row not in added_rows
-            ]
-            for idx in sorted(deleted_added_indices, reverse=True):
-                del row_ids[idx]
-        st.session_state[prev_added_rows_key] = added_rows
-
-        # Assign IDs to added rows: reuse IDs from row_ids if available
-        for i, row in enumerate(added_rows):
-            self._enforce_unique_cols(
-                row=row,
-                unique_columns=unique_cols,
-            )
-            if i < len(row_ids):
-                row["id"] = row_ids[i]
-            elif "id" not in row or not row["id"]:
-                row["id"] = str(uuid.uuid4())
-                beu_added_rows.append(row)
-
-        # === Deal with edited rows ===
-        edited_rows_key = constants.SSKeys.EDITED_ROWS
-        edited_rows: dict[str, dict[str, typing.Any]] = editor_state[edited_rows_key]
-        beu_edited_rows: dict[str, dict[str, typing.Any]] = {}
-        for row_idx, changes in edited_rows.items():
-            self._enforce_unique_cols(
-                row=changes,
-                unique_columns=unique_cols,
-            )
-            row_id = working_df.iloc[row_idx]["id"]
-            beu_edited_rows[row_id] = changes
-
-        # === Deal with deleted rows ===
-        deleted_rows_key = constants.SSKeys.DELETED_ROWS
-        deleted_rows: list[int] = editor_state[deleted_rows_key]
-        beu_deleted_rows: list[str] = []
-        for row_idx in deleted_rows:
-            row_id = working_df.iloc[row_idx]["id"]
-            beu_deleted_rows.append(row_id)
+        beu_added_rows = self._get_backend_updates_added_rows(unique_cols=unique_cols)
+        beu_edited_rows = self._get_backend_updates_edited_rows(
+            unique_cols=unique_cols,
+            working_df=working_df,
+        )
+        beu_deleted_rows = self._get_backend_updates_deleted_rows()
 
         # Apply changes to working_df and check changes still in filters
         filters_changed, modified_df = self._check_for_filters_updates(modified_df)
-        sorts_changed = any(
-            col.sorting for col in self.configs
-        ) and self._check_for_sorts_updates(
-            added_rows=editor_state[constants.SSKeys.ADDED_ROWS],
-            edited_rows=editor_state[constants.SSKeys.EDITED_ROWS],
-            deleted_rows=editor_state[constants.SSKeys.DELETED_ROWS],
+        sorts_changed, modified_df = self._check_for_sorts_updates(
+            working_df=modified_df,
+            added_rows=self.added_rows,
+            edited_rows=self.edited_rows,
+            deleted_rows=self.deleted_rows,
         )
-        if sorts_changed:
-            modified_df = self.sort_columns(modified_df)
+
         if sorts_changed or filters_changed:
-            st.session_state[f"{self.table_name}_{constants.SSKeys.WORKING_DF}"] = (
-                modified_df
-            )
+            self.working_df = modified_df
 
         return frontend_models.BackendUpdates(
             added_rows=beu_added_rows,
@@ -338,7 +350,10 @@ class DFE:
         """Render the dataframe editor with the original dataframe."""
         # Get working dataframe from session state
         if self.working_df is None:
-            msg = "Working dataframe is not initialized."
+            msg = (
+                "Working dataframe is not initialized. Make sure to call "
+                "load_input_data() first."
+            )
             raise ValueError(msg)
         return st.data_editor(
             self.working_df,
