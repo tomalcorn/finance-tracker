@@ -176,14 +176,14 @@ class DFE:
 
     def _check_for_sorts_updates(
         self,
-        working_df: pd.DataFrame,
+        modified_df: pd.DataFrame,
         added_rows: dict[str, typing.Any] | None = None,
         edited_rows: dict[str, dict[str, typing.Any]] | None = None,
         deleted_rows: list[int] | None = None,
     ) -> tuple[bool, pd.DataFrame]:
         """Check editor_state to see if changes made to sorts columns."""
         if deleted_rows:
-            return True, self._sort_columns(working_df)
+            return True, self._sort_columns(modified_df)
 
         sorts_changed = False
         for config in self.configs:
@@ -194,20 +194,20 @@ class DFE:
             if edited_rows:
                 for changes in edited_rows.values():
                     if col in changes:
-                        return True, self._sort_columns(working_df)
+                        return True, self._sort_columns(modified_df)
 
             if not sorts_changed and added_rows:
                 for row in added_rows:
                     if col in row:
-                        return True, self._sort_columns(working_df)
-        return False, working_df
+                        return True, self._sort_columns(modified_df)
+        return False, modified_df
 
     def _sort_columns(
         self,
-        working_df: pd.DataFrame,
+        modified_df: pd.DataFrame,
     ) -> pd.DataFrame:
         """Sort the original dataframe by a list of column names."""
-        sorted_df = working_df.copy()
+        sorted_df = modified_df.copy()
         for col in self.configs:
             if col.sorting is not None:
                 sorted_df = sorted_df.sort_values(
@@ -219,10 +219,10 @@ class DFE:
     def _enforce_unique_cols(
         self,
         row: dict[str, typing.Any],
-        unique_columns: list[str],
+        unique_col_names: list[str],
     ) -> dict[str, typing.Any]:
         """Process a single row to enforce unique constraints."""
-        for col in unique_columns:
+        for col in unique_col_names:
             if col not in row:
                 continue
 
@@ -251,9 +251,9 @@ class DFE:
                 row[col] = f"{base_value} ({max_suffix + 1})"
         return row
 
-    def _get_backend_updates_added_rows(
+    def _get_added_rows_for_backend(
         self,
-        unique_cols: list[str],
+        unique_col_names: list[str],
     ) -> list[dict[str, typing.Any]]:
         """Enforce unique cols, manage row IDs, return backend updates added rows."""
         beu_added_rows: list[dict[str, typing.Any]] = []
@@ -275,7 +275,7 @@ class DFE:
         for i, row in enumerate(self.added_rows):
             unique_row = self._enforce_unique_cols(
                 row=row,
-                unique_columns=unique_cols,
+                unique_col_names=unique_col_names,
             )
             if i < len(row_ids):
                 unique_row["id"] = row_ids[i]
@@ -284,9 +284,9 @@ class DFE:
                 beu_added_rows.append(unique_row)
         return beu_added_rows
 
-    def _get_backend_updates_edited_rows(
+    def _get_edited_rows_for_backend(
         self,
-        unique_cols: list[str],
+        unique_col_names: list[str],
         working_df: pd.DataFrame,
     ) -> dict[str, dict[str, typing.Any]]:
         """Get backend updates for edited rows."""
@@ -294,12 +294,12 @@ class DFE:
         for row_idx, changes in self.edited_rows.items():
             unique_changes = self._enforce_unique_cols(
                 row=changes,
-                unique_columns=unique_cols,
+                unique_col_names=unique_col_names,
             )
             row_id = working_df.iloc[row_idx]["id"]
             beu_edited_rows[row_id] = unique_changes
 
-    def _get_backend_updates_deleted_rows(self) -> list[str]:
+    def _get_deleted_rows_for_backend(self) -> list[str]:
         """Get backend updates for deleted rows."""
         beu_deleted_rows: list[str] = []
         for row_idx in self.deleted_rows:
@@ -319,19 +319,21 @@ class DFE:
         modified_df: pd.DataFrame,
     ) -> frontend_models.BackendUpdates:
         """Sync the edited dataframe with the Supabase table."""
-        unique_cols = [col.column_name for col in self.configs if col.enforce_unique]
+        unique_col_names = [
+            col.column_name for col in self.configs if col.enforce_unique
+        ]
 
-        beu_added_rows = self._get_backend_updates_added_rows(unique_cols=unique_cols)
-        beu_edited_rows = self._get_backend_updates_edited_rows(
-            unique_cols=unique_cols,
+        beu_added_rows = self._get_added_rows_for_backend(unique_col_names)
+        beu_edited_rows = self._get_edited_rows_for_backend(
+            unique_col_names=unique_col_names,
             working_df=working_df,
         )
-        beu_deleted_rows = self._get_backend_updates_deleted_rows()
+        beu_deleted_rows = self._get_deleted_rows_for_backend()
 
         # Apply changes to working_df and check changes still in filters
         filters_changed, modified_df = self._check_for_filters_updates(modified_df)
         sorts_changed, modified_df = self._check_for_sorts_updates(
-            working_df=modified_df,
+            modified_df=modified_df,
             added_rows=self.added_rows,
             edited_rows=self.edited_rows,
             deleted_rows=self.deleted_rows,
