@@ -45,23 +45,52 @@ class DFE:
         working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
         st.session_state[working_df_key] = df
 
-    def clear_working_df(self) -> None:
-        """Clear the working dataframe from session state."""
-        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
-        if working_df_key in st.session_state:
-            del st.session_state[working_df_key]
+    @property
+    def previous_configs(self) -> list[frontend_models.DFEColumnConfig] | None:
+        """Get the previous column configs from session state."""
+        prev_configs_key = f"{self.table_name}_{constants.SSKeys.PREV_CONFIGS}"
+        return st.session_state.get(prev_configs_key, None)
+
+    @previous_configs.setter
+    def previous_configs(
+        self,
+        configs: list[frontend_models.DFEColumnConfig],
+    ) -> None:
+        """Set the previous column configs in session state."""
+        prev_configs_key = f"{self.table_name}_{constants.SSKeys.PREV_CONFIGS}"
+        st.session_state[prev_configs_key] = configs
 
     @property
-    def original_df(self) -> pd.DataFrame | None:
-        """Get the original dataframe from session state."""
-        original_df_key = f"{self.table_name}_{constants.SSKeys.ORIGINAL_DF}"
-        return st.session_state.get(original_df_key, None)
+    def editor_state(self) -> dict[str, typing.Any]:
+        """Get the editor state from session state."""
+        return st.session_state[self.table_name]
 
-    @original_df.setter
-    def original_df(self, df: pd.DataFrame) -> None:
-        """Set the original dataframe in session state."""
-        original_df_key = f"{self.table_name}_{constants.SSKeys.ORIGINAL_DF}"
-        st.session_state[original_df_key] = df
+    @property
+    def added_rows(self) -> list[dict[str, typing.Any]]:
+        """Get the added rows from the editor state."""
+        return self.editor_state[constants.SSKeys.ADDED_ROWS]
+
+    @property
+    def edited_rows(self) -> dict[str, dict[str, typing.Any]]:
+        """Get the edited rows from the editor state."""
+        return self.editor_state[constants.SSKeys.EDITED_ROWS]
+
+    @property
+    def deleted_rows(self) -> list[int]:
+        """Get the deleted rows from the editor state."""
+        return self.editor_state[constants.SSKeys.DELETED_ROWS]
+
+    @property
+    def prev_added_rows(self) -> list[dict[str, typing.Any]]:
+        """Get the previous added rows from session state."""
+        prev_added_rows_key = f"{self.table_name}_{constants.SSKeys.PREV_ADDED_ROWS}"
+        return st.session_state.get(prev_added_rows_key, [])
+
+    @prev_added_rows.setter
+    def prev_added_rows(self, rows: list[dict[str, typing.Any]]) -> None:
+        """Set the previous added rows in session state."""
+        prev_added_rows_key = f"{self.table_name}_{constants.SSKeys.PREV_ADDED_ROWS}"
+        st.session_state[prev_added_rows_key] = rows
 
     def load_input_data(self, sample_data: pd.DataFrame) -> typing.Self:
         """Load data into the dataframe editor.
@@ -75,32 +104,25 @@ class DFE:
         if row_ids_key not in st.session_state:
             st.session_state[row_ids_key] = []
 
-        # Load current data from database
-        current_df = pd.DataFrame(
-            data_client.get_data(
-                table_name=self.table_name,
-                query_string="*",
-                configs=self.configs,
-            ),
-        )
+        if self.previous_configs is None:
+            self.previous_configs = self.configs
 
-        # Initialize original_df on first load
-        if self.original_df is None:
-            self.original_df = current_df
-
-        # If database data has changed, reset working state
-        elif not current_df.equals(self.original_df):
+        # If change to filters or sorts, clear working_df
+        if self.previous_configs != self.configs:
             self.clear_working_df()
-            self.original_df = current_df
 
         # Initialize working_df if needed
         if self.working_df is None:
-            source_df = (
-                self.original_df
-                if (self.original_df and not self.original_df.empty)
-                else sample_data
+            working_df = pd.DataFrame(
+                data_client.get_data(
+                    table_name=self.table_name,
+                    query_string="*",
+                    configs=self.configs,
+                ),
             )
-            working_df = self._convert_cols_to_datetime(source_df)
+            if working_df.empty:
+                working_df = sample_data.copy()
+            working_df = self._convert_cols_to_datetime(working_df)
             self.working_df = working_df
 
         return self

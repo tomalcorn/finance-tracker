@@ -10,8 +10,8 @@ class SSKeys(enum.StrEnum):
 
     CURRENT_USER = enum.auto()
     COL_CONFIGS = enum.auto()
-    ORIGINAL_DF = enum.auto()
     WORKING_DF = enum.auto()
+    PREV_CONFIGS = enum.auto()
     CURRENT_DF = enum.auto()
     ADDED_ROWS = enum.auto()
     DELETED_ROWS = enum.auto()
