@@ -11,35 +11,40 @@ import streamlit as st
 from streamlit_extras import stylable_container
 
 from libs import constants, frontend_models
-from libs.buttons import base
+from libs.buttons import base_button
 
 
-class SortButton(base.BaseButton):
+class SortButton(base_button.BaseButton):
     """Class representing a sort button."""
 
     def __init__(
         self,
         table_name: str,
-        col_configs: list[frontend_models.DFEColumnConfig],
     ) -> None:
         """Initialize the SortButton instance."""
-        super().__init__(table_name, col_configs)
+        super().__init__(table_name)
 
-    def _current_css_style(self) -> str:
+    def _current_css_style(
+        self,
+        col_configs: list[frontend_models.DFEColumnConfig],
+    ) -> str:
         """Get the current CSS style based on whether sorting is applied."""
-        if any(col_config.sorting is not None for col_config in self._col_configs):
+        if any(col_config.sorting is not None for col_config in col_configs):
             return self.css_style_active
         return self.css_style_normal
 
     @st.dialog("Sort Columns")
-    def _sorting_button_dialog(self) -> None:
+    def _sorting_button_dialog(
+        self,
+        col_configs: list[frontend_models.DFEColumnConfig],
+    ) -> None:
         """Render the sorting button dialog.
 
         Streamlit struggles with returning values from dialogs, so we store the configs
         in the session state.
         """
         st.write(f"Sort **{self._table_name}** by:")
-        for col_config in self._col_configs:
+        for col_config in col_configs:
             current_sort = col_config.sorting
             options = ["asc", "desc", None]
 
@@ -58,12 +63,18 @@ class SortButton(base.BaseButton):
         # Store configs in session state
         if st.button("Apply Sorting", key=f"{self._table_name}_apply_sorting_button"):
             st.session_state[f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"] = (
-                self._col_configs
+                col_configs
             )
             st.rerun()
 
-    def __call__(self) -> list[frontend_models.DFEColumnConfig]:
+    def __call__(
+        self,
+        col_configs: list[frontend_models.DFEColumnConfig],
+    ) -> list[frontend_models.DFEColumnConfig]:
         """Render the sort button in the UI.
+
+        Args:
+            col_configs: The current column configurations.
 
         Returns:
             If clicked and sorting options selected, returns updated column configs.
@@ -72,16 +83,16 @@ class SortButton(base.BaseButton):
         """
         with stylable_container.stylable_container(
             key=f"{self._table_name}_sort_button_container",
-            css_styles=self._current_css_style(),
+            css_styles=self._current_css_style(col_configs),
         ):
             if st.button(
                 label="Sort",
                 icon="↕️",
                 key=f"{self._table_name}_sort_button",
             ):
-                self._sorting_button_dialog()
+                self._sorting_button_dialog(col_configs)
         returned_configs: list[frontend_models.DFEColumnConfig] = st.session_state.get(
             f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}",
-            self._col_configs,
+            col_configs,
         )
         return returned_configs

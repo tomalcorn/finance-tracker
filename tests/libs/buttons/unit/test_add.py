@@ -11,9 +11,9 @@ def _add_button_dialog_wrapper() -> None:
 
     from libs.buttons import add
 
-    add_button = add.AddButton("test_table", [])
+    add_button = add.AddButton("test_table")
 
-    return add_button._add_button_dialog()
+    return add_button._add_button_dialog([])
 
 
 @pytest.fixture(name="app_tester")
