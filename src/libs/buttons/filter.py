@@ -6,10 +6,10 @@ import streamlit as st
 from streamlit_extras import stylable_container
 
 from libs import constants, data_client, frontend_models
-from libs.buttons import base
+from libs.buttons import base_button
 
 
-class FilterButton(base.BaseButton):
+class FilterButton(base_button.BaseButton):
     """Class representing a 'Filter' button in the UI."""
 
     def __init__(

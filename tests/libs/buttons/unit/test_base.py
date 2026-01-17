@@ -3,7 +3,7 @@
 import streamlit as st
 
 from libs import constants, frontend_models
-from libs.buttons import base
+from libs.buttons import base_button
 
 
 def test_override_configs_from_session_state_returns_none(
@@ -11,10 +11,10 @@ def test_override_configs_from_session_state_returns_none(
 ) -> None:
     """Test _override_configs_from_session_state returns None when no session state."""
     # Arrange
-    base_button = base.BaseButton("test_table", col_configs)
+    base_button_instance = base_button.BaseButton("test_table", col_configs)
 
     # Act
-    result = base_button._override_configs_from_session_state()
+    result = base_button_instance._override_configs_from_session_state()
 
     # Assert
     assert result is None
@@ -25,14 +25,14 @@ def test_override_configs_from_session_state_returns_configs(
 ) -> None:
     """Test _override_configs_from_session_state returns configs from session state."""
     # Arrange
-    base_button = base.BaseButton("test_table", [])
+    base_button_instance = base_button.BaseButton("test_table", [])
 
     # Set session state
     session_key = f"test_table_{constants.SSKeys.COL_CONFIGS}"
     st.session_state[session_key] = col_configs
 
     # Act
-    result = base_button._override_configs_from_session_state()
+    result = base_button_instance._override_configs_from_session_state()
 
     # Assert
     assert result == col_configs
