@@ -4,16 +4,16 @@ import pytest
 import streamlit.testing.v1 as st_test
 from tests import conftest
 
+from apps.buttons import sort
 from libs import constants, frontend_models
-from libs.buttons import sort
 
 
 def _sort_button_dialog_wrapper() -> None:
     """Call the _sorting_button_dialog method."""
     import streamlit as st
 
+    from apps.buttons import sort
     from libs import constants, frontend_models
-    from libs.buttons import sort
 
     dfe_configs = [
         frontend_models.DFEColumnConfig(
@@ -30,9 +30,9 @@ def _sort_button_dialog_wrapper() -> None:
         ),
     ]
 
-    sort_button = sort.SortButton("test_table", dfe_configs)
+    sort_button = sort.SortButton("test_table")
 
-    return sort_button._sorting_button_dialog()
+    return sort_button._sorting_button_dialog(dfe_configs)
 
 
 @pytest.fixture(name="app_tester")
@@ -52,10 +52,10 @@ def test_current_css_style_no_sorting(
         col_configs[i].model_copy(update={"sorting": None})
         for i in range(len(col_configs))
     ]
-    sort_button = sort.SortButton("test_table_1", col_configs_no_sorting)
+    sort_button = sort.SortButton("test_table_1")
 
     # Act
-    result = sort_button._current_css_style()
+    result = sort_button._current_css_style(col_configs_no_sorting)
 
     # Assert
     assert result == sort_button.css_style_normal
@@ -67,10 +67,10 @@ def test_current_css_style_with_sorting(
     """Test _current_css_style returns active style when sorting is applied."""
     # Arrange
     col_configs_w_sorting = [col_configs[0].model_copy(update={"sorting": "asc"})]
-    sort_button = sort.SortButton("test_table_2", col_configs_w_sorting)
+    sort_button = sort.SortButton("test_table_2")
 
     # Act
-    result = sort_button._current_css_style()
+    result = sort_button._current_css_style(col_configs_w_sorting)
 
     # Assert
     assert result == sort_button.css_style_active
