@@ -10,7 +10,7 @@ import streamlit.testing.v1 as st_test
 from tests import conftest
 
 from apps import data_client
-from apps.buttons import filter  # noqa: A004
+from apps.buttons import filter_button
 from libs import frontend_models
 
 
@@ -22,7 +22,7 @@ def _filter_button_dialog_wrapper() -> None:
     import streamlit as st
 
     from apps import data_client
-    from apps.buttons import filter  # noqa: A004
+    from apps.buttons import filter_button
     from libs import frontend_models
 
     # Mock utils.get_unique_values to return test data
@@ -44,9 +44,9 @@ def _filter_button_dialog_wrapper() -> None:
             ),
         ]
 
-        filter_button = filter.FilterButton("test_table")
+        filter_button_instance = filter_button.FilterButton("test_table")
 
-        return filter_button._filtering_button_dialog(dfe_configs)
+        return filter_button_instance._filtering_button_dialog(dfe_configs)
 
 
 @pytest.fixture(name="app_tester")
@@ -58,8 +58,8 @@ def _app_tester() -> st_test.AppTest:
 
 
 @pytest.fixture(name="filter_button")
-def _filter_button() -> filter.FilterButton:
-    return filter.FilterButton("test_table")
+def _filter_button() -> filter_button.FilterButton:
+    return filter_button.FilterButton("test_table")
 
 
 def test_current_css_style_no_filtering(
@@ -71,13 +71,13 @@ def test_current_css_style_no_filtering(
         col_configs[i].model_copy(update={"filtering": None})
         for i in range(len(col_configs))
     ]
-    filter_button = filter.FilterButton("test_table_1")
+    filter_button_instance = filter_button.FilterButton("test_table_1")
 
     # Act
-    result = filter_button._current_css_style(col_configs_no_filters)
+    result = filter_button_instance._current_css_style(col_configs_no_filters)
 
     # Assert
-    assert result == filter_button.css_style_normal
+    assert result == filter_button_instance.css_style_normal
 
 
 def test_current_css_style_with_filtering(
@@ -86,13 +86,13 @@ def test_current_css_style_with_filtering(
     """Test _current_css_style returns active style when filtering is applied."""
     # Arrange
     col_configs[0].filtering = frontend_models.Filters(contains="test")
-    filter_button = filter.FilterButton("test_table_1")
+    filter_button_instance = filter_button.FilterButton("test_table_1")
 
     # Act
-    result = filter_button._current_css_style(col_configs)
+    result = filter_button_instance._current_css_style(col_configs)
 
     # Assert
-    assert result == filter_button.css_style_active
+    assert result == filter_button_instance.css_style_active
 
 
 @pytest.mark.parametrize(
@@ -105,7 +105,7 @@ def test_current_css_style_with_filtering(
     ],
 )
 def test_get_min_max_values(
-    filter_button: filter.FilterButton,
+    filter_button_instance: filter_button.FilterButton,
     mocked_values: pd.Series,
     expected_min: float,
     expected_max: float,
@@ -118,7 +118,7 @@ def test_get_min_max_values(
         mock_get_column_values.return_value = mocked_values
 
         # Act
-        min_value, max_value = filter_button._get_min_max_values(
+        min_value, max_value = filter_button_instance._get_min_max_values(
             table_name="test_table",
             column_name="test_numeric_column",
         )
@@ -172,7 +172,7 @@ class TestFilterHandling:
 
     def test_handle_date_filtering_no_filtering(
         self,
-        filter_button: filter.FilterButton,
+        filter_button_instance: filter_button.FilterButton,
     ) -> None:
         """Test _handle_date_filtering returns None when no filtering applied."""
         # Arrange
@@ -184,7 +184,7 @@ class TestFilterHandling:
         )
 
         # Act
-        result = filter_button._handle_date_filtering(date_col_config)
+        result = filter_button_instance._handle_date_filtering(date_col_config)
 
         # Assert
         assert result is None
@@ -202,7 +202,7 @@ class TestFilterHandling:
                 datetime.date(2024, 1, 31),
             )
 
-            filter_button = filter.FilterButton("test_table")
+            filter_button_instance = filter_button.FilterButton("test_table")
 
             date_col_config = frontend_models.DFEColumnConfig(
                 column_name="date_col",
@@ -215,7 +215,7 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button._handle_date_filtering(date_col_config)
+            result = filter_button_instance._handle_date_filtering(date_col_config)
 
             # Assert
             assert result == frontend_models.Filters(
@@ -225,7 +225,7 @@ class TestFilterHandling:
 
     def test_handle_numeric_filtering_no_filtering(
         self,
-        filter_button: filter.FilterButton,
+        filter_button_instance: filter_button.FilterButton,
     ) -> None:
         """Test _handle_numeric_filtering returns None when no filtering applied."""
         # Arrange
@@ -242,7 +242,9 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button._handle_numeric_filtering(numeric_col_config)
+            result = filter_button_instance._handle_numeric_filtering(
+                numeric_col_config,
+            )
 
             # Assert
             assert result is None
@@ -257,7 +259,7 @@ class TestFilterHandling:
         with mock.patch.object(st, "slider") as mock_slider:
             mock_slider.return_value = (20.0, 80.0)
 
-            filter_button = filter.FilterButton("test_table")
+            filter_button_instance = filter_button.FilterButton("test_table")
 
             numeric_col_config = frontend_models.DFEColumnConfig(
                 column_name="numeric_col",
@@ -267,14 +269,16 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button._handle_numeric_filtering(numeric_col_config)
+            result = filter_button_instance._handle_numeric_filtering(
+                numeric_col_config,
+            )
 
             # Assert
             assert result == frontend_models.Filters(gte=20.0, lte=80.0)
 
     def test_handle_multiselect_filtering_no_filtering(
         self,
-        filter_button: filter.FilterButton,
+        filter_button_instance: filter_button.FilterButton,
     ) -> None:
         """Test _handle_multiselect_filtering returns None when no filtering applied."""
         # Arrange
@@ -287,7 +291,7 @@ class TestFilterHandling:
         unique_values = {"value1", "value2", "value3"}
 
         # Act
-        result = filter_button._handle_multiselect_filtering(
+        result = filter_button_instance._handle_multiselect_filtering(
             col_config=select_col_config,
             unique_values=unique_values,
         )
@@ -305,7 +309,7 @@ class TestFilterHandling:
         with mock.patch.object(st, "multiselect") as mock_multiselect:
             mock_multiselect.return_value = ["value1", "value3"]
 
-            filter_button = filter.FilterButton("test_table")
+            filter_button_instance = filter_button.FilterButton("test_table")
             unique_values = {"value1", "value2", "value3"}
 
             select_col_config = frontend_models.DFEColumnConfig(
@@ -316,7 +320,7 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button._handle_multiselect_filtering(
+            result = filter_button_instance._handle_multiselect_filtering(
                 col_config=select_col_config,
                 unique_values=unique_values,
             )
@@ -326,7 +330,7 @@ class TestFilterHandling:
 
     def test_generic_filtering_no_filtering(
         self,
-        filter_button: filter.FilterButton,
+        filter_button_instance: filter_button.FilterButton,
     ) -> None:
         """Test _handle_generic_filtering returns None when no filtering applied."""
         # Arrange
@@ -338,7 +342,7 @@ class TestFilterHandling:
         )
 
         # Act
-        result = filter_button._handle_generic_filtering(generic_col_config)
+        result = filter_button_instance._handle_generic_filtering(generic_col_config)
 
         # Assert
         assert result is None
@@ -353,7 +357,7 @@ class TestFilterHandling:
         with mock.patch.object(st, "text_input") as mock_text_input:
             mock_text_input.return_value = "new_filter"
 
-            filter_button = filter.FilterButton("test_table")
+            filter_button_instance = filter_button.FilterButton("test_table")
 
             generic_col_config = frontend_models.DFEColumnConfig(
                 column_name="generic_col",
@@ -363,7 +367,9 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button._handle_generic_filtering(generic_col_config)
+            result = filter_button_instance._handle_generic_filtering(
+                generic_col_config,
+            )
 
             # Assert
             assert result == frontend_models.Filters(contains="new_filter")
