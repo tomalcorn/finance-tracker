@@ -34,13 +34,13 @@ def _filter_button_dialog_wrapper() -> None:
                 column_name="col1",
                 column_config={},
                 input_widget=st.text_input,
-                filtering=frontend_models.Filters(contains="test"),
+                filters=frontend_models.Filters(contains="test"),
             ),
             frontend_models.DFEColumnConfig(
                 column_name="col2",
                 column_config={},
                 input_widget=st.number_input,
-                filtering=frontend_models.Filters(gte=10, lte=100),
+                filters=frontend_models.Filters(gte=10, lte=100),
             ),
         ]
 
@@ -85,7 +85,7 @@ def test_current_css_style_with_filtering(
 ) -> None:
     """Test _current_css_style returns active style when filtering is applied."""
     # Arrange
-    col_configs[0].filtering = frontend_models.Filters(contains="test")
+    col_configs[0].filters = frontend_models.Filters(contains="test")
     filter_button_instance = filter_button.FilterButton("test_table_1")
 
     # Act
@@ -180,7 +180,7 @@ class TestFilterHandling:
             column_name="date_col",
             column_config={},
             input_widget=st.date_input,
-            filtering=None,
+            filters=None,
         )
 
         # Act
@@ -208,7 +208,7 @@ class TestFilterHandling:
                 column_name="date_col",
                 column_config={},
                 input_widget=st.date_input,
-                filtering=frontend_models.Filters(
+                filters=frontend_models.Filters(
                     gte=datetime.date(2023, 1, 1),
                     lte=datetime.date(2023, 1, 31),
                 ),
@@ -238,7 +238,7 @@ class TestFilterHandling:
                 column_name="numeric_col",
                 column_config={},
                 input_widget=st.number_input,
-                filtering=None,
+                filters=None,
             )
 
             # Act
@@ -265,7 +265,7 @@ class TestFilterHandling:
                 column_name="numeric_col",
                 column_config={},
                 input_widget=st.number_input,
-                filtering=frontend_models.Filters(gte=10.0, lte=100.0),
+                filters=frontend_models.Filters(gte=10.0, lte=100.0),
             )
 
             # Act
@@ -286,7 +286,7 @@ class TestFilterHandling:
             column_name="select_col",
             column_config={},
             input_widget=st.multiselect,
-            filtering=None,
+            filters=None,
         )
         unique_values = {"value1", "value2", "value3"}
 
@@ -316,7 +316,7 @@ class TestFilterHandling:
                 column_name="select_col",
                 column_config={},
                 input_widget=st.multiselect,
-                filtering=frontend_models.Filters(in_=["value2"]),
+                filters=frontend_models.Filters(in_=["value2"]),
             )
 
             # Act
@@ -338,7 +338,7 @@ class TestFilterHandling:
             column_name="generic_col",
             column_config={},
             input_widget=st.text_input,
-            filtering=None,
+            filters=None,
         )
 
         # Act
@@ -363,7 +363,7 @@ class TestFilterHandling:
                 column_name="generic_col",
                 column_config={},
                 input_widget=st.text_input,
-                filtering=frontend_models.Filters(contains="old_filter"),
+                filters=frontend_models.Filters(contains="old_filter"),
             )
 
             # Act

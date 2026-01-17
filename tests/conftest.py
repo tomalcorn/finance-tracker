@@ -87,6 +87,6 @@ def _col_configs() -> list[frontend_models.DFEColumnConfig]:
             column_config={},
             input_widget=st.text_input,
             sorting=constants.SortingValues.ASC,
-            filtering=frontend_models.Filters(lte="2023-01-01", gte="2022-01-01"),
+            filters=frontend_models.Filters(lte="2023-01-01", gte="2022-01-01"),
         ),
     ]
