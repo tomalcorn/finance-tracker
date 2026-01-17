@@ -9,7 +9,8 @@ import pandas as pd
 import streamlit as st
 from pandas.api import types as pd_types
 
-from libs import constants, data_client, frontend_models
+from apps import data_client
+from libs import constants, frontend_models
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -22,7 +23,6 @@ class DFE:
         self,
         table_name: str,
         configs: list[frontend_models.DFEColumnConfig],
-        column_order: list[str],
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
         self.table_name = table_name
@@ -31,7 +31,6 @@ class DFE:
         self._column_config = {
             config.column_name: config.column_config for config in configs
         }
-        self._column_order = column_order
 
     @property
     def working_df(self) -> pd.DataFrame | None:
@@ -159,10 +158,9 @@ class DFE:
         filtered_df = modified_df.copy()
 
         for config in self.configs:
-            if config.filtering and config.column_name in filtered_df.columns:
-                for operator, criteria in config.filtering.model_dump(
-                    exclude_none=True,
-                ).items():
+            if config.filters and config.column_name in filtered_df.columns:
+                filters = config.filters.get_pandas_filters()
+                for operator, criteria in filters.items():
                     col = config.column_name
 
                     if operator == "contains":
@@ -298,6 +296,7 @@ class DFE:
             )
             row_id = working_df.iloc[row_idx]["id"]
             beu_edited_rows[row_id] = unique_changes
+        return beu_edited_rows
 
     def _get_deleted_rows_for_backend(self) -> list[str]:
         """Get backend updates for deleted rows."""
@@ -315,7 +314,6 @@ class DFE:
 
     def sync(
         self,
-        working_df: pd.DataFrame,
         modified_df: pd.DataFrame,
     ) -> frontend_models.BackendUpdates:
         """Sync the edited dataframe with the Supabase table."""
@@ -326,7 +324,7 @@ class DFE:
         beu_added_rows = self._get_added_rows_for_backend(unique_col_names)
         beu_edited_rows = self._get_edited_rows_for_backend(
             unique_col_names=unique_col_names,
-            working_df=working_df,
+            working_df=self.working_df,
         )
         beu_deleted_rows = self._get_deleted_rows_for_backend()
 
@@ -361,6 +359,6 @@ class DFE:
             self.working_df,
             key=self.table_name,
             column_config=self._column_config,
-            column_order=self._column_order,
+            column_order=[col.column_name for col in self.configs],
             num_rows="dynamic",
         )

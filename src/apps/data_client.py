@@ -42,26 +42,26 @@ def _execute_query(
 
 def _apply_filters_to_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
-    config: frontend_models.DFEColumnConfig,
+    column_name: str,
+    filters: frontend_models.Filters | None,
 ) -> st_supabase_connection.SyncSelectRequestBuilder:
     """Apply filters from column configurations to the query."""
-    if config.filtering:
-        for operator, criteria in config.filtering.model_dump(
-            exclude_none=True,
-        ).items():
-            query = query.filter(config.column_name, operator, criteria)
+    if filters is not None:
+        for operator, criteria in filters.model_dump(exclude_none=True).items():
+            query = query.filter(column_name, operator, criteria)
     return query
 
 
 def _apply_sorting_to_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
-    config: frontend_models.DFEColumnConfig,
+    column_name: str,
+    sorting: constants.SortingValues | None,
 ) -> st_supabase_connection.SyncSelectRequestBuilder:
     """Apply sorting from column configurations to the query."""
-    if config.sorting:
+    if sorting is not None:
         query = query.order(
-            config.column_name,
-            desc=config.sorting == constants.SortingValues.DESC,
+            column_name,
+            desc=sorting == constants.SortingValues.DESC,
         )
     return query
 
@@ -87,8 +87,16 @@ def get_data(
     query = connection.table(table_name).select(query_string)
     if configs:
         for config in configs:
-            query = _apply_filters_to_query(query, config)
-            query = _apply_sorting_to_query(query, config)
+            query = _apply_filters_to_query(
+                query=query,
+                column_name=config.column_name,
+                filters=config.filters,
+            )
+            query = _apply_sorting_to_query(
+                query,
+                column_name=config.column_name,
+                sorting=config.sorting,
+            )
     return _execute_query(query)
 
 
@@ -126,8 +134,6 @@ def get_column_values(
 def update_backend(
     table_name: str,
     updates: frontend_models.BackendUpdates,
-    current_df: pd.DataFrame,
-    modified_df: pd.DataFrame,
     connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> frontend_models.BackendUpdates:
     """Update the backend with the provided changes.
@@ -135,21 +141,12 @@ def update_backend(
     Args:
         table_name: The name of the table to update.
         updates: The BackendUpdates object containing added, edited, and deleted rows.
-        current_df: The current DataFrame before modifications.
-        modified_df: The modified DataFrame after user edits.
         connection: The Supabase connection to use.
 
     Returns:
         The updated BackendUpdates object reflecting all changes made.
 
     """
-    if "id" not in current_df.columns or "id" not in modified_df.columns:
-        msg = "Both DataFrames must contain an 'id' column."
-        raise DataClientError(msg)
-
-    deleted_ids = list(set(current_df["id"]) - set(modified_df["id"]))
-    updates.deleted_rows.extend(deleted_ids)
-
     if updates.added_rows:
         connection.table(table_name).insert(updates.added_rows).execute()
     if updates.edited_rows:

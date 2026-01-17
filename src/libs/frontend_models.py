@@ -3,32 +3,18 @@
 import typing
 
 import pydantic
-import streamlit as st
 
 from libs import constants
 
-type StreamlitColumnConfig = (
-    st.column_config.NumberColumn
-    | st.column_config.TextColumn
-    | st.column_config.CheckboxColumn
-    | st.column_config.SelectboxColumn
-    | st.column_config.LinkColumn
-    | st.column_config.DateColumn
-    | st.column_config.ListColumn
-    | st.column_config.DatetimeColumn
-    | st.column_config.TimeColumn
-    | st.column_config.ProgressColumn
-    | st.column_config.LineChartColumn
-    | st.column_config.BarChartColumn
-    | st.column_config.AreaChartColumn
-    | st.column_config.ImageColumn
-    | st.column_config.MultiselectColumn
-    | st.column_config.JsonColumn
-)
+type StreamlitColumnConfig = typing.Any
 
 
 class Filters(pydantic.BaseModel):
     """Model for a column filter."""
+
+    model_config = pydantic.ConfigDict(
+        serialize_by_alias=True,
+    )
 
     eq: typing.Any | None = pydantic.Field(
         description="Equality filter value.",
@@ -36,7 +22,7 @@ class Filters(pydantic.BaseModel):
     )
     in_: list[typing.Any] | None = pydantic.Field(
         description="In filter values.",
-        alias="in",
+        serialization_alias="in",
         default=None,
     )
     lt: typing.Any | None = pydantic.Field(
@@ -59,6 +45,23 @@ class Filters(pydantic.BaseModel):
         description="Contains filter value for string matching.",
         default=None,
     )
+
+    def get_pandas_filters(self) -> dict[str, typing.Any]:
+        """Serialise to pandas friendly format."""
+        serialised = self.model_dump(exclude_none=True)
+        to_pandas_map = {
+            "lt": "<",
+            "lte": "<=",
+            "gt": ">",
+            "gte": ">=",
+        }
+        serialised_pandas = {}
+        for key, value in serialised.items():
+            if key in to_pandas_map:
+                serialised_pandas[to_pandas_map[key]] = value
+            else:
+                serialised_pandas[key] = value
+        return serialised_pandas
 
 
 class DFEColumnConfig(pydantic.BaseModel):
@@ -89,7 +92,7 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The sorting direction for the column.",
         default=None,
     )
-    filtering: Filters | None = pydantic.Field(
+    filters: Filters | None = pydantic.Field(
         description="The filtering criteria for the column.",
         default=None,
     )
