@@ -5,7 +5,8 @@ import typing
 import streamlit as st
 from streamlit_extras import stylable_container
 
-from libs import constants, data_client, frontend_models
+from apps import data_client
+from libs import constants, frontend_models
 from libs.buttons import base_button
 
 
@@ -15,14 +16,16 @@ class FilterButton(base_button.BaseButton):
     def __init__(
         self,
         table_name: str,
-        col_configs: list[frontend_models.DFEColumnConfig],
     ) -> None:
         """Initialize the FilterButton instance."""
-        super().__init__(table_name, col_configs)
+        super().__init__(table_name)
 
-    def _current_css_style(self) -> str:
+    def _current_css_style(
+        self,
+        col_configs: list[frontend_models.DFEColumnConfig],
+    ) -> str:
         """Get the current CSS style based on whether filtering is applied."""
-        if any(col_config.filtering is not None for col_config in self._col_configs):
+        if any(col_config.filtering is not None for col_config in col_configs):
             return self.css_style_active
         return self.css_style_normal
 
@@ -153,14 +156,17 @@ class FilterButton(base_button.BaseButton):
         )
 
     @st.dialog("Filter Columns")
-    def _filtering_button_dialog(self) -> None:
+    def _filtering_button_dialog(
+        self,
+        col_configs: list[frontend_models.DFEColumnConfig],
+    ) -> None:
         """Render the filtering button dialog.
 
         Streamlit struggles with returning values from dialogs, so we store the configs
         in the session state.
         """
         st.write(f"Filter **{self._table_name}** by:")
-        for col_config in self._col_configs:
+        for col_config in col_configs:
             if col_config.input_widget == st.date_input:
                 col_config.filtering = self._handle_date_filtering(col_config)
             elif col_config.input_widget == st.number_input:
@@ -187,12 +193,18 @@ class FilterButton(base_button.BaseButton):
             key=f"{self._table_name}_apply_filtering_button",
         ):
             st.session_state[f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"] = (
-                self._col_configs
+                col_configs
             )
             st.rerun()
 
-    def __call__(self) -> list[frontend_models.DFEColumnConfig]:
+    def __call__(
+        self,
+        col_configs: list[frontend_models.DFEColumnConfig],
+    ) -> list[frontend_models.DFEColumnConfig]:
         """Render the filter button in the UI.
+
+        Args:
+            col_configs: The current column configurations.
 
         Returns:
             If clicked and filtering options selected, returns updated column configs.
@@ -201,16 +213,16 @@ class FilterButton(base_button.BaseButton):
         """
         with stylable_container.stylable_container(
             key=f"{self._table_name}_filter_button_container",
-            css_styles=self._current_css_style(),
+            css_styles=self._current_css_style(col_configs),
         ):
             if st.button(
                 label="Filter",
                 icon="🔍",
                 key=f"{self._table_name}_filter_button",
             ):
-                self._filtering_button_dialog()
+                self._filtering_button_dialog(col_configs)
         returned_configs: list[frontend_models.DFEColumnConfig] = st.session_state.get(
             f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}",
-            self._col_configs,
+            col_configs,
         )
         return returned_configs

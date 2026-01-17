@@ -9,8 +9,9 @@ import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
 
-from libs import data_client, frontend_models
-from libs.buttons import filter  # noqa: A004
+from apps import data_client
+from apps.buttons import filter  # noqa: A004
+from libs import frontend_models
 
 
 def _filter_button_dialog_wrapper() -> None:
@@ -20,8 +21,9 @@ def _filter_button_dialog_wrapper() -> None:
     import pandas as pd
     import streamlit as st
 
-    from libs import data_client, frontend_models
-    from libs.buttons import filter  # noqa: A004
+    from apps import data_client
+    from apps.buttons import filter  # noqa: A004
+    from libs import frontend_models
 
     # Mock utils.get_unique_values to return test data
     with mock.patch.object(data_client, "get_column_values") as mock_func:
@@ -42,9 +44,9 @@ def _filter_button_dialog_wrapper() -> None:
             ),
         ]
 
-        filter_button = filter.FilterButton("test_table", dfe_configs)
+        filter_button = filter.FilterButton("test_table")
 
-        return filter_button._filtering_button_dialog()
+        return filter_button._filtering_button_dialog(dfe_configs)
 
 
 @pytest.fixture(name="app_tester")
@@ -56,10 +58,8 @@ def _app_tester() -> st_test.AppTest:
 
 
 @pytest.fixture(name="filter_button")
-def _filter_button(
-    col_configs: list[frontend_models.DFEColumnConfig],
-) -> filter.FilterButton:
-    return filter.FilterButton("test_table", col_configs)
+def _filter_button() -> filter.FilterButton:
+    return filter.FilterButton("test_table")
 
 
 def test_current_css_style_no_filtering(
@@ -71,10 +71,10 @@ def test_current_css_style_no_filtering(
         col_configs[i].model_copy(update={"filtering": None})
         for i in range(len(col_configs))
     ]
-    filter_button = filter.FilterButton("test_table_1", col_configs_no_filters)
+    filter_button = filter.FilterButton("test_table_1")
 
     # Act
-    result = filter_button._current_css_style()
+    result = filter_button._current_css_style(col_configs_no_filters)
 
     # Assert
     assert result == filter_button.css_style_normal
@@ -86,10 +86,10 @@ def test_current_css_style_with_filtering(
     """Test _current_css_style returns active style when filtering is applied."""
     # Arrange
     col_configs[0].filtering = frontend_models.Filters(contains="test")
-    filter_button = filter.FilterButton("test_table_1", col_configs)
+    filter_button = filter.FilterButton("test_table_1")
 
     # Act
-    result = filter_button._current_css_style()
+    result = filter_button._current_css_style(col_configs)
 
     # Assert
     assert result == filter_button.css_style_active
@@ -202,7 +202,7 @@ class TestFilterHandling:
                 datetime.date(2024, 1, 31),
             )
 
-            filter_button = filter.FilterButton("test_table", [])
+            filter_button = filter.FilterButton("test_table")
 
             date_col_config = frontend_models.DFEColumnConfig(
                 column_name="date_col",
@@ -257,7 +257,7 @@ class TestFilterHandling:
         with mock.patch.object(st, "slider") as mock_slider:
             mock_slider.return_value = (20.0, 80.0)
 
-            filter_button = filter.FilterButton("test_table", [])
+            filter_button = filter.FilterButton("test_table")
 
             numeric_col_config = frontend_models.DFEColumnConfig(
                 column_name="numeric_col",
@@ -305,7 +305,7 @@ class TestFilterHandling:
         with mock.patch.object(st, "multiselect") as mock_multiselect:
             mock_multiselect.return_value = ["value1", "value3"]
 
-            filter_button = filter.FilterButton("test_table", [])
+            filter_button = filter.FilterButton("test_table")
             unique_values = {"value1", "value2", "value3"}
 
             select_col_config = frontend_models.DFEColumnConfig(
@@ -353,7 +353,7 @@ class TestFilterHandling:
         with mock.patch.object(st, "text_input") as mock_text_input:
             mock_text_input.return_value = "new_filter"
 
-            filter_button = filter.FilterButton("test_table", [])
+            filter_button = filter.FilterButton("test_table")
 
             generic_col_config = frontend_models.DFEColumnConfig(
                 column_name="generic_col",
