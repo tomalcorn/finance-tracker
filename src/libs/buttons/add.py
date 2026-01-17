@@ -5,10 +5,10 @@ import typing
 import streamlit as st
 
 from libs import frontend_models
-from libs.buttons import base
+from libs.buttons import base_button
 
 
-class AddButton(base.BaseButton):
+class AddButton(base_button.BaseButton):
     """Class representing an 'Add' button in the UI."""
 
     def __init__(
