@@ -14,11 +14,9 @@ class AddButton(base_button.BaseButton):
     def __init__(
         self,
         table_name: str,
-        col_configs: list[frontend_models.DFEColumnConfig],
     ) -> None:
         """Initialize the AddButton instance."""
         self._table_name = table_name
-        self._col_configs = col_configs
 
     def _submit_new_row(self, new_row: dict[str, typing.Any]) -> None:
         """Handle the submission of a new row."""
@@ -26,7 +24,10 @@ class AddButton(base_button.BaseButton):
         raise NotImplementedError(msg)
 
     @st.dialog("Add Row")
-    def _add_button_dialog(self) -> None:
+    def _add_button_dialog(
+        self,
+        col_configs: list[frontend_models.DFEColumnConfig],
+    ) -> None:
         """Render the 'Add' button dialog."""
         st.write(f"Add a new row to {self._table_name}")
         outputs = [
@@ -35,7 +36,7 @@ class AddButton(base_button.BaseButton):
                 key=f"{self._table_name}_new_row_{col.column_name}",
                 **col.input_kwargs,
             )
-            for col in self._col_configs
+            for col in col_configs
         ]
         options_unfilled = any(output is None or output == "" for output in outputs)
         submit_button = st.button(
@@ -46,15 +47,15 @@ class AddButton(base_button.BaseButton):
         if submit_button:
             new_row = {
                 col.column_name: output
-                for col, output in zip(self._col_configs, outputs, strict=False)
+                for col, output in zip(col_configs, outputs, strict=False)
             }
             self._submit_new_row(new_row)
 
-    def __call__(self) -> None:
+    def __call__(self, col_configs: list[frontend_models.DFEColumnConfig]) -> None:
         """Render the 'Add' button in the UI."""
         if st.button(
             label="New",
             icon="➕",  # noqa: RUF001
             key=f"{self._table_name}_add_row_button",
         ):
-            self._add_button_dialog()
+            self._add_button_dialog(col_configs)
