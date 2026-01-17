@@ -9,7 +9,9 @@ from st_supabase_connection import SupabaseConnection
 
 import libs.dataframe_handling as dfh
 from apps import data_client
+from apps.buttons import filter_button, sort_button
 from libs import constants, frontend_models
+from libs.buttons import add_button
 from libs.dfes import base_dfe
 
 # Set up supabase connection and authenticate user
@@ -45,6 +47,12 @@ bank_accounts = data_client.get_data(
 )
 bank_name_id_map = {account["name"]: account["id"] for account in bank_accounts}
 bank_account_names = list(bank_name_id_map.keys())
+
+# === Payments DFE ===
+
+payments_add_button = add_button.AddButton(table_name="payments")
+payments_sort_button = sort_button.SortButton(table_name="payments")
+payments_filter_button = filter_button.FilterButton(table_name="payments")
 
 # Define column and add button configuration
 payments_config = [
