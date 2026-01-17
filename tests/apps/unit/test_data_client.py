@@ -2,7 +2,8 @@
 
 from unittest import mock
 
-from libs import data_client, frontend_models
+from apps import data_client
+from libs import frontend_models
 
 
 def test_apply_filters_to_query(
@@ -10,7 +11,7 @@ def test_apply_filters_to_query(
 ) -> None:
     """Test applying filters to a query."""
     # Arrange
-    with mock.patch("libs.data_client.st_supabase_connection") as mock_st_supabase:
+    with mock.patch("apps.data_client.st_supabase_connection") as mock_st_supabase:
         mock_query = mock.Mock()
         mock_st_supabase.SyncSelectRequestBuilder.return_value = mock_query
 
@@ -32,7 +33,7 @@ def test_apply_sorting_to_query(
 ) -> None:
     """Test applying sorting to a query."""
     # Arrange
-    with mock.patch("libs.data_client.st_supabase_connection") as mock_st_supabase:
+    with mock.patch("apps.data_client.st_supabase_connection") as mock_st_supabase:
         mock_query = mock.Mock()
         mock_st_supabase.SyncSelectRequestBuilder.return_value = mock_query
 

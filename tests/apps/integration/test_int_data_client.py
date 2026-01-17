@@ -4,7 +4,8 @@ import pandas as pd
 import pytest
 import st_supabase_connection
 
-from libs import backend_models, data_client, frontend_models
+from apps import data_client
+from libs import backend_models, frontend_models
 
 
 def test_get_data(

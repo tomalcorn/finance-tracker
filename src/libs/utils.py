@@ -7,7 +7,7 @@ import typing
 import streamlit as st
 from st_supabase_connection import SupabaseConnection
 
-from libs import data_client
+from apps import data_client
 
 CONN = st.connection("supabase", type=SupabaseConnection)
 

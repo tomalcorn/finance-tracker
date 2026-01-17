@@ -8,7 +8,8 @@ import supabase_auth
 from st_supabase_connection import SupabaseConnection
 
 import libs.dataframe_handling as dfh
-from libs import constants, data_client, frontend_models
+from apps import data_client
+from libs import constants, frontend_models
 from libs.dfes import base_dfe
 
 # Set up supabase connection and authenticate user
