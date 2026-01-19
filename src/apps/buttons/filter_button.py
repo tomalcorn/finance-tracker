@@ -219,6 +219,7 @@ class FilterButton(base_button.BaseButton):
                 label="Filter",
                 icon="🔍",
                 key=f"{self._table_name}_filter_button",
+                use_container_width=True,
             ):
                 self._filtering_button_dialog(col_configs)
         returned_configs: list[frontend_models.DFEColumnConfig] = st.session_state.get(

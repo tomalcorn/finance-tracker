@@ -115,6 +115,30 @@ class DFEColumnConfig(pydantic.BaseModel):
             raise ValueError(msg)
         return value
 
+    @pydantic.field_serializer("input_widget", mode="plain")
+    @classmethod
+    def serialize_input_widget(
+        cls,
+        input_widget: typing.Callable,
+    ) -> str:
+        """Serialize the input_widget field."""
+        return input_widget.__name__
+
+    @pydantic.field_serializer("input_kwargs", mode="plain")
+    @classmethod
+    def serialize_input_kwargs(
+        cls,
+        input_kwargs: dict[str, typing.Any],
+    ) -> dict[str, typing.Any]:
+        """Serialize the input_kwargs field."""
+        serialised_kwargs = {}
+        for key, value in input_kwargs.items():
+            if callable(value):
+                serialised_kwargs[key] = value.__name__
+            else:
+                serialised_kwargs[key] = value
+        return serialised_kwargs
+
 
 class BackendUpdates(pydantic.BaseModel):
     """Model for backend updates tracking."""

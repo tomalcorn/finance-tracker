@@ -117,20 +117,11 @@ def test_update_backend_deletes_row(
     """Test deleting a row from the backend."""
     # Arrange
     updates = frontend_models.BackendUpdates()
-    current_df = pd.DataFrame(
-        {
-            "id": [str(yield_sample_user.id)],
-            "first_name": [yield_sample_user.first_name],
-        },
-    )
-    modified_df = pd.DataFrame({"id": []})
 
     # Act
     data_client.update_backend(
         table_name="users",
         updates=updates,
-        current_df=current_df,
-        modified_df=modified_df,
         connection=connection,
     )
 
