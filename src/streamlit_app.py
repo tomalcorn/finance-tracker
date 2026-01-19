@@ -1,5 +1,7 @@
 """Main entry point."""
 
+import datetime
+
 import pandas as pd
 import streamlit as st
 
@@ -54,7 +56,10 @@ payments_configs = [
         button_label="Payment Date",
         input_widget=st.date_input,
         sorting=constants.SortingValues.DESC,
-        filters=frontend_models.Filters(gte="2025-01-01", lte="2026-12-31"),
+        filters=frontend_models.Filters(
+            gte=datetime.date(2025, 1, 1),
+            lte=datetime.date(2026, 12, 31),
+        ),
     ),
     frontend_models.DFEColumnConfig(
         column_name="expense",
