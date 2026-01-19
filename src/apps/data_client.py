@@ -12,28 +12,38 @@ from libs import constants, frontend_models
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
 
-email_password_creds = supabase_auth.SignInWithEmailAndPasswordCredentials(
-    email="tomalcorn777@icloud.com",
-    password="REDACTED",  # noqa: S106
-)
+def _ensure_authenticated() -> None:
+    """Ensure the user is authenticated and the connection has a valid token."""
+    # Check if we already have a valid session
+    if constants.SSKeys.CURRENT_USER in st.session_state:
+        return
+
+    email_password_creds = supabase_auth.SignInWithEmailAndPasswordCredentials(
+        email="tomalcorn777@icloud.com",
+        password="REDACTED",  # noqa: S106
+    )
+
+    with st.spinner("Signing in..."):
+        auth_resp = CONN.auth.sign_in_with_password(email_password_creds)
+
+        access_token = None
+        user = None
+
+        # Support multiple response shapes (object or dict)
+        if hasattr(auth_resp, "session") and auth_resp.session:
+            access_token = auth_resp.session.access_token
+            user = auth_resp.user
+
+        if not access_token:
+            st.error("Authentication failed. Please check your credentials.")
+            st.stop()
+
+        CONN.client.postgrest.auth(access_token)
+        st.session_state[constants.SSKeys.CURRENT_USER] = user
 
 
-auth_resp = CONN.auth.sign_in_with_password(email_password_creds)
-
-access_token = None
-user = None
-
-# Support multiple response shapes (object or dict)
-if hasattr(auth_resp, "session") and auth_resp.session:
-    access_token = auth_resp.session.access_token
-    user = auth_resp.user
-
-if not access_token:
-    st.error("Authentication failed. Please check your credentials.")
-    st.stop()
-
-CONN.client.postgrest.auth(access_token)
-st.session_state[constants.SSKeys.CURRENT_USER] = user
+# Authenticate on module load
+_ensure_authenticated()
 
 
 class DataClientError(Exception):
