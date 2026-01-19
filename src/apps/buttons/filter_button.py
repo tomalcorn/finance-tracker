@@ -36,8 +36,8 @@ class FilterButton(base_button.BaseButton):
     ) -> tuple[float, float]:
         """Get min and max values for numeric columns using pandas."""
         col_vals = data_client.get_column_values(table_name, column_name)
-        min_value = col_vals.min() if not col_vals.empty else 0.0
-        max_value = col_vals.max() if not col_vals.empty else 1.0
+        min_value = float(col_vals.min()) if not col_vals.empty else 0.0
+        max_value = float(col_vals.max()) if not col_vals.empty else 1.0
         return (min_value, max_value)
 
     def _handle_date_filtering(
