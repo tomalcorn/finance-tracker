@@ -89,6 +89,7 @@ class SortButton(base_button.BaseButton):
                 label="Sort",
                 icon="↕️",
                 key=f"{self._table_name}_sort_button",
+                use_container_width=True,
             ):
                 self._sorting_button_dialog(col_configs)
         returned_configs: list[frontend_models.DFEColumnConfig] = st.session_state.get(

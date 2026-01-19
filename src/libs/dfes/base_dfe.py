@@ -44,6 +44,12 @@ class DFE:
         working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
         st.session_state[working_df_key] = df
 
+    def _clear_working_df(self) -> None:
+        """Clear the working dataframe from session state."""
+        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
+        if working_df_key in st.session_state:
+            del st.session_state[working_df_key]
+
     @property
     def previous_configs(self) -> list[frontend_models.DFEColumnConfig] | None:
         """Get the previous column configs from session state."""
@@ -63,6 +69,11 @@ class DFE:
     def editor_state(self) -> dict[str, typing.Any]:
         """Get the editor state from session state."""
         return st.session_state[self.table_name]
+
+    def _clear_editor_state(self) -> None:
+        """Clear the editor state from session state."""
+        if self.table_name in st.session_state:
+            del st.session_state[self.table_name]
 
     @property
     def added_rows(self) -> list[dict[str, typing.Any]]:
@@ -107,8 +118,11 @@ class DFE:
             self.previous_configs = self.configs
 
         # If change to filters or sorts, clear working_df
-        if self.previous_configs != self.configs:
-            self.clear_working_df()
+        # Dumping configs to resolve method signatures to primitive types for comparison
+        previous_configs_dumped = [conf.model_dump() for conf in self.previous_configs]
+        configs_dumped = [config.model_dump() for config in self.configs]
+        if previous_configs_dumped != configs_dumped:
+            self._clear_working_df()
 
         # Initialize working_df if needed
         if self.working_df is None:
@@ -171,48 +185,6 @@ class DFE:
 
         changed = len(filtered_df) != len(modified_df)
         return changed, filtered_df.reset_index(drop=True)
-
-    def _check_for_sorts_updates(
-        self,
-        modified_df: pd.DataFrame,
-        added_rows: dict[str, typing.Any] | None = None,
-        edited_rows: dict[str, dict[str, typing.Any]] | None = None,
-        deleted_rows: list[int] | None = None,
-    ) -> tuple[bool, pd.DataFrame]:
-        """Check editor_state to see if changes made to sorts columns."""
-        if deleted_rows:
-            return True, self._sort_columns(modified_df)
-
-        sorts_changed = False
-        for config in self.configs:
-            if config.sorting is None:
-                continue
-
-            col = config.column_name
-            if edited_rows:
-                for changes in edited_rows.values():
-                    if col in changes:
-                        return True, self._sort_columns(modified_df)
-
-            if not sorts_changed and added_rows:
-                for row in added_rows:
-                    if col in row:
-                        return True, self._sort_columns(modified_df)
-        return False, modified_df
-
-    def _sort_columns(
-        self,
-        modified_df: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """Sort the original dataframe by a list of column names."""
-        sorted_df = modified_df.copy()
-        for col in self.configs:
-            if col.sorting is not None:
-                sorted_df = sorted_df.sort_values(
-                    by=col.column_name,
-                    ascending=col.sorting == "asc",
-                )
-        return sorted_df.reset_index(drop=True)
 
     def _enforce_unique_cols(
         self,
@@ -306,12 +278,6 @@ class DFE:
             beu_deleted_rows.append(row_id)
         return beu_deleted_rows
 
-    def clear_working_df(self) -> None:
-        """Clear the working dataframe from session state."""
-        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
-        if working_df_key in st.session_state:
-            del st.session_state[working_df_key]
-
     def sync(
         self,
         modified_df: pd.DataFrame,
@@ -330,14 +296,8 @@ class DFE:
 
         # Apply changes to working_df and check changes still in filters
         filters_changed, modified_df = self._check_for_filters_updates(modified_df)
-        sorts_changed, modified_df = self._check_for_sorts_updates(
-            modified_df=modified_df,
-            added_rows=self.added_rows,
-            edited_rows=self.edited_rows,
-            deleted_rows=self.deleted_rows,
-        )
-
-        if sorts_changed or filters_changed:
+        if filters_changed:
+            self._clear_editor_state()
             self.working_df = modified_df
 
         return frontend_models.BackendUpdates(
@@ -360,5 +320,6 @@ class DFE:
             key=self.table_name,
             column_config=self._column_config,
             column_order=[col.column_name for col in self.configs],
-            num_rows="dynamic",
+            num_rows="delete",
+            hide_index=True,
         )

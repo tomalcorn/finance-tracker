@@ -5,10 +5,35 @@ import typing
 import pandas as pd
 import st_supabase_connection
 import streamlit as st
+import supabase_auth
 
 from libs import constants, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
+
+
+email_password_creds = supabase_auth.SignInWithEmailAndPasswordCredentials(
+    email="tomalcorn777@icloud.com",
+    password="jiwQij-kirwi3-hedtyk",  # noqa: S106
+)
+
+
+auth_resp = CONN.auth.sign_in_with_password(email_password_creds)
+
+access_token = None
+user = None
+
+# Support multiple response shapes (object or dict)
+if hasattr(auth_resp, "session") and auth_resp.session:
+    access_token = auth_resp.session.access_token
+    user = auth_resp.user
+
+if not access_token:
+    st.error("Authentication failed. Please check your credentials.")
+    st.stop()
+
+CONN.client.postgrest.auth(access_token)
+st.session_state[constants.SSKeys.CURRENT_USER] = user
 
 
 class DataClientError(Exception):

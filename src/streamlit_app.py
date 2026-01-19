@@ -1,43 +1,15 @@
 """Main entry point."""
 
-import uuid
-
 import pandas as pd
 import streamlit as st
-import supabase_auth
-from st_supabase_connection import SupabaseConnection
 
 from apps import data_client
-from apps.buttons import filter_button, sort_button
+from apps.buttons import filter_button
 from libs import constants, frontend_models
 from libs.buttons import add_button
 from libs.dfes import base_dfe
 
-# Set up supabase connection and authenticate user
-conn = st.connection("supabase", type=SupabaseConnection)
-
-email_password_creds = supabase_auth.SignInWithEmailAndPasswordCredentials(
-    email="tomalcorn777@icloud.com",
-    password="jiwQij-kirwi3-hedtyk",  # noqa: S106 - only temporary for dev testing
-)
-
-with st.spinner("Signing in..."):
-    auth_resp = conn.auth.sign_in_with_password(email_password_creds)
-
-    access_token = None
-    user = None
-
-    # Support multiple response shapes (object or dict)
-    if hasattr(auth_resp, "session") and auth_resp.session:
-        access_token = auth_resp.session.access_token
-        user = auth_resp.user
-
-    if not access_token:
-        st.error("Authentication failed. Please check your credentials.")
-        st.stop()
-
-    conn.client.postgrest.auth(access_token)
-    st.session_state[constants.SSKeys.CURRENT_USER] = user
+filter_col, empty_col, add_col = st.columns([0.3, 0.4, 0.3])
 
 # Get bank accounts from the database
 bank_accounts = data_client.get_data(
@@ -57,7 +29,6 @@ expense_source_ids = list(expense_source_map.keys())
 # === Payments DFE ===
 
 payments_add_button = add_button.AddButton(table_name="payments")
-payments_sort_button = sort_button.SortButton(table_name="payments")
 payments_filter_button = filter_button.FilterButton(table_name="payments")
 
 # Define column and add button configuration
@@ -83,7 +54,7 @@ payments_configs = [
         button_label="Payment Date",
         input_widget=st.date_input,
         sorting=constants.SortingValues.DESC,
-        filters=frontend_models.Filters(gte="2024-01-01", lte="2025-12-31"),
+        filters=frontend_models.Filters(gte="2025-01-01", lte="2026-12-31"),
     ),
     frontend_models.DFEColumnConfig(
         column_name="expense",
@@ -144,35 +115,32 @@ payments_configs = [
 ]
 sample_data = pd.DataFrame(
     {
-        "id": [str(uuid.uuid4())],
         "name": ["Example Data"],
         "expense": [0],
         "payment_date": ["2025-06-01"],
         "checked": [False],
         "created_at": ["2025-06-01"],
-        "bank_account_id": [bank_account_ids[0]],
-        "expense_source_id": [expense_source_ids[0]],
+        "bank_account_id": ["example bank account"],
+        "expense_source_id": ["example expense source"],
     },
 )
 
 # Call buttons
-button_cols = st.columns(3)
-with button_cols[0]:
+with add_col:
     payments_add_button(col_configs=payments_configs)
-with button_cols[1]:
-    payments_configs = payments_sort_button(col_configs=payments_configs)
-with button_cols[2]:
+with filter_col:
     payments_configs = payments_filter_button(col_configs=payments_configs)
-
 payments_dfe_new = base_dfe.DFE(
     table_name="payments",
     configs=payments_configs,
 )
 
+
 modified_payments_new = payments_dfe_new.load_input_data(sample_data).render()
 backend_updates = payments_dfe_new.sync(modified_payments_new)
+st.write("Modified Payments DataFrame:")
+st.dataframe(modified_payments_new, use_container_width=True)
 data_client.update_backend(
     table_name="payments",
     updates=backend_updates,
-    connection=conn,
 )
