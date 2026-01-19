@@ -138,8 +138,6 @@ payments_dfe_new = base_dfe.DFE(
 
 modified_payments_new = payments_dfe_new.load_input_data(sample_data).render()
 backend_updates = payments_dfe_new.sync(modified_payments_new)
-st.write("Modified Payments DataFrame:")
-st.dataframe(modified_payments_new, use_container_width=True)
 data_client.update_backend(
     table_name="payments",
     updates=backend_updates,

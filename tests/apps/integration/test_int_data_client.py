@@ -116,7 +116,7 @@ def test_update_backend_deletes_row(
 ) -> None:
     """Test deleting a row from the backend."""
     # Arrange
-    updates = frontend_models.BackendUpdates()
+    updates = frontend_models.BackendUpdates(deleted_rows=[str(yield_sample_user.id)])
 
     # Act
     data_client.update_backend(
