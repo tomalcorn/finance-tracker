@@ -20,6 +20,22 @@ class FilterButton(base_button.BaseButton):
         """Initialize the FilterButton instance."""
         super().__init__(table_name)
 
+    @property
+    def column_configs(self) -> list[frontend_models.DFEColumnConfig]:
+        """Get the current column configurations from session state."""
+        return st.session_state.get(
+            f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}",
+            [],
+        )
+
+    @column_configs.setter
+    def column_configs(
+        self,
+        configs: list[frontend_models.DFEColumnConfig],
+    ) -> None:
+        """Set the column configurations in session state."""
+        st.session_state[f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"] = configs
+
     def _current_css_style(
         self,
         col_configs: list[frontend_models.DFEColumnConfig],
@@ -72,21 +88,10 @@ class FilterButton(base_button.BaseButton):
         col_config: frontend_models.DFEColumnConfig,
     ) -> frontend_models.Filters | None:
         """Handle filtering for numeric columns."""
-        if (
-            col_config.filters
-            and isinstance(col_config.filters.gte, (int, float))
-            and isinstance(
-                col_config.filters.lte,
-                (int, float),
-            )
-        ):
-            default_min = float(col_config.filters.gte)
-            default_max = float(col_config.filters.lte)
-        else:
-            default_min, default_max = self._get_min_max_values(
-                self._table_name,
-                col_config.column_name,
-            )
+        default_min, default_max = self._get_min_max_values(
+            self._table_name,
+            col_config.column_name,
+        )
 
         if default_min == default_max:
             return None
@@ -192,9 +197,7 @@ class FilterButton(base_button.BaseButton):
             "Apply Filtering",
             key=f"{self._table_name}_apply_filtering_button",
         ):
-            st.session_state[f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"] = (
-                col_configs
-            )
+            self.column_configs = col_configs
             st.rerun()
 
     def __call__(
@@ -222,8 +225,5 @@ class FilterButton(base_button.BaseButton):
                 use_container_width=True,
             ):
                 self._filtering_button_dialog(col_configs)
-        returned_configs: list[frontend_models.DFEColumnConfig] = st.session_state.get(
-            f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}",
-            col_configs,
-        )
-        return returned_configs
+
+        return self.column_configs or col_configs

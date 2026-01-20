@@ -115,7 +115,9 @@ class DFE:
             st.session_state[row_ids_key] = []
 
         if self.previous_configs is None:
-            self.previous_configs = self.configs
+            self.previous_configs = [
+                model.model_copy(deep=True) for model in self.configs
+            ]
 
         # If change to filters or sorts, clear working_df
         # Dumping configs to resolve method signatures to primitive types for comparison
@@ -123,6 +125,8 @@ class DFE:
         configs_dumped = [config.model_dump() for config in self.configs]
         if previous_configs_dumped != configs_dumped:
             self._clear_working_df()
+
+        self.previous_configs = [model.model_copy(deep=True) for model in self.configs]
 
         # Initialize working_df if needed
         if self.working_df is None:

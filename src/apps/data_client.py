@@ -83,7 +83,10 @@ def _apply_filters_to_query(
     """Apply filters from column configurations to the query."""
     if filters is not None:
         for operator, criteria in filters.model_dump(exclude_none=True).items():
-            query = query.filter(column_name, operator, criteria)
+            if operator == "in":
+                query = query.in_(column_name, criteria)
+            else:
+                query = query.filter(column_name, operator, criteria)
     return query
 
 
