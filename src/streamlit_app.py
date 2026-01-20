@@ -100,6 +100,7 @@ payments_configs = [
             "index": None,
             "format_func": lambda x: bank_account_map.get(x, x),
         },
+        foreign_key_mapping=bank_account_map,
     ),
     frontend_models.DFEColumnConfig(
         column_name="expense_source_id",
@@ -116,6 +117,7 @@ payments_configs = [
             "index": None,
             "format_func": lambda x: expense_source_map.get(x, x),
         },
+        foreign_key_mapping=expense_source_map,
     ),
 ]
 sample_data = pd.DataFrame(
@@ -135,11 +137,11 @@ with add_col:
     payments_add_button(col_configs=payments_configs)
 with filter_col:
     payments_configs = payments_filter_button(col_configs=payments_configs)
+
 payments_dfe_new = base_dfe.DFE(
     table_name="payments",
     configs=payments_configs,
 )
-
 
 modified_payments_new = payments_dfe_new.load_input_data(sample_data).render()
 backend_updates = payments_dfe_new.sync(modified_payments_new)
