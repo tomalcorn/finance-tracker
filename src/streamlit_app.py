@@ -57,7 +57,7 @@ payments_configs = [
         input_widget=st.date_input,
         sorting=constants.SortingValues.DESC,
         filters=frontend_models.Filters(
-            gte=datetime.date(2025, 1, 1),
+            gte=datetime.date(2026, 1, 1),
             lte=datetime.date(2026, 12, 31),
         ),
     ),
@@ -143,9 +143,8 @@ payments_dfe_new = base_dfe.DFE(
     configs=payments_configs,
 )
 
-modified_payments_new = payments_dfe_new.load_input_data(sample_data).render()
-backend_updates = payments_dfe_new.sync(modified_payments_new)
+payments_dfe_new.load_input_data(sample_data).render()
 data_client.update_backend(
     table_name="payments",
-    updates=backend_updates,
+    updates=payments_dfe_new.backend_updates,
 )
