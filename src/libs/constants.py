@@ -18,6 +18,7 @@ class SSKeys(enum.StrEnum):
     EDITED_ROWS = enum.auto()
     ROW_IDS = enum.auto()
     PREV_ADDED_ROWS = enum.auto()
+    BACKEND_UPDATES = enum.auto()
 
 
 class SortingValues(enum.StrEnum):
