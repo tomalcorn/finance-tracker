@@ -10,7 +10,7 @@ import streamlit as st
 from pandas.api import types as pd_types
 
 from apps import data_client
-from libs import constants, frontend_models
+from libs import backend_models, constants, frontend_models
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -102,6 +102,21 @@ class DFE:
         prev_added_rows_key = f"{self.table_name}_{constants.SSKeys.PREV_ADDED_ROWS}"
         st.session_state[prev_added_rows_key] = rows
 
+    @property
+    def backend_updates(self) -> backend_models.BackendUpdates:
+        """Get the backend updates from session state."""
+        backend_updates_key = f"{self.table_name}_{constants.SSKeys.BACKEND_UPDATES}"
+        return st.session_state.get(
+            backend_updates_key,
+            backend_models.BackendUpdates(),
+        )
+
+    @backend_updates.setter
+    def backend_updates(self, updates: backend_models.BackendUpdates) -> None:
+        """Set the backend updates in session state."""
+        backend_updates_key = f"{self.table_name}_{constants.SSKeys.BACKEND_UPDATES}"
+        st.session_state[backend_updates_key] = updates
+
     def load_input_data(self, sample_data: pd.DataFrame) -> typing.Self:
         """Load data into the dataframe editor.
 
@@ -161,18 +176,41 @@ class DFE:
 
     def _check_for_filters_updates(
         self,
-        modified_df: pd.DataFrame,
+        working_df: pd.DataFrame,
     ) -> tuple[bool, pd.DataFrame]:
-        """Check modified_df to see if changes fall outside current filters.
+        """Check if editor changes fall outside current filters.
 
         Args:
-            modified_df: The DataFrame to check against filters
+            editor_state: The editor state containing added/edited/deleted rows
+            working_df: The current working DataFrame
 
         Returns:
             A tuple of (bool, pd.DataFrame) where the bool indicates if the DataFrame
             changed due to filtering, and the DataFrame is the possibly modified result
 
         """
+        # Apply changes from editor_state to create modified_df
+        modified_df = working_df.copy()
+
+        # Apply deletions
+        if self.deleted_rows:
+            modified_df = modified_df.drop(self.deleted_rows).reset_index(drop=True)
+
+        # Apply edits
+        for row_idx, changes in self.edited_rows.items():
+            if row_idx < len(modified_df):
+                for col, value in changes.items():
+                    modified_df.loc[row_idx, col] = value
+
+        # Apply additions
+        if self.added_rows:
+            added_df = pd.DataFrame(self.added_rows)
+            modified_df = pd.concat(
+                [modified_df, added_df],
+                ignore_index=True,
+            )
+
+        # Now apply filters to the modified dataframe
         filtered_df = modified_df.copy()
 
         for config in self.configs:
@@ -282,11 +320,8 @@ class DFE:
             beu_deleted_rows.append(row_id)
         return beu_deleted_rows
 
-    def sync(
-        self,
-        modified_df: pd.DataFrame,
-    ) -> frontend_models.BackendUpdates:
-        """Sync the edited dataframe with the Supabase table."""
+    def sync(self) -> backend_models.BackendUpdates:
+        """Prep BackendUpdates for syncing."""
         unique_col_names = [
             col.column_name for col in self.configs if col.enforce_unique
         ]
@@ -299,12 +334,15 @@ class DFE:
         beu_deleted_rows = self._get_deleted_rows_for_backend()
 
         # Apply changes to working_df and check changes still in filters
-        filters_changed, modified_df = self._check_for_filters_updates(modified_df)
+        filters_changed, modified_df = self._check_for_filters_updates(
+            editor_state=self.editor_state,
+            working_df=self.working_df,
+        )
         if filters_changed:
             self._clear_editor_state()
             self.working_df = modified_df
 
-        return frontend_models.BackendUpdates(
+        self.backend_updates = backend_models.BackendUpdates(
             added_rows=beu_added_rows,
             edited_rows=beu_edited_rows,
             deleted_rows=beu_deleted_rows,
@@ -326,4 +364,5 @@ class DFE:
             column_order=[col.column_name for col in self.configs],
             num_rows="delete",
             hide_index=True,
+            on_change=self.sync,
         )
