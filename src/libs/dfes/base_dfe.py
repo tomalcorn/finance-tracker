@@ -3,7 +3,6 @@
 import contextlib
 import re
 import typing
-import uuid
 
 import pandas as pd
 import streamlit as st
@@ -70,16 +69,6 @@ class DFE:
         """Get the editor state from session state."""
         return st.session_state[self.table_name]
 
-    def _clear_editor_state(self) -> None:
-        """Clear the editor state from session state."""
-        if self.table_name in st.session_state:
-            del st.session_state[self.table_name]
-
-    @property
-    def added_rows(self) -> list[dict[str, typing.Any]]:
-        """Get the added rows from the editor state."""
-        return self.editor_state[constants.SSKeys.ADDED_ROWS]
-
     @property
     def edited_rows(self) -> dict[str, dict[str, typing.Any]]:
         """Get the edited rows from the editor state."""
@@ -89,18 +78,6 @@ class DFE:
     def deleted_rows(self) -> list[int]:
         """Get the deleted rows from the editor state."""
         return self.editor_state[constants.SSKeys.DELETED_ROWS]
-
-    @property
-    def prev_added_rows(self) -> list[dict[str, typing.Any]]:
-        """Get the previous added rows from session state."""
-        prev_added_rows_key = f"{self.table_name}_{constants.SSKeys.PREV_ADDED_ROWS}"
-        return st.session_state.get(prev_added_rows_key, [])
-
-    @prev_added_rows.setter
-    def prev_added_rows(self, rows: list[dict[str, typing.Any]]) -> None:
-        """Set the previous added rows in session state."""
-        prev_added_rows_key = f"{self.table_name}_{constants.SSKeys.PREV_ADDED_ROWS}"
-        st.session_state[prev_added_rows_key] = rows
 
     @property
     def backend_updates(self) -> backend_models.BackendUpdates:
@@ -181,7 +158,6 @@ class DFE:
         """Check if editor changes fall outside current filters.
 
         Args:
-            editor_state: The editor state containing added/edited/deleted rows
             working_df: The current working DataFrame
 
         Returns:
@@ -189,7 +165,6 @@ class DFE:
             changed due to filtering, and the DataFrame is the possibly modified result
 
         """
-        # Apply changes from editor_state to create modified_df
         modified_df = working_df.copy()
 
         # Apply deletions
@@ -202,31 +177,21 @@ class DFE:
                 for col, value in changes.items():
                     modified_df.loc[row_idx, col] = value
 
-        # Apply additions
-        if self.added_rows:
-            added_df = pd.DataFrame(self.added_rows)
-            modified_df = pd.concat(
-                [modified_df, added_df],
-                ignore_index=True,
-            )
-
-        # Now apply filters to the modified dataframe
-        filtered_df = modified_df.copy()
-
+        # Apply filters
         for config in self.configs:
-            if config.filters and config.column_name in filtered_df.columns:
+            if config.filters and config.column_name in modified_df.columns:
                 filters = config.filters.get_pandas_filters()
                 for operator, criteria in filters.items():
                     col = config.column_name
 
                     if operator == "contains":
-                        mask = filtered_df[col].str.contains(criteria, na=False)
-                        filtered_df = filtered_df[mask]
+                        mask = modified_df[col].str.contains(criteria, na=False)
+                        modified_df = modified_df[mask]
                     else:
-                        filtered_df = filtered_df.query(f"`{col}` {operator} @criteria")
+                        modified_df = modified_df.query(f"`{col}` {operator} @criteria")
 
-        changed = len(filtered_df) != len(modified_df)
-        return changed, filtered_df.reset_index(drop=True)
+        changed = len(modified_df) != len(working_df)
+        return changed, modified_df.reset_index(drop=True)
 
     def _enforce_unique_cols(
         self,
@@ -263,39 +228,6 @@ class DFE:
                 row[col] = f"{base_value} ({max_suffix + 1})"
         return row
 
-    def _get_added_rows_for_backend(
-        self,
-        unique_col_names: list[str],
-    ) -> list[dict[str, typing.Any]]:
-        """Enforce unique cols, manage row IDs, return backend updates added rows."""
-        beu_added_rows: list[dict[str, typing.Any]] = []
-        row_ids_key = f"{self.table_name}_{constants.SSKeys.ROW_IDS}"
-        row_ids: list[str] = st.session_state[row_ids_key]
-
-        # Deal with deleted added_rows
-        if len(self.added_rows) < len(row_ids):
-            deleted_added_indices = [
-                i
-                for i, row in enumerate(self.prev_added_rows)
-                if row not in self.added_rows
-            ]
-            for idx in sorted(deleted_added_indices, reverse=True):
-                del row_ids[idx]
-        self.prev_added_rows = self.added_rows
-
-        # Assign IDs to added rows: reuse IDs from row_ids if available
-        for i, row in enumerate(self.added_rows):
-            unique_row = self._enforce_unique_cols(
-                row=row,
-                unique_col_names=unique_col_names,
-            )
-            if i < len(row_ids):
-                unique_row["id"] = row_ids[i]
-            elif "id" not in unique_row or not unique_row["id"]:
-                unique_row["id"] = str(uuid.uuid4())
-                beu_added_rows.append(unique_row)
-        return beu_added_rows
-
     def _get_edited_rows_for_backend(
         self,
         unique_col_names: list[str],
@@ -326,24 +258,22 @@ class DFE:
             col.column_name for col in self.configs if col.enforce_unique
         ]
 
-        beu_added_rows = self._get_added_rows_for_backend(unique_col_names)
         beu_edited_rows = self._get_edited_rows_for_backend(
             unique_col_names=unique_col_names,
             working_df=self.working_df,
         )
         beu_deleted_rows = self._get_deleted_rows_for_backend()
 
-        # Apply changes to working_df and check changes still in filters
-        filters_changed, modified_df = self._check_for_filters_updates(
-            editor_state=self.editor_state,
-            working_df=self.working_df,
-        )
-        if filters_changed:
-            self._clear_editor_state()
-            self.working_df = modified_df
+        if beu_edited_rows or beu_deleted_rows:
+            # Apply changes to working_df and check changes still in filters
+            filters_changed, modified_df = self._check_for_filters_updates(
+                working_df=self.working_df,
+            )
+            if filters_changed:
+                self.working_df = modified_df
 
         self.backend_updates = backend_models.BackendUpdates(
-            added_rows=beu_added_rows,
+            added_rows=[],  # in "delete" mode, so no added rows
             edited_rows=beu_edited_rows,
             deleted_rows=beu_deleted_rows,
         )
