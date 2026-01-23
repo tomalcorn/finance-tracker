@@ -8,7 +8,8 @@ import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
 
-from libs import backend_models, constants, frontend_models
+from libs.dfes import base_dfe
+from libs.models import backend_models, constants, frontend_models
 
 
 @pytest.fixture(name="connection")
@@ -90,3 +91,9 @@ def _col_configs() -> list[frontend_models.DFEColumnConfig]:
             filters=frontend_models.Filters(lte="2023-01-01", gte="2022-01-01"),
         ),
     ]
+
+
+@pytest.fixture(name="dfe_instance")
+def _dfe_instance(col_configs: list[frontend_models.DFEColumnConfig]) -> base_dfe.DFE:
+    """Fixture for a DFE instance with sample user data."""
+    return base_dfe.DFE(table_name="users", configs=col_configs)

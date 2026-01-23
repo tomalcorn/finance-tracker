@@ -101,11 +101,6 @@ class DFE:
         data_client is different to original_df, then flushes working_df and uses
         data_client data.
         """
-        # Initialize row IDs tracking
-        row_ids_key = f"{self.table_name}_{constants.SSKeys.ROW_IDS}"
-        if row_ids_key not in st.session_state:
-            st.session_state[row_ids_key] = []
-
         if self.previous_configs is None:
             self.previous_configs = [
                 model.model_copy(deep=True) for model in self.configs
