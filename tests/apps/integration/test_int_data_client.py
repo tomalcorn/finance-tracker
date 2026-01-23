@@ -5,7 +5,7 @@ import pytest
 import st_supabase_connection
 
 from apps import data_client
-from libs import backend_models, frontend_models
+from libs import backend_models
 
 
 def test_get_data(
@@ -63,7 +63,7 @@ def test_update_backend_adds_new_row(
 ) -> None:
     """Test adding a new row to the backend."""
     # Arrange
-    updates = frontend_models.BackendUpdates(
+    updates = backend_models.BackendUpdates(
         added_rows=[sample_user.model_dump(mode="json")],
     )
     current_df = pd.DataFrame({"id": []})
@@ -95,7 +95,7 @@ def test_update_backend_raises_error_on_missing_id(
 ) -> None:
     """Test that updating backend raises error when 'id' column is missing."""
     # Arrange
-    updates = frontend_models.BackendUpdates()
+    updates = backend_models.BackendUpdates()
     current_df = pd.DataFrame({"name": ["Alice"]})
     modified_df = pd.DataFrame({"name": ["Bob"]})
 
@@ -116,7 +116,7 @@ def test_update_backend_deletes_row(
 ) -> None:
     """Test deleting a row from the backend."""
     # Arrange
-    updates = frontend_models.BackendUpdates(deleted_rows=[str(yield_sample_user.id)])
+    updates = backend_models.BackendUpdates(deleted_rows=[str(yield_sample_user.id)])
 
     # Act
     data_client.update_backend(
@@ -144,7 +144,7 @@ def test_update_backend_edits_row(
     """Test editing a row in the backend."""
     # Arrange
     new_first_name = "UpdatedName"
-    updates = frontend_models.BackendUpdates(
+    updates = backend_models.BackendUpdates(
         edited_rows={
             str(yield_sample_user.id): {"first_name": new_first_name},
         },
@@ -186,7 +186,7 @@ def test_update_backend_adds_and_edits_and_deletes_rows(
         first_name="New",
         last_name="User",
     )
-    updates = frontend_models.BackendUpdates(
+    updates = backend_models.BackendUpdates(
         added_rows=[new_user.model_dump(mode="json")],
         edited_rows={
             str(yield_sample_users[0].id): {"last_name": "EditedLastName"},
@@ -258,7 +258,7 @@ def test_update_backend_updates_backend_updates_model(
 ) -> None:
     """Test that BackendUpdates model is updated correctly after backend update."""
     # Arrange
-    updates = frontend_models.BackendUpdates(
+    updates = backend_models.BackendUpdates(
         deleted_rows=[str(yield_sample_user.id)],
     )
     current_df = pd.DataFrame({"id": []})

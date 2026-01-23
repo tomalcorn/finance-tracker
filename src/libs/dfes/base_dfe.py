@@ -10,7 +10,7 @@ import streamlit as st
 from pandas.api import types as pd_types
 
 from apps import data_client
-from libs import backend_models, constants, frontend_models
+from libs.models import backend_models, constants, frontend_models
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")

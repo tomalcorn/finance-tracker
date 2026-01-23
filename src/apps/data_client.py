@@ -7,7 +7,7 @@ import st_supabase_connection
 import streamlit as st
 import supabase_auth
 
-from libs import constants, frontend_models
+from libs import backend_models, constants, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
@@ -171,9 +171,9 @@ def get_column_values(
 
 def update_backend(
     table_name: str,
-    updates: frontend_models.BackendUpdates,
+    updates: backend_models.BackendUpdates,
     connection: st_supabase_connection.SupabaseConnection = CONN,
-) -> frontend_models.BackendUpdates:
+) -> backend_models.BackendUpdates:
     """Update the backend with the provided changes.
 
     Args:
