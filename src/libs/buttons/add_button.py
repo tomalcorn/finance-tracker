@@ -4,8 +4,8 @@ import typing
 
 import streamlit as st
 
-from libs import frontend_models
 from libs.buttons import base_button
+from libs.models import frontend_models
 
 
 class AddButton(base_button.BaseButton):

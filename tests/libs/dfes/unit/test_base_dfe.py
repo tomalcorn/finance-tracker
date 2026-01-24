@@ -29,7 +29,7 @@ class TestDFE:
         dfe_instance._clear_working_df()
 
         # Assert
-        assert dfe_instance.working_df.empty
+        assert dfe_instance.working_df is None
 
     def test_load_input_data_no_change_to_configs(
         self,

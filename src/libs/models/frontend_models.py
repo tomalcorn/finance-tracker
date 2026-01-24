@@ -4,7 +4,7 @@ import typing
 
 import pydantic
 
-from libs import constants
+from libs.models import constants
 
 type StreamlitColumnConfig = typing.Any
 

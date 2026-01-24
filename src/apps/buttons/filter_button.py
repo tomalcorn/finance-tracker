@@ -6,8 +6,8 @@ import streamlit as st
 from streamlit_extras import stylable_container
 
 from apps import data_client
-from libs import constants, frontend_models
 from libs.buttons import base_button
+from libs.models import constants, frontend_models
 
 
 class FilterButton(base_button.BaseButton):

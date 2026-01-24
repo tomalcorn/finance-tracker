@@ -7,7 +7,7 @@ import st_supabase_connection
 import streamlit as st
 import supabase_auth
 
-from libs import backend_models, constants, frontend_models
+from libs.models import backend_models, constants, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
