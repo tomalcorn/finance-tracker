@@ -1,6 +1,5 @@
 """Module for pydantic configs for the frontend models."""
 
-import types
 import typing
 
 import pydantic
@@ -82,7 +81,7 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The label for the input button.",
         default=None,
     )
-    input_widget: types.FunctionType = pydantic.Field(
+    input_widget: typing.Callable = pydantic.Field(
         description="The input widget callable from Streamlit.",
     )
     input_kwargs: dict[str, typing.Any] = pydantic.Field(
@@ -120,10 +119,10 @@ class DFEColumnConfig(pydantic.BaseModel):
     @classmethod
     def serialize_input_widget(
         cls,
-        input_widget: types.FunctionType,
+        input_widget: typing.Callable,
     ) -> str:
         """Serialize the input_widget field."""
-        return input_widget.__name__
+        return getattr(input_widget, "__name__", str(input_widget))
 
     @pydantic.field_serializer("input_kwargs", mode="plain")
     @classmethod
@@ -135,7 +134,7 @@ class DFEColumnConfig(pydantic.BaseModel):
         serialised_kwargs = {}
         for key, value in input_kwargs.items():
             if callable(value):
-                serialised_kwargs[key] = value.__name__
+                serialised_kwargs[key] = getattr(value, "__name__", str(value))
             else:
                 serialised_kwargs[key] = value
         return serialised_kwargs
