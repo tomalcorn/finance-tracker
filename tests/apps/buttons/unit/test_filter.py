@@ -11,7 +11,7 @@ from tests import conftest
 
 from apps import data_client
 from apps.buttons import filter_button
-from libs import frontend_models
+from libs.models import frontend_models
 
 
 def _filter_button_dialog_wrapper() -> None:
@@ -23,11 +23,11 @@ def _filter_button_dialog_wrapper() -> None:
 
     from apps import data_client
     from apps.buttons import filter_button
-    from libs import frontend_models
+    from libs.models import frontend_models
 
     # Mock utils.get_unique_values to return test data
     with mock.patch.object(data_client, "get_column_values") as mock_func:
-        mock_func.return_value = pd.Series(["value1", "value2", "value3"])
+        mock_func.return_value = pd.Series([0.88, 0.23, 0.1])
 
         dfe_configs = [
             frontend_models.DFEColumnConfig(
@@ -57,8 +57,8 @@ def _app_tester() -> st_test.AppTest:
     )
 
 
-@pytest.fixture(name="filter_button")
-def _filter_button() -> filter_button.FilterButton:
+@pytest.fixture(name="filter_button_instance")
+def _filter_button_instance() -> filter_button.FilterButton:
     return filter_button.FilterButton("test_table")
 
 
@@ -68,7 +68,7 @@ def test_current_css_style_no_filtering(
     """Test _current_css_style returns normal style when no filtering applied."""
     # Arrange
     col_configs_no_filters = [
-        col_configs[i].model_copy(update={"filtering": None})
+        col_configs[i].model_copy(update={"filters": None})
         for i in range(len(col_configs))
     ]
     filter_button_instance = filter_button.FilterButton("test_table_1")
@@ -143,9 +143,9 @@ class TestFilterButtonDialog:
         # Arrange
         exptected_dialog_text = "Filter **test_table** by:"
         expected_multiselect_label = "Filter by col1"
-        expected_multiselect_options = ["value1", "value2", "value3"]
+        expected_multiselect_options = ["0.88", "0.23", "0.1"]
         exptected_slider_text = "Filter by col2"
-        expected_slider_min, expected_slider_max = 10, 100
+        expected_slider_min, expected_slider_max = 0.1, 0.88
         # Act
         app_tester.run()
 
@@ -229,11 +229,15 @@ class TestFilterHandling:
     ) -> None:
         """Test _handle_numeric_filtering returns None when no filtering applied."""
         # Arrange
-        with mock.patch.object(
-            filter_button,
-            "_get_min_max_values",
-        ) as mock_get_min_max:
+        with (
+            mock.patch.object(
+                filter_button.FilterButton,
+                "_get_min_max_values",
+            ) as mock_get_min_max,
+            mock.patch.object(st, "slider") as mock_slider,
+        ):
             mock_get_min_max.return_value = (0.0, 100.0)
+            mock_slider.return_value = (0.0, 100.0)
             numeric_col_config = frontend_models.DFEColumnConfig(
                 column_name="numeric_col",
                 column_config={},
@@ -256,7 +260,14 @@ class TestFilterHandling:
         tester.
         """
         # Arrange
-        with mock.patch.object(st, "slider") as mock_slider:
+        with (
+            mock.patch.object(st, "slider") as mock_slider,
+            mock.patch.object(
+                data_client,
+                "get_column_values",
+            ) as mock_get_column_values,
+        ):
+            mock_get_column_values.return_value = pd.Series([10.0, 90.0])
             mock_slider.return_value = (20.0, 80.0)
 
             filter_button_instance = filter_button.FilterButton("test_table")

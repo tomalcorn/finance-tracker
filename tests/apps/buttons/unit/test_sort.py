@@ -5,7 +5,7 @@ import streamlit.testing.v1 as st_test
 from tests import conftest
 
 from apps.buttons import sort_button
-from libs import constants, frontend_models
+from libs.models import constants, frontend_models
 
 
 def _sort_button_dialog_wrapper() -> None:
@@ -13,7 +13,7 @@ def _sort_button_dialog_wrapper() -> None:
     import streamlit as st
 
     from apps.buttons import sort_button
-    from libs import constants, frontend_models
+    from libs.models import constants, frontend_models
 
     dfe_configs = [
         frontend_models.DFEColumnConfig(

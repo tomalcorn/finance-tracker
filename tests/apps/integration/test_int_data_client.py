@@ -1,11 +1,9 @@
 """Integration tests for data_client module."""
 
-import pandas as pd
-import pytest
 import st_supabase_connection
 
 from apps import data_client
-from libs import backend_models
+from libs.models import backend_models
 
 
 def test_get_data(
@@ -66,15 +64,11 @@ def test_update_backend_adds_new_row(
     updates = backend_models.BackendUpdates(
         added_rows=[sample_user.model_dump(mode="json")],
     )
-    current_df = pd.DataFrame({"id": []})
-    modified_df = pd.DataFrame({"id": []})
 
     # Act
     data_client.update_backend(
         table_name="users",
         updates=updates,
-        current_df=current_df,
-        modified_df=modified_df,
         connection=connection,
     )
 
@@ -88,26 +82,6 @@ def test_update_backend_adds_new_row(
     # Clean up
     connection.table("users").delete().eq("id", actual_user_model.id).execute()
     assert actual_user_model == sample_user
-
-
-def test_update_backend_raises_error_on_missing_id(
-    connection: st_supabase_connection.SupabaseConnection,
-) -> None:
-    """Test that updating backend raises error when 'id' column is missing."""
-    # Arrange
-    updates = backend_models.BackendUpdates()
-    current_df = pd.DataFrame({"name": ["Alice"]})
-    modified_df = pd.DataFrame({"name": ["Bob"]})
-
-    # Act & Assert
-    with pytest.raises(data_client.DataClientError):
-        data_client.update_backend(
-            table_name="users",
-            updates=updates,
-            current_df=current_df,
-            modified_df=modified_df,
-            connection=connection,
-        )
 
 
 def test_update_backend_deletes_row(
@@ -149,15 +123,11 @@ def test_update_backend_edits_row(
             str(yield_sample_user.id): {"first_name": new_first_name},
         },
     )
-    current_df = pd.DataFrame({"id": []})
-    modified_df = pd.DataFrame({"id": []})
 
     # Act
     data_client.update_backend(
         table_name="users",
         updates=updates,
-        current_df=current_df,
-        modified_df=modified_df,
         connection=connection,
     )
 
@@ -180,7 +150,7 @@ def test_update_backend_adds_and_edits_and_deletes_rows(
     yield_sample_users: list[backend_models.UserModel],
     connection: st_supabase_connection.SupabaseConnection,
 ) -> None:
-    """Test adding and editing a row in the backend."""
+    """Test adding, editing and deleting a row in the backend."""
     # Arrange - Add a new user, then edit one of the existing users
     new_user = backend_models.UserModel(
         first_name="New",
@@ -191,29 +161,13 @@ def test_update_backend_adds_and_edits_and_deletes_rows(
         edited_rows={
             str(yield_sample_users[0].id): {"last_name": "EditedLastName"},
         },
-    )
-    # Delete the second user
-    current_df = pd.DataFrame(
-        {
-            "id": [str(user.id) for user in yield_sample_users],
-            "first_name": [user.first_name for user in yield_sample_users],
-            "last_name": [user.last_name for user in yield_sample_users],
-        },
-    )
-    modified_df = pd.DataFrame(
-        {
-            "id": [str(yield_sample_users[0].id)],
-            "first_name": [yield_sample_users[0].first_name],
-            "last_name": ["EditedLastName"],
-        },
+        deleted_rows=[str(yield_sample_users[1].id)],  # Delete the second user
     )
 
     # Act
     data_client.update_backend(
         table_name="users",
         updates=updates,
-        current_df=current_df,
-        modified_df=modified_df,
         connection=connection,
     )
 
@@ -261,15 +215,11 @@ def test_update_backend_updates_backend_updates_model(
     updates = backend_models.BackendUpdates(
         deleted_rows=[str(yield_sample_user.id)],
     )
-    current_df = pd.DataFrame({"id": []})
-    modified_df = pd.DataFrame({"id": []})
 
     # Act
     updated_updates = data_client.update_backend(
         table_name="users",
         updates=updates,
-        current_df=current_df,
-        modified_df=modified_df,
         connection=connection,
     )
 
