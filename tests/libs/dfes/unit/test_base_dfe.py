@@ -54,6 +54,9 @@ class TestDFE:
         dfe_instance.load_input_data(input_df)
 
         # Assert
+        if dfe_instance.working_df is None:
+            msg = "working_df is None, expected DataFrame to match input_df"
+            raise AssertionError(msg)
         pd.testing.assert_frame_equal(dfe_instance.working_df, input_df)
 
     @pytest.mark.parametrize(
@@ -98,6 +101,9 @@ class TestDFE:
             dfe_instance.load_input_data(sample_data)
 
         # Assert
+        if dfe_instance.working_df is None:
+            msg = "working_df is None, expected modified DataFrame"
+            raise AssertionError(msg)
         pd.testing.assert_frame_equal(dfe_instance.working_df, modified_df)
 
     def test_load_input_data_get_data_returns_empty_df(
@@ -119,6 +125,10 @@ class TestDFE:
             dfe_instance.load_input_data(sample_data)
 
         # Assert
+        if dfe_instance.working_df is None:
+            msg = "working_df is None, expected empty DataFrame"
+            raise AssertionError(msg)
+
         pd.testing.assert_frame_equal(dfe_instance.working_df, sample_data)
 
     def test_enforce_unique_cols_no_duplicates(
