@@ -12,6 +12,12 @@ from libs.dfes import base_dfe
 from libs.models import backend_models, constants, frontend_models
 
 
+@pytest.fixture(autouse=True)
+def _clear_session_state() -> None:
+    """Clear streamlit session state before each test."""
+    st.session_state.clear()
+
+
 @pytest.fixture(name="connection")
 def _connection() -> st_supabase_connection.SupabaseConnection:
     """Provide a Supabase connection for tests."""
