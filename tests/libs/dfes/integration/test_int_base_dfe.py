@@ -254,6 +254,9 @@ class TestDFESync:
         # Assert - working_df should remain 3 rows
         expected_length = 3
         backend_updates = dfe.backend_updates
+        if dfe.working_df is None:
+            msg = "working_df is None, expected filtered DataFrame"
+            raise AssertionError(msg)
         assert all(
             [
                 len(dfe.working_df) == expected_length,
@@ -292,6 +295,9 @@ class TestDFESync:
         # Assert - working_df should be reduced to 2 rows (row 0 filtered out)
         expected_length = 2
         backend_updates = dfe.backend_updates
+        if dfe.working_df is None:
+            msg = "working_df is None, expected filtered DataFrame"
+            raise AssertionError(msg)
         assert all(
             [
                 len(dfe.working_df) == expected_length,

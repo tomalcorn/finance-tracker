@@ -7,9 +7,9 @@ import streamlit as st
 
 from apps import data_client
 from apps.buttons import filter_button
-from libs import constants, frontend_models
 from libs.buttons import add_button
 from libs.dfes import base_dfe
+from libs.models import constants, frontend_models
 
 filter_col, empty_col, add_col = st.columns([0.3, 0.4, 0.3])
 

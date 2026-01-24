@@ -101,14 +101,13 @@ class DFE:
         data_client is different to original_df, then flushes working_df and uses
         data_client data.
         """
-        if self.previous_configs is None:
-            self.previous_configs = [
-                model.model_copy(deep=True) for model in self.configs
-            ]
+        previous_configs = self.previous_configs or [
+            model.model_copy(deep=True) for model in self.configs
+        ]
 
         # If change to filters or sorts, clear working_df
         # Dumping configs to resolve method signatures to primitive types for comparison
-        previous_configs_dumped = [conf.model_dump() for conf in self.previous_configs]
+        previous_configs_dumped = [conf.model_dump() for conf in previous_configs]
         configs_dumped = [config.model_dump() for config in self.configs]
         if previous_configs_dumped != configs_dumped:
             self._clear_working_df()
@@ -168,9 +167,9 @@ class DFE:
 
         # Apply edits
         for row_idx, changes in self.edited_rows.items():
-            if row_idx < len(modified_df):
+            if int(row_idx) < len(modified_df):
                 for col, value in changes.items():
-                    modified_df.loc[row_idx, col] = value
+                    modified_df.loc[int(row_idx), col] = value
 
         # Apply filters
         for config in self.configs:
@@ -235,20 +234,24 @@ class DFE:
                 row=changes,
                 unique_col_names=unique_col_names,
             )
-            row_id = working_df.iloc[row_idx]["id"]
+            row_id = working_df.iloc[int(row_idx)]["id"]
             beu_edited_rows[row_id] = unique_changes
         return beu_edited_rows
 
-    def _get_deleted_rows_for_backend(self) -> list[str]:
+    def _get_deleted_rows_for_backend(self, working_df: pd.DataFrame) -> list[str]:
         """Get backend updates for deleted rows."""
         beu_deleted_rows: list[str] = []
         for row_idx in self.deleted_rows:
-            row_id = self.working_df.iloc[row_idx]["id"]
+            row_id = working_df.iloc[row_idx]["id"]
             beu_deleted_rows.append(row_id)
         return beu_deleted_rows
 
-    def sync(self) -> backend_models.BackendUpdates:
+    def sync(self) -> None:
         """Prep BackendUpdates for syncing."""
+        if self.working_df is None:
+            msg = "Working dataframe is not initialized. Cannot sync."
+            raise ValueError(msg)
+
         unique_col_names = [
             col.column_name for col in self.configs if col.enforce_unique
         ]
@@ -257,7 +260,7 @@ class DFE:
             unique_col_names=unique_col_names,
             working_df=self.working_df,
         )
-        beu_deleted_rows = self._get_deleted_rows_for_backend()
+        beu_deleted_rows = self._get_deleted_rows_for_backend(self.working_df)
 
         if beu_edited_rows or beu_deleted_rows:
             # Apply changes to working_df and check changes still in filters

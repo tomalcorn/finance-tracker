@@ -1,5 +1,6 @@
 """Module for pydantic configs for the frontend models."""
 
+import types
 import typing
 
 import pydantic
@@ -81,7 +82,7 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The label for the input button.",
         default=None,
     )
-    input_widget: typing.Callable = pydantic.Field(  # type: ignore[type-arg]
+    input_widget: types.FunctionType = pydantic.Field(
         description="The input widget callable from Streamlit.",
     )
     input_kwargs: dict[str, typing.Any] = pydantic.Field(
@@ -119,7 +120,7 @@ class DFEColumnConfig(pydantic.BaseModel):
     @classmethod
     def serialize_input_widget(
         cls,
-        input_widget: typing.Callable,
+        input_widget: types.FunctionType,
     ) -> str:
         """Serialize the input_widget field."""
         return input_widget.__name__
