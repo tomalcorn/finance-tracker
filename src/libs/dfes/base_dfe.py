@@ -50,21 +50,6 @@ class DFE:
             del st.session_state[working_df_key]
 
     @property
-    def previous_configs(self) -> list[frontend_models.DFEColumnConfig] | None:
-        """Get the previous column configs from session state."""
-        prev_configs_key = f"{self.table_name}_{constants.SSKeys.PREV_CONFIGS}"
-        return st.session_state.get(prev_configs_key, None)
-
-    @previous_configs.setter
-    def previous_configs(
-        self,
-        configs: list[frontend_models.DFEColumnConfig],
-    ) -> None:
-        """Set the previous column configs in session state."""
-        prev_configs_key = f"{self.table_name}_{constants.SSKeys.PREV_CONFIGS}"
-        st.session_state[prev_configs_key] = configs
-
-    @property
     def editor_state(self) -> dict[str, typing.Any]:
         """Get the editor state from session state."""
         return st.session_state[self.table_name]
@@ -94,25 +79,21 @@ class DFE:
         backend_updates_key = f"{self.table_name}_{constants.SSKeys.BACKEND_UPDATES}"
         st.session_state[backend_updates_key] = updates
 
-    def load_input_data(self, sample_data: pd.DataFrame) -> typing.Self:
+    def load_input_data(
+        self,
+        sample_data: pd.DataFrame,
+        *,
+        filters_changed: bool,
+        new_data_added: bool,
+    ) -> typing.Self:
         """Load data into the dataframe editor.
 
         Ideally uses the working_df from session state, but if the data served from the
         data_client is different to original_df, then flushes working_df and uses
         data_client data.
         """
-        previous_configs = self.previous_configs or [
-            model.model_copy(deep=True) for model in self.configs
-        ]
-
-        # If change to filters or sorts, clear working_df
-        # Dumping configs to resolve method signatures to primitive types for comparison
-        previous_configs_dumped = [conf.model_dump() for conf in previous_configs]
-        configs_dumped = [config.model_dump() for config in self.configs]
-        if previous_configs_dumped != configs_dumped:
+        if filters_changed or new_data_added:
             self._clear_working_df()
-
-        self.previous_configs = [model.model_copy(deep=True) for model in self.configs]
 
         # Initialize working_df if needed
         if self.working_df is None:

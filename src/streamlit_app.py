@@ -149,16 +149,22 @@ sample_data = pd.DataFrame(
 
 # Call buttons
 with add_col:
-    payments_add_button(col_configs=payments_configs)
+    new_data_added = payments_add_button(col_configs=payments_configs)
 with filter_col:
-    payments_configs = payments_filter_button(col_configs=payments_configs)
+    filters_changed, payments_configs = payments_filter_button(
+        col_configs=payments_configs,
+    )
 
 payments_dfe_new = base_dfe.DFE(
     table_name="payments",
     configs=payments_configs,
 )
 
-payments_dfe_new.load_input_data(sample_data).render()
+payments_dfe_new.load_input_data(
+    sample_data,
+    filters_changed=filters_changed,
+    new_data_added=new_data_added,
+).render()
 data_client.update_backend(
     table_name="payments",
     updates=payments_dfe_new.backend_updates,
