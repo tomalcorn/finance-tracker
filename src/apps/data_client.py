@@ -42,10 +42,6 @@ def _ensure_authenticated() -> None:
         st.session_state[constants.SSKeys.CURRENT_USER] = user
 
 
-# Authenticate on module load
-_ensure_authenticated()
-
-
 class DataClientError(Exception):
     """Custom exception for data client errors."""
 
@@ -122,6 +118,9 @@ def get_data(
         A list of dictionaries representing the queried data.
 
     """
+    if connection is CONN:
+        _ensure_authenticated()
+
     query = connection.table(table_name).select(query_string)
     if configs:
         for config in configs:
@@ -157,6 +156,9 @@ def get_column_values(
         A pandas Series containing the column values.
 
     """
+    if connection is CONN:
+        _ensure_authenticated()
+
     query = connection.table(table_name).select(column_name)
     response = _execute_query(query)
     if not response:
@@ -185,6 +187,9 @@ def update_backend(
         The updated BackendUpdates object reflecting all changes made.
 
     """
+    if connection is CONN:
+        _ensure_authenticated()
+
     if updates.added_rows:
         connection.table(table_name).insert(updates.added_rows).execute()
     if updates.edited_rows:
