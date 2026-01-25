@@ -51,18 +51,6 @@ class DataClientError(Exception):
         self.message = message
 
 
-def _hash_func_for_query(
-    query: st_supabase_connection.SyncSelectRequestBuilder,
-) -> str:
-    """Generate a hash for the given query to use in caching."""
-    query_str = str(query)
-    return str(hash(query_str))
-
-
-@st.cache_data(
-    ttl=300,
-    hash_funcs={st_supabase_connection.SyncSelectRequestBuilder: _hash_func_for_query},
-)
 def _execute_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
 ) -> list[dict[str, typing.Any]]:
@@ -100,30 +88,31 @@ def _apply_sorting_to_query(
     return query
 
 
+@st.cache_data()
 def get_data(
     table_name: str,
     query_string: str,
-    configs: list[frontend_models.DFEColumnConfig] | None = None,
-    connection: st_supabase_connection.SupabaseConnection = CONN,
+    _configs: list[frontend_models.DFEColumnConfig] | None = None,
+    _connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> list[dict[str, typing.Any]]:
     """Fetch data from the specified table with optional filters.
 
     Args:
         table_name: The name of the table to query.
         query_string: The select query string.
-        configs: Optional list of column configurations for filtering and sorting.
-        connection: The Supabase connection to use.
+        _configs: Optional list of column configurations for filtering and sorting.
+        _connection: The Supabase connection to use.
 
     Returns:
         A list of dictionaries representing the queried data.
 
     """
-    if connection is CONN:
+    if _connection is CONN:
         _ensure_authenticated()
 
-    query = connection.table(table_name).select(query_string)
-    if configs:
-        for config in configs:
+    query = _connection.table(table_name).select(query_string)
+    if _configs:
+        for config in _configs:
             query = _apply_filters_to_query(
                 query=query,
                 column_name=config.column_name,

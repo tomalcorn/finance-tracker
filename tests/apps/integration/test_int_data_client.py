@@ -12,7 +12,7 @@ def test_get_data(
 ) -> None:
     """Test fetching data using sample user."""
     # Act
-    data = data_client.get_data("users", "*", connection=connection)
+    data = data_client.get_data("users", "*", _connection=connection)
 
     # Assert
     expected_user_model = yield_sample_user
@@ -76,7 +76,7 @@ def test_update_backend_adds_new_row(
     fetched_data = data_client.get_data(
         table_name="users",
         query_string="*",
-        connection=connection,
+        _connection=connection,
     )
     actual_user_model = backend_models.UserModel.model_validate(fetched_data[0])
     # Clean up
@@ -103,7 +103,7 @@ def test_update_backend_deletes_row(
     fetched_data = data_client.get_data(
         table_name="users",
         query_string="*",
-        connection=connection,
+        _connection=connection,
     )
     assert all(
         backend_models.UserModel.model_validate(row).id != yield_sample_user.id
@@ -135,7 +135,7 @@ def test_update_backend_edits_row(
     fetched_data = data_client.get_data(
         table_name="users",
         query_string="*",
-        connection=connection,
+        _connection=connection,
     )
     # Find the updated user and check the first name
     for row in fetched_data:
@@ -175,7 +175,7 @@ def test_update_backend_adds_and_edits_and_deletes_rows(
     fetched_data = data_client.get_data(
         table_name="users",
         query_string="*",
-        connection=connection,
+        _connection=connection,
     )
     # Check new user added
     added_user_found = any(

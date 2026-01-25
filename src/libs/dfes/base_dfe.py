@@ -120,7 +120,7 @@ class DFE:
                 data_client.get_data(
                     table_name=self.table_name,
                     query_string="*",
-                    configs=self.configs,
+                    _configs=self.configs,
                 ),
             )
             if working_df.empty:
