@@ -136,12 +136,22 @@ class FilterButton(base_button.BaseButton):
             # Ensure defaults are limited to the actual unique values
             default_selected &= unique_values
 
-        selected_values = st.multiselect(
-            label=f"Filter by {col_config.button_label or col_config.column_name}",
-            options=unique_values,
-            default=list(default_selected) if default_selected else None,
-            key=f"{self._table_name}_filter_selectbox_{col_config.column_name}",
-        )
+        if col_config.format_func:
+            selected_values = st.multiselect(
+                label=f"Filter by {col_config.button_label or col_config.column_name}",
+                options=unique_values,
+                default=list(default_selected) if default_selected else None,
+                format_func=col_config.format_func,
+                key=f"{self._table_name}_filter_selectbox_{col_config.column_name}",
+            )
+        else:
+            selected_values = st.multiselect(
+                label=f"Filter by {col_config.button_label or col_config.column_name}",
+                options=unique_values,
+                default=list(default_selected) if default_selected else None,
+                key=f"{self._table_name}_filter_selectbox_{col_config.column_name}",
+            )
+
         return frontend_models.Filters(in_=selected_values) if selected_values else None
 
     def _handle_generic_filtering(
