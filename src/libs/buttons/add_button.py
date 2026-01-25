@@ -22,6 +22,19 @@ class AddButton(base_button.BaseButton):
         self._table_name = table_name
         self._backend_model = backend_model
 
+    @property
+    def new_data_added(self) -> bool:
+        """Check if new data has been added in the session state."""
+        return st.session_state.get(
+            constants.SSKeys.NEW_DATA_ADDED,
+            False,
+        )
+
+    @new_data_added.setter
+    def new_data_added(self, value: bool) -> None:
+        """Set the new data added flag in the session state."""
+        st.session_state[constants.SSKeys.NEW_DATA_ADDED] = value
+
     def _submit_new_row(self, new_row: dict[str, typing.Any]) -> None:
         """Handle the submission of a new row."""
         try:
@@ -71,10 +84,16 @@ class AddButton(base_button.BaseButton):
             }
             self._submit_new_row(new_row)
             data_client.get_data.clear()
+            self.new_data_added = True
             st.rerun()
 
-    def __call__(self, col_configs: list[frontend_models.DFEColumnConfig]) -> None:
-        """Render the 'Add' button in the UI."""
+    def __call__(self, col_configs: list[frontend_models.DFEColumnConfig]) -> bool:
+        """Render the 'Add' button in the UI.
+
+        Returns:
+            bool: True if a new row was added, False otherwise.
+
+        """
         if st.button(
             label="New",
             icon="➕",  # noqa: RUF001
@@ -82,3 +101,4 @@ class AddButton(base_button.BaseButton):
             use_container_width=True,
         ):
             self._add_button_dialog(col_configs)
+        return self.new_data_added
