@@ -9,7 +9,7 @@ from apps import data_client
 from apps.buttons import filter_button
 from libs.buttons import add_button
 from libs.dfes import base_dfe
-from libs.models import constants, frontend_models
+from libs.models import backend_models, constants, frontend_models
 
 filter_col, empty_col, add_col = st.columns([0.3, 0.4, 0.3])
 
@@ -42,7 +42,10 @@ def get_expense_source_name(es_id: str) -> str:
 
 # === Payments DFE ===
 
-payments_add_button = add_button.AddButton(table_name="payments")
+payments_add_button = add_button.AddButton(
+    table_name="payments",
+    backend_model=backend_models.PaymentsModel,
+)
 payments_filter_button = filter_button.FilterButton(table_name="payments")
 
 # Define column and add button configuration
