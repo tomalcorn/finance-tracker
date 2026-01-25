@@ -96,8 +96,8 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The filtering criteria for the column.",
         default=None,
     )
-    foreign_key_mapping: dict[str, str] | None = pydantic.Field(
-        description="The mapping for foreign key relationships.",
+    format_func: typing.Callable[[str], str] | None = pydantic.Field(
+        description="The formatting function for foreign key relationships.",
         default=None,
     )
     enforce_unique: bool = pydantic.Field(
