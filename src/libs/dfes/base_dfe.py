@@ -88,9 +88,8 @@ class DFE:
     ) -> typing.Self:
         """Load data into the dataframe editor.
 
-        Ideally uses the working_df from session state, but if the data served from the
-        data_client is different to original_df, then flushes working_df and uses
-        data_client data.
+        If filters have changed or new data has been added, the working
+        dataframe is cleared and reloaded from the backend.
         """
         if filters_changed or new_data_added:
             self._clear_working_df()
