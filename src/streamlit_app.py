@@ -21,12 +21,24 @@ bank_accounts = data_client.get_data(
 bank_account_map = {ba["id"]: ba["name"] for ba in bank_accounts}
 bank_account_ids = list(bank_account_map.keys())
 
+
+def get_bank_account_name(ba_id: str) -> str:
+    """Get the bank account name for a given ID."""
+    return bank_account_map.get(ba_id, "Unknown Bank Account")
+
+
 expense_sources = data_client.get_data(
     table_name="expense_sources",
     query_string="*",
 )
 expense_source_map = {es["id"]: es["name"] for es in expense_sources}
 expense_source_ids = list(expense_source_map.keys())
+
+
+def get_expense_source_name(es_id: str) -> str:
+    """Get the expense source name for a given ID."""
+    return expense_source_map.get(es_id, "Unknown Expense Source")
+
 
 # === Payments DFE ===
 
@@ -91,16 +103,16 @@ payments_configs = [
             "Bank Account",
             help="Select a bank account",
             options=bank_account_ids,
-            format_func=lambda x: bank_account_map.get(x, x),
+            format_func=get_bank_account_name,
         ),
         button_label="Bank Account",
         input_widget=st.selectbox,
         input_kwargs={
             "options": bank_account_ids,
             "index": None,
-            "format_func": lambda x: bank_account_map.get(x, x),
+            "format_func": get_bank_account_name,
         },
-        foreign_key_mapping=bank_account_map,
+        format_func=get_bank_account_name,
     ),
     frontend_models.DFEColumnConfig(
         column_name="expense_source_id",
@@ -108,16 +120,16 @@ payments_configs = [
             "Expense Source",
             help="Select an expense source",
             options=expense_source_ids,
-            format_func=lambda x: expense_source_map.get(x, x),
+            format_func=get_expense_source_name,
         ),
         button_label="Expense Source",
         input_widget=st.selectbox,
         input_kwargs={
             "options": expense_source_ids,
             "index": None,
-            "format_func": lambda x: expense_source_map.get(x, x),
+            "format_func": get_expense_source_name,
         },
-        foreign_key_mapping=expense_source_map,
+        format_func=get_expense_source_name,
     ),
 ]
 sample_data = pd.DataFrame(
