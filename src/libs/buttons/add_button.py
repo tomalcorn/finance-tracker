@@ -2,10 +2,12 @@
 
 import typing
 
+import pydantic
 import streamlit as st
 
+from apps import data_client
 from libs.buttons import base_button
-from libs.models import frontend_models
+from libs.models import backend_models, frontend_models
 
 
 class AddButton(base_button.BaseButton):
@@ -14,14 +16,28 @@ class AddButton(base_button.BaseButton):
     def __init__(
         self,
         table_name: str,
+        backend_model: pydantic.BaseModel,
     ) -> None:
         """Initialize the AddButton instance."""
         self._table_name = table_name
+        self._backend_model = backend_model
 
     def _submit_new_row(self, new_row: dict[str, typing.Any]) -> None:
         """Handle the submission of a new row."""
-        msg = "This method should be implemented to handle new row submission."
-        raise NotImplementedError(msg)
+        try:
+            model_instance = self._backend_model.model_validate(new_row)
+        except pydantic.ValidationError as e:
+            msg = f"Invalid data for new row in {self._table_name}: {e}"
+            raise ValueError(msg) from e
+        else:
+            data_client.update_backend(
+                table_name=self._table_name,
+                updates=backend_models.BackendUpdates(
+                    added_rows=[model_instance.model_dump()],
+                    deleted_rows=[],
+                    edited_rows={},
+                ),
+            )
 
     @st.dialog("Add Row")
     def _add_button_dialog(
