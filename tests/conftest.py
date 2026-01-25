@@ -8,7 +8,13 @@ import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
 
-from libs import backend_models, constants, frontend_models
+from libs.models import backend_models, constants, frontend_models
+
+
+@pytest.fixture(autouse=True)
+def _clear_session_state() -> None:
+    """Clear streamlit session state before each test."""
+    st.session_state.clear()
 
 
 @pytest.fixture(name="connection")
@@ -86,7 +92,7 @@ def _col_configs() -> list[frontend_models.DFEColumnConfig]:
             column_name="col1",
             column_config={},
             input_widget=st.text_input,
-            sorting=constants.SortingValues.ASCENDING,
-            filtering=frontend_models.Filters(lte="2023-01-01", gte="2022-01-01"),
+            sorting=constants.SortingValues.ASC,
+            filters=frontend_models.Filters(lte="2023-01-01", gte="2022-01-01"),
         ),
     ]

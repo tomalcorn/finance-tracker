@@ -1,9 +1,27 @@
 """Pydantic models for backend model validation."""
 
 import datetime
+import typing
 import uuid
 
 import pydantic
+
+
+class BackendUpdates(pydantic.BaseModel):
+    """Model for backend updates tracking."""
+
+    added_rows: list[dict[str, typing.Any]] = pydantic.Field(
+        description="List of new row data entries.",
+        default_factory=list,
+    )
+    edited_rows: dict[str, dict[str, typing.Any]] = pydantic.Field(
+        description="Dictionary of IDs to updated row data.",
+        default_factory=dict,
+    )
+    deleted_rows: list[str] = pydantic.Field(
+        description="List of row ids to be deleted.",
+        default_factory=list,
+    )
 
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):

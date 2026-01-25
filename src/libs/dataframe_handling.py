@@ -363,9 +363,9 @@ class DFE:
             self.filters = st.session_state[f"{self.table_name}_filters"]
         else:
             self.filters = {
-                col.column_name: col.filtering
+                col.column_name: col.filters
                 for col in config
-                if col.filtering is not None
+                if col.filters is not None
             }
 
     def _initialize_session_state(self, sample_data: pd.DataFrame) -> None:

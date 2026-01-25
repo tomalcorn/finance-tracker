@@ -4,8 +4,8 @@ import typing
 
 import streamlit as st
 
-from libs import frontend_models
 from libs.buttons import base_button
+from libs.models import frontend_models
 
 
 class AddButton(base_button.BaseButton):
@@ -57,5 +57,6 @@ class AddButton(base_button.BaseButton):
             label="New",
             icon="➕",  # noqa: RUF001
             key=f"{self._table_name}_add_row_button",
+            use_container_width=True,
         ):
             self._add_button_dialog(col_configs)
