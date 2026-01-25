@@ -7,7 +7,7 @@ import streamlit as st
 
 from apps import data_client
 from libs.buttons import base_button
-from libs.models import backend_models, frontend_models
+from libs.models import backend_models, constants, frontend_models
 
 
 class AddButton(base_button.BaseButton):
@@ -25,6 +25,10 @@ class AddButton(base_button.BaseButton):
     def _submit_new_row(self, new_row: dict[str, typing.Any]) -> None:
         """Handle the submission of a new row."""
         try:
+            current_user: backend_models.UserModel = st.session_state[
+                constants.SSKeys.CURRENT_USER
+            ]
+            new_row["user_id"] = current_user.id
             model_instance = self._backend_model.model_validate(new_row)
         except pydantic.ValidationError as e:
             msg = f"Invalid data for new row in {self._table_name}: {e}"
@@ -33,7 +37,7 @@ class AddButton(base_button.BaseButton):
             data_client.update_backend(
                 table_name=self._table_name,
                 updates=backend_models.BackendUpdates(
-                    added_rows=[model_instance.model_dump()],
+                    added_rows=[model_instance.model_dump(mode="json")],
                     deleted_rows=[],
                     edited_rows={},
                 ),
@@ -66,6 +70,8 @@ class AddButton(base_button.BaseButton):
                 for col, output in zip(col_configs, outputs, strict=False)
             }
             self._submit_new_row(new_row)
+            data_client.get_data.clear()
+            st.rerun()
 
     def __call__(self, col_configs: list[frontend_models.DFEColumnConfig]) -> None:
         """Render the 'Add' button in the UI."""
