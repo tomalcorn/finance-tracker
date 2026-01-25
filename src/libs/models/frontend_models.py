@@ -4,11 +4,17 @@ import typing
 
 import pydantic
 
-from libs import constants
+from libs.models import constants
+
+type StreamlitColumnConfig = typing.Any
 
 
 class Filters(pydantic.BaseModel):
     """Model for a column filter."""
+
+    model_config = pydantic.ConfigDict(
+        serialize_by_alias=True,
+    )
 
     eq: typing.Any | None = pydantic.Field(
         description="Equality filter value.",
@@ -16,7 +22,7 @@ class Filters(pydantic.BaseModel):
     )
     in_: list[typing.Any] | None = pydantic.Field(
         description="In filter values.",
-        alias="in",
+        serialization_alias="in",
         default=None,
     )
     lt: typing.Any | None = pydantic.Field(
@@ -40,6 +46,23 @@ class Filters(pydantic.BaseModel):
         default=None,
     )
 
+    def get_pandas_filters(self) -> dict[str, typing.Any]:
+        """Serialise to pandas friendly format."""
+        serialised = self.model_dump(exclude_none=True)
+        to_pandas_map = {
+            "lt": "<",
+            "lte": "<=",
+            "gt": ">",
+            "gte": ">=",
+        }
+        serialised_pandas = {}
+        for key, value in serialised.items():
+            if key in to_pandas_map:
+                serialised_pandas[to_pandas_map[key]] = value
+            else:
+                serialised_pandas[key] = value
+        return serialised_pandas
+
 
 class DFEColumnConfig(pydantic.BaseModel):
     """Configuration for a single column in the DataFrame Editor."""
@@ -47,18 +70,18 @@ class DFEColumnConfig(pydantic.BaseModel):
     column_name: str = pydantic.Field(
         description="The name of the column in the DataFrame.",
     )
-    column_config: dict[str, typing.Any] = pydantic.Field(
+    column_config: StreamlitColumnConfig = pydantic.Field(
         description=(
-            "The Streamlit column configuration. Needs to be converted from streamlit "
-            "column_config objects to dictionaries due to type checking problems. "
-            "Needs to be converted back to streamlit column_config objects before use."
+            "The Streamlit column configuration. Can be a Streamlit column_config "
+            "object (TextColumn, NumberColumn, DateColumn, SelectboxColumn, etc.) "
+            "or a dict representation for serialization."
         ),
     )
     button_label: str | None = pydantic.Field(
         description="The label for the input button.",
         default=None,
     )
-    input_widget: typing.Callable = pydantic.Field(  # type: ignore[type-arg]
+    input_widget: typing.Callable = pydantic.Field(
         description="The input widget callable from Streamlit.",
     )
     input_kwargs: dict[str, typing.Any] = pydantic.Field(
@@ -69,7 +92,7 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The sorting direction for the column.",
         default=None,
     )
-    filtering: Filters | None = pydantic.Field(
+    filters: Filters | None = pydantic.Field(
         description="The filtering criteria for the column.",
         default=None,
     )
@@ -92,27 +115,26 @@ class DFEColumnConfig(pydantic.BaseModel):
             raise ValueError(msg)
         return value
 
+    @pydantic.field_serializer("input_widget", mode="plain")
+    @classmethod
+    def serialize_input_widget(
+        cls,
+        input_widget: typing.Callable,
+    ) -> str:
+        """Serialize the input_widget field."""
+        return getattr(input_widget, "__name__", str(input_widget))
 
-class BackendUpdates(pydantic.BaseModel):
-    """Model for backend updates tracking."""
-
-    added_rows: list[dict[str, typing.Any]] = pydantic.Field(
-        description="List of new row data entries.",
-        default_factory=list,
-    )
-    edited_rows: dict[str, dict[str, typing.Any]] = pydantic.Field(
-        description="Dictionary of IDs to updated row data.",
-        default_factory=dict,
-    )
-    deleted_rows: list[str] = pydantic.Field(
-        description="List of row ids to be deleted.",
-        default_factory=list,
-    )
-    row_ids: list[str] = pydantic.Field(
-        description="List of all row IDs currently tracked.",
-        default_factory=list,
-    )
-    prev_added_rows: list[dict[str, typing.Any]] = pydantic.Field(
-        description="List of previously added row data entries.",
-        default_factory=list,
-    )
+    @pydantic.field_serializer("input_kwargs", mode="plain")
+    @classmethod
+    def serialize_input_kwargs(
+        cls,
+        input_kwargs: dict[str, typing.Any],
+    ) -> dict[str, typing.Any]:
+        """Serialize the input_kwargs field."""
+        serialised_kwargs = {}
+        for key, value in input_kwargs.items():
+            if callable(value):
+                serialised_kwargs[key] = getattr(value, "__name__", str(value))
+            else:
+                serialised_kwargs[key] = value
+        return serialised_kwargs

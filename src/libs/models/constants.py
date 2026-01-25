@@ -10,10 +10,16 @@ class SSKeys(enum.StrEnum):
 
     CURRENT_USER = enum.auto()
     COL_CONFIGS = enum.auto()
+    WORKING_DF = enum.auto()
+    PREV_CONFIGS = enum.auto()
+    ADDED_ROWS = enum.auto()
+    DELETED_ROWS = enum.auto()
+    EDITED_ROWS = enum.auto()
+    BACKEND_UPDATES = enum.auto()
 
 
 class SortingValues(enum.StrEnum):
     """Sorting direction values."""
 
-    ASCENDING = "asc"
-    DESCENDING = "desc"
+    ASC = enum.auto()
+    DESC = enum.auto()

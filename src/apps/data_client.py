@@ -5,10 +5,41 @@ import typing
 import pandas as pd
 import st_supabase_connection
 import streamlit as st
+import supabase_auth
 
-from libs import constants, frontend_models
+from libs.models import backend_models, constants, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
+
+
+def _ensure_authenticated() -> None:
+    """Ensure the user is authenticated and the connection has a valid token."""
+    # Check if we already have a valid session
+    if constants.SSKeys.CURRENT_USER in st.session_state:
+        return
+
+    email_password_creds = supabase_auth.SignInWithEmailAndPasswordCredentials(
+        email="tomalcorn777@icloud.com",
+        password="REDACTED",  # noqa: S106
+    )
+
+    with st.spinner("Signing in..."):
+        auth_resp = CONN.auth.sign_in_with_password(email_password_creds)
+
+        access_token = None
+        user = None
+
+        # Support multiple response shapes (object or dict)
+        if hasattr(auth_resp, "session") and auth_resp.session:
+            access_token = auth_resp.session.access_token
+            user = auth_resp.user
+
+        if not access_token:
+            st.error("Authentication failed. Please check your credentials.")
+            st.stop()
+
+        CONN.client.postgrest.auth(access_token)
+        st.session_state[constants.SSKeys.CURRENT_USER] = user
 
 
 class DataClientError(Exception):
@@ -42,26 +73,29 @@ def _execute_query(
 
 def _apply_filters_to_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
-    config: frontend_models.DFEColumnConfig,
+    column_name: str,
+    filters: frontend_models.Filters | None,
 ) -> st_supabase_connection.SyncSelectRequestBuilder:
     """Apply filters from column configurations to the query."""
-    if config.filtering:
-        for filter_key, filter_value in config.filtering.model_dump(
-            exclude_none=True,
-        ).items():
-            query = query.filter(config.column_name, filter_key, filter_value)
+    if filters is not None:
+        for operator, criteria in filters.model_dump(exclude_none=True).items():
+            if operator == "in":
+                query = query.in_(column_name, criteria)
+            else:
+                query = query.filter(column_name, operator, criteria)
     return query
 
 
 def _apply_sorting_to_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
-    config: frontend_models.DFEColumnConfig,
+    column_name: str,
+    sorting: constants.SortingValues | None,
 ) -> st_supabase_connection.SyncSelectRequestBuilder:
     """Apply sorting from column configurations to the query."""
-    if config.sorting:
+    if sorting is not None:
         query = query.order(
-            config.column_name,
-            desc=config.sorting == constants.SortingValues.DESCENDING,
+            column_name,
+            desc=sorting == constants.SortingValues.DESC,
         )
     return query
 
@@ -84,11 +118,22 @@ def get_data(
         A list of dictionaries representing the queried data.
 
     """
+    if connection is CONN:
+        _ensure_authenticated()
+
     query = connection.table(table_name).select(query_string)
     if configs:
         for config in configs:
-            query = _apply_filters_to_query(query, config)
-            query = _apply_sorting_to_query(query, config)
+            query = _apply_filters_to_query(
+                query=query,
+                column_name=config.column_name,
+                filters=config.filters,
+            )
+            query = _apply_sorting_to_query(
+                query,
+                column_name=config.column_name,
+                sorting=config.sorting,
+            )
     return _execute_query(query)
 
 
@@ -111,6 +156,9 @@ def get_column_values(
         A pandas Series containing the column values.
 
     """
+    if connection is CONN:
+        _ensure_authenticated()
+
     query = connection.table(table_name).select(column_name)
     response = _execute_query(query)
     if not response:
@@ -125,30 +173,22 @@ def get_column_values(
 
 def update_backend(
     table_name: str,
-    updates: frontend_models.BackendUpdates,
-    current_df: pd.DataFrame,
-    modified_df: pd.DataFrame,
+    updates: backend_models.BackendUpdates,
     connection: st_supabase_connection.SupabaseConnection = CONN,
-) -> frontend_models.BackendUpdates:
+) -> backend_models.BackendUpdates:
     """Update the backend with the provided changes.
 
     Args:
         table_name: The name of the table to update.
         updates: The BackendUpdates object containing added, edited, and deleted rows.
-        current_df: The current DataFrame before modifications.
-        modified_df: The modified DataFrame after user edits.
         connection: The Supabase connection to use.
 
     Returns:
         The updated BackendUpdates object reflecting all changes made.
 
     """
-    if "id" not in current_df.columns or "id" not in modified_df.columns:
-        msg = "Both DataFrames must contain an 'id' column."
-        raise DataClientError(msg)
-
-    deleted_ids = list(set(current_df["id"]) - set(modified_df["id"]))
-    updates.deleted_rows.extend(deleted_ids)
+    if connection is CONN:
+        _ensure_authenticated()
 
     if updates.added_rows:
         connection.table(table_name).insert(updates.added_rows).execute()

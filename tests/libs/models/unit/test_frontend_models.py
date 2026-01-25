@@ -2,7 +2,7 @@
 
 import pytest
 
-from libs import frontend_models
+from libs.models import frontend_models
 
 
 class TestDFEColumnConfig:

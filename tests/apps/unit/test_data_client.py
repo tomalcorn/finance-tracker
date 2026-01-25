@@ -3,7 +3,7 @@
 from unittest import mock
 
 from apps import data_client
-from libs import frontend_models
+from libs.models import frontend_models
 
 
 def test_apply_filters_to_query(
@@ -15,7 +15,11 @@ def test_apply_filters_to_query(
         mock_query = mock.Mock()
         mock_st_supabase.SyncSelectRequestBuilder.return_value = mock_query
 
-        data_client._apply_filters_to_query(mock_query, col_configs[0])
+        data_client._apply_filters_to_query(
+            mock_query,
+            col_configs[0].column_name,
+            col_configs[0].filters,
+        )
 
         # Assert
         assert all(
@@ -37,7 +41,11 @@ def test_apply_sorting_to_query(
         mock_query = mock.Mock()
         mock_st_supabase.SyncSelectRequestBuilder.return_value = mock_query
 
-        data_client._apply_sorting_to_query(mock_query, col_configs[0])
+        data_client._apply_sorting_to_query(
+            mock_query,
+            col_configs[0].column_name,
+            col_configs[0].sorting,
+        )
 
         # Assert
         mock_query.order.assert_called_once_with(
