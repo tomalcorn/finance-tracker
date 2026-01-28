@@ -17,6 +17,8 @@ def test_get_data(
     # Assert
     expected_user_model = yield_sample_user
     actual_user_model = backend_models.UserModel.model_validate(data[0])
+    # Clear up cache
+    data_client.get_data.clear()
     assert actual_user_model == expected_user_model
 
 
@@ -80,6 +82,7 @@ def test_update_backend_adds_new_row(
     )
     actual_user_model = backend_models.UserModel.model_validate(fetched_data[0])
     # Clean up
+    data_client.get_data.clear()
     connection.table("users").delete().eq("id", actual_user_model.id).execute()
     assert actual_user_model == sample_user
 
@@ -105,6 +108,9 @@ def test_update_backend_deletes_row(
         query_string="*",
         _connection=connection,
     )
+
+    # Clean up cache
+    data_client.get_data.clear()
     assert all(
         backend_models.UserModel.model_validate(row).id != yield_sample_user.id
         for row in fetched_data
@@ -137,6 +143,10 @@ def test_update_backend_edits_row(
         query_string="*",
         _connection=connection,
     )
+
+    # Clean up cache
+    data_client.get_data.clear()
+
     # Find the updated user and check the first name
     for row in fetched_data:
         user = backend_models.UserModel.model_validate(row)
@@ -194,8 +204,9 @@ def test_update_backend_adds_and_edits_and_deletes_rows(
         backend_models.UserModel.model_validate(row).id != yield_sample_users[1].id
         for row in fetched_data
     )
-    # Clean up added user
+    # Clean up added user and cache
     connection.table("users").delete().eq("id", new_user.id).execute()
+    data_client.get_data.clear()
 
     assert all(
         [
