@@ -9,7 +9,7 @@ def _add_button_dialog_wrapper() -> None:
     """Call the _add_button_dialog method."""
     import streamlit as st  # noqa: F401 - needed for app_test from_function
 
-    from libs.buttons import add_button
+    from apps.buttons import add_button
 
     add_button_instance = add_button.AddButton("test_table")
 
