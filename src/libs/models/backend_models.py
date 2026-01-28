@@ -33,7 +33,6 @@ class FinanceTrackerBaseModel(pydantic.BaseModel):
     )
     user_id: uuid.UUID = pydantic.Field(
         description="The unique identifier for the user who owns the item.",
-        default_factory=uuid.uuid4,
     )
     name: str = pydantic.Field(
         description="The name of the item.",

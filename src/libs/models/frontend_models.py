@@ -115,9 +115,9 @@ class DFEColumnConfig(pydantic.BaseModel):
             raise ValueError(msg)
         return value
 
-    @pydantic.field_serializer("input_widget", mode="plain")
+    @pydantic.field_serializer("input_widget", "format_func", mode="plain")
     @classmethod
-    def serialize_input_widget(
+    def serialize_callables(
         cls,
         input_widget: typing.Callable,
     ) -> str:
