@@ -6,10 +6,9 @@ import pandas as pd
 import streamlit as st
 
 from apps import data_client
-from apps.buttons import filter_button
-from libs.buttons import add_button
+from apps.buttons import add_button, filter_button
 from libs.dfes import base_dfe
-from libs.models import constants, frontend_models
+from libs.models import backend_models, constants, frontend_models
 
 filter_col, empty_col, add_col = st.columns([0.3, 0.4, 0.3])
 
@@ -42,7 +41,10 @@ def get_expense_source_name(es_id: str) -> str:
 
 # === Payments DFE ===
 
-payments_add_button = add_button.AddButton(table_name="payments")
+payments_add_button = add_button.AddButton(
+    table_name="payments",
+    backend_model=backend_models.PaymentsModel,
+)
 payments_filter_button = filter_button.FilterButton(table_name="payments")
 
 # Define column and add button configuration
@@ -146,16 +148,22 @@ sample_data = pd.DataFrame(
 
 # Call buttons
 with add_col:
-    payments_add_button(col_configs=payments_configs)
+    new_data_added = payments_add_button(col_configs=payments_configs)
 with filter_col:
-    payments_configs = payments_filter_button(col_configs=payments_configs)
+    filters_changed, payments_configs = payments_filter_button(
+        col_configs=payments_configs,
+    )
 
 payments_dfe_new = base_dfe.DFE(
     table_name="payments",
     configs=payments_configs,
 )
 
-payments_dfe_new.load_input_data(sample_data).render()
+payments_dfe_new.load_input_data(
+    sample_data,
+    filters_changed=filters_changed,
+    new_data_added=new_data_added,
+).render()
 data_client.update_backend(
     table_name="payments",
     updates=payments_dfe_new.backend_updates,

@@ -36,6 +36,21 @@ class FilterButton(base_button.BaseButton):
         """Set the column configurations in session state."""
         st.session_state[f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"] = configs
 
+    @property
+    def previous_column_configs(self) -> list[frontend_models.DFEColumnConfig] | None:
+        """Get the previous column configurations from session state."""
+        prev_column_configs_key = f"{self._table_name}_{constants.SSKeys.PREV_CONFIGS}"
+        return st.session_state.get(prev_column_configs_key, None)
+
+    @previous_column_configs.setter
+    def previous_column_configs(
+        self,
+        configs: list[frontend_models.DFEColumnConfig],
+    ) -> None:
+        """Set the previous column configurations in session state."""
+        prev_column_configs_key = f"{self._table_name}_{constants.SSKeys.PREV_CONFIGS}"
+        st.session_state[prev_column_configs_key] = configs
+
     def _current_css_style(
         self,
         col_configs: list[frontend_models.DFEColumnConfig],
@@ -213,7 +228,7 @@ class FilterButton(base_button.BaseButton):
     def __call__(
         self,
         col_configs: list[frontend_models.DFEColumnConfig],
-    ) -> list[frontend_models.DFEColumnConfig]:
+    ) -> tuple[bool, list[frontend_models.DFEColumnConfig]]:
         """Render the filter button in the UI.
 
         Args:
@@ -221,9 +236,15 @@ class FilterButton(base_button.BaseButton):
 
         Returns:
             If clicked and filtering options selected, returns updated column configs.
-            Otherwise, returns the original column configs.
+            Otherwise, returns the original column configs. Also returns a bool
+            indicating if filters were changed.
 
         """
+        if self.previous_column_configs is None:
+            self.previous_column_configs = [
+                model.model_copy(deep=True) for model in col_configs
+            ]
+
         with stylable_container.stylable_container(
             key=f"{self._table_name}_filter_button_container",
             css_styles=self._current_css_style(col_configs),
@@ -236,4 +257,16 @@ class FilterButton(base_button.BaseButton):
             ):
                 self._filtering_button_dialog(col_configs)
 
-        return self.column_configs or col_configs
+        current_configs = self.column_configs or col_configs
+        previous_configs = self.previous_column_configs or col_configs
+        previous_configs_dumped = [c.model_dump() for c in previous_configs]
+        configs_dumped = [config.model_dump() for config in current_configs]
+        filters_changed = previous_configs_dumped != configs_dumped
+        self.previous_column_configs = [
+            model.model_copy(deep=True) for model in current_configs
+        ]
+
+        if filters_changed:
+            data_client.get_data.clear()
+
+        return filters_changed, current_configs
