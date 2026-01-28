@@ -7,7 +7,6 @@ import pytest
 
 from apps import data_client
 from libs.dfes import base_dfe
-from libs.models import constants
 
 
 @pytest.fixture(name="input_df")
@@ -46,12 +45,13 @@ class TestDFE:
         # Changing just to show sample data does nothing
         sample_data.loc[0, "col1"] = 10
         dfe_instance.working_df = input_df.copy()
-        dfe_instance.previous_configs = [
-            model.model_copy(deep=True) for model in dfe_instance.configs
-        ]
 
         # Act
-        dfe_instance.load_input_data(input_df)
+        dfe_instance.load_input_data(
+            input_df,
+            filters_changed=False,
+            new_data_added=False,
+        )
 
         # Assert
         if dfe_instance.working_df is None:
@@ -59,46 +59,33 @@ class TestDFE:
             raise AssertionError(msg)
         pd.testing.assert_frame_equal(dfe_instance.working_df, input_df)
 
-    @pytest.mark.parametrize(
-        ("update_field", "update_value"),
-        [
-            ("filters", None),
-            ("sorting", constants.SortingValues.DESC),
-        ],
-    )
     def test_load_input_data_with_change_to_configs_loads_new_data(
         self,
         dfe_instance: base_dfe.DFE,
         input_df: pd.DataFrame,
-        update_field: str,
-        update_value: constants.SortingValues | None,
     ) -> None:
         """Test loading input data when there is a change to configs."""
         # Arrange - modify sample data and return input_df from data_client
         sample_data = input_df.copy()
         sample_data.loc[0, "col1"] = 10
-
-        # Prepare modified dataframe for second load
         modified_df = input_df.copy()
-        modified_df.loc[1, "col2"] = 20
+        modified_df.loc[0, "col1"] = 20
+
+        dfe_instance.working_df = input_df.copy()
 
         # mock get_data to return different data on successive calls
         mock_get_data = mock.patch.object(
             data_client,
             "get_data",
-            side_effect=[input_df, modified_df],
+            return_value=modified_df,
         )
         with mock_get_data:
-            # Load data once to set previous configs and working df
-            dfe_instance.load_input_data(sample_data)
-
-            # Change configs
-            dfe_instance.configs[0] = dfe_instance.configs[0].model_copy(
-                update={update_field: update_value},
-            )
-
             # Act
-            dfe_instance.load_input_data(sample_data)
+            dfe_instance.load_input_data(
+                sample_data,
+                filters_changed=True,
+                new_data_added=False,
+            )
 
         # Assert
         if dfe_instance.working_df is None:
@@ -122,7 +109,11 @@ class TestDFE:
         )
         with mock_get_data:
             # Act
-            dfe_instance.load_input_data(sample_data)
+            dfe_instance.load_input_data(
+                sample_data,
+                filters_changed=False,
+                new_data_added=False,
+            )
 
         # Assert
         if dfe_instance.working_df is None:
