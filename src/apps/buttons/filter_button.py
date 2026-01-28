@@ -258,7 +258,8 @@ class FilterButton(base_button.BaseButton):
                 self._filtering_button_dialog(col_configs)
 
         current_configs = self.column_configs or col_configs
-        previous_configs_dumped = [c.model_dump() for c in self.previous_column_configs]
+        previous_configs = self.previous_column_configs or col_configs
+        previous_configs_dumped = [c.model_dump() for c in previous_configs]
         configs_dumped = [config.model_dump() for config in current_configs]
         filters_changed = previous_configs_dumped != configs_dumped
         self.previous_column_configs = [
