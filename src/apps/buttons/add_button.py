@@ -16,7 +16,7 @@ class AddButton(base_button.BaseButton):
     def __init__(
         self,
         table_name: str,
-        backend_model: pydantic.BaseModel,
+        backend_model: type[pydantic.BaseModel],
     ) -> None:
         """Initialize the AddButton instance."""
         self._table_name = table_name
