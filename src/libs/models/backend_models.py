@@ -27,9 +27,14 @@ class BackendUpdates(pydantic.BaseModel):
 class FinanceTrackerBaseModel(pydantic.BaseModel):
     """Base model for finance tracker models."""
 
-    id: uuid.UUID = pydantic.Field(
+    model_config = pydantic.ConfigDict(
+        serialize_by_alias=True,
+    )
+
+    _id: uuid.UUID = pydantic.Field(
         description="The unique identifier for the item.",
         default_factory=uuid.uuid4,
+        alias="id",
     )
     user_id: uuid.UUID = pydantic.Field(
         description="The unique identifier for the user who owns the item.",
