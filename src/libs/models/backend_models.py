@@ -31,7 +31,7 @@ class FinanceTrackerBaseModel(pydantic.BaseModel):
         serialize_by_alias=True,
     )
 
-    _id: uuid.UUID = pydantic.Field(
+    id_: uuid.UUID = pydantic.Field(
         description="The unique identifier for the item.",
         default_factory=uuid.uuid4,
         alias="id",
