@@ -1,6 +1,7 @@
 ---
 name: ADR/documentation
 about: Add documentation or plans for additional work
+title: "[ADR]"
 labels: documentation
 assignees: tomalcorn
 
