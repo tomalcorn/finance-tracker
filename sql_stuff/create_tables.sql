@@ -10,7 +10,7 @@ CREATE TABLE BANK_ACCOUNTS (
     id UUID PRIMARY KEY,
     user_id UUID REFERENCES users(id),
     name TEXT,
-    balance FLOAT,
+    starting_balance FLOAT,
     _created_at TIMESTAMP
 );
 
@@ -126,3 +126,25 @@ LEFT JOIN
     INCOME_SOURCES_VIEW incv ON inc.id = incv.id
 GROUP BY
     bt.id, bt.name, bt.total_budget, bt._created_at;
+
+-- Create the BANK_ACCOUNTS_VIEW view
+CREATE OR REPLACE VIEW BANK_ACCOUNTS_VIEW AS
+SELECT
+    ba.id,
+    ba.user_id,
+    ba.name,
+    ba.starting_balance,
+    ba._created_at,
+    ba.starting_balance + COALESCE(SUM(p.income - p.expense), 0) AS current_balance
+FROM
+    BANK_ACCOUNTS ba
+LEFT JOIN
+    PAYMENTS p
+ON
+    ba.id = p.bank_account_id
+GROUP BY
+    ba.id,
+    ba.user_id,
+    ba.name,
+    ba.starting_balance,
+    ba._created_at;
