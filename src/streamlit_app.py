@@ -10,7 +10,9 @@ from apps.buttons import add_button, filter_button
 from libs.dfes import base_dfe
 from libs.models import backend_models, constants, frontend_models
 
-filter_col, empty_col, add_col = st.columns([0.3, 0.4, 0.3])
+filter_col_payments, empty_col_payments, add_col_payments = st.columns(
+    [0.2, 0.6, 0.2],
+)
 
 # Get bank accounts from the database
 bank_accounts = data_client.get_data(
@@ -134,7 +136,7 @@ payments_configs = [
         format_func=get_expense_source_name,
     ),
 ]
-sample_data = pd.DataFrame(
+sample_payments_data = pd.DataFrame(
     {
         "name": ["Example Data"],
         "expense": [0],
@@ -147,9 +149,9 @@ sample_data = pd.DataFrame(
 )
 
 # Call buttons
-with add_col:
+with add_col_payments:
     new_data_added = payments_add_button(col_configs=payments_configs)
-with filter_col:
+with filter_col_payments:
     filters_changed, payments_configs = payments_filter_button(
         col_configs=payments_configs,
     )
@@ -160,11 +162,76 @@ payments_dfe_new = base_dfe.DFE(
 )
 
 payments_dfe_new.load_input_data(
-    sample_data,
+    sample_payments_data,
     filters_changed=filters_changed,
     new_data_added=new_data_added,
 ).render()
 data_client.update_backend(
     table_name="payments",
     updates=payments_dfe_new.backend_updates,
+)
+
+# === Bank Accounts DFE ===
+filter_col_banks, empty_col_banks, add_col_banks = st.columns([0.2, 0.6, 0.2])
+
+bank_accounts_add_button = add_button.AddButton(
+    table_name="bank_accounts",
+    backend_model=backend_models.BankAccountModel,
+)
+bank_accounts_filter_button = filter_button.FilterButton(table_name="bank_accounts")
+
+bank_accounts_configs = [
+    frontend_models.DFEColumnConfig(
+        column_name="name",
+        column_config=st.column_config.TextColumn(
+            "🔠 Name",
+            required=True,
+        ),
+        button_label="Name",
+        input_widget=st.text_input,
+        input_kwargs={
+            "value": None,
+        },
+    ),
+    frontend_models.DFEColumnConfig(
+        column_name="starting_balance",
+        column_config=st.column_config.NumberColumn(
+            "💰 Starting Balance",
+            format="£%.2f",
+            required=True,
+        ),
+        button_label="Starting Balance",
+        input_widget=st.number_input,
+        input_kwargs={
+            "value": None,
+            "format": "%.2f",
+        },
+    ),
+]
+
+sample_bank_accounts_data = pd.DataFrame(
+    {
+        "name": ["Example Bank Account"],
+        "starting_balance": [0],
+    },
+)
+# Call buttons
+with add_col_banks:
+    new_data_added = bank_accounts_add_button(col_configs=bank_accounts_configs)
+with filter_col_banks:
+    filters_changed, bank_accounts_configs = bank_accounts_filter_button(
+        col_configs=bank_accounts_configs,
+    )
+bank_accounts_dfe_new = base_dfe.DFE(
+    table_name="bank_accounts",
+    configs=bank_accounts_configs,
+)
+bank_accounts_dfe_new.load_input_data(
+    sample_bank_accounts_data,
+    filters_changed=filters_changed,
+    new_data_added=new_data_added,
+).render()
+data_client.update_backend(
+    table_name="bank_accounts",
+    updates=bank_accounts_dfe_new.backend_updates,
 )
