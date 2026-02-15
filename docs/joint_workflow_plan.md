@@ -20,13 +20,13 @@ Introduce a lightweight shared-account model plus an ownership flag on existing 
 
 1. New tables
 
-- `shared_accounts` — represents a joint/shared account (id, name, created_at)
-- `shared_account_members` — links users to `shared_accounts` (shared_account_id, user_id)
+- `joint_accounts` — represents a joint/shared account (id, name, created_at)
+- `joint_account_members` — links users to `joint_accounts` (joint_account_id, user_id)
 
 1. Small columns on existing tables
 
 - Add `ownership_type` TEXT or ENUM (values: 'personal'|'joint') default 'personal'
-- Add `shared_account_id` (nullable FK to `shared_accounts`) — used when `ownership_type = 'joint'`
+- Add `joint_account_id` (nullable FK to `joint_accounts`) — used when `ownership_type = 'joint'`
 
 These apply to: `PAYMENTS`, `EXPENSE_SOURCES`, `INCOME_SOURCES`, `BUDGET_TRACKER`, `BANK_ACCOUNTS`, `FUN_SPENDING`.
 
@@ -39,23 +39,23 @@ For each protected table use the same policy pattern:
 ```sql
 USING / WITH CHECK:
 
-  (ownership_type = 'personal' AND user_id = auth.uid())
-  OR
-  (ownership_type = 'joint' AND shared_account_id IN (
-       SELECT shared_account_id FROM shared_account_members WHERE user_id = auth.uid()
-  ))
+    (ownership_type = 'personal' AND user_id = auth.uid())
+    OR
+    (ownership_type = 'joint' AND joint_account_id IN (
+      SELECT joint_account_id FROM joint_account_members WHERE user_id = auth.uid()
+    ))
 ```
 
 Apply this pattern to: `PAYMENTS`, `EXPENSE_SOURCES`, `INCOME_SOURCES`, `BUDGET_TRACKER`, `BANK_ACCOUNTS`, and `FUN_SPENDING`.
 
-Also enable RLS on `shared_accounts` and `shared_account_members` and create policies so members can see account metadata and membership only if they belong to the account.
+Also enable RLS on `joint_accounts` and `joint_account_members` and create policies so members can see account metadata and membership only if they belong to the account.
 
 ## Contribution model recommendation
 
 Treat a user's contribution to joint finances as a personal expense source (e.g., `Joint Contribution`). When a transfer occurs:
 
 - Create a personal expense `PAYMENTS` row (ownership_type='personal', expense_source = 'Joint Contribution')
-- Create a joint income `PAYMENTS` row (ownership_type='joint', shared_account_id = <shared id>, income_source = 'Monthly Contributions')
+- Create a joint income `PAYMENTS` row (ownership_type='joint', joint_account_id = <joint id>, income_source = 'Monthly Contributions')
 
 This avoids a dedicated `joint_contributions` table; payments themselves form the canonical history of transfers and are easy to reconcile.
 
@@ -67,8 +67,8 @@ This avoids a dedicated `joint_contributions` table; payments themselves form th
 
 ## Migration & setup
 
-1. Create `shared_accounts` and `shared_account_members`.
-2. ALTER existing tables to add `ownership_type` and `shared_account_id` (NULL default keeps current rows personal).
+1. Create `joint_accounts` and `joint_account_members`.
+2. ALTER existing tables to add `ownership_type` and `joint_account_id` (NULL default keeps current rows personal).
 3. Enable RLS and create the policies listed above.
 4. Create the initial shared account and add member rows.
 
@@ -89,9 +89,62 @@ This avoids a dedicated `joint_contributions` table; payments themselves form th
 
 ## Next steps
 
-1. Apply DB changes (create `shared_accounts`, `shared_account_members`, ALTER existing tables).
+1. Apply DB changes (create `joint_accounts`, `joint_account_members`, ALTER existing tables).
 2. Add RLS policies and test with representative user accounts.
 3. Update the app flows: contribution UI, joint dashboard, optional `linked_payment_id` support.
+
+## Example Scenarios
+
+### Adding a new personal bank account
+
+- **UI:** User opens "Add bank account", fills name/account fields. This is a personal account so `ownership_type` is `personal` by default.
+- **Frontend code:** Validate fields, then insert to `BANK_ACCOUNTS` with `user_id = auth.uid()`, `ownership_type = 'personal'` and `joint_account_id = NULL`.
+- **Backend / DB:** Example insert:
+
+```sql
+INSERT INTO BANK_ACCOUNTS (user_id, name, account_number, ownership_type, joint_account_id)
+VALUES (auth.uid(), 'My Checking', 'xxxx', 'personal', NULL);
+```
+
+RLS will allow the insert if the `WITH CHECK` condition for personal rows is satisfied (i.e., `user_id = auth.uid()`).
+
+### Creating a new joint bank account (create account + assign creator)
+
+- **UI:** User opens "Create joint account", enters the joint account name and bank details. This flow creates the joint account and assigns the creator as an initial member.
+- **Frontend code:** Call a backend endpoint that runs a transaction to create the joint account, add the creator to `joint_account_members`, and insert the `BANK_ACCOUNTS` row with `ownership_type = 'joint'` and `joint_account_id` set to the newly created account.
+- **Backend / DB:** Example transactional sequence (pseudocode):
+
+```sql
+BEGIN;
+INSERT INTO joint_accounts (name) VALUES ('Our Joint Account') RETURNING id INTO new_joint_id;
+INSERT INTO joint_account_members (joint_account_id, user_id) VALUES (new_joint_id, auth.uid());
+INSERT INTO BANK_ACCOUNTS (user_id, name, account_number, ownership_type, joint_account_id)
+VALUES (auth.uid(), 'Joint Checking', 'xxxx', 'joint', new_joint_id);
+COMMIT;
+```
+
+RLS considerations: the transaction must satisfy `WITH CHECK` for each insert. Creating the joint account and its initial membership is a common pattern — implement as a single backend RPC or server endpoint (trusted role) if RLS rules prevent straightforward client-side inserts.
+
+These two scenarios contrast the simple personal-account creation (no joint state) with the joint-account creation flow that establishes the joint entity and membership atomically.
+
+### Short-term (no-code) — add a user directly via backend/DB
+
+- When you need a quick, no-code solution you can add a member directly in the DB (e.g., using Supabase SQL editor, psql, or your DB admin panel).
+- Steps:
+  1. Resolve the target `user_id` (look up by email in the `users` table) and the `joint_account_id`.
+  2. Run an insert as a DB admin:
+
+```sql
+INSERT INTO joint_account_members (joint_account_id, user_id)
+VALUES ('<joint-account-id>', '<new-user-id>');
+```
+
+  1. Verify the insert succeeded (check unique constraint) and that the app shows the new member on the joint-account page.
+
+- Notes:
+  - This bypasses any invite UX and requires you to be a database admin or use an admin SQL panel. It also bypasses any email/accept flow and should be used sparingly.
+  - If you want the user to confirm, insert into an `invites` table instead and have the app consume the invite when the user accepts.
+  - Ensure you follow the same role semantics you plan to implement later (owner/admin/member) so app behavior stays predictable.
 
 ## References
 
