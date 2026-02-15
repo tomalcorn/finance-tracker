@@ -21,7 +21,7 @@ class DFE:
     def __init__(
         self,
         table_name: str,
-        configs: list[frontend_models.DFEColumnConfig],
+        configs: list[frontend_models.DFEColumnConfigBase],
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
         self.table_name = table_name

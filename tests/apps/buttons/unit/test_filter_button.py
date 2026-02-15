@@ -30,13 +30,13 @@ def _filter_button_dialog_wrapper() -> None:
         mock_func.return_value = pd.Series([0.88, 0.23, 0.1])
 
         dfe_configs = [
-            frontend_models.DFEColumnConfig(
+            frontend_models.DFEColumnConfigBase(
                 column_name="col1",
                 column_config={},
                 input_widget=st.text_input,
                 filters=frontend_models.Filters(contains="test"),
             ),
-            frontend_models.DFEColumnConfig(
+            frontend_models.DFEColumnConfigBase(
                 column_name="col2",
                 column_config={},
                 input_widget=st.number_input,
@@ -63,7 +63,7 @@ def _filter_button_instance() -> filter_button.FilterButton:
 
 
 def test_current_css_style_no_filtering(
-    col_configs: list[frontend_models.DFEColumnConfig],
+    col_configs: list[frontend_models.DFEColumnConfigBase],
 ) -> None:
     """Test _current_css_style returns normal style when no filtering applied."""
     # Arrange
@@ -81,7 +81,7 @@ def test_current_css_style_no_filtering(
 
 
 def test_current_css_style_with_filtering(
-    col_configs: list[frontend_models.DFEColumnConfig],
+    col_configs: list[frontend_models.DFEColumnConfigBase],
 ) -> None:
     """Test _current_css_style returns active style when filtering is applied."""
     # Arrange
@@ -176,7 +176,7 @@ class TestFilterHandling:
     ) -> None:
         """Test _handle_date_filtering returns None when no filtering applied."""
         # Arrange
-        date_col_config = frontend_models.DFEColumnConfig(
+        date_col_config = frontend_models.DFEColumnConfigBase(
             column_name="date_col",
             column_config={},
             input_widget=st.date_input,
@@ -204,7 +204,7 @@ class TestFilterHandling:
 
             filter_button_instance = filter_button.FilterButton("test_table")
 
-            date_col_config = frontend_models.DFEColumnConfig(
+            date_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="date_col",
                 column_config={},
                 input_widget=st.date_input,
@@ -238,7 +238,7 @@ class TestFilterHandling:
         ):
             mock_get_min_max.return_value = (0.0, 100.0)
             mock_slider.return_value = (0.0, 100.0)
-            numeric_col_config = frontend_models.DFEColumnConfig(
+            numeric_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="numeric_col",
                 column_config={},
                 input_widget=st.number_input,
@@ -272,7 +272,7 @@ class TestFilterHandling:
 
             filter_button_instance = filter_button.FilterButton("test_table")
 
-            numeric_col_config = frontend_models.DFEColumnConfig(
+            numeric_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="numeric_col",
                 column_config={},
                 input_widget=st.number_input,
@@ -293,7 +293,7 @@ class TestFilterHandling:
     ) -> None:
         """Test _handle_multiselect_filtering returns None when no filtering applied."""
         # Arrange
-        select_col_config = frontend_models.DFEColumnConfig(
+        select_col_config = frontend_models.DFEColumnConfigBase(
             column_name="select_col",
             column_config={},
             input_widget=st.multiselect,
@@ -323,7 +323,7 @@ class TestFilterHandling:
             filter_button_instance = filter_button.FilterButton("test_table")
             unique_values = {"value1", "value2", "value3"}
 
-            select_col_config = frontend_models.DFEColumnConfig(
+            select_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="select_col",
                 column_config={},
                 input_widget=st.multiselect,
@@ -345,7 +345,7 @@ class TestFilterHandling:
     ) -> None:
         """Test _handle_generic_filtering returns None when no filtering applied."""
         # Arrange
-        generic_col_config = frontend_models.DFEColumnConfig(
+        generic_col_config = frontend_models.DFEColumnConfigBase(
             column_name="generic_col",
             column_config={},
             input_widget=st.text_input,
@@ -370,7 +370,7 @@ class TestFilterHandling:
 
             filter_button_instance = filter_button.FilterButton("test_table")
 
-            generic_col_config = frontend_models.DFEColumnConfig(
+            generic_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="generic_col",
                 column_config={},
                 input_widget=st.text_input,

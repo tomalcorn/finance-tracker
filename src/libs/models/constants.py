@@ -3,6 +3,7 @@
 import enum
 
 MAX_UNIQUE_VALUES = 20
+ADD_FILTER_BUTTON_WIDTHS = [0.2, 0.6, 0.2]
 
 
 class SSKeys(enum.StrEnum):

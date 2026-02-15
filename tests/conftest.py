@@ -86,9 +86,9 @@ def get_rendered_texts(app_tester: st_test.AppTest) -> list[str]:
 
 
 @pytest.fixture(name="col_configs")
-def _col_configs() -> list[frontend_models.DFEColumnConfig]:
+def _col_configs() -> list[frontend_models.DFEColumnConfigBase]:
     return [
-        frontend_models.DFEColumnConfig(
+        frontend_models.DFEColumnConfigBase(
             column_name="col1",
             column_config={},
             input_widget=st.text_input,

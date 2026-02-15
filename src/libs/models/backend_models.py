@@ -43,8 +43,8 @@ class FinanceTrackerBaseModel(pydantic.BaseModel):
 class BankAccountModel(FinanceTrackerBaseModel):
     """Model representing a bank account."""
 
-    balance: float = pydantic.Field(
-        description="The balance of the bank account.",
+    starting_balance: float = pydantic.Field(
+        description="The starting balance of the bank account.",
         default=0.0,
     )
 
