@@ -94,6 +94,13 @@ class AddButton(base_button.BaseButton):
             bool: True if a new row was added, False otherwise.
 
         """
+        if not all(
+            isinstance(col_config, frontend_models.DFEColumnConfig)
+            for col_config in col_configs
+        ):
+            msg = "All column configurations must be instances of DFEColumnConfig."
+            raise ValueError(msg)
+
         if st.button(
             label="New",
             icon="➕",  # noqa: RUF001

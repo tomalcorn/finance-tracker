@@ -1,12 +1,12 @@
 """Module for pydantic configs for the frontend models."""
 
-import typing
+from collections.abc import Callable
 
 import pydantic
 
 from libs.models import constants
 
-type StreamlitColumnConfig = typing.Any
+type StreamlitColumnConfig = object
 
 
 class Filters(pydantic.BaseModel):
@@ -16,28 +16,28 @@ class Filters(pydantic.BaseModel):
         serialize_by_alias=True,
     )
 
-    eq: typing.Any | None = pydantic.Field(
+    eq: object | None = pydantic.Field(
         description="Equality filter value.",
         default=None,
     )
-    in_: list[typing.Any] | None = pydantic.Field(
+    in_: list[object] | None = pydantic.Field(
         description="In filter values.",
         serialization_alias="in",
         default=None,
     )
-    lt: typing.Any | None = pydantic.Field(
+    lt: object | None = pydantic.Field(
         description="Less than filter value.",
         default=None,
     )
-    lte: typing.Any | None = pydantic.Field(
+    lte: object | None = pydantic.Field(
         description="Less than or equal to filter value.",
         default=None,
     )
-    gt: typing.Any | None = pydantic.Field(
+    gt: object | None = pydantic.Field(
         description="Greater than filter value.",
         default=None,
     )
-    gte: typing.Any | None = pydantic.Field(
+    gte: object | None = pydantic.Field(
         description="Greater than or equal to filter value.",
         default=None,
     )
@@ -46,7 +46,7 @@ class Filters(pydantic.BaseModel):
         default=None,
     )
 
-    def get_pandas_filters(self) -> dict[str, typing.Any]:
+    def get_pandas_filters(self) -> dict[str, object]:
         """Serialise to pandas friendly format."""
         serialised = self.model_dump(exclude_none=True)
         to_pandas_map = {
@@ -64,8 +64,8 @@ class Filters(pydantic.BaseModel):
         return serialised_pandas
 
 
-class DFEColumnConfig(pydantic.BaseModel):
-    """Configuration for a single column in the DataFrame Editor."""
+class DFEColumnConfigBase(pydantic.BaseModel):
+    """Base configuration for a DataFrame Editor column."""
 
     column_name: str = pydantic.Field(
         description="The name of the column in the DataFrame.",
@@ -77,17 +77,6 @@ class DFEColumnConfig(pydantic.BaseModel):
             "or a dict representation for serialization."
         ),
     )
-    button_label: str | None = pydantic.Field(
-        description="The label for the input button.",
-        default=None,
-    )
-    input_widget: typing.Callable = pydantic.Field(
-        description="The input widget callable from Streamlit.",
-    )
-    input_kwargs: dict[str, typing.Any] = pydantic.Field(
-        description="The keyword arguments for the input widget.",
-        default={},
-    )
     sorting: constants.SortingValues | None = pydantic.Field(
         description="The sorting direction for the column.",
         default=None,
@@ -96,13 +85,20 @@ class DFEColumnConfig(pydantic.BaseModel):
         description="The filtering criteria for the column.",
         default=None,
     )
-    format_func: typing.Callable[[str], str] | None = pydantic.Field(
+    format_func: Callable[[str], str] | None = pydantic.Field(
         description="The formatting function for foreign key relationships.",
         default=None,
     )
-    enforce_unique: bool = pydantic.Field(
-        description="Whether to enforce unique values in the column.",
-        default=False,
+    button_label: str | None = pydantic.Field(
+        description="The label for the input button.",
+        default=None,
+    )
+    input_widget: Callable = pydantic.Field(
+        description="The input widget callable from Streamlit.",
+    )
+    input_kwargs: dict[str, object] = pydantic.Field(
+        description="The keyword arguments for the input widget.",
+        default={},
     )
 
     @pydantic.field_validator("sorting", mode="after")
@@ -119,17 +115,17 @@ class DFEColumnConfig(pydantic.BaseModel):
     @classmethod
     def serialize_callables(
         cls,
-        input_widget: typing.Callable,
+        value: Callable,
     ) -> str:
         """Serialize the input_widget field."""
-        return getattr(input_widget, "__name__", str(input_widget))
+        return getattr(value, "__name__", str(value))
 
     @pydantic.field_serializer("input_kwargs", mode="plain")
     @classmethod
     def serialize_input_kwargs(
         cls,
-        input_kwargs: dict[str, typing.Any],
-    ) -> dict[str, typing.Any]:
+        input_kwargs: dict[str, object],
+    ) -> dict[str, object]:
         """Serialize the input_kwargs field."""
         serialised_kwargs = {}
         for key, value in input_kwargs.items():
@@ -138,3 +134,27 @@ class DFEColumnConfig(pydantic.BaseModel):
             else:
                 serialised_kwargs[key] = value
         return serialised_kwargs
+
+
+class DFEReadOnlyColumnConfig(DFEColumnConfigBase):
+    """Read-only configuration for a DataFrame Editor column."""
+
+    @pydantic.model_validator(mode="after")
+    def check_disabled_is_true(self) -> StreamlitColumnConfig:
+        """Validate that the column_config has disabled=True."""
+        # column_config is repr as a dict
+        if self.column_config.get("disabled") is not True:
+            msg = (
+                f"Read-only column '{self.column_name}' must have disabled=True in "
+                f"its column_config."
+            )
+            raise ValueError(msg)
+
+
+class DFEColumnConfig(DFEColumnConfigBase):
+    """Configuration for a single column in the DataFrame Editor."""
+
+    enforce_unique: bool = pydantic.Field(
+        description="Whether to enforce unique values in the column.",
+        default=False,
+    )
