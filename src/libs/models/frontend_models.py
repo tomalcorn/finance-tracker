@@ -1,12 +1,14 @@
 """Module for pydantic configs for the frontend models."""
 
+import typing
 from collections.abc import Callable
+from typing import Any, Self
 
 import pydantic
 
 from libs.models import constants
 
-type StreamlitColumnConfig = object
+type StreamlitColumnConfig = Any
 
 
 class Filters(pydantic.BaseModel):
@@ -16,28 +18,28 @@ class Filters(pydantic.BaseModel):
         serialize_by_alias=True,
     )
 
-    eq: object | None = pydantic.Field(
+    eq: Any | None = pydantic.Field(
         description="Equality filter value.",
         default=None,
     )
-    in_: list[object] | None = pydantic.Field(
+    in_: list[Any] | None = pydantic.Field(
         description="In filter values.",
         serialization_alias="in",
         default=None,
     )
-    lt: object | None = pydantic.Field(
+    lt: Any | None = pydantic.Field(
         description="Less than filter value.",
         default=None,
     )
-    lte: object | None = pydantic.Field(
+    lte: Any | None = pydantic.Field(
         description="Less than or equal to filter value.",
         default=None,
     )
-    gt: object | None = pydantic.Field(
+    gt: Any | None = pydantic.Field(
         description="Greater than filter value.",
         default=None,
     )
-    gte: object | None = pydantic.Field(
+    gte: Any | None = pydantic.Field(
         description="Greater than or equal to filter value.",
         default=None,
     )
@@ -46,7 +48,7 @@ class Filters(pydantic.BaseModel):
         default=None,
     )
 
-    def get_pandas_filters(self) -> dict[str, object]:
+    def get_pandas_filters(self) -> dict[str, Any]:
         """Serialise to pandas friendly format."""
         serialised = self.model_dump(exclude_none=True)
         to_pandas_map = {
@@ -96,7 +98,7 @@ class DFEColumnConfigBase(pydantic.BaseModel):
     input_widget: Callable = pydantic.Field(
         description="The input widget callable from Streamlit.",
     )
-    input_kwargs: dict[str, object] = pydantic.Field(
+    input_kwargs: dict[str, Any] = pydantic.Field(
         description="The keyword arguments for the input widget.",
         default={},
     )
@@ -124,8 +126,8 @@ class DFEColumnConfigBase(pydantic.BaseModel):
     @classmethod
     def serialize_input_kwargs(
         cls,
-        input_kwargs: dict[str, object],
-    ) -> dict[str, object]:
+        input_kwargs: dict[str, Any],
+    ) -> dict[str, Any]:
         """Serialize the input_kwargs field."""
         serialised_kwargs = {}
         for key, value in input_kwargs.items():
@@ -140,15 +142,24 @@ class DFEReadOnlyColumnConfig(DFEColumnConfigBase):
     """Read-only configuration for a DataFrame Editor column."""
 
     @pydantic.model_validator(mode="after")
-    def check_disabled_is_true(self) -> StreamlitColumnConfig:
+    def check_disabled_is_true(self) -> Self:
         """Validate that the column_config has disabled=True."""
         # column_config is repr as a dict
-        if self.column_config.get("disabled") is not True:
+        if not isinstance(self.column_config, dict):
+            msg = (
+                f"Invalid column_config type: {type(self.column_config)}. "
+                "Must be a dict representation of a Streamlit column config."
+            )
+            raise TypeError(msg)
+
+        column_config_dict = typing.cast("dict", self.column_config)
+        if column_config_dict["disabled"] is not True:
             msg = (
                 f"Read-only column '{self.column_name}' must have disabled=True in "
                 f"its column_config."
             )
             raise ValueError(msg)
+        return self
 
 
 class DFEColumnConfig(DFEColumnConfigBase):

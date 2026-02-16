@@ -197,7 +197,7 @@ with payments_container:
                 "Bank Account",
                 help="Select a bank account",
                 options=bank_account_ids,
-                format_func=get_bank_account_name,
+                format_func=get_bank_account_name,  # type: ignore[invalid-argument-type]
             ),
             button_label="Bank Account",
             input_widget=st.selectbox,
@@ -214,7 +214,7 @@ with payments_container:
                 "Expense Source",
                 help="Select an expense source",
                 options=expense_source_ids,
-                format_func=get_expense_source_name,
+                format_func=get_expense_source_name,  # type: ignore[invalid-argument-type]
             ),
             button_label="Expense Source",
             input_widget=st.selectbox,
