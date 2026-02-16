@@ -1,5 +1,6 @@
 """Module for the FilterButton class."""
 
+import datetime
 import typing
 
 import streamlit as st
@@ -87,18 +88,18 @@ class FilterButton(base_button.BaseButton):
             value=default_dates,
             key=f"{self._table_name}_filter_date_{col_config.column_name}",
         )
-
-        if isinstance(selected_dates, tuple) and len(selected_dates) > 1:
-            return frontend_models.Filters(
-                gte=selected_dates[0],
-                lte=selected_dates[1],
-            )
-        if isinstance(selected_dates, tuple) and len(selected_dates) == 1:
-            return frontend_models.Filters(
-                gte=selected_dates[0],
-                lte=selected_dates[0],
-            )
-        return None
+        if isinstance(selected_dates, tuple):
+            match selected_dates:
+                case (start_date, end_date):
+                    return frontend_models.Filters(gte=start_date, lte=end_date)
+                case (single_date,):
+                    return frontend_models.Filters(gte=single_date, lte=single_date)
+                case ():  # No selection
+                    return None
+        if isinstance(selected_dates, datetime.date):
+            return frontend_models.Filters(gte=selected_dates, lte=selected_dates)
+        msg = "Expected selected_dates to be a date or tuple of (start_date, end_date)"
+        raise TypeError(msg)
 
     def _handle_numeric_filtering(
         self,
