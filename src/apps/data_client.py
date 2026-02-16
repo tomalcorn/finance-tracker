@@ -92,7 +92,7 @@ def _apply_sorting_to_query(
 def get_data(
     table_name: str,
     query_string: str,
-    _configs: list[frontend_models.DFEColumnConfig] | None = None,
+    _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
     _connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> list[dict[str, typing.Any]]:
     """Fetch data from the specified table with optional filters.

@@ -233,7 +233,9 @@ class DFE:
             raise ValueError(msg)
 
         unique_col_names = [
-            col.column_name for col in self.configs if col.enforce_unique
+            col.column_name
+            for col in self.configs
+            if isinstance(col, frontend_models.DFEColumnConfig) and col.enforce_unique
         ]
 
         beu_edited_rows = self._get_edited_rows_for_backend(
