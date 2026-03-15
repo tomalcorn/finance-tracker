@@ -1,6 +1,5 @@
 """Module for the FilterButton class."""
 
-import datetime
 import typing
 
 import streamlit as st
@@ -10,6 +9,9 @@ import ss_keys
 from apps import data_client
 from libs.buttons import base_button, constants
 from libs.models import frontend_models
+
+if typing.TYPE_CHECKING:
+    import datetime
 
 
 class FilterButton(base_button.BaseButton):
@@ -103,18 +105,6 @@ class FilterButton(base_button.BaseButton):
                 lte=dates[0],
             )
         return None
-        if isinstance(selected_dates, tuple):
-            match selected_dates:
-                case (start_date, end_date):
-                    return frontend_models.Filters(gte=start_date, lte=end_date)
-                case (single_date,):
-                    return frontend_models.Filters(gte=single_date, lte=single_date)
-                case ():  # No selection
-                    return None
-        if isinstance(selected_dates, datetime.date):
-            return frontend_models.Filters(gte=selected_dates, lte=selected_dates)
-        msg = "Expected selected_dates to be a date or tuple of (start_date, end_date)"
-        raise TypeError(msg)
 
     def _handle_numeric_filtering(
         self,
@@ -245,7 +235,9 @@ class FilterButton(base_button.BaseButton):
 
     def __call__(
         self,
-        col_configs: list[frontend_models.DFEColumnConfigBase],
+        col_configs: list[
+            frontend_models.DFEColumnConfigBase | frontend_models.DFEColumnConfig
+        ],
     ) -> tuple[bool, list[frontend_models.DFEColumnConfigBase]]:
         """Render the filter button in the UI.
 

@@ -1,6 +1,7 @@
 """Payments block for the finance tracker app."""
 
 import datetime
+from collections.abc import Callable
 
 import pandas as pd
 import streamlit as st
@@ -9,6 +10,7 @@ from apps import data_client
 from apps.buttons import add_button, filter_button
 from libs.buttons import constants
 from libs.dfes import base_dfe
+from libs.dfes import constants as dfe_constants
 from libs.models import backend_models, frontend_models
 
 
@@ -40,9 +42,9 @@ class PaymentsBlock:
     def _build_configs(
         self,
         bank_account_ids: list[str],
-        get_bank_account_name: callable,
+        get_bank_account_name: Callable[[str | float], str],
         expense_source_ids: list[str],
-        get_expense_source_name: callable,
+        get_expense_source_name: Callable[[str | float], str],
     ) -> list[frontend_models.DFEColumnConfig]:
         """Build column configs using current bank account and expense source data."""
         return [
@@ -95,7 +97,7 @@ class PaymentsBlock:
                     "Bank Account",
                     help="Select a bank account",
                     options=bank_account_ids,
-                    format_func=get_bank_account_name,  # type: ignore[invalid-argument-type]
+                    format_func=get_bank_account_name,
                 ),
                 button_label="Bank Account",
                 input_widget=st.selectbox,
@@ -112,7 +114,7 @@ class PaymentsBlock:
                     "Expense Source",
                     help="Select an expense source",
                     options=expense_source_ids,
-                    format_func=get_expense_source_name,  # type: ignore[invalid-argument-type]
+                    format_func=get_expense_source_name,
                 ),
                 button_label="Expense Source",
                 input_widget=st.selectbox,
@@ -131,21 +133,25 @@ class PaymentsBlock:
             table_name="bank_accounts",
             query_string="*",
         )
-        bank_account_map = {ba["id"]: ba["name"] for ba in bank_accounts_data}
+        bank_account_map: dict[str, str] = {
+            str(ba["id"]): str(ba["name"]) for ba in bank_accounts_data
+        }
         bank_account_ids = list(bank_account_map.keys())
 
-        def get_bank_account_name(ba_id: str) -> str:
-            return bank_account_map.get(ba_id, "Unknown Bank Account")
+        def get_bank_account_name(ba_id: str | float) -> str:
+            return bank_account_map.get(str(ba_id), "Unknown Bank Account")
 
         expense_sources = data_client.get_data(
             table_name="expense_sources",
             query_string="*",
         )
-        expense_source_map = {es["id"]: es["name"] for es in expense_sources}
+        expense_source_map: dict[str, str] = {
+            str(es["id"]): str(es["name"]) for es in expense_sources
+        }
         expense_source_ids = list(expense_source_map.keys())
 
-        def get_expense_source_name(es_id: str) -> str:
-            return expense_source_map.get(es_id, "Unknown Expense Source")
+        def get_expense_source_name(es_id: str | float) -> str:
+            return expense_source_map.get(str(es_id), "Unknown Expense Source")
 
         filter_col, _, add_col = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
 
@@ -159,7 +165,9 @@ class PaymentsBlock:
         with add_col:
             new_data_added = self._add_button(col_configs=configs)
         with filter_col:
-            filters_changed, configs = self._filter_button(col_configs=configs)
+            # ty can't figure out that configs is a list of DFEColumnConfigBase or
+            # DFEColumnConfig, even though it literally is
+            filters_changed, configs = self._filter_button(col_configs=configs)  # type: ignore[invalid-argument-type]
 
         dfe = base_dfe.DFE(
             table_name=self._TABLE_NAME,
@@ -174,4 +182,9 @@ class PaymentsBlock:
         data_client.update_backend(
             table_name=self._TABLE_NAME,
             updates=dfe.backend_updates,
+            tables_to_clear=[
+                dfe_constants.TableNames.PAYMENTS,
+                dfe_constants.TableNames.BANK_ACCOUNTS,
+                dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
+            ],
         )

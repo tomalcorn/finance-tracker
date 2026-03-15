@@ -12,8 +12,9 @@ import typing
 import streamlit as st
 from streamlit_extras import stylable_container
 
-from libs.buttons import base_button
-from libs.models import constants, frontend_models
+import ss_keys
+from libs.buttons import base_button, constants
+from libs.models import frontend_models
 
 
 class SortButton(base_button.BaseButton):
@@ -67,7 +68,7 @@ class SortButton(base_button.BaseButton):
             )
         # Store configs in session state
         if st.button("Apply Sorting", key=f"{self._table_name}_apply_sorting_button"):
-            st.session_state[f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"] = (
+            st.session_state[f"{self._table_name}_{ss_keys.SSKeys.COL_CONFIGS}"] = (
                 col_configs
             )
             st.rerun()
@@ -98,7 +99,7 @@ class SortButton(base_button.BaseButton):
             ):
                 self._sorting_button_dialog(col_configs)
         returned_configs: list[frontend_models.DFEColumnConfig] = st.session_state.get(
-            f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}",
+            f"{self._table_name}_{ss_keys.SSKeys.COL_CONFIGS}",
             col_configs,
         )
         return returned_configs
