@@ -7,6 +7,8 @@ before returning them. On subsequent calls, retrieves the configs from session s
 if available.
 """
 
+import typing
+
 import streamlit as st
 from streamlit_extras import stylable_container
 
@@ -59,7 +61,10 @@ class SortButton(base_button.BaseButton):
                 index=options.index(current_sort) if current_sort in options else None,
             )
 
-            col_config.sorting = sort_order
+            col_config.sorting = typing.cast(
+                "constants.SortingValues | None",
+                sort_order,
+            )
         # Store configs in session state
         if st.button("Apply Sorting", key=f"{self._table_name}_apply_sorting_button"):
             st.session_state[f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"] = (

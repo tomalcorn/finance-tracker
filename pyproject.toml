@@ -14,6 +14,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "poethepoet",
     "pytest",
     "python-dotenv",
     "ruff",
@@ -27,3 +28,6 @@ pythonpath = ["src"]
 [tool.ty.src]
 # To be removed in #23
 exclude = ["src/libs/dataframe_handling.py"]
+
+[tool.poe.tasks]
+lint = {shell = "uv run ruff check && uv run ty check"}

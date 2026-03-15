@@ -3,6 +3,7 @@
 import typing
 
 import pandas as pd
+import pydantic
 import st_supabase_connection
 import streamlit as st
 import supabase_auth
@@ -11,6 +12,8 @@ from libs import caching
 from libs.models import backend_models, constants, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
+
+JsonDict = dict[str, pydantic.JsonValue]
 
 
 def _ensure_authenticated() -> None:
@@ -54,10 +57,10 @@ class DataClientError(Exception):
 
 def _execute_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
-) -> list[dict[str, typing.Any]]:
+) -> list[JsonDict]:
     """Execute the given query and return the data."""
     response = query.execute()
-    return response.data or []
+    return typing.cast("list[JsonDict]", response.data or [])
 
 
 def _apply_filters_to_query(
@@ -95,7 +98,7 @@ def get_data(
     query_string: str,
     _configs: list[frontend_models.DFEColumnConfig] | None = None,
     _connection: st_supabase_connection.SupabaseConnection = CONN,
-) -> list[dict[str, typing.Any]]:
+) -> list[JsonDict]:
     """Fetch data from the specified table with optional filters.
 
     Args:
