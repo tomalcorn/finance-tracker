@@ -5,6 +5,7 @@ import typing
 import pydantic
 import streamlit as st
 
+import ss_keys
 from apps import data_client
 from libs.buttons import base_button, constants
 from libs.models import backend_models, frontend_models
@@ -26,20 +27,20 @@ class AddButton(base_button.BaseButton):
     def new_data_added(self) -> bool:
         """Check if new data has been added in the session state."""
         return st.session_state.get(
-            constants.SSKeys.NEW_DATA_ADDED,
+            ss_keys.SSKeys.NEW_DATA_ADDED,
             False,
         )
 
     @new_data_added.setter
     def new_data_added(self, value: bool) -> None:
         """Set the new data added flag in the session state."""
-        st.session_state[constants.SSKeys.NEW_DATA_ADDED] = value
+        st.session_state[ss_keys.SSKeys.NEW_DATA_ADDED] = value
 
     def _submit_new_row(self, new_row: dict[str, typing.Any]) -> None:
         """Handle the submission of a new row."""
         try:
             current_user: backend_models.UserModel = st.session_state[
-                constants.SSKeys.CURRENT_USER
+                ss_keys.SSKeys.CURRENT_USER
             ]
             new_row["user_id"] = current_user.id
             model_instance = self._backend_model.model_validate(new_row)
