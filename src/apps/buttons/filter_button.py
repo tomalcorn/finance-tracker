@@ -89,6 +89,20 @@ class FilterButton(base_button.BaseButton):
             value=default_dates,
             key=f"{self._table_name}_filter_date_{col_config.column_name}",
         )
+
+        if isinstance(selected_dates, tuple) and len(selected_dates) > 1:
+            dates = typing.cast("tuple[datetime.date, datetime.date]", selected_dates)
+            return frontend_models.Filters(
+                gte=dates[0],
+                lte=dates[1],
+            )
+        if isinstance(selected_dates, tuple) and len(selected_dates) == 1:
+            dates = typing.cast("tuple[datetime.date]", selected_dates)
+            return frontend_models.Filters(
+                gte=dates[0],
+                lte=dates[0],
+            )
+        return None
         if isinstance(selected_dates, tuple):
             match selected_dates:
                 case (start_date, end_date):

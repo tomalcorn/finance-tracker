@@ -3,6 +3,7 @@
 import typing
 
 import pandas as pd
+import pydantic
 import st_supabase_connection
 import streamlit as st
 import supabase_auth
@@ -12,6 +13,8 @@ from libs.buttons import constants
 from libs.models import backend_models, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
+
+JsonDict = dict[str, pydantic.JsonValue]
 
 
 def _ensure_authenticated() -> None:
@@ -55,10 +58,10 @@ class DataClientError(Exception):
 
 def _execute_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
-) -> list[dict[str, typing.Any]]:
+) -> list[JsonDict]:
     """Execute the given query and return the data."""
     response = query.execute()
-    return response.data or []
+    return typing.cast("list[JsonDict]", response.data or [])
 
 
 def _apply_filters_to_query(
@@ -90,13 +93,13 @@ def _apply_sorting_to_query(
     return query
 
 
-@st.cache_data()
+@caching.cache
 def get_data(
     table_name: str,
     query_string: str,
     _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
     _connection: st_supabase_connection.SupabaseConnection = CONN,
-) -> list[dict[str, typing.Any]]:
+) -> list[JsonDict]:
     """Fetch data from the specified table with optional filters.
 
     Args:
@@ -181,16 +184,24 @@ def update_backend(
     if connection is CONN:
         _ensure_authenticated()
 
+    update_made = False
     if updates.added_rows:
         connection.table(table_name).insert(updates.added_rows).execute()
+        update_made = True
+
     if updates.edited_rows:
         for row_id, changes in updates.edited_rows.items():
             connection.table(table_name).update(changes).eq("id", row_id).execute()
+        update_made = True
     if updates.deleted_rows:
         connection.table(table_name).delete().in_(
             "id",
             updates.deleted_rows,
         ).execute()
         updates.deleted_rows.clear()
+        update_made = True
+
+    if update_made:
+        get_data.clear(table_name=table_name)
 
     return updates
