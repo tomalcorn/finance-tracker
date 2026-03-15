@@ -7,14 +7,15 @@ from apps import data_client
 from apps.buttons import add_button, filter_button
 from libs.buttons import constants
 from libs.dfes import base_dfe
+from libs.dfes import constants as dfe_constants
 from libs.models import backend_models, frontend_models
 
 
 class BankAccountsBlock:
     """Block for displaying and editing bank accounts."""
 
-    _TABLE_NAME = "bank_accounts"
-    _VIEW_NAME = "bank_accounts_view"
+    _TABLE_NAME = dfe_constants.TableNames.BANK_ACCOUNTS.value
+    _VIEW_NAME = dfe_constants.TableNames.BANK_ACCOUNTS_VIEW.value
 
     def __init__(self) -> None:
         """Initialize the BankAccountsBlock."""
@@ -92,6 +93,10 @@ class BankAccountsBlock:
         data_client.update_backend(
             table_name=self._TABLE_NAME,
             updates=dfe.backend_updates,
+            tables_to_clear=[
+                dfe_constants.TableNames.BANK_ACCOUNTS,
+                dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
+            ],
         )
 
     def _render_metrics_tab(self) -> None:
@@ -104,7 +109,7 @@ class BankAccountsBlock:
         for i, account in enumerate(accounts):
             with cols[i % 3]:
                 st.metric(
-                    label=account["name"],
+                    label=str(account["name"]),
                     value=f"£{account['current_balance']:,.2f}",
                     border=True,
                 )

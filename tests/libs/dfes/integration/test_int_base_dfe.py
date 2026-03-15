@@ -126,7 +126,7 @@ class TestDFESync:
     ) -> None:
         """Test sync with unique column constraint when no duplicates exist."""
         # Arrange - create DFE with unique constraint on 'name'
-        configs = [
+        configs: list[frontend_models.DFEColumnConfigBase] = [
             frontend_models.DFEColumnConfig(
                 column_name="name",
                 column_config={},
@@ -164,7 +164,7 @@ class TestDFESync:
     ) -> None:
         """Test sync with unique column constraint when duplicates exist."""
         # Arrange - create DFE with unique constraint on 'name'
-        configs = [
+        configs: list[frontend_models.DFEColumnConfigBase] = [
             frontend_models.DFEColumnConfig(
                 column_name="name",
                 column_config={},
@@ -230,7 +230,7 @@ class TestDFESync:
     ) -> None:
         """Test sync when edited rows remain within filter constraints."""
         # Arrange - create DFE with filter
-        configs = [
+        configs: list[frontend_models.DFEColumnConfigBase] = [
             frontend_models.DFEColumnConfig(
                 column_name="value",
                 column_config={},
@@ -271,7 +271,7 @@ class TestDFESync:
     ) -> None:
         """Test sync when edited rows fall outside filter constraints."""
         # Arrange - create DFE with filter
-        configs = [
+        configs: list[frontend_models.DFEColumnConfigBase] = [
             frontend_models.DFEColumnConfig(
                 column_name="value",
                 column_config={},
