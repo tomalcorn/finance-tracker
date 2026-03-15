@@ -9,6 +9,9 @@ from apps import data_client
 from libs.buttons import base_button
 from libs.models import constants, frontend_models
 
+if typing.TYPE_CHECKING:
+    import datetime
+
 
 class FilterButton(base_button.BaseButton):
     """Class representing a 'Filter' button in the UI."""
@@ -87,14 +90,16 @@ class FilterButton(base_button.BaseButton):
         )
 
         if isinstance(selected_dates, tuple) and len(selected_dates) > 1:
+            dates = typing.cast("tuple[datetime.date, datetime.date]", selected_dates)
             return frontend_models.Filters(
-                gte=selected_dates[0],
-                lte=selected_dates[1],
+                gte=dates[0],
+                lte=dates[1],
             )
         if isinstance(selected_dates, tuple) and len(selected_dates) == 1:
+            dates = typing.cast("tuple[datetime.date]", selected_dates)
             return frontend_models.Filters(
-                gte=selected_dates[0],
-                lte=selected_dates[0],
+                gte=dates[0],
+                lte=dates[0],
             )
         return None
 
