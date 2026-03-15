@@ -17,26 +17,30 @@ bank_accounts = data_client.get_data(
     table_name="bank_accounts",
     query_string="*",
 )
-bank_account_map = {ba["id"]: ba["name"] for ba in bank_accounts}
+bank_account_map: dict[str, str] = {
+    str(ba["id"]): str(ba["name"]) for ba in bank_accounts
+}
 bank_account_ids = list(bank_account_map.keys())
 
 
-def get_bank_account_name(ba_id: str) -> str:
+def get_bank_account_name(ba_id: str | float) -> str:
     """Get the bank account name for a given ID."""
-    return bank_account_map.get(ba_id, "Unknown Bank Account")
+    return bank_account_map.get(str(ba_id), "Unknown Bank Account")
 
 
 expense_sources = data_client.get_data(
     table_name="expense_sources",
     query_string="*",
 )
-expense_source_map = {es["id"]: es["name"] for es in expense_sources}
+expense_source_map: dict[str, str] = {
+    str(es["id"]): str(es["name"]) for es in expense_sources
+}
 expense_source_ids = list(expense_source_map.keys())
 
 
-def get_expense_source_name(es_id: str) -> str:
+def get_expense_source_name(es_id: str | float) -> str:
     """Get the expense source name for a given ID."""
-    return expense_source_map.get(es_id, "Unknown Expense Source")
+    return expense_source_map.get(str(es_id), "Unknown Expense Source")
 
 
 # === Payments DFE ===
