@@ -8,8 +8,9 @@ import pandas as pd
 import streamlit as st
 from pandas.api import types as pd_types
 
+import ss_keys
 from apps import data_client
-from libs.models import backend_models, constants, frontend_models
+from libs.models import backend_models, frontend_models
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -34,18 +35,18 @@ class DFE:
     @property
     def working_df(self) -> pd.DataFrame | None:
         """Get the working dataframe from session state."""
-        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.table_name}_{ss_keys.SSKeys.WORKING_DF}"
         return st.session_state.get(working_df_key, None)
 
     @working_df.setter
     def working_df(self, df: pd.DataFrame) -> None:
         """Set the working dataframe in session state."""
-        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.table_name}_{ss_keys.SSKeys.WORKING_DF}"
         st.session_state[working_df_key] = df
 
     def _clear_working_df(self) -> None:
         """Clear the working dataframe from session state."""
-        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.table_name}_{ss_keys.SSKeys.WORKING_DF}"
         if working_df_key in st.session_state:
             del st.session_state[working_df_key]
 
@@ -57,17 +58,17 @@ class DFE:
     @property
     def edited_rows(self) -> dict[str, dict[str, typing.Any]]:
         """Get the edited rows from the editor state."""
-        return self.editor_state[constants.SSKeys.EDITED_ROWS]
+        return self.editor_state[ss_keys.SSKeys.EDITED_ROWS]
 
     @property
     def deleted_rows(self) -> list[int]:
         """Get the deleted rows from the editor state."""
-        return self.editor_state[constants.SSKeys.DELETED_ROWS]
+        return self.editor_state[ss_keys.SSKeys.DELETED_ROWS]
 
     @property
     def backend_updates(self) -> backend_models.BackendUpdates:
         """Get the backend updates from session state."""
-        backend_updates_key = f"{self.table_name}_{constants.SSKeys.BACKEND_UPDATES}"
+        backend_updates_key = f"{self.table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         return st.session_state.get(
             backend_updates_key,
             backend_models.BackendUpdates(),
@@ -76,7 +77,7 @@ class DFE:
     @backend_updates.setter
     def backend_updates(self, updates: backend_models.BackendUpdates) -> None:
         """Set the backend updates in session state."""
-        backend_updates_key = f"{self.table_name}_{constants.SSKeys.BACKEND_UPDATES}"
+        backend_updates_key = f"{self.table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         st.session_state[backend_updates_key] = updates
 
     def load_input_data(

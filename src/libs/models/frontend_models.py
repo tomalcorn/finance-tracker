@@ -6,7 +6,7 @@ from typing import Any, Self
 
 import pydantic
 
-from libs.models import constants
+from libs.buttons import constants
 
 type StreamlitColumnConfig = Any
 

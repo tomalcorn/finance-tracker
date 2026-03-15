@@ -2,18 +2,20 @@
 
 import pytest
 import streamlit.testing.v1 as st_test
+from libs.buttons import constants
 from tests import conftest
 
 from apps.buttons import sort_button
-from libs.models import constants, frontend_models
+from libs.models import frontend_models
 
 
 def _sort_button_dialog_wrapper() -> None:
     """Call the _sorting_button_dialog method."""
     import streamlit as st
+    from libs.buttons import constants
 
     from apps.buttons import sort_button
-    from libs.models import constants, frontend_models
+    from libs.models import frontend_models
 
     dfe_configs = [
         frontend_models.DFEColumnConfig(

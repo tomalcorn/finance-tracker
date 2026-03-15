@@ -6,8 +6,8 @@ import pydantic
 import streamlit as st
 
 from apps import data_client
-from libs.buttons import base_button
-from libs.models import backend_models, constants, frontend_models
+from libs.buttons import base_button, constants
+from libs.models import backend_models, frontend_models
 
 
 class AddButton(base_button.BaseButton):
@@ -102,10 +102,9 @@ class AddButton(base_button.BaseButton):
             raise ValueError(msg)
 
         if st.button(
-            label="New",
-            icon="➕",  # noqa: RUF001
+            label="",
+            icon=constants.ButtonIcons.ADD,
             key=f"{self._table_name}_add_row_button",
-            use_container_width=True,
         ):
             self._add_button_dialog(col_configs)
         return self.new_data_added
