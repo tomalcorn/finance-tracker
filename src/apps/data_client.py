@@ -7,6 +7,7 @@ import st_supabase_connection
 import streamlit as st
 import supabase_auth
 
+from libs import caching
 from libs.models import backend_models, constants, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
@@ -88,7 +89,7 @@ def _apply_sorting_to_query(
     return query
 
 
-@st.cache_data()
+@caching.cache
 def get_data(
     table_name: str,
     query_string: str,
