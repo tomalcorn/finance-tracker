@@ -51,6 +51,7 @@ class _CachedFunction[**P, R]:
         """Wrap *func* with caching behaviour."""
         functools.update_wrapper(self, func)
         self._func = func
+        self._func_name: str = getattr(func, "__name__", repr(func))
         self._cache: dict[tuple[tuple[str, Any], ...], R] = {}
         self._args_store: dict[tuple[tuple[str, Any], ...], dict[str, Any]] = {}
         self._sig = inspect.signature(func)
@@ -67,7 +68,7 @@ class _CachedFunction[**P, R]:
         else:
             logger.debug(
                 "Cache hit for '%s' with args %s",
-                self._func.__name__,
+                self._func_name,
                 dict(key_args),
             )
         return self._cache[cache_key]
@@ -94,7 +95,7 @@ class _CachedFunction[**P, R]:
 
         """
         if not kwargs:
-            logger.debug("Cache cleared for '%s'", self._func.__name__)
+            logger.debug("Cache cleared for '%s'", self._func_name)
             self._cache.clear()
             self._args_store.clear()
             return
@@ -104,7 +105,7 @@ class _CachedFunction[**P, R]:
             if k not in valid_params:
                 msg = (
                     f"'{k}' is not a cacheable parameter of"
-                    f" '{self._func.__name__}'. "
+                    f" '{self._func_name}'. "
                     f"Cacheable parameters are: {sorted(valid_params)}"
                 )
                 raise ValueError(msg)
@@ -116,7 +117,7 @@ class _CachedFunction[**P, R]:
         ]
         logger.debug(
             "Cache cleared for '%s' matching %s (%d entr%s removed)",
-            self._func.__name__,
+            self._func_name,
             kwargs,
             len(keys_to_remove),
             "y" if len(keys_to_remove) == 1 else "ies",
