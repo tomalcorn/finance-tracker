@@ -7,8 +7,9 @@ import pytest
 import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
+from libs.buttons import constants
 
-from libs.models import backend_models, constants, frontend_models
+from libs.models import backend_models, frontend_models
 
 
 @pytest.fixture(autouse=True)

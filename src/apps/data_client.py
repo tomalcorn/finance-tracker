@@ -7,7 +7,9 @@ import st_supabase_connection
 import streamlit as st
 import supabase_auth
 
-from libs.models import backend_models, constants, frontend_models
+import ss_keys
+from libs.buttons import constants
+from libs.models import backend_models, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
@@ -15,7 +17,7 @@ CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 def _ensure_authenticated() -> None:
     """Ensure the user is authenticated and the connection has a valid token."""
     # Check if we already have a valid session
-    if constants.SSKeys.CURRENT_USER in st.session_state:
+    if ss_keys.SSKeys.CURRENT_USER in st.session_state:
         return
 
     email_password_creds = supabase_auth.SignInWithEmailAndPasswordCredentials(
@@ -39,7 +41,7 @@ def _ensure_authenticated() -> None:
             st.stop()
 
         CONN.client.postgrest.auth(access_token)
-        st.session_state[constants.SSKeys.CURRENT_USER] = user
+        st.session_state[ss_keys.SSKeys.CURRENT_USER] = user
 
 
 class DataClientError(Exception):

@@ -6,9 +6,10 @@ import typing
 import streamlit as st
 from streamlit_extras import stylable_container
 
+import ss_keys
 from apps import data_client
-from libs.buttons import base_button
-from libs.models import constants, frontend_models
+from libs.buttons import base_button, constants
+from libs.models import frontend_models
 
 
 class FilterButton(base_button.BaseButton):
@@ -25,7 +26,7 @@ class FilterButton(base_button.BaseButton):
     def column_configs(self) -> list[frontend_models.DFEColumnConfigBase]:
         """Get the current column configurations from session state."""
         return st.session_state.get(
-            f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}",
+            f"{self._table_name}_{ss_keys.SSKeys.COL_CONFIGS}",
             [],
         )
 
@@ -35,14 +36,14 @@ class FilterButton(base_button.BaseButton):
         configs: list[frontend_models.DFEColumnConfigBase],
     ) -> None:
         """Set the column configurations in session state."""
-        st.session_state[f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"] = configs
+        st.session_state[f"{self._table_name}_{ss_keys.SSKeys.COL_CONFIGS}"] = configs
 
     @property
     def previous_column_configs(
         self,
     ) -> list[frontend_models.DFEColumnConfigBase] | None:
         """Get the previous column configurations from session state."""
-        prev_column_configs_key = f"{self._table_name}_{constants.SSKeys.PREV_CONFIGS}"
+        prev_column_configs_key = f"{self._table_name}_{ss_keys.SSKeys.PREV_CONFIGS}"
         return st.session_state.get(prev_column_configs_key, None)
 
     @previous_column_configs.setter
@@ -51,7 +52,7 @@ class FilterButton(base_button.BaseButton):
         configs: list[frontend_models.DFEColumnConfigBase],
     ) -> None:
         """Set the previous column configurations in session state."""
-        prev_column_configs_key = f"{self._table_name}_{constants.SSKeys.PREV_CONFIGS}"
+        prev_column_configs_key = f"{self._table_name}_{ss_keys.SSKeys.PREV_CONFIGS}"
         st.session_state[prev_column_configs_key] = configs
 
     def _current_css_style(
@@ -253,10 +254,9 @@ class FilterButton(base_button.BaseButton):
             css_styles=self._current_css_style(col_configs),
         ):
             if st.button(
-                label="Filter",
-                icon="🔍",
+                label="",
+                icon=constants.ButtonIcons.FILTER,
                 key=f"{self._table_name}_filter_button",
-                use_container_width=True,
             ):
                 self._filtering_button_dialog(col_configs)
 

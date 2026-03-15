@@ -7,8 +7,9 @@ import streamlit as st
 
 from apps import data_client
 from apps.buttons import add_button, filter_button
+from libs.buttons import constants
 from libs.dfes import base_dfe
-from libs.models import backend_models, constants, frontend_models
+from libs.models import backend_models, frontend_models
 
 filter_col_payments, empty_col_payments, add_col_payments = st.columns(
     constants.ADD_FILTER_BUTTON_WIDTHS,
@@ -28,7 +29,7 @@ with bank_accounts_container:
     )
     bank_accounts_filter_button = filter_button.FilterButton(table_name="bank_accounts")
 
-    bank_accounts_configs: list[frontend_models.DFEColumnConfigBase] = [
+    writable_bank_account_configs: list[frontend_models.DFEColumnConfig] = [
         frontend_models.DFEColumnConfig(
             column_name="name",
             column_config=st.column_config.TextColumn(
@@ -55,21 +56,6 @@ with bank_accounts_container:
                 "format": "%.2f",
             },
         ),
-        frontend_models.DFEReadOnlyColumnConfig(
-            column_name="current_balance",
-            column_config=st.column_config.NumberColumn(
-                "💵 Current Balance",
-                format="£%.2f",
-                required=True,
-                disabled=True,
-            ),
-            button_label="Current Balance",
-            input_widget=st.number_input,
-            input_kwargs={
-                "value": None,
-                "format": "%.2f",
-            },
-        ),
     ]
 
     sample_bank_accounts_data = pd.DataFrame(
@@ -81,14 +67,25 @@ with bank_accounts_container:
     )
     # Call buttons
     with add_col_banks:
-        readable_and_writable_configs = [
-            config
-            for config in bank_accounts_configs
-            if isinstance(config, frontend_models.DFEColumnConfig)
-        ]
         new_data_added = bank_accounts_add_button(
-            col_configs=readable_and_writable_configs,
+            col_configs=writable_bank_account_configs,
         )
+    # Add read only columns to bank accounts configs
+    bank_accounts_configs = [
+        *writable_bank_account_configs,
+        frontend_models.DFEReadOnlyColumnConfig(
+            column_name="current_balance",
+            column_config=st.column_config.NumberColumn(
+                "💵 Current Balance",
+                format="£%.2f",
+                required=True,
+                disabled=True,
+            ),
+            button_label="Current Balance",
+            input_widget=st.number_input,
+            input_kwargs={"value": None, "format": "%.2f"},
+        ),
+    ]
     with filter_col_banks:
         filters_changed, bank_accounts_configs = bank_accounts_filter_button(
             col_configs=bank_accounts_configs,

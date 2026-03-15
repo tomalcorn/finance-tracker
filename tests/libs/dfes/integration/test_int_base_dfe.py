@@ -4,11 +4,12 @@ from unittest import mock
 
 import pandas as pd
 import pytest
+import ss_keys
 import streamlit as st
 
 from apps import data_client
 from libs.dfes import base_dfe
-from libs.models import constants, frontend_models
+from libs.models import frontend_models
 
 
 @pytest.fixture(name="sample_df")
@@ -37,11 +38,11 @@ class TestDFESync:
 
         # Mock editor state with edited rows
         st.session_state[dfe_instance.table_name] = {
-            constants.SSKeys.EDITED_ROWS: {
+            ss_keys.SSKeys.EDITED_ROWS: {
                 0: {"value": 150},
                 1: {"value": 250, "name": "Item B Updated"},
             },
-            constants.SSKeys.DELETED_ROWS: [],
+            ss_keys.SSKeys.DELETED_ROWS: [],
         }
 
         # Act
@@ -72,8 +73,8 @@ class TestDFESync:
 
         # Mock editor state with deleted rows
         st.session_state[dfe_instance.table_name] = {
-            constants.SSKeys.EDITED_ROWS: {},
-            constants.SSKeys.DELETED_ROWS: [0, 2],
+            ss_keys.SSKeys.EDITED_ROWS: {},
+            ss_keys.SSKeys.DELETED_ROWS: [0, 2],
         }
 
         # Act
@@ -100,10 +101,10 @@ class TestDFESync:
 
         # Mock editor state
         st.session_state[dfe_instance.table_name] = {
-            constants.SSKeys.EDITED_ROWS: {
+            ss_keys.SSKeys.EDITED_ROWS: {
                 1: {"value": 250},
             },
-            constants.SSKeys.DELETED_ROWS: [0],
+            ss_keys.SSKeys.DELETED_ROWS: [0],
         }
 
         # Act
@@ -138,10 +139,10 @@ class TestDFESync:
 
         # Mock editor state
         st.session_state[dfe.table_name] = {
-            constants.SSKeys.EDITED_ROWS: {
+            ss_keys.SSKeys.EDITED_ROWS: {
                 0: {"name": "New Item"},
             },
-            constants.SSKeys.DELETED_ROWS: [],
+            ss_keys.SSKeys.DELETED_ROWS: [],
         }
 
         # Mock get_column_values to return existing names
@@ -176,10 +177,10 @@ class TestDFESync:
 
         # Mock editor state
         st.session_state[dfe.table_name] = {
-            constants.SSKeys.EDITED_ROWS: {
+            ss_keys.SSKeys.EDITED_ROWS: {
                 0: {"name": "Item"},
             },
-            constants.SSKeys.DELETED_ROWS: [],
+            ss_keys.SSKeys.DELETED_ROWS: [],
         }
 
         # Mock get_column_values to return duplicates
@@ -206,8 +207,8 @@ class TestDFESync:
 
         # Mock editor state with no changes
         st.session_state[dfe_instance.table_name] = {
-            constants.SSKeys.EDITED_ROWS: {},
-            constants.SSKeys.DELETED_ROWS: [],
+            ss_keys.SSKeys.EDITED_ROWS: {},
+            ss_keys.SSKeys.DELETED_ROWS: [],
         }
 
         # Act
@@ -242,10 +243,10 @@ class TestDFESync:
 
         # Mock editor state - change value but keep within filter range
         st.session_state[dfe.table_name] = {
-            constants.SSKeys.EDITED_ROWS: {
+            ss_keys.SSKeys.EDITED_ROWS: {
                 0: {"value": 150},  # Changed from 100 to 150, still in range
             },
-            constants.SSKeys.DELETED_ROWS: [],
+            ss_keys.SSKeys.DELETED_ROWS: [],
         }
 
         # Act
@@ -283,10 +284,10 @@ class TestDFESync:
 
         # Mock editor state - change value outside filter range
         st.session_state[dfe.table_name] = {
-            constants.SSKeys.EDITED_ROWS: {
+            ss_keys.SSKeys.EDITED_ROWS: {
                 0: {"value": 600},  # Changed from 100 to 600, outside range
             },
-            constants.SSKeys.DELETED_ROWS: [],
+            ss_keys.SSKeys.DELETED_ROWS: [],
         }
 
         # Act
