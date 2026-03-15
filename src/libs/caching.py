@@ -66,7 +66,7 @@ class _CachedFunction[**P, R]:
             self._cache[cache_key] = self._func(*args, **kwargs)
             self._args_store[cache_key] = key_args
         else:
-            logger.debug(
+            logger.info(
                 "Cache hit for '%s' with args %s",
                 self._func_name,
                 dict(key_args),
@@ -95,7 +95,7 @@ class _CachedFunction[**P, R]:
 
         """
         if not kwargs:
-            logger.debug("Cache cleared for '%s'", self._func_name)
+            logger.info("Cache cleared for '%s'", self._func_name)
             self._cache.clear()
             self._args_store.clear()
             return
@@ -115,7 +115,7 @@ class _CachedFunction[**P, R]:
             for key, args_dict in self._args_store.items()
             if all(args_dict.get(k) == v for k, v in kwargs.items())
         ]
-        logger.debug(
+        logger.info(
             "Cache cleared for '%s' matching %s (%d entr%s removed)",
             self._func_name,
             kwargs,
@@ -125,6 +125,21 @@ class _CachedFunction[**P, R]:
         for key in keys_to_remove:
             del self._cache[key]
             del self._args_store[key]
+
+    def inspect_cache(self) -> dict[str, R]:
+        """Return the cache contents as a plain dictionary.
+
+        Keys are human-readable strings of the form ``"arg=value, ..."``
+        matching the arguments used for each cached call.
+
+        Returns:
+            A dict mapping argument descriptions to their cached return values.
+
+        """
+        return {
+            ", ".join(f"{k}={v!r}" for k, v in args_dict.items()): self._cache[key]
+            for key, args_dict in self._args_store.items()
+        }
 
 
 def cache[**P, R](func: Callable[P, R]) -> _CachedFunction[P, R]:
