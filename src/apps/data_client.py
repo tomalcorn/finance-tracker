@@ -180,16 +180,24 @@ def update_backend(
     if connection is CONN:
         _ensure_authenticated()
 
+    update_made = False
     if updates.added_rows:
         connection.table(table_name).insert(updates.added_rows).execute()
+        update_made = True
+
     if updates.edited_rows:
         for row_id, changes in updates.edited_rows.items():
             connection.table(table_name).update(changes).eq("id", row_id).execute()
+        update_made = True
     if updates.deleted_rows:
         connection.table(table_name).delete().in_(
             "id",
             updates.deleted_rows,
         ).execute()
         updates.deleted_rows.clear()
+        update_made = True
+
+    if update_made:
+        get_data.clear(table_name=table_name)
 
     return updates
