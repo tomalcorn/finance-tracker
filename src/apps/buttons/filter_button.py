@@ -275,7 +275,4 @@ class FilterButton(base_button.BaseButton):
             model.model_copy(deep=True) for model in current_configs
         ]
 
-        if filters_changed:
-            data_client.get_data.clear()
-
         return filters_changed, current_configs

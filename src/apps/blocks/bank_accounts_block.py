@@ -1,5 +1,7 @@
 """Bank accounts block for the finance tracker app."""
 
+import typing
+
 import pandas as pd
 import streamlit as st
 
@@ -16,6 +18,11 @@ class BankAccountsBlock:
 
     _TABLE_NAME = dfe_constants.TableNames.BANK_ACCOUNTS.value
     _VIEW_NAME = dfe_constants.TableNames.BANK_ACCOUNTS_VIEW.value
+    _TABLES_TO_CLEAR: typing.ClassVar[list[dfe_constants.TableNames]] = [
+        dfe_constants.TableNames.PAYMENTS,
+        dfe_constants.TableNames.BANK_ACCOUNTS,
+        dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
+    ]
 
     def __init__(self) -> None:
         """Initialize the BankAccountsBlock."""
@@ -65,6 +72,13 @@ class BankAccountsBlock:
             },
         )
 
+    def commit(self) -> None:
+        """Apply any pending backend updates for this block."""
+        data_client.commit(
+            table_name=self._TABLE_NAME,
+            tables_to_clear=self._TABLES_TO_CLEAR,
+        )
+
     def _render_table_tab(self) -> None:
         """Render the editable table view tab."""
         filter_col, _, add_col = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
@@ -81,23 +95,15 @@ class BankAccountsBlock:
             filters_changed, configs = self._filter_button(col_configs=configs)
 
         dfe = base_dfe.DFE(
-            table_name=self._VIEW_NAME,
+            table_name=self._TABLE_NAME,
             configs=configs,
         )
         dfe.load_input_data(
             self._sample_data,
             filters_changed=filters_changed,
             new_data_added=new_data_added,
+            read_table_name=self._VIEW_NAME,
         ).render()
-
-        data_client.update_backend(
-            table_name=self._TABLE_NAME,
-            updates=dfe.backend_updates,
-            tables_to_clear=[
-                dfe_constants.TableNames.BANK_ACCOUNTS,
-                dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-            ],
-        )
 
     def _render_metrics_tab(self) -> None:
         """Render the metrics grid tab showing name and current balance per account."""

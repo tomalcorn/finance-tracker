@@ -10,6 +10,7 @@ import supabase_auth
 
 import ss_keys
 from libs.buttons import constants
+from libs.dfes import constants as dfe_constants
 from libs.models import backend_models, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
@@ -93,7 +94,6 @@ def _apply_sorting_to_query(
     return query
 
 
-@caching.cache
 def get_data(
     table_name: str,
     query_string: str,
@@ -165,9 +165,34 @@ def get_column_values(
     return all_col_values.reset_index(drop=True)
 
 
+def commit(
+    table_name: str,
+    tables_to_clear: list[dfe_constants.TableNames],
+    connection: st_supabase_connection.SupabaseConnection = CONN,
+) -> None:
+    """Apply any pending sync updates for a table and clear them.
+
+    Reads the BackendUpdates written by DFE.sync() from session state,
+    applies them to the database, then removes them from session state.
+
+    Args:
+        table_name: The table whose pending updates should be applied.
+        tables_to_clear: Tables whose cached working_df should be invalidated.
+        connection: The Supabase connection to use.
+
+    """
+    backend_updates_key = f"{table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+    updates = st.session_state.pop(
+        backend_updates_key,
+        backend_models.BackendUpdates(),
+    )
+    update_backend(table_name, updates, tables_to_clear, connection)
+
+
 def update_backend(
     table_name: str,
     updates: backend_models.BackendUpdates,
+    tables_to_clear: list[dfe_constants.TableNames],
     connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> backend_models.BackendUpdates:
     """Update the backend with the provided changes.
@@ -175,6 +200,7 @@ def update_backend(
     Args:
         table_name: The name of the table to update.
         updates: The BackendUpdates object containing added, edited, and deleted rows.
+        tables_to_clear: List of tables to clear from the cache.
         connection: The Supabase connection to use.
 
     Returns:
@@ -202,6 +228,9 @@ def update_backend(
         update_made = True
 
     if update_made:
-        get_data.clear(table_name=table_name)
+        for t in tables_to_clear:
+            working_df_key = f"{t.value}_{ss_keys.SSKeys.WORKING_DF}"
+            if working_df_key in st.session_state:
+                del st.session_state[working_df_key]
 
     return updates

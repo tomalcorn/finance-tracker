@@ -1,6 +1,7 @@
 """Payments block for the finance tracker app."""
 
 import datetime
+import typing
 from collections.abc import Callable
 
 import pandas as pd
@@ -18,6 +19,11 @@ class PaymentsBlock:
     """Block for displaying and editing payments."""
 
     _TABLE_NAME = "payments"
+    _TABLES_TO_CLEAR: typing.ClassVar[list[dfe_constants.TableNames]] = [
+        dfe_constants.TableNames.PAYMENTS,
+        dfe_constants.TableNames.BANK_ACCOUNTS,
+        dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
+    ]
 
     def __init__(self) -> None:
         """Initialize the PaymentsBlock."""
@@ -127,6 +133,13 @@ class PaymentsBlock:
             ),
         ]
 
+    def commit(self) -> None:
+        """Apply any pending backend updates for this block."""
+        data_client.commit(
+            table_name=self._TABLE_NAME,
+            tables_to_clear=self._TABLES_TO_CLEAR,
+        )
+
     def render(self) -> None:
         """Render the payments block."""
         bank_accounts_data = data_client.get_data(
@@ -178,13 +191,3 @@ class PaymentsBlock:
             filters_changed=filters_changed,
             new_data_added=new_data_added,
         ).render()
-
-        data_client.update_backend(
-            table_name=self._TABLE_NAME,
-            updates=dfe.backend_updates,
-            tables_to_clear=[
-                dfe_constants.TableNames.PAYMENTS,
-                dfe_constants.TableNames.BANK_ACCOUNTS,
-                dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-            ],
-        )
