@@ -86,11 +86,21 @@ class DFE:
         *,
         filters_changed: bool,
         new_data_added: bool,
+        read_table_name: str | None = None,
     ) -> typing.Self:
         """Load data into the dataframe editor.
 
         If filters have changed or new data has been added, the working
         dataframe is cleared and reloaded from the backend.
+
+        Args:
+            sample_data: Fallback data to show when the backend returns nothing.
+            filters_changed: Whether the active filters have changed.
+            new_data_added: Whether new rows were just added.
+            read_table_name: Table or view to read data from. Defaults to
+                ``self.table_name``. Override when the DFE should display data
+                from a view while keying session state by the underlying table.
+
         """
         if filters_changed or new_data_added:
             self._clear_working_df()
@@ -99,7 +109,7 @@ class DFE:
         if self.working_df is None:
             working_df = pd.DataFrame(
                 data_client.get_data(
-                    table_name=self.table_name,
+                    table_name=read_table_name or self.table_name,
                     query_string="*",
                     _configs=self.configs,
                 ),
