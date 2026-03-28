@@ -13,7 +13,6 @@ from pandas.api.types import (
     is_object_dtype,
 )
 from st_supabase_connection import SupabaseConnection
-from streamlit_extras import stylable_container as sc
 
 from libs import backend_models, constants, frontend_models
 
@@ -66,13 +65,13 @@ class DFEButtons:
         }
         """
         # === Sort button ===
-        with (
-            button_cols[1],
-            sc.stylable_container(
-                key=f"{self.table_name}_sort_button_container",
-                css_styles=css_style_active if not self.sorts else css_style_normal,
-            ),
-        ):
+        _sort_key = f"{self.table_name}_sort_button_container"
+        _sort_css = css_style_active if not self.sorts else css_style_normal
+        st.markdown(
+            f"<style>.st-key-{_sort_key} {_sort_css}</style>",
+            unsafe_allow_html=True,
+        )
+        with button_cols[1], st.container(key=_sort_key):
             self.sorting_button = st.button(
                 label="",
                 icon="↕️",
@@ -82,13 +81,13 @@ class DFEButtons:
                 self.sorting_button_dialog()
 
         # === Filter button ===
-        with (
-            button_cols[2],
-            sc.stylable_container(
-                key=f"{self.table_name}_filter_button_container",
-                css_styles=css_style_active if not self.filters else css_style_normal,
-            ),
-        ):
+        _filter_key = f"{self.table_name}_filter_button_container"
+        _filter_css = css_style_active if not self.filters else css_style_normal
+        st.markdown(
+            f"<style>.st-key-{_filter_key} {_filter_css}</style>",
+            unsafe_allow_html=True,
+        )
+        with button_cols[2], st.container(key=_filter_key):
             self.filtering_button = st.button(
                 label="",
                 icon="🔍",

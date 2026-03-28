@@ -7,8 +7,9 @@ import pytest
 import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
+from libs.buttons import constants
 
-from libs.models import backend_models, constants, frontend_models
+from libs.models import backend_models, frontend_models
 
 
 @pytest.fixture(autouse=True)
@@ -86,9 +87,9 @@ def get_rendered_texts(app_tester: st_test.AppTest) -> list[str]:
 
 
 @pytest.fixture(name="col_configs")
-def _col_configs() -> list[frontend_models.DFEColumnConfig]:
+def _col_configs() -> list[frontend_models.DFEColumnConfigBase]:
     return [
-        frontend_models.DFEColumnConfig(
+        frontend_models.DFEColumnConfigBase(
             column_name="col1",
             column_config={},
             input_widget=st.text_input,

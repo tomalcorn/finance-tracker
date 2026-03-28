@@ -8,8 +8,9 @@ import pandas as pd
 import streamlit as st
 from pandas.api import types as pd_types
 
+import ss_keys
 from apps import data_client
-from libs.models import backend_models, constants, frontend_models
+from libs.models import backend_models, frontend_models
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -21,7 +22,7 @@ class DFE:
     def __init__(
         self,
         table_name: str,
-        configs: list[frontend_models.DFEColumnConfig],
+        configs: list[frontend_models.DFEColumnConfigBase],
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
         self.table_name = table_name
@@ -34,18 +35,18 @@ class DFE:
     @property
     def working_df(self) -> pd.DataFrame | None:
         """Get the working dataframe from session state."""
-        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.table_name}_{ss_keys.SSKeys.WORKING_DF}"
         return st.session_state.get(working_df_key, None)
 
     @working_df.setter
     def working_df(self, df: pd.DataFrame) -> None:
         """Set the working dataframe in session state."""
-        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.table_name}_{ss_keys.SSKeys.WORKING_DF}"
         st.session_state[working_df_key] = df
 
     def _clear_working_df(self) -> None:
         """Clear the working dataframe from session state."""
-        working_df_key = f"{self.table_name}_{constants.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.table_name}_{ss_keys.SSKeys.WORKING_DF}"
         if working_df_key in st.session_state:
             del st.session_state[working_df_key]
 
@@ -57,17 +58,17 @@ class DFE:
     @property
     def edited_rows(self) -> dict[str, dict[str, typing.Any]]:
         """Get the edited rows from the editor state."""
-        return self.editor_state[constants.SSKeys.EDITED_ROWS]
+        return self.editor_state[ss_keys.SSKeys.EDITED_ROWS]
 
     @property
     def deleted_rows(self) -> list[int]:
         """Get the deleted rows from the editor state."""
-        return self.editor_state[constants.SSKeys.DELETED_ROWS]
+        return self.editor_state[ss_keys.SSKeys.DELETED_ROWS]
 
     @property
     def backend_updates(self) -> backend_models.BackendUpdates:
         """Get the backend updates from session state."""
-        backend_updates_key = f"{self.table_name}_{constants.SSKeys.BACKEND_UPDATES}"
+        backend_updates_key = f"{self.table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         return st.session_state.get(
             backend_updates_key,
             backend_models.BackendUpdates(),
@@ -76,7 +77,7 @@ class DFE:
     @backend_updates.setter
     def backend_updates(self, updates: backend_models.BackendUpdates) -> None:
         """Set the backend updates in session state."""
-        backend_updates_key = f"{self.table_name}_{constants.SSKeys.BACKEND_UPDATES}"
+        backend_updates_key = f"{self.table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         st.session_state[backend_updates_key] = updates
 
     def load_input_data(
@@ -85,11 +86,21 @@ class DFE:
         *,
         filters_changed: bool,
         new_data_added: bool,
+        read_table_name: str | None = None,
     ) -> typing.Self:
         """Load data into the dataframe editor.
 
         If filters have changed or new data has been added, the working
         dataframe is cleared and reloaded from the backend.
+
+        Args:
+            sample_data: Fallback data to show when the backend returns nothing.
+            filters_changed: Whether the active filters have changed.
+            new_data_added: Whether new rows were just added.
+            read_table_name: Table or view to read data from. Defaults to
+                ``self.table_name``. Override when the DFE should display data
+                from a view while keying session state by the underlying table.
+
         """
         if filters_changed or new_data_added:
             self._clear_working_df()
@@ -98,7 +109,7 @@ class DFE:
         if self.working_df is None:
             working_df = pd.DataFrame(
                 data_client.get_data(
-                    table_name=self.table_name,
+                    table_name=read_table_name or self.table_name,
                     query_string="*",
                     _configs=self.configs,
                 ),
@@ -192,7 +203,7 @@ class DFE:
             if duplicates:
                 # Extract numeric suffixes like " (123)" and take the max; if none
                 # found, start from 0
-                suffixes = []
+                suffixes: list[int] = []
                 for val in duplicates:
                     match = re.search(r" \((\d+)\)$", val)
                     if match:
@@ -233,7 +244,9 @@ class DFE:
             raise ValueError(msg)
 
         unique_col_names = [
-            col.column_name for col in self.configs if col.enforce_unique
+            col.column_name
+            for col in self.configs
+            if isinstance(col, frontend_models.DFEColumnConfig) and col.enforce_unique
         ]
 
         beu_edited_rows = self._get_edited_rows_for_backend(

@@ -3,14 +3,14 @@
 import typing
 
 import streamlit as st
-from streamlit_extras import stylable_container
-
-from apps import data_client
-from libs.buttons import base_button
-from libs.models import constants, frontend_models
 
 if typing.TYPE_CHECKING:
     import datetime
+
+import ss_keys
+from apps import data_client
+from libs.buttons import base_button, constants
+from libs.models import frontend_models
 
 
 class FilterButton(base_button.BaseButton):
@@ -24,39 +24,41 @@ class FilterButton(base_button.BaseButton):
         super().__init__(table_name)
 
     @property
-    def column_configs(self) -> list[frontend_models.DFEColumnConfig]:
+    def column_configs(self) -> list[frontend_models.DFEColumnConfigBase]:
         """Get the current column configurations from session state."""
         return st.session_state.get(
-            f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}",
+            f"{self._table_name}_{ss_keys.SSKeys.COL_CONFIGS}",
             [],
         )
 
     @column_configs.setter
     def column_configs(
         self,
-        configs: list[frontend_models.DFEColumnConfig],
+        configs: list[frontend_models.DFEColumnConfigBase],
     ) -> None:
         """Set the column configurations in session state."""
-        st.session_state[f"{self._table_name}_{constants.SSKeys.COL_CONFIGS}"] = configs
+        st.session_state[f"{self._table_name}_{ss_keys.SSKeys.COL_CONFIGS}"] = configs
 
     @property
-    def previous_column_configs(self) -> list[frontend_models.DFEColumnConfig] | None:
+    def previous_column_configs(
+        self,
+    ) -> list[frontend_models.DFEColumnConfigBase] | None:
         """Get the previous column configurations from session state."""
-        prev_column_configs_key = f"{self._table_name}_{constants.SSKeys.PREV_CONFIGS}"
+        prev_column_configs_key = f"{self._table_name}_{ss_keys.SSKeys.PREV_CONFIGS}"
         return st.session_state.get(prev_column_configs_key, None)
 
     @previous_column_configs.setter
     def previous_column_configs(
         self,
-        configs: list[frontend_models.DFEColumnConfig],
+        configs: list[frontend_models.DFEColumnConfigBase],
     ) -> None:
         """Set the previous column configurations in session state."""
-        prev_column_configs_key = f"{self._table_name}_{constants.SSKeys.PREV_CONFIGS}"
+        prev_column_configs_key = f"{self._table_name}_{ss_keys.SSKeys.PREV_CONFIGS}"
         st.session_state[prev_column_configs_key] = configs
 
     def _current_css_style(
         self,
-        col_configs: list[frontend_models.DFEColumnConfig],
+        col_configs: list[frontend_models.DFEColumnConfigBase],
     ) -> str:
         """Get the current CSS style based on whether filtering is applied."""
         if any(col_config.filters is not None for col_config in col_configs):
@@ -76,7 +78,7 @@ class FilterButton(base_button.BaseButton):
 
     def _handle_date_filtering(
         self,
-        col_config: frontend_models.DFEColumnConfig,
+        col_config: frontend_models.DFEColumnConfigBase,
     ) -> frontend_models.Filters | None:
         """Handle filtering for date columns."""
         default_dates = None
@@ -89,23 +91,23 @@ class FilterButton(base_button.BaseButton):
             key=f"{self._table_name}_filter_date_{col_config.column_name}",
         )
 
-        if isinstance(selected_dates, tuple) and len(selected_dates) > 1:
-            dates = typing.cast("tuple[datetime.date, datetime.date]", selected_dates)
-            return frontend_models.Filters(
-                gte=dates[0],
-                lte=dates[1],
-            )
-        if isinstance(selected_dates, tuple) and len(selected_dates) == 1:
-            dates = typing.cast("tuple[datetime.date]", selected_dates)
-            return frontend_models.Filters(
-                gte=dates[0],
-                lte=dates[0],
-            )
+        if isinstance(selected_dates, tuple):
+            date_tuple = typing.cast("tuple[datetime.date, ...]", selected_dates)
+            if len(date_tuple) > 1:
+                return frontend_models.Filters(
+                    gte=date_tuple[0],
+                    lte=date_tuple[1],
+                )
+            if len(date_tuple) == 1:
+                return frontend_models.Filters(
+                    gte=date_tuple[0],
+                    lte=date_tuple[0],
+                )
         return None
 
     def _handle_numeric_filtering(
         self,
-        col_config: frontend_models.DFEColumnConfig,
+        col_config: frontend_models.DFEColumnConfigBase,
     ) -> frontend_models.Filters | None:
         """Handle filtering for numeric columns."""
         default_min, default_max = self._get_min_max_values(
@@ -133,7 +135,7 @@ class FilterButton(base_button.BaseButton):
 
     def _handle_multiselect_filtering(
         self,
-        col_config: frontend_models.DFEColumnConfig,
+        col_config: frontend_models.DFEColumnConfigBase,
         unique_values: set[typing.Any],
     ) -> frontend_models.Filters | None:
         """Filter using a multiselect for columns with limited unique values."""
@@ -176,7 +178,7 @@ class FilterButton(base_button.BaseButton):
 
     def _handle_generic_filtering(
         self,
-        col_config: frontend_models.DFEColumnConfig,
+        col_config: frontend_models.DFEColumnConfigBase,
     ) -> frontend_models.Filters | None:
         """Handle generic filtering using a text input."""
         user_text_input = st.text_input(
@@ -193,7 +195,7 @@ class FilterButton(base_button.BaseButton):
     @st.dialog("Filter Columns")
     def _filtering_button_dialog(
         self,
-        col_configs: list[frontend_models.DFEColumnConfig],
+        col_configs: list[frontend_models.DFEColumnConfigBase],
     ) -> None:
         """Render the filtering button dialog.
 
@@ -232,8 +234,10 @@ class FilterButton(base_button.BaseButton):
 
     def __call__(
         self,
-        col_configs: list[frontend_models.DFEColumnConfig],
-    ) -> tuple[bool, list[frontend_models.DFEColumnConfig]]:
+        col_configs: list[
+            frontend_models.DFEColumnConfigBase | frontend_models.DFEColumnConfig
+        ],
+    ) -> tuple[bool, list[frontend_models.DFEColumnConfigBase]]:
         """Render the filter button in the UI.
 
         Args:
@@ -250,15 +254,16 @@ class FilterButton(base_button.BaseButton):
                 model.model_copy(deep=True) for model in col_configs
             ]
 
-        with stylable_container.stylable_container(
-            key=f"{self._table_name}_filter_button_container",
-            css_styles=self._current_css_style(col_configs),
-        ):
+        _key = f"{self._table_name}_filter_button_container"
+        st.markdown(
+            f"<style>.st-key-{_key} {self._current_css_style(col_configs)}</style>",
+            unsafe_allow_html=True,
+        )
+        with st.container(key=_key):
             if st.button(
-                label="Filter",
-                icon="🔍",
+                label="",
+                icon=constants.ButtonIcons.FILTER,
                 key=f"{self._table_name}_filter_button",
-                use_container_width=True,
             ):
                 self._filtering_button_dialog(col_configs)
 
@@ -270,8 +275,5 @@ class FilterButton(base_button.BaseButton):
         self.previous_column_configs = [
             model.model_copy(deep=True) for model in current_configs
         ]
-
-        if filters_changed:
-            data_client.get_data.clear()
 
         return filters_changed, current_configs
