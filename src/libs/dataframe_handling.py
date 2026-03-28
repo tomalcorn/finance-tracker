@@ -66,8 +66,9 @@ class DFEButtons:
         """
         # === Sort button ===
         _sort_key = f"{self.table_name}_sort_button_container"
+        _sort_css = css_style_active if not self.sorts else css_style_normal
         st.markdown(
-            f"<style>.st-key-{_sort_key} {css_style_active if not self.sorts else css_style_normal}</style>",
+            f"<style>.st-key-{_sort_key} {_sort_css}</style>",
             unsafe_allow_html=True,
         )
         with button_cols[1], st.container(key=_sort_key):
@@ -81,8 +82,9 @@ class DFEButtons:
 
         # === Filter button ===
         _filter_key = f"{self.table_name}_filter_button_container"
+        _filter_css = css_style_active if not self.filters else css_style_normal
         st.markdown(
-            f"<style>.st-key-{_filter_key} {css_style_active if not self.filters else css_style_normal}</style>",
+            f"<style>.st-key-{_filter_key} {_filter_css}</style>",
             unsafe_allow_html=True,
         )
         with button_cols[2], st.container(key=_filter_key):

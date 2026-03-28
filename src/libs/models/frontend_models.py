@@ -95,7 +95,7 @@ class DFEColumnConfigBase(pydantic.BaseModel):
         description="The label for the input button.",
         default=None,
     )
-    input_widget: Callable = pydantic.Field(
+    input_widget: Callable[..., Any] = pydantic.Field(
         description="The input widget callable from Streamlit.",
     )
     input_kwargs: dict[str, Any] = pydantic.Field(

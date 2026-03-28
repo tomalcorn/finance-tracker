@@ -245,7 +245,7 @@ def commit(
 def update_backend(
     table_name: str,
     updates: backend_models.BackendUpdates,
-    tables_to_clear: list[dfe_constants.TableNames],
+    tables_to_clear: list[dfe_constants.TableNames] | None = None,
     connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> backend_models.BackendUpdates:
     """Update the backend with the provided changes.
@@ -281,7 +281,7 @@ def update_backend(
         update_made = True
 
     if update_made:
-        for t in tables_to_clear:
+        for t in tables_to_clear or []:
             invalidate_table_cache(t.value)
             working_df_key = f"{t.value}_{ss_keys.SSKeys.WORKING_DF}"
             if working_df_key in st.session_state:

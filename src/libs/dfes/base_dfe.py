@@ -203,7 +203,7 @@ class DFE:
             if duplicates:
                 # Extract numeric suffixes like " (123)" and take the max; if none
                 # found, start from 0
-                suffixes = []
+                suffixes: list[int] = []
                 for val in duplicates:
                     match = re.search(r" \((\d+)\)$", val)
                     if match:
