@@ -1,17 +1,25 @@
 """Module for handling interactions with Supabase backend."""
 
+import logging
 import typing
 
 import pandas as pd
 import pydantic
-import st_supabase_connection
+import st_supabase_connection  # type: ignore[import-untyped]
 import streamlit as st
 import supabase_auth
 
-from libs import caching
-from libs.models import backend_models, constants, frontend_models
+import ss_keys
+from libs.buttons import constants
+from libs.dfes import constants as dfe_constants
+from libs.models import backend_models, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
+
+logging.basicConfig(level=logging.WARNING)
+logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 JsonDict = dict[str, pydantic.JsonValue]
 
@@ -19,7 +27,7 @@ JsonDict = dict[str, pydantic.JsonValue]
 def _ensure_authenticated() -> None:
     """Ensure the user is authenticated and the connection has a valid token."""
     # Check if we already have a valid session
-    if constants.SSKeys.CURRENT_USER in st.session_state:
+    if ss_keys.SSKeys.CURRENT_USER in st.session_state:
         return
 
     email_password_creds = supabase_auth.SignInWithEmailAndPasswordCredentials(
@@ -43,7 +51,7 @@ def _ensure_authenticated() -> None:
             st.stop()
 
         CONN.client.postgrest.auth(access_token)
-        st.session_state[constants.SSKeys.CURRENT_USER] = user
+        st.session_state[ss_keys.SSKeys.CURRENT_USER] = user
 
 
 class DataClientError(Exception):
@@ -92,11 +100,15 @@ def _apply_sorting_to_query(
     return query
 
 
-@caching.cache
-def get_data(
+_table_versions: dict[str, int] = {}
+
+
+@st.cache_data(ttl=300)
+def _get_data_cached(
     table_name: str,
     query_string: str,
-    _configs: list[frontend_models.DFEColumnConfig] | None = None,
+    table_version: int,
+    _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
     _connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> list[JsonDict]:
     """Fetch data from the specified table with optional filters.
@@ -104,6 +116,8 @@ def get_data(
     Args:
         table_name: The name of the table to query.
         query_string: The select query string.
+        table_version: Monotonically increasing version used to bust the cache
+            for all queries on a given table via `invalidate_table_cache`.
         _configs: Optional list of column configurations for filtering and sorting.
         _connection: The Supabase connection to use.
 
@@ -111,6 +125,12 @@ def get_data(
         A list of dictionaries representing the queried data.
 
     """
+    logger.info(
+        "Cache miss — fetching from Supabase: table=%r query=%r version=%d",
+        table_name,
+        query_string,
+        table_version,
+    )
     if _connection is CONN:
         _ensure_authenticated()
 
@@ -128,6 +148,40 @@ def get_data(
                 sorting=config.sorting,
             )
     return _execute_query(query)
+
+
+def get_data(
+    table_name: str,
+    query_string: str,
+    _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
+    _connection: st_supabase_connection.SupabaseConnection = CONN,
+) -> list[JsonDict]:
+    """Fetch data from the specified table, routing through the versioned cache."""
+    version = _table_versions.get(table_name, 0)
+    logger.info(
+        "Cache lookup: table=%r query=%r version=%d",
+        table_name,
+        query_string,
+        version,
+    )
+    return _get_data_cached(
+        table_name,
+        query_string,
+        version,
+        _configs,
+        _connection,
+    )
+
+
+def invalidate_table_cache(table_name: str) -> None:
+    """Invalidate all cached `get_data` results for the given table."""
+    new_version = _table_versions.get(table_name, 0) + 1
+    _table_versions[table_name] = new_version
+    logger.info(
+        "Cache invalidated: table=%r new version=%d",
+        table_name,
+        new_version,
+    )
 
 
 def get_column_values(
@@ -164,9 +218,34 @@ def get_column_values(
     return all_col_values.reset_index(drop=True)
 
 
+def commit(
+    table_name: str,
+    tables_to_clear: list[dfe_constants.TableNames],
+    connection: st_supabase_connection.SupabaseConnection = CONN,
+) -> None:
+    """Apply any pending sync updates for a table and clear them.
+
+    Reads the BackendUpdates written by DFE.sync() from session state,
+    applies them to the database, then removes them from session state.
+
+    Args:
+        table_name: The table whose pending updates should be applied.
+        tables_to_clear: Tables whose cached working_df should be invalidated.
+        connection: The Supabase connection to use.
+
+    """
+    backend_updates_key = f"{table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+    updates = st.session_state.pop(
+        backend_updates_key,
+        backend_models.BackendUpdates(),
+    )
+    update_backend(table_name, updates, tables_to_clear, connection)
+
+
 def update_backend(
     table_name: str,
     updates: backend_models.BackendUpdates,
+    tables_to_clear: list[dfe_constants.TableNames] | None = None,
     connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> backend_models.BackendUpdates:
     """Update the backend with the provided changes.
@@ -174,6 +253,7 @@ def update_backend(
     Args:
         table_name: The name of the table to update.
         updates: The BackendUpdates object containing added, edited, and deleted rows.
+        tables_to_clear: List of tables to clear from the cache.
         connection: The Supabase connection to use.
 
     Returns:
@@ -201,6 +281,11 @@ def update_backend(
         update_made = True
 
     if update_made:
-        get_data.clear(table_name=table_name)
+        invalidate_table_cache(table_name)
+        for t in tables_to_clear or []:
+            invalidate_table_cache(t.value)
+            working_df_key = f"{t.value}_{ss_keys.SSKeys.WORKING_DF}"
+            if working_df_key in st.session_state:
+                del st.session_state[working_df_key]
 
     return updates

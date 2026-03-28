@@ -10,6 +10,7 @@ dependencies = [
     "st-supabase-connection",
     "streamlit",
     "streamlit-extras",
+    "supabase-auth",
 ]
 
 [dependency-groups]
@@ -31,3 +32,5 @@ exclude = ["src/libs/dataframe_handling.py"]
 
 [tool.poe.tasks]
 lint = {shell = "uv run ruff check && uv run ty check"}
+app = "uv run streamlit run src/streamlit_app.py"
+
