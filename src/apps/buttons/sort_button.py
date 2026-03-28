@@ -10,7 +10,6 @@ if available.
 import typing
 
 import streamlit as st
-from streamlit_extras import stylable_container
 
 import ss_keys
 from libs.buttons import base_button, constants
@@ -49,7 +48,7 @@ class SortButton(base_button.BaseButton):
         st.write(f"Sort **{self._table_name}** by:")
         for col_config in col_configs:
             current_sort = col_config.sorting
-            options = ["asc", "desc", None]
+            options: list[str | None] = ["asc", "desc", None]
 
             sort_order = st.selectbox(
                 label=col_config.column_name,
@@ -87,10 +86,12 @@ class SortButton(base_button.BaseButton):
             Otherwise, returns the original column configs.
 
         """
-        with stylable_container.stylable_container(
-            key=f"{self._table_name}_sort_button_container",
-            css_styles=self._current_css_style(col_configs),
-        ):
+        _key = f"{self._table_name}_sort_button_container"
+        st.markdown(
+            f"<style>.st-key-{_key} {self._current_css_style(col_configs)}</style>",
+            unsafe_allow_html=True,
+        )
+        with st.container(key=_key):
             if st.button(
                 label="Sort",
                 icon="↕️",

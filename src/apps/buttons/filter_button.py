@@ -3,7 +3,6 @@
 import typing
 
 import streamlit as st
-from streamlit_extras import stylable_container
 
 import ss_keys
 from apps import data_client
@@ -255,10 +254,12 @@ class FilterButton(base_button.BaseButton):
                 model.model_copy(deep=True) for model in col_configs
             ]
 
-        with stylable_container.stylable_container(
-            key=f"{self._table_name}_filter_button_container",
-            css_styles=self._current_css_style(col_configs),
-        ):
+        _key = f"{self._table_name}_filter_button_container"
+        st.markdown(
+            f"<style>.st-key-{_key} {self._current_css_style(col_configs)}</style>",
+            unsafe_allow_html=True,
+        )
+        with st.container(key=_key):
             if st.button(
                 label="",
                 icon=constants.ButtonIcons.FILTER,
