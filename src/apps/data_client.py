@@ -281,6 +281,7 @@ def update_backend(
         update_made = True
 
     if update_made:
+        invalidate_table_cache(table_name)
         for t in tables_to_clear or []:
             invalidate_table_cache(t.value)
             working_df_key = f"{t.value}_{ss_keys.SSKeys.WORKING_DF}"

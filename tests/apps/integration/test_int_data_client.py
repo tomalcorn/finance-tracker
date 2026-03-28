@@ -31,19 +31,25 @@ class TestGetData:
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test that repeated identical get_data calls use the cache."""
+        from unittest import mock
+
         # Arrange
         data_client._get_data_cached.clear()
 
         # Act
-        data_client.get_data("users", "*", _connection=connection)
-        data_client.get_data("users", "*", _connection=connection)
-        cache_size = len(data_client._get_data_cached._cache)  # ty: ignore[unresolved-attribute]
+        with mock.patch.object(
+            data_client,
+            "_execute_query",
+            wraps=data_client._execute_query,
+        ) as mock_execute:
+            data_client.get_data("users", "*", _connection=connection)
+            data_client.get_data("users", "*", _connection=connection)
 
         # Clean up
         data_client._get_data_cached.clear()
 
-        # Assert - two identical calls should produce exactly one cache entry
-        assert cache_size == 1
+        # Assert - two identical calls should produce exactly one DB round trip
+        assert mock_execute.call_count == 1
 
 
 class TestGetColumnValues:
