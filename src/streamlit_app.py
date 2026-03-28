@@ -9,8 +9,7 @@ bank_accounts_container = st.container()
 ba_block = bank_accounts_block.BankAccountsBlock()
 payments_block_instance = payments_block.PaymentsBlock()
 
-# Commit phase: apply all pending sync changes before any block renders.
-# This ensures cross-table working_df invalidation happens before rendering.
+
 ba_block.commit()
 payments_block_instance.commit()
 
