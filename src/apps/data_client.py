@@ -1,10 +1,11 @@
 """Module for handling interactions with Supabase backend."""
 
+import logging
 import typing
 
 import pandas as pd
 import pydantic
-import st_supabase_connection
+import st_supabase_connection  # type: ignore[import-untyped]
 import streamlit as st
 import supabase_auth
 
@@ -14,6 +15,11 @@ from libs.dfes import constants as dfe_constants
 from libs.models import backend_models, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
+
+logging.basicConfig(level=logging.WARNING)
+logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 JsonDict = dict[str, pydantic.JsonValue]
 
@@ -94,9 +100,14 @@ def _apply_sorting_to_query(
     return query
 
 
-def get_data(
+_table_versions: dict[str, int] = {}
+
+
+@st.cache_data(ttl=300)
+def _get_data_cached(
     table_name: str,
     query_string: str,
+    table_version: int,
     _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
     _connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> list[JsonDict]:
@@ -105,6 +116,8 @@ def get_data(
     Args:
         table_name: The name of the table to query.
         query_string: The select query string.
+        table_version: Monotonically increasing version used to bust the cache
+            for all queries on a given table via `invalidate_table_cache`.
         _configs: Optional list of column configurations for filtering and sorting.
         _connection: The Supabase connection to use.
 
@@ -112,6 +125,12 @@ def get_data(
         A list of dictionaries representing the queried data.
 
     """
+    logger.info(
+        "Cache miss — fetching from Supabase: table=%r query=%r version=%d",
+        table_name,
+        query_string,
+        table_version,
+    )
     if _connection is CONN:
         _ensure_authenticated()
 
@@ -129,6 +148,40 @@ def get_data(
                 sorting=config.sorting,
             )
     return _execute_query(query)
+
+
+def get_data(
+    table_name: str,
+    query_string: str,
+    _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
+    _connection: st_supabase_connection.SupabaseConnection = CONN,
+) -> list[JsonDict]:
+    """Fetch data from the specified table, routing through the versioned cache."""
+    version = _table_versions.get(table_name, 0)
+    logger.info(
+        "Cache lookup: table=%r query=%r version=%d",
+        table_name,
+        query_string,
+        version,
+    )
+    return _get_data_cached(
+        table_name,
+        query_string,
+        version,
+        _configs,
+        _connection,
+    )
+
+
+def invalidate_table_cache(table_name: str) -> None:
+    """Invalidate all cached `get_data` results for the given table."""
+    new_version = _table_versions.get(table_name, 0) + 1
+    _table_versions[table_name] = new_version
+    logger.info(
+        "Cache invalidated: table=%r new version=%d",
+        table_name,
+        new_version,
+    )
 
 
 def get_column_values(
@@ -229,6 +282,7 @@ def update_backend(
 
     if update_made:
         for t in tables_to_clear:
+            invalidate_table_cache(t.value)
             working_df_key = f"{t.value}_{ss_keys.SSKeys.WORKING_DF}"
             if working_df_key in st.session_state:
                 del st.session_state[working_df_key]
