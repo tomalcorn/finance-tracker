@@ -84,7 +84,7 @@ class AddButton(base_button.BaseButton):
                 for col, output in zip(col_configs, outputs, strict=False)
             }
             self._submit_new_row(new_row)
-            data_client.get_data.clear()
+            data_client.invalidate_table_cache(self._table_name)
             self.new_data_added = True
             st.rerun()
 
@@ -95,13 +95,6 @@ class AddButton(base_button.BaseButton):
             bool: True if a new row was added, False otherwise.
 
         """
-        if not all(
-            isinstance(col_config, frontend_models.DFEColumnConfig)
-            for col_config in col_configs
-        ):
-            msg = "All column configurations must be instances of DFEColumnConfig."
-            raise ValueError(msg)
-
         if st.button(
             label="",
             icon=constants.ButtonIcons.ADD,

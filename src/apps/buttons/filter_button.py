@@ -4,13 +4,13 @@ import typing
 
 import streamlit as st
 
+if typing.TYPE_CHECKING:
+    import datetime
+
 import ss_keys
 from apps import data_client
 from libs.buttons import base_button, constants
 from libs.models import frontend_models
-
-if typing.TYPE_CHECKING:
-    import datetime
 
 
 class FilterButton(base_button.BaseButton):
@@ -91,18 +91,18 @@ class FilterButton(base_button.BaseButton):
             key=f"{self._table_name}_filter_date_{col_config.column_name}",
         )
 
-        if isinstance(selected_dates, tuple) and len(selected_dates) > 1:
-            dates = typing.cast("tuple[datetime.date, datetime.date]", selected_dates)
-            return frontend_models.Filters(
-                gte=dates[0],
-                lte=dates[1],
-            )
-        if isinstance(selected_dates, tuple) and len(selected_dates) == 1:
-            dates = typing.cast("tuple[datetime.date]", selected_dates)
-            return frontend_models.Filters(
-                gte=dates[0],
-                lte=dates[0],
-            )
+        if isinstance(selected_dates, tuple):
+            date_tuple = typing.cast("tuple[datetime.date, ...]", selected_dates)
+            if len(date_tuple) > 1:
+                return frontend_models.Filters(
+                    gte=date_tuple[0],
+                    lte=date_tuple[1],
+                )
+            if len(date_tuple) == 1:
+                return frontend_models.Filters(
+                    gte=date_tuple[0],
+                    lte=date_tuple[0],
+                )
         return None
 
     def _handle_numeric_filtering(

@@ -22,7 +22,7 @@ class TestGetData:
         expected_user_model = yield_sample_user
         actual_user_model = backend_models.UserModel.model_validate(data[0])
         # Clear up cache
-        data_client.get_data.clear()
+        data_client._get_data_cached.clear()
         assert actual_user_model == expected_user_model
 
     def test_get_data_caching(
@@ -32,15 +32,15 @@ class TestGetData:
     ) -> None:
         """Test that repeated identical get_data calls use the cache."""
         # Arrange
-        data_client.get_data.clear()
+        data_client._get_data_cached.clear()
 
         # Act
         data_client.get_data("users", "*", _connection=connection)
         data_client.get_data("users", "*", _connection=connection)
-        cache_size = len(data_client.get_data._cache)
+        cache_size = len(data_client._get_data_cached._cache)  # ty: ignore[unresolved-attribute]
 
         # Clean up
-        data_client.get_data.clear()
+        data_client._get_data_cached.clear()
 
         # Assert - two identical calls should produce exactly one cache entry
         assert cache_size == 1
@@ -114,7 +114,7 @@ class TestUpdateBackend:
         )
         actual_user_model = backend_models.UserModel.model_validate(fetched_data[0])
         # Clean up
-        data_client.get_data.clear()
+        data_client._get_data_cached.clear()
         connection.table("users").delete().eq("id", actual_user_model.id).execute()
         assert actual_user_model == sample_user
 
@@ -144,7 +144,7 @@ class TestUpdateBackend:
         )
 
         # Clean up cache
-        data_client.get_data.clear()
+        data_client._get_data_cached.clear()
         assert all(
             backend_models.UserModel.model_validate(row).id != yield_sample_user.id
             for row in fetched_data
@@ -179,7 +179,7 @@ class TestUpdateBackend:
         )
 
         # Clean up cache
-        data_client.get_data.clear()
+        data_client._get_data_cached.clear()
 
         # Find the updated user and check the first name
         for row in fetched_data:
@@ -244,7 +244,7 @@ class TestUpdateBackend:
         )
         # Clean up added user and cache
         connection.table("users").delete().eq("id", new_user.id).execute()
-        data_client.get_data.clear()
+        data_client._get_data_cached.clear()
 
         assert all(
             [
@@ -260,10 +260,9 @@ class TestUpdateBackend:
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test that update_backend clears the get_data cache for the updated table."""
-        # Arrange - populate the cache
-        data_client.get_data.clear()
-        data_client.get_data("users", "*", _connection=connection)
-        cache_size_before = len(data_client.get_data._cache)
+        # Arrange - record the current version
+        data_client._get_data_cached.clear()
+        version_before = data_client._table_versions.get("users", 0)
 
         # Act
         updates = backend_models.BackendUpdates(
@@ -272,10 +271,10 @@ class TestUpdateBackend:
             },
         )
         data_client.update_backend("users", updates=updates, connection=connection)
-        cache_size_after = len(data_client.get_data._cache)
+        version_after = data_client._table_versions.get("users", 0)
 
-        # Assert
-        assert all([cache_size_before == 1, cache_size_after == 0])
+        # Assert - version should have been bumped, invalidating all cached results
+        assert version_after == version_before + 1
 
     def test_updates_backend_updates_model(
         self,

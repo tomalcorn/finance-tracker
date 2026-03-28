@@ -180,7 +180,7 @@ class PaymentsBlock:
         with filter_col:
             # ty can't figure out that configs is a list of DFEColumnConfigBase or
             # DFEColumnConfig, even though it literally is
-            filters_changed, configs = self._filter_button(col_configs=configs)  # type: ignore[invalid-argument-type]
+            filters_changed, configs = self._filter_button(col_configs=configs)  # ty: ignore[invalid-argument-type]
 
         dfe = base_dfe.DFE(
             table_name=self._TABLE_NAME,
