@@ -9,7 +9,7 @@ import streamlit as st
 from pandas.api import types as pd_types
 
 from libs import data_client, ss_keys
-from libs.models import backend_updates, frontend_models
+from libs.models import backend_updates_model, frontend_models
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -65,16 +65,16 @@ class DFE:
         return self.editor_state[ss_keys.SSKeys.DELETED_ROWS]
 
     @property
-    def backend_updates(self) -> backend_updates.BackendUpdates:
+    def backend_updates(self) -> backend_updates_model.BackendUpdates:
         """Get the backend updates from session state."""
         backend_updates_key = f"{self.table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         return st.session_state.get(
             backend_updates_key,
-            backend_updates.BackendUpdates(),
+            backend_updates_model.BackendUpdates(),
         )
 
     @backend_updates.setter
-    def backend_updates(self, updates: backend_updates.BackendUpdates) -> None:
+    def backend_updates(self, updates: backend_updates_model.BackendUpdates) -> None:
         """Set the backend updates in session state."""
         backend_updates_key = f"{self.table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         st.session_state[backend_updates_key] = updates
@@ -263,7 +263,7 @@ class DFE:
                 self.working_df = modified_df
 
         # in "delete" mode, so no added rows
-        self.backend_updates = backend_updates.BackendUpdates(
+        self.backend_updates = backend_updates_model.BackendUpdates(
             edited_rows=beu_edited_rows,
             deleted_rows=beu_deleted_rows,
         )
