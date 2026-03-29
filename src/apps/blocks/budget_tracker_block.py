@@ -40,14 +40,6 @@ def commit() -> None:
 
 def render() -> None:
     """Render the budget tracker block."""
-    budget_tracker_rows = data_client.get_data(
-        table_name=dfe_constants.TableNames.BUDGET_TRACKER.value,
-        query_string="id,name",
-    )
-    expenses_ids = [
-        str(row["id"]) for row in budget_tracker_rows if row.get("name") == "expenses"
-    ]
-
     (expense_tab,) = st.tabs(
         ["Expense Sources"],
     )
@@ -56,7 +48,6 @@ def render() -> None:
         base_block.render_dfe_tab(
             table_name=_EXPENSE_SOURCES_TABLE,
             backend_model=backend_models.ExpenseSourceModel,
-            pre_filled_data={"budget_tracker_ids": expenses_ids},
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
@@ -90,4 +81,5 @@ def render() -> None:
             ],
             sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
             read_table_name=_EXPENSE_SOURCES_VIEW,
+            tables_to_clear=_EXPENSE_SOURCES_TABLES_TO_CLEAR,
         )
