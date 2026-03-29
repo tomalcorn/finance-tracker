@@ -63,13 +63,12 @@ class ExpenseSourceModel(FinanceTrackerBaseModel):
         item, so we can compute this based on the name of the budget tracker item
         rather than needing to store it directly
         """
-        expenses_budget_tracker_id = data_client.get_data(
+        rows = data_client.get_data(
             table_name="budget_tracker",
             query_string="id,name",
-            filters={"name": {"eq": "expenses"}},
         )
-        if expenses_budget_tracker_id:
-            return [uuid.UUID(expenses_budget_tracker_id[0]["id"])]
+        if row := next((r for r in rows if r.get("name") == "expenses"), None):
+            return [uuid.UUID(str(row["id"]))]
         return []
 
 
