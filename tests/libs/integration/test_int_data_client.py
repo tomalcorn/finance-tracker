@@ -1,8 +1,9 @@
 """Integration tests for data_client module."""
 
 import st_supabase_connection
+from libs.models.updates import BackendUpdates
 
-from apps import data_client
+from libs import data_client
 from libs.models import backend_models
 
 
@@ -101,7 +102,7 @@ class TestUpdateBackend:
     ) -> None:
         """Test adding a new row to the backend."""
         # Arrange
-        updates = backend_models.BackendUpdates(
+        updates = BackendUpdates(
             added_rows=[sample_user.model_dump(mode="json")],
         )
 
@@ -131,7 +132,7 @@ class TestUpdateBackend:
     ) -> None:
         """Test deleting a row from the backend."""
         # Arrange
-        updates = backend_models.BackendUpdates(
+        updates = BackendUpdates(
             deleted_rows=[str(yield_sample_user.id)],
         )
 
@@ -164,7 +165,7 @@ class TestUpdateBackend:
         """Test editing a row in the backend."""
         # Arrange
         new_first_name = "UpdatedName"
-        updates = backend_models.BackendUpdates(
+        updates = BackendUpdates(
             edited_rows={
                 str(yield_sample_user.id): {"first_name": new_first_name},
             },
@@ -206,7 +207,7 @@ class TestUpdateBackend:
             first_name="New",
             last_name="User",
         )
-        updates = backend_models.BackendUpdates(
+        updates = BackendUpdates(
             added_rows=[new_user.model_dump(mode="json")],
             edited_rows={
                 str(yield_sample_users[0].id): {"last_name": "EditedLastName"},
@@ -271,7 +272,7 @@ class TestUpdateBackend:
         version_before = data_client._table_versions.get("users", 0)
 
         # Act
-        updates = backend_models.BackendUpdates(
+        updates = BackendUpdates(
             edited_rows={
                 str(yield_sample_user.id): {"first_name": "UpdatedForCacheTest"},
             },
@@ -289,7 +290,7 @@ class TestUpdateBackend:
     ) -> None:
         """Test that BackendUpdates model is updated correctly after backend update."""
         # Arrange
-        updates = backend_models.BackendUpdates(
+        updates = BackendUpdates(
             deleted_rows=[str(yield_sample_user.id)],
         )
 
@@ -301,4 +302,10 @@ class TestUpdateBackend:
         )
 
         # Assert
-        assert len(updated_updates.deleted_rows) == 0
+        assert all(
+            [
+                updated_updates.deleted_rows is not None,
+                len(updated_updates.deleted_rows)
+                == 0,  # deleted_rows list should be cleared after processing
+            ],
+        )
