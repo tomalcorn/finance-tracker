@@ -5,10 +5,9 @@ import typing
 import pydantic
 import streamlit as st
 
-import ss_keys
-from apps import data_client
+from libs import data_client, ss_keys
 from libs.buttons import base_button, constants
-from libs.models import backend_models, frontend_models
+from libs.models import backend_models, backend_updates, frontend_models
 
 
 class AddButton(base_button.BaseButton):
@@ -50,7 +49,7 @@ class AddButton(base_button.BaseButton):
         else:
             data_client.update_backend(
                 table_name=self._table_name,
-                updates=backend_models.BackendUpdates(
+                updates=backend_updates.BackendUpdates(
                     added_rows=[model_instance.model_dump(mode="json")],
                     deleted_rows=[],
                     edited_rows={},

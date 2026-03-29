@@ -5,7 +5,7 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-from apps import data_client
+from libs import data_client
 from libs.dfes import base_dfe
 
 

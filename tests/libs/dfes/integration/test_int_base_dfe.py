@@ -4,10 +4,9 @@ from unittest import mock
 
 import pandas as pd
 import pytest
-import ss_keys
 import streamlit as st
 
-from apps import data_client
+from libs import data_client, ss_keys
 from libs.dfes import base_dfe
 from libs.models import frontend_models
 

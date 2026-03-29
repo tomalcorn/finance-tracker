@@ -9,8 +9,8 @@ import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
 
-from apps import data_client
 from apps.buttons import filter_button
+from libs import data_client
 from libs.models import frontend_models
 
 
@@ -21,8 +21,8 @@ def _filter_button_dialog_wrapper() -> None:
     import pandas as pd
     import streamlit as st
 
-    from apps import data_client
     from apps.buttons import filter_button
+    from libs import data_client
     from libs.models import frontend_models
 
     # Mock utils.get_unique_values to return test data

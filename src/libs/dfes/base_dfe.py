@@ -8,9 +8,8 @@ import pandas as pd
 import streamlit as st
 from pandas.api import types as pd_types
 
-import ss_keys
-from apps import data_client
-from libs.models import backend_models, frontend_models
+from libs import data_client, ss_keys
+from libs.models import backend_updates, frontend_models
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -66,16 +65,16 @@ class DFE:
         return self.editor_state[ss_keys.SSKeys.DELETED_ROWS]
 
     @property
-    def backend_updates(self) -> backend_models.BackendUpdates:
+    def backend_updates(self) -> backend_updates.BackendUpdates:
         """Get the backend updates from session state."""
         backend_updates_key = f"{self.table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         return st.session_state.get(
             backend_updates_key,
-            backend_models.BackendUpdates(),
+            backend_updates.BackendUpdates(),
         )
 
     @backend_updates.setter
-    def backend_updates(self, updates: backend_models.BackendUpdates) -> None:
+    def backend_updates(self, updates: backend_updates.BackendUpdates) -> None:
         """Set the backend updates in session state."""
         backend_updates_key = f"{self.table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         st.session_state[backend_updates_key] = updates
@@ -238,7 +237,7 @@ class DFE:
         return beu_deleted_rows
 
     def sync(self) -> None:
-        """Prep BackendUpdates for syncing."""
+        """Prep backend_updates.BackendUpdates for syncing."""
         if self.working_df is None:
             msg = "Working dataframe is not initialized. Cannot sync."
             raise ValueError(msg)
@@ -263,8 +262,8 @@ class DFE:
             if filters_changed:
                 self.working_df = modified_df
 
-        self.backend_updates = backend_models.BackendUpdates(
-            added_rows=[],  # in "delete" mode, so no added rows
+        # in "delete" mode, so no added rows
+        self.backend_updates = backend_updates.BackendUpdates(
             edited_rows=beu_edited_rows,
             deleted_rows=beu_deleted_rows,
         )
