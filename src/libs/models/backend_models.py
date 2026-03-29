@@ -6,6 +6,8 @@ from typing import Annotated
 
 import pydantic
 
+from libs import data_client
+
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):
     """Base model for finance tracker models."""
@@ -51,10 +53,24 @@ class ExpenseSourceModel(FinanceTrackerBaseModel):
         float,
         pydantic.Field(description="The budget amount for the expense source."),
     ] = 0.0
-    budget_tracker_ids: Annotated[
-        list[uuid.UUID],
-        pydantic.Field(description="List of associated budget tracker item IDs."),
-    ] = []
+
+    @pydantic.computed_field
+    @property
+    def budget_tracker_ids(self) -> list[uuid.UUID]:
+        """Compute the list of associated budget tracker item IDs.
+
+        Expense sources should all be connected only to the "expenses" budget tracker
+        item, so we can compute this based on the name of the budget tracker item
+        rather than needing to store it directly
+        """
+        expenses_budget_tracker_id = data_client.get_data(
+            table_name="budget_tracker",
+            query_string="id,name",
+            filters={"name": {"eq": "expenses"}},
+        )
+        if expenses_budget_tracker_id:
+            return [uuid.UUID(expenses_budget_tracker_id[0]["id"])]
+        return []
 
 
 class FunSpendingItemModel(FinanceTrackerBaseModel):
