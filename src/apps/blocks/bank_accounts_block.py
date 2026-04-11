@@ -58,7 +58,10 @@ def render() -> None:
 
     with table_tab:
         base_block.render_dfe_tab(
-            table_name=_TABLE_NAME,
+            table_names=frontend_models.DFETableNameConfig(
+                write_table=_TABLE_NAME,
+                read_table=_VIEW_NAME,
+            ),
             backend_model=backend_models.BankAccountModel,
             configs=[
                 frontend_models.DFEColumnConfig(
@@ -92,5 +95,4 @@ def render() -> None:
                 ),
             ],
             sample_data=_SAMPLE_DATA,
-            read_table_name=_VIEW_NAME,
         )
