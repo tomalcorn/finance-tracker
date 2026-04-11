@@ -177,7 +177,10 @@ class DFEReadOnlyColumnConfig(DFEColumnConfigBase):
             raise TypeError(msg)
 
         column_config_dict = typing.cast("dict", self.column_config)
-        if column_config_dict["disabled"] is not True:
+        if (
+            "disabled" in column_config_dict
+            and column_config_dict["disabled"] is not True
+        ):
             msg = (
                 f"Read-only column '{self.column_name}' must have disabled=True in "
                 f"its column_config."

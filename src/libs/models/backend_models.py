@@ -109,13 +109,13 @@ class PaymentsModel(FinanceTrackerBaseModel):
     """Model representing a payment."""
 
     income: Annotated[
-        float | None,
+        float,
         pydantic.Field(description="The income amount for the payment."),
-    ] = None
+    ] = 0.0
     expense: Annotated[
-        float | None,
+        float,
         pydantic.Field(description="The expense amount for the payment."),
-    ] = None
+    ] = 0.0
     income_source_id: Annotated[
         uuid.UUID | None,
         pydantic.Field(description="The associated income source ID."),
@@ -147,10 +147,9 @@ class UserModel(pydantic.BaseModel):
     id: Annotated[
         uuid.UUID,
         pydantic.Field(
-            default_factory=uuid.uuid4,
             description="TO BE DEPRECATED. The unique identifier for the user.",
         ),
-    ]
+    ] = pydantic.Field(default_factory=uuid.uuid4)
     first_name: Annotated[
         str,
         pydantic.Field(description="The first name of the user."),
