@@ -5,10 +5,9 @@ import typing
 import pydantic
 import streamlit as st
 
-import ss_keys
-from apps import data_client
+from libs import data_client, ss_keys
 from libs.buttons import base_button, constants
-from libs.models import backend_models, frontend_models
+from libs.models import backend_models, backend_updates_model, frontend_models
 
 
 class AddButton(base_button.BaseButton):
@@ -18,10 +17,12 @@ class AddButton(base_button.BaseButton):
         self,
         table_name: str,
         backend_model: type[pydantic.BaseModel],
+        tables_to_clear: list | None = None,
     ) -> None:
         """Initialize the AddButton instance."""
         self._table_name = table_name
         self._backend_model = backend_model
+        self._tables_to_clear = tables_to_clear
 
     @property
     def new_data_added(self) -> bool:
@@ -50,11 +51,12 @@ class AddButton(base_button.BaseButton):
         else:
             data_client.update_backend(
                 table_name=self._table_name,
-                updates=backend_models.BackendUpdates(
+                updates=backend_updates_model.BackendUpdates(
                     added_rows=[model_instance.model_dump(mode="json")],
                     deleted_rows=[],
                     edited_rows={},
                 ),
+                tables_to_clear=self._tables_to_clear,
             )
 
     @st.dialog("Add Row")

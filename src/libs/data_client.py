@@ -9,10 +9,10 @@ import st_supabase_connection  # type: ignore[import-untyped]
 import streamlit as st
 import supabase_auth
 
-import ss_keys
+from libs import ss_keys
 from libs.buttons import constants
 from libs.dfes import constants as dfe_constants
-from libs.models import backend_models, frontend_models
+from libs.models import backend_updates_model, frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
@@ -237,17 +237,17 @@ def commit(
     backend_updates_key = f"{table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
     updates = st.session_state.pop(
         backend_updates_key,
-        backend_models.BackendUpdates(),
+        backend_updates_model.BackendUpdates(),
     )
     update_backend(table_name, updates, tables_to_clear, connection)
 
 
 def update_backend(
     table_name: str,
-    updates: backend_models.BackendUpdates,
+    updates: backend_updates_model.BackendUpdates,
     tables_to_clear: list[dfe_constants.TableNames] | None = None,
     connection: st_supabase_connection.SupabaseConnection = CONN,
-) -> backend_models.BackendUpdates:
+) -> backend_updates_model.BackendUpdates:
     """Update the backend with the provided changes.
 
     Args:
