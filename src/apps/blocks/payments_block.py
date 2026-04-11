@@ -16,6 +16,8 @@ _TABLES_TO_CLEAR = [
     dfe_constants.TableNames.PAYMENTS,
     dfe_constants.TableNames.BANK_ACCOUNTS,
     dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
+    dfe_constants.TableNames.EXPENSE_SOURCES,
+    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
 ]
 
 _SAMPLE_DATA = pd.DataFrame(
@@ -143,4 +145,5 @@ def render() -> None:
             ),
         ],
         sample_data=_SAMPLE_DATA,
+        tables_to_clear=_TABLES_TO_CLEAR,
     )
