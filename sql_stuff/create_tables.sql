@@ -78,15 +78,31 @@ SELECT
     es.budget,
     COALESCE(SUM(p.expense - p.income), 0) AS current_month,
     es.budget_tracker_ids,
-    es._created_at
+    es._created_at,
+    es.budget - COALESCE(SUM(p.expense - p.income), 0) AS remaining,
+    CASE
+        WHEN es.budget > 0
+        THEN COALESCE(SUM(p.expense - p.income), 0) / es.budget * 100
+        ELSE 0
+    END AS progress,
+    CASE
+        WHEN COALESCE(bt_totals.total_budget, 0) > 0
+        THEN es.budget / bt_totals.total_budget * 100
+        ELSE 0
+    END AS split
 FROM
     EXPENSE_SOURCES es
 LEFT JOIN
     PAYMENTS p
 ON
     es.id = p.expense_source_id
+LEFT JOIN LATERAL (
+    SELECT SUM(bt.total_budget) AS total_budget
+    FROM BUDGET_TRACKER bt
+    WHERE bt.id = ANY(es.budget_tracker_ids)
+) bt_totals ON TRUE
 GROUP BY
-    es.id, es.name, es.budget, es.budget_tracker_ids, es._created_at;
+    es.id, es.name, es.budget, es.budget_tracker_ids, es._created_at, bt_totals.total_budget;
 
 -- Create the income_sources_view view
 CREATE OR REPLACE VIEW income_sources_view AS
