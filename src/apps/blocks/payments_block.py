@@ -1,65 +1,79 @@
 """Payments block for the finance tracker app."""
 
 import datetime
-import typing
-from collections.abc import Callable
 
 import pandas as pd
 import streamlit as st
 
-from apps import data_client
-from apps.buttons import add_button, filter_button
+from apps.blocks import base_block
+from libs import data_client
 from libs.buttons import constants
-from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
 from libs.models import backend_models, frontend_models
 
+_TABLE_NAME = dfe_constants.TableNames.PAYMENTS.value
+_TABLES_TO_CLEAR = [
+    dfe_constants.TableNames.PAYMENTS,
+    dfe_constants.TableNames.BANK_ACCOUNTS,
+    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
+    dfe_constants.TableNames.EXPENSE_SOURCES,
+    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
+]
 
-class PaymentsBlock:
-    """Block for displaying and editing payments."""
+_SAMPLE_DATA = pd.DataFrame(
+    {
+        "name": ["Example Data"],
+        "expense": [0],
+        "payment_date": ["2025-06-01"],
+        "checked": [False],
+        "created_at": ["2025-06-01"],
+        "bank_account_id": ["example bank account"],
+        "expense_source_id": ["example expense source"],
+    },
+)
 
-    _TABLE_NAME = "payments"
-    _TABLES_TO_CLEAR: typing.ClassVar[list[dfe_constants.TableNames]] = [
-        dfe_constants.TableNames.PAYMENTS,
-        dfe_constants.TableNames.BANK_ACCOUNTS,
-        dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-    ]
 
-    def __init__(self) -> None:
-        """Initialize the PaymentsBlock."""
-        self._add_button = add_button.AddButton(
-            table_name=self._TABLE_NAME,
-            backend_model=backend_models.PaymentsModel,
-        )
-        self._filter_button = filter_button.FilterButton(table_name=self._TABLE_NAME)
+def commit() -> None:
+    """Apply any pending backend updates for this block."""
+    data_client.commit(
+        table_name=_TABLE_NAME,
+        tables_to_clear=_TABLES_TO_CLEAR,
+    )
 
-        self._sample_data = pd.DataFrame(
-            {
-                "name": ["Example Data"],
-                "expense": [0],
-                "payment_date": ["2025-06-01"],
-                "checked": [False],
-                "created_at": ["2025-06-01"],
-                "bank_account_id": ["example bank account"],
-                "expense_source_id": ["example expense source"],
-            },
-        )
 
-    def _build_configs(
-        self,
-        bank_account_ids: list[str],
-        get_bank_account_name: Callable[[str | float], str],
-        expense_source_ids: list[str],
-        get_expense_source_name: Callable[[str | float], str],
-    ) -> list[frontend_models.DFEColumnConfig]:
-        """Build column configs using current bank account and expense source data."""
-        return [
+def render() -> None:
+    """Render the payments block."""
+    bank_accounts_data = data_client.get_data(
+        table_name="bank_accounts",
+        query_string="*",
+    )
+    bank_account_map: dict[str, str] = {
+        str(ba["id"]): str(ba["name"]) for ba in bank_accounts_data
+    }
+    bank_account_ids = list(bank_account_map.keys())
+
+    def get_bank_account_name(ba_id: str | float) -> str:
+        return bank_account_map.get(str(ba_id), "Unknown Bank Account")
+
+    expense_sources = data_client.get_data(
+        table_name="expense_sources",
+        query_string="*",
+    )
+    expense_source_map: dict[str, str] = {
+        str(es["id"]): str(es["name"]) for es in expense_sources
+    }
+    expense_source_ids = list(expense_source_map.keys())
+
+    def get_expense_source_name(es_id: str | float) -> str:
+        return expense_source_map.get(str(es_id), "Unknown Expense Source")
+
+    base_block.render_dfe_tab(
+        table_names=frontend_models.DFETableNameConfig(write_table=_TABLE_NAME),
+        backend_model=backend_models.PaymentsModel,
+        configs=[
             frontend_models.DFEColumnConfig(
                 column_name="name",
-                column_config=st.column_config.TextColumn(
-                    "🔠 Name",
-                    required=True,
-                ),
+                column_config=st.column_config.TextColumn("🔠 Name", required=True),
                 button_label="Name",
                 input_widget=st.text_input,
                 input_kwargs={"value": None},
@@ -90,9 +104,7 @@ class PaymentsBlock:
             ),
             frontend_models.DFEColumnConfig(
                 column_name="checked",
-                column_config=st.column_config.CheckboxColumn(
-                    "✅ Checked",
-                ),
+                column_config=st.column_config.CheckboxColumn("✅ Checked"),
                 button_label="Checked",
                 input_widget=st.checkbox,
                 input_kwargs={"value": False},
@@ -131,63 +143,7 @@ class PaymentsBlock:
                 },
                 format_func=get_expense_source_name,
             ),
-        ]
-
-    def commit(self) -> None:
-        """Apply any pending backend updates for this block."""
-        data_client.commit(
-            table_name=self._TABLE_NAME,
-            tables_to_clear=self._TABLES_TO_CLEAR,
-        )
-
-    def render(self) -> None:
-        """Render the payments block."""
-        bank_accounts_data = data_client.get_data(
-            table_name="bank_accounts",
-            query_string="*",
-        )
-        bank_account_map: dict[str, str] = {
-            str(ba["id"]): str(ba["name"]) for ba in bank_accounts_data
-        }
-        bank_account_ids = list(bank_account_map.keys())
-
-        def get_bank_account_name(ba_id: str | float) -> str:
-            return bank_account_map.get(str(ba_id), "Unknown Bank Account")
-
-        expense_sources = data_client.get_data(
-            table_name="expense_sources",
-            query_string="*",
-        )
-        expense_source_map: dict[str, str] = {
-            str(es["id"]): str(es["name"]) for es in expense_sources
-        }
-        expense_source_ids = list(expense_source_map.keys())
-
-        def get_expense_source_name(es_id: str | float) -> str:
-            return expense_source_map.get(str(es_id), "Unknown Expense Source")
-
-        filter_col, _, add_col = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
-
-        configs = self._build_configs(
-            bank_account_ids=bank_account_ids,
-            get_bank_account_name=get_bank_account_name,
-            expense_source_ids=expense_source_ids,
-            get_expense_source_name=get_expense_source_name,
-        )
-
-        with add_col:
-            new_data_added = self._add_button(col_configs=configs)
-        with filter_col:
-            # ty can't figure out that configs is a list of DFEColumnConfigBase or
-            # DFEColumnConfig, even though it literally is
-            filters_changed, configs = self._filter_button(col_configs=configs)  # ty: ignore[invalid-argument-type]
-
-        dfe = base_dfe.DFE(
-            table_name=self._TABLE_NAME,
-            configs=configs,
-        )
-        dfe.load_input_data(
-            self._sample_data,
-            filters_changed=filters_changed,
-            new_data_added=new_data_added,
-        ).render()
+        ],
+        sample_data=_SAMPLE_DATA,
+        tables_to_clear=_TABLES_TO_CLEAR,
+    )

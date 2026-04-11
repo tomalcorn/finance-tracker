@@ -7,8 +7,7 @@ import streamlit as st
 if typing.TYPE_CHECKING:
     import datetime
 
-import ss_keys
-from apps import data_client
+from libs import data_client, ss_keys
 from libs.buttons import base_button, constants
 from libs.models import frontend_models
 
