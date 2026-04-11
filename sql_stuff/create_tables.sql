@@ -76,7 +76,7 @@ SELECT
     es.id,
     es.name,
     es.budget,
-    COALESCE(SUM(p.income - p.expense), 0) AS current_month,
+    COALESCE(SUM(p.expense - p.income), 0) AS current_month,
     es.budget_tracker_ids,
     es._created_at
 FROM
