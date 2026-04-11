@@ -4,6 +4,8 @@ import streamlit as st
 
 from apps.blocks import bank_accounts_block, budget_tracker_block, payments_block
 
+st.set_page_config(layout="wide")
+
 payments_container = st.container(border=True)
 bank_accounts_container = st.container(border=True)
 budget_tracker_container = st.container(border=True)
