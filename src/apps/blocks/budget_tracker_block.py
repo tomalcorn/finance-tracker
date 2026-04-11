@@ -26,6 +26,9 @@ _EXPENSE_SOURCES_SAMPLE_DATA = pd.DataFrame(
         "name": ["Example Expense Source"],
         "budget": [0],
         "current_month": [0],
+        "remaining": [0],
+        "progress": [0],
+        "split": [0],
     },
 )
 
@@ -71,6 +74,19 @@ def render() -> None:
                     input_kwargs={"value": None, "format": "%.2f"},
                 ),
                 frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="split",
+                    column_config=st.column_config.ProgressColumn(
+                        "📐 Split",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                    ),
+                    button_label="Split",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                ),
+                frontend_models.DFEReadOnlyColumnConfig(
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
                         "💵 Current Month",
@@ -78,6 +94,30 @@ def render() -> None:
                         disabled=True,
                     ),
                     button_label="Current Month",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="progress",
+                    column_config=st.column_config.ProgressColumn(
+                        "📊 Progress",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                    ),
+                    button_label="Progress",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                ),
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="remaining",
+                    column_config=st.column_config.NumberColumn(
+                        "💰 Remaining",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Remaining",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                 ),
