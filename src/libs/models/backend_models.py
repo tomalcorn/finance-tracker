@@ -147,9 +147,10 @@ class UserModel(pydantic.BaseModel):
     id: Annotated[
         uuid.UUID,
         pydantic.Field(
+            default_factory=uuid.uuid4,
             description="TO BE DEPRECATED. The unique identifier for the user.",
         ),
-    ] = uuid.uuid4()
+    ]
     first_name: Annotated[
         str,
         pydantic.Field(description="The first name of the user."),
