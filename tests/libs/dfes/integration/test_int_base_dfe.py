@@ -36,7 +36,7 @@ class TestDFESync:
         dfe_instance.working_df = sample_df.copy()
 
         # Mock editor state with edited rows
-        st.session_state[dfe_instance.table_name] = {
+        st.session_state[dfe_instance.write_table] = {
             ss_keys.SSKeys.EDITED_ROWS: {
                 0: {"value": 150},
                 1: {"value": 250, "name": "Item B Updated"},
@@ -71,7 +71,7 @@ class TestDFESync:
         dfe_instance.working_df = sample_df.copy()
 
         # Mock editor state with deleted rows
-        st.session_state[dfe_instance.table_name] = {
+        st.session_state[dfe_instance.write_table] = {
             ss_keys.SSKeys.EDITED_ROWS: {},
             ss_keys.SSKeys.DELETED_ROWS: [0, 2],
         }
@@ -99,7 +99,7 @@ class TestDFESync:
         dfe_instance.working_df = sample_df.copy()
 
         # Mock editor state
-        st.session_state[dfe_instance.table_name] = {
+        st.session_state[dfe_instance.write_table] = {
             ss_keys.SSKeys.EDITED_ROWS: {
                 1: {"value": 250},
             },
@@ -133,11 +133,14 @@ class TestDFESync:
                 enforce_unique=True,
             ),
         ]
-        dfe = base_dfe.DFE(table_name="test_table", configs=configs)
+        dfe = base_dfe.DFE(
+            table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
+            configs=configs,
+        )
         dfe.working_df = sample_df.copy()
 
         # Mock editor state
-        st.session_state[dfe.table_name] = {
+        st.session_state[dfe.write_table] = {
             ss_keys.SSKeys.EDITED_ROWS: {
                 0: {"name": "New Item"},
             },
@@ -171,11 +174,14 @@ class TestDFESync:
                 enforce_unique=True,
             ),
         ]
-        dfe = base_dfe.DFE(table_name="test_table", configs=configs)
+        dfe = base_dfe.DFE(
+            table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
+            configs=configs,
+        )
         dfe.working_df = sample_df.copy()
 
         # Mock editor state
-        st.session_state[dfe.table_name] = {
+        st.session_state[dfe.write_table] = {
             ss_keys.SSKeys.EDITED_ROWS: {
                 0: {"name": "Item"},
             },
@@ -205,7 +211,7 @@ class TestDFESync:
         dfe_instance.working_df = sample_df.copy()
 
         # Mock editor state with no changes
-        st.session_state[dfe_instance.table_name] = {
+        st.session_state[dfe_instance.write_table] = {
             ss_keys.SSKeys.EDITED_ROWS: {},
             ss_keys.SSKeys.DELETED_ROWS: [],
         }
@@ -237,11 +243,14 @@ class TestDFESync:
                 filters=frontend_models.Filters(gte=100, lte=500),
             ),
         ]
-        dfe = base_dfe.DFE(table_name="test_table", configs=configs)
+        dfe = base_dfe.DFE(
+            table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
+            configs=configs,
+        )
         dfe.working_df = sample_df.copy()
 
         # Mock editor state - change value but keep within filter range
-        st.session_state[dfe.table_name] = {
+        st.session_state[dfe.write_table] = {
             ss_keys.SSKeys.EDITED_ROWS: {
                 0: {"value": 150},  # Changed from 100 to 150, still in range
             },
@@ -278,11 +287,14 @@ class TestDFESync:
                 filters=frontend_models.Filters(gte=100, lte=500),
             ),
         ]
-        dfe = base_dfe.DFE(table_name="test_table", configs=configs)
+        dfe = base_dfe.DFE(
+            table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
+            configs=configs,
+        )
         dfe.working_df = sample_df.copy()
 
         # Mock editor state - change value outside filter range
-        st.session_state[dfe.table_name] = {
+        st.session_state[dfe.write_table] = {
             ss_keys.SSKeys.EDITED_ROWS: {
                 0: {"value": 600},  # Changed from 100 to 600, outside range
             },

@@ -46,7 +46,10 @@ def render() -> None:
 
     with expense_tab:
         base_block.render_dfe_tab(
-            table_name=_EXPENSE_SOURCES_TABLE,
+            table_names=frontend_models.DFETableNameConfig(
+                write_table=_EXPENSE_SOURCES_TABLE,
+                read_table=_EXPENSE_SOURCES_VIEW,
+            ),
             backend_model=backend_models.ExpenseSourceModel,
             configs=[
                 frontend_models.DFEColumnConfig(
@@ -80,6 +83,5 @@ def render() -> None:
                 ),
             ],
             sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
-            read_table_name=_EXPENSE_SOURCES_VIEW,
             tables_to_clear=_EXPENSE_SOURCES_TABLES_TO_CLEAR,
         )

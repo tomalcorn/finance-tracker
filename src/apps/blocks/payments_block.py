@@ -66,7 +66,7 @@ def render() -> None:
         return expense_source_map.get(str(es_id), "Unknown Expense Source")
 
     base_block.render_dfe_tab(
-        table_name=_TABLE_NAME,
+        table_names=frontend_models.DFETableNameConfig(write_table=_TABLE_NAME),
         backend_model=backend_models.PaymentsModel,
         configs=[
             frontend_models.DFEColumnConfig(
