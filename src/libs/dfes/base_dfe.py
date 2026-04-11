@@ -20,11 +20,12 @@ class DFE:
 
     def __init__(
         self,
-        table_name: str,
+        table_names: frontend_models.DFETableNameConfig,
         configs: list[frontend_models.DFEColumnConfigBase],
     ) -> None:
         """Initialize the DataframeEditor with a Supabase table."""
-        self.table_name = table_name
+        self.write_table = table_names.write_table
+        self.read_table = table_names.read_table or table_names.write_table
         self.configs = configs
 
         self._column_config = {
@@ -34,25 +35,25 @@ class DFE:
     @property
     def working_df(self) -> pd.DataFrame | None:
         """Get the working dataframe from session state."""
-        working_df_key = f"{self.table_name}_{ss_keys.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.write_table}_{ss_keys.SSKeys.WORKING_DF}"
         return st.session_state.get(working_df_key, None)
 
     @working_df.setter
     def working_df(self, df: pd.DataFrame) -> None:
         """Set the working dataframe in session state."""
-        working_df_key = f"{self.table_name}_{ss_keys.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.write_table}_{ss_keys.SSKeys.WORKING_DF}"
         st.session_state[working_df_key] = df
 
     def _clear_working_df(self) -> None:
         """Clear the working dataframe from session state."""
-        working_df_key = f"{self.table_name}_{ss_keys.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.write_table}_{ss_keys.SSKeys.WORKING_DF}"
         if working_df_key in st.session_state:
             del st.session_state[working_df_key]
 
     @property
     def editor_state(self) -> dict[str, typing.Any]:
         """Get the editor state from session state."""
-        return st.session_state[self.table_name]
+        return st.session_state[self.write_table]
 
     @property
     def edited_rows(self) -> dict[str, dict[str, typing.Any]]:
@@ -67,7 +68,7 @@ class DFE:
     @property
     def backend_updates(self) -> backend_updates_model.BackendUpdates:
         """Get the backend updates from session state."""
-        backend_updates_key = f"{self.table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+        backend_updates_key = f"{self.write_table}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         return st.session_state.get(
             backend_updates_key,
             backend_updates_model.BackendUpdates(),
@@ -76,7 +77,7 @@ class DFE:
     @backend_updates.setter
     def backend_updates(self, updates: backend_updates_model.BackendUpdates) -> None:
         """Set the backend updates in session state."""
-        backend_updates_key = f"{self.table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+        backend_updates_key = f"{self.write_table}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         st.session_state[backend_updates_key] = updates
 
     def load_input_data(
@@ -85,7 +86,6 @@ class DFE:
         *,
         filters_changed: bool,
         new_data_added: bool,
-        read_table_name: str | None = None,
     ) -> typing.Self:
         """Load data into the dataframe editor.
 
@@ -96,9 +96,6 @@ class DFE:
             sample_data: Fallback data to show when the backend returns nothing.
             filters_changed: Whether the active filters have changed.
             new_data_added: Whether new rows were just added.
-            read_table_name: Table or view to read data from. Defaults to
-                ``self.table_name``. Override when the DFE should display data
-                from a view while keying session state by the underlying table.
 
         """
         if filters_changed or new_data_added:
@@ -108,7 +105,7 @@ class DFE:
         if self.working_df is None:
             working_df = pd.DataFrame(
                 data_client.get_data(
-                    table_name=read_table_name or self.table_name,
+                    table_name=self.read_table,
                     query_string="*",
                     _configs=self.configs,
                 ),
@@ -189,7 +186,7 @@ class DFE:
 
             unique_values = set(
                 data_client.get_column_values(
-                    table_name=self.table_name,
+                    table_name=self.write_table,
                     column_name=col,
                     unique=True,
                 ),
@@ -279,7 +276,7 @@ class DFE:
             raise ValueError(msg)
         return st.data_editor(
             self.working_df,
-            key=self.table_name,
+            key=self.write_table,
             column_config=self._column_config,
             column_order=[col.column_name for col in self.configs],
             num_rows="delete",

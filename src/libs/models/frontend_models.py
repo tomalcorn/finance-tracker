@@ -63,6 +63,26 @@ class Filters(pydantic.BaseModel):
         return serialised_pandas
 
 
+class DFETableNameConfig(pydantic.BaseModel):
+    """Configuration for a DFE table name."""
+
+    write_table: Annotated[
+        str,
+        pydantic.Field(
+            description="The name of the table to write (and/or read) data to.",
+        ),
+    ]
+    read_table: Annotated[
+        str | None,
+        pydantic.Field(
+            description=(
+                "The name of the view to read data from. If not provided, data will be "
+                "read directly from the table."
+            ),
+        ),
+    ] = None
+
+
 class DFEColumnConfigBase(pydantic.BaseModel):
     """Base configuration for a DataFrame Editor column."""
 

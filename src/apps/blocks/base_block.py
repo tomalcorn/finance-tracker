@@ -11,20 +11,22 @@ from libs.models import backend_models, frontend_models
 
 
 def render_dfe_tab(
-    table_name: str,
+    table_names: frontend_models.DFETableNameConfig,
     backend_model: type[backend_models.FinanceTrackerBaseModel],
     configs: list[frontend_models.DFEColumnConfigBase],
     sample_data: pd.DataFrame,
-    read_table_name: str | None = None,
     tables_to_clear: list[dfe_constants.TableNames] | None = None,
 ) -> None:
     """Render a single DFE tab with add/filter buttons and a dataframe editor."""
+    read_table_name = table_names.read_table or table_names.write_table
+    write_table_name = table_names.write_table
+
     add_btn = add_button.AddButton(
-        table_name=table_name,
+        table_name=write_table_name,
         backend_model=backend_model,
         tables_to_clear=tables_to_clear,
     )
-    filter_btn = filter_button.FilterButton(table_name=table_name)
+    filter_btn = filter_button.FilterButton(table_name=read_table_name)
 
     writable_configs = [
         c for c in configs if isinstance(c, frontend_models.DFEColumnConfig)
@@ -36,9 +38,8 @@ def render_dfe_tab(
     with filter_col:
         filters_changed, configs = filter_btn(col_configs=configs)
 
-    base_dfe.DFE(table_name=table_name, configs=configs).load_input_data(
+    base_dfe.DFE(table_names=table_names, configs=configs).load_input_data(
         sample_data,
         filters_changed=filters_changed,
         new_data_added=new_data_added,
-        read_table_name=read_table_name,
     ).render()
