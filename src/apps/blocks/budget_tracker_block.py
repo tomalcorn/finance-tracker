@@ -186,8 +186,10 @@ def render() -> None:
                 ),
                 frontend_models.DFEColumnConfig(
                     column_name="budget_tracker_ids",
-                    column_config=st.column_config.ListColumn(
+                    column_config=st.column_config.MultiselectColumn(
                         "📋 Budget Trackers",
+                        options=budget_tracker_ids,
+                        format_func=get_budget_tracker_name,
                     ),
                     button_label="Budget Trackers",
                     input_widget=st.multiselect,

@@ -157,7 +157,7 @@ class DFE:
         for row_idx, changes in self.edited_rows.items():
             if int(row_idx) < len(modified_df):
                 for col, value in changes.items():
-                    modified_df.loc[int(row_idx), col] = value
+                    modified_df.at[int(row_idx), col] = value  # noqa: PD008 - needed to assign list values to a single cell
 
         # Apply filters
         for config in self.configs:
