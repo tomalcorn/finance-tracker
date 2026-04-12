@@ -203,6 +203,8 @@ class FilterButton(base_button.BaseButton):
         """
         st.write(f"Filter **{self._table_name}** by:")
         for col_config in col_configs:
+            if not col_config.visible:
+                continue
             if col_config.input_widget == st.date_input:
                 col_config.filters = self._handle_date_filtering(col_config)
             elif col_config.input_widget == st.number_input:

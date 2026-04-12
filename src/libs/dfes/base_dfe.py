@@ -169,6 +169,13 @@ class DFE:
                     if operator == "contains":
                         mask = modified_df[col].str.contains(criteria, na=False)
                         modified_df = modified_df[mask]
+                    elif operator == "cs":
+                        mask = modified_df[col].apply(
+                            lambda x, c=criteria: (
+                                c in x if isinstance(x, list) else False
+                            ),
+                        )
+                        modified_df = modified_df[mask]
                     else:
                         modified_df = modified_df.query(f"`{col}` {operator} @criteria")
 
@@ -279,7 +286,7 @@ class DFE:
             self.working_df,
             key=self.write_table,
             column_config=self._column_config,
-            column_order=[col.column_name for col in self.configs],
+            column_order=[col.column_name for col in self.configs if col.visible],
             num_rows="delete",
             hide_index=True,
             on_change=self.sync,
