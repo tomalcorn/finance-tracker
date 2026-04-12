@@ -6,13 +6,9 @@ import typing
 
 import pandas as pd
 import streamlit as st
-from pandas.api import types as pd_types
 
 from libs import data_client, ss_keys
 from libs.models import backend_updates_model, frontend_models
-
-MAX_UNIQUE_VALUES = 20
-DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
 
 
 class DFE:
@@ -121,15 +117,20 @@ class DFE:
         self,
         dataframe: pd.DataFrame,
     ) -> pd.DataFrame:
-        """Try to convert columns to datetime."""
-        for col in dataframe.columns:
-            if pd_types.is_object_dtype(dataframe[col]):
-                sample_values = [
-                    val for val in dataframe[col].to_numpy()[:10] if val is not None
-                ]
-                if any(DATE_PATTERN.match(str(val)) for val in sample_values):
-                    with contextlib.suppress(Exception):
-                        dataframe[col] = pd.to_datetime(dataframe[col])
+        """Convert columns to datetime/date based on column config type."""
+        for config in self.configs:
+            col = config.column_name
+            if col not in dataframe.columns:
+                continue
+            if not isinstance(config.column_config, dict):
+                continue
+            col_type = config.column_config.get("type_config", {}).get("type")
+            if col_type == "date":
+                with contextlib.suppress(Exception):
+                    dataframe[col] = pd.to_datetime(dataframe[col]).dt.date
+            elif col_type == "datetime":
+                with contextlib.suppress(Exception):
+                    dataframe[col] = pd.to_datetime(dataframe[col])
         return dataframe
 
     def _check_for_filters_updates(
