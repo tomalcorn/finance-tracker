@@ -81,6 +81,8 @@ def _apply_filters_to_query(
         for operator, criteria in filters.model_dump(exclude_none=True).items():
             if operator == "in":
                 query = query.in_(column_name, criteria)
+            elif operator == "cs":
+                query = query.filter(column_name, "cs", f"{{{criteria}}}")
             else:
                 query = query.filter(column_name, operator, criteria)
     return query

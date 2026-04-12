@@ -44,6 +44,10 @@ class Filters(pydantic.BaseModel):
         str | None,
         pydantic.Field(description="Contains filter value for string matching."),
     ] = None
+    cs: Annotated[
+        str | None,
+        pydantic.Field(description="Array contains filter value."),
+    ] = None
 
     def get_pandas_filters(self) -> dict[str, Any]:
         """Serialise to pandas friendly format."""
@@ -108,6 +112,10 @@ class DFEColumnConfigBase(pydantic.BaseModel):
         Filters | None,
         pydantic.Field(description="The filtering criteria for the column."),
     ] = None
+    visible: Annotated[
+        bool,
+        pydantic.Field(description="Whether to show the column in the editor."),
+    ] = True
     format_func: Annotated[
         Callable[[str], str] | None,
         pydantic.Field(
