@@ -98,6 +98,15 @@ def render() -> None:
     }
     budget_tracker_ids = list(budget_tracker_map.keys())
 
+    expenses_bt_id = next(
+        (
+            bt_id
+            for bt_id, name in budget_tracker_map.items()
+            if name.lower() == "expenses"
+        ),
+        None,
+    )
+
     def get_budget_tracker_name(bt_id: str | float) -> str:
         return budget_tracker_map.get(str(bt_id), "Unknown Budget Tracker")
 
@@ -259,6 +268,19 @@ def render() -> None:
                     button_label="Remaining",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                *(
+                    [
+                        frontend_models.DFEReadOnlyColumnConfig(
+                            column_name="budget_tracker_ids",
+                            column_config={"disabled": True},
+                            visible=False,
+                            filters=frontend_models.Filters(cs=expenses_bt_id),
+                            input_widget=st.text_input,
+                        ),
+                    ]
+                    if expenses_bt_id
+                    else []
                 ),
             ],
             sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
