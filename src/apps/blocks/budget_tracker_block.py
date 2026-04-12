@@ -11,6 +11,9 @@ from libs.models import backend_models, frontend_models
 _EXPENSE_SOURCES_TABLE = dfe_constants.TableNames.EXPENSE_SOURCES.value
 _EXPENSE_SOURCES_VIEW = dfe_constants.TableNames.EXPENSE_SOURCES_VIEW.value
 
+_INCOME_SOURCES_TABLE = dfe_constants.TableNames.INCOME_SOURCES.value
+_INCOME_SOURCES_VIEW = dfe_constants.TableNames.INCOME_SOURCES_VIEW.value
+
 
 _EXPENSE_SOURCES_TABLES_TO_CLEAR = [
     dfe_constants.TableNames.EXPENSE_SOURCES,
@@ -32,6 +35,19 @@ _EXPENSE_SOURCES_SAMPLE_DATA = pd.DataFrame(
     },
 )
 
+_INCOME_SOURCES_SAMPLE_DATA = pd.DataFrame(
+    {
+        "name": ["Example Income Source"],
+        "current_month": [0],
+        "budget_tracker_ids": [[]],
+    },
+)
+
+_INCOME_SOURCES_TABLES_TO_CLEAR = [
+    dfe_constants.TableNames.INCOME_SOURCES,
+    dfe_constants.TableNames.INCOME_SOURCES_VIEW,
+]
+
 
 def commit() -> None:
     """Apply any pending backend updates for this block."""
@@ -39,12 +55,28 @@ def commit() -> None:
         table_name=_EXPENSE_SOURCES_TABLE,
         tables_to_clear=_EXPENSE_SOURCES_TABLES_TO_CLEAR,
     )
+    data_client.commit(
+        table_name=_INCOME_SOURCES_TABLE,
+        tables_to_clear=_INCOME_SOURCES_TABLES_TO_CLEAR,
+    )
 
 
 def render() -> None:
     """Render the budget tracker block."""
-    (expense_tab,) = st.tabs(
-        ["Expense Sources"],
+    budget_tracker_data = data_client.get_data(
+        table_name="budget_tracker",
+        query_string="id,name",
+    )
+    budget_tracker_map: dict[str, str] = {
+        str(bt["id"]): str(bt["name"]) for bt in budget_tracker_data
+    }
+    budget_tracker_ids = list(budget_tracker_map.keys())
+
+    def get_budget_tracker_name(bt_id: str | float) -> str:
+        return budget_tracker_map.get(str(bt_id), "Unknown Budget Tracker")
+
+    expense_tab, income_tab = st.tabs(
+        ["Expense Sources", "Income Sources"],
     )
 
     with expense_tab:
@@ -124,4 +156,48 @@ def render() -> None:
             ],
             sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
             tables_to_clear=_EXPENSE_SOURCES_TABLES_TO_CLEAR,
+        )
+
+    with income_tab:
+        base_block.render_dfe_tab(
+            table_names=frontend_models.DFETableNameConfig(
+                write_table=_INCOME_SOURCES_TABLE,
+                read_table=_INCOME_SOURCES_VIEW,
+            ),
+            backend_model=backend_models.IncomeSourceModel,
+            configs=[
+                frontend_models.DFEColumnConfig(
+                    column_name="name",
+                    column_config=st.column_config.TextColumn("🔠 Name", required=True),
+                    button_label="Name",
+                    input_widget=st.text_input,
+                    input_kwargs={"value": None},
+                ),
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="current_month",
+                    column_config=st.column_config.NumberColumn(
+                        "💵 Current Month",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Current Month",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    column_name="budget_tracker_ids",
+                    column_config=st.column_config.ListColumn(
+                        "📋 Budget Trackers",
+                    ),
+                    button_label="Budget Trackers",
+                    input_widget=st.multiselect,
+                    input_kwargs={
+                        "options": budget_tracker_ids,
+                        "format_func": get_budget_tracker_name,
+                    },
+                    format_func=get_budget_tracker_name,
+                ),
+            ],
+            sample_data=_INCOME_SOURCES_SAMPLE_DATA,
+            tables_to_clear=_INCOME_SOURCES_TABLES_TO_CLEAR,
         )
