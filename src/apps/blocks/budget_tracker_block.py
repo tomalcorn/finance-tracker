@@ -9,6 +9,7 @@ from libs.dfes import constants as dfe_constants
 from libs.models import backend_models, frontend_models
 
 _BUDGET_TRACKER_TABLE = dfe_constants.TableNames.BUDGET_TRACKER.value
+_BUDGET_TRACKER_VIEW = dfe_constants.TableNames.BUDGET_TRACKER_VIEW.value
 
 _EXPENSE_SOURCES_TABLE = dfe_constants.TableNames.EXPENSE_SOURCES.value
 _EXPENSE_SOURCES_VIEW = dfe_constants.TableNames.EXPENSE_SOURCES_VIEW.value
@@ -30,6 +31,9 @@ _BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
         "name": ["Example Budget Tracker"],
         "total_budget": [0],
         "current_month": [0],
+        "remaining": [0],
+        "progress": [0],
+        "props": [0],
     },
 )
 
@@ -105,6 +109,7 @@ def render() -> None:
         base_block.render_dfe_tab(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_BUDGET_TRACKER_TABLE,
+                read_table=_BUDGET_TRACKER_VIEW,
             ),
             backend_model=backend_models.BudgetTrackerItemModel,
             configs=[
@@ -115,14 +120,27 @@ def render() -> None:
                     input_widget=st.text_input,
                     input_kwargs={"value": None},
                 ),
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="props",
+                    column_config=st.column_config.ProgressColumn(
+                        "📐 Props",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                    ),
+                    button_label="Props",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                ),
                 frontend_models.DFEColumnConfig(
                     column_name="total_budget",
                     column_config=st.column_config.NumberColumn(
-                        "💰 Total Budget",
+                        "💰 Budget",
                         format="£%.2f",
                         required=True,
                     ),
-                    button_label="Total Budget",
+                    button_label="Budget",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                 ),
@@ -134,6 +152,31 @@ def render() -> None:
                         disabled=True,
                     ),
                     button_label="Current Month",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="progress",
+                    column_config=st.column_config.ProgressColumn(
+                        "📊 Progress",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                        color="auto-inverse",
+                    ),
+                    button_label="Progress",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                ),
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="remaining",
+                    column_config=st.column_config.NumberColumn(
+                        "💰 Remaining",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Remaining",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                 ),
