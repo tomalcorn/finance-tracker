@@ -122,9 +122,13 @@ def render() -> None:
             ),
             backend_model=backend_models.BudgetTrackerItemModel,
             configs=[
-                frontend_models.DFEColumnConfig(
+                frontend_models.DFEReadOnlyColumnConfig(
                     column_name="name",
-                    column_config=st.column_config.TextColumn("🔠 Name", required=True),
+                    column_config=st.column_config.TextColumn(
+                        "🔠 Name",
+                        required=True,
+                        disabled=True,
+                    ),
                     button_label="Name",
                     input_widget=st.text_input,
                     input_kwargs={"value": None},
