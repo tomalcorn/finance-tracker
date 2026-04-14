@@ -109,7 +109,7 @@ CREATE OR REPLACE VIEW income_sources_view AS
 SELECT
     "income_sources".id,
     "income_sources".name,
-    COALESCE(SUM(payments.income - payments.expense), 0) AS current_month,
+    COALESCE(SUM(payments.income), 0) AS current_month,
     "income_sources".budget_tracker_ids
 FROM
     "income_sources"
