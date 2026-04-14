@@ -8,12 +8,34 @@ from libs import data_client
 from libs.dfes import constants as dfe_constants
 from libs.models import backend_models, frontend_models
 
+_BUDGET_TRACKER_TABLE = dfe_constants.TableNames.BUDGET_TRACKER.value
+_BUDGET_TRACKER_VIEW = dfe_constants.TableNames.BUDGET_TRACKER_VIEW.value
+
 _EXPENSE_SOURCES_TABLE = dfe_constants.TableNames.EXPENSE_SOURCES.value
 _EXPENSE_SOURCES_VIEW = dfe_constants.TableNames.EXPENSE_SOURCES_VIEW.value
 
 _INCOME_SOURCES_TABLE = dfe_constants.TableNames.INCOME_SOURCES.value
 _INCOME_SOURCES_VIEW = dfe_constants.TableNames.INCOME_SOURCES_VIEW.value
 
+
+_BUDGET_TRACKER_TABLES_TO_CLEAR = [
+    dfe_constants.TableNames.BUDGET_TRACKER,
+    dfe_constants.TableNames.EXPENSE_SOURCES,
+    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
+    dfe_constants.TableNames.INCOME_SOURCES,
+    dfe_constants.TableNames.INCOME_SOURCES_VIEW,
+]
+
+_BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
+    {
+        "name": ["Example Budget Tracker"],
+        "total_budget": [0],
+        "current_month": [0],
+        "remaining": [0],
+        "progress": [0],
+        "props": [0],
+    },
+)
 
 _EXPENSE_SOURCES_TABLES_TO_CLEAR = [
     dfe_constants.TableNames.EXPENSE_SOURCES,
@@ -52,6 +74,10 @@ _INCOME_SOURCES_TABLES_TO_CLEAR = [
 def commit() -> None:
     """Apply any pending backend updates for this block."""
     data_client.commit(
+        table_name=_BUDGET_TRACKER_TABLE,
+        tables_to_clear=_BUDGET_TRACKER_TABLES_TO_CLEAR,
+    )
+    data_client.commit(
         table_name=_EXPENSE_SOURCES_TABLE,
         tables_to_clear=_EXPENSE_SOURCES_TABLES_TO_CLEAR,
     )
@@ -72,12 +98,105 @@ def render() -> None:
     }
     budget_tracker_ids = list(budget_tracker_map.keys())
 
+    expenses_bt_id = next(
+        (
+            bt_id
+            for bt_id, name in budget_tracker_map.items()
+            if name.lower() == "expenses"
+        ),
+        None,
+    )
+
     def get_budget_tracker_name(bt_id: str | float) -> str:
         return budget_tracker_map.get(str(bt_id), "Unknown Budget Tracker")
 
-    expense_tab, income_tab = st.tabs(
-        ["Expense Sources", "Income Sources"],
+    budget_tracker_tab, expense_tab, income_tab = st.tabs(
+        ["Budget Tracker", "Expense Sources", "Income Sources"],
     )
+
+    with budget_tracker_tab:
+        base_block.render_dfe_tab(
+            table_names=frontend_models.DFETableNameConfig(
+                write_table=_BUDGET_TRACKER_TABLE,
+                read_table=_BUDGET_TRACKER_VIEW,
+            ),
+            backend_model=backend_models.BudgetTrackerItemModel,
+            configs=[
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="name",
+                    column_config=st.column_config.TextColumn(
+                        "🔠 Name",
+                        required=True,
+                        disabled=True,
+                    ),
+                    button_label="Name",
+                    input_widget=st.text_input,
+                    input_kwargs={"value": None},
+                ),
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="props",
+                    column_config=st.column_config.ProgressColumn(
+                        "📐 Props",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                    ),
+                    button_label="Props",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    column_name="total_budget",
+                    column_config=st.column_config.NumberColumn(
+                        "💰 Budget",
+                        format="£%.2f",
+                        required=True,
+                    ),
+                    button_label="Budget",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="current_month",
+                    column_config=st.column_config.NumberColumn(
+                        "💵 Current Month",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Current Month",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="progress",
+                    column_config=st.column_config.ProgressColumn(
+                        "📊 Progress",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                        color="auto-inverse",
+                    ),
+                    button_label="Progress",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                ),
+                frontend_models.DFEReadOnlyColumnConfig(
+                    column_name="remaining",
+                    column_config=st.column_config.NumberColumn(
+                        "💰 Remaining",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Remaining",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+            ],
+            sample_data=_BUDGET_TRACKER_SAMPLE_DATA,
+            tables_to_clear=_BUDGET_TRACKER_TABLES_TO_CLEAR,
+        )
 
     with expense_tab:
         base_block.render_dfe_tab(
@@ -137,6 +256,7 @@ def render() -> None:
                         min_value=0,
                         max_value=100,
                         width="small",
+                        color="auto-inverse",
                     ),
                     button_label="Progress",
                     input_widget=st.number_input,
@@ -152,6 +272,19 @@ def render() -> None:
                     button_label="Remaining",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                *(
+                    [
+                        frontend_models.DFEReadOnlyColumnConfig(
+                            column_name="budget_tracker_ids",
+                            column_config={"disabled": True},
+                            visible=False,
+                            filters=frontend_models.Filters(cs=expenses_bt_id),
+                            input_widget=st.text_input,
+                        ),
+                    ]
+                    if expenses_bt_id
+                    else []
                 ),
             ],
             sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
