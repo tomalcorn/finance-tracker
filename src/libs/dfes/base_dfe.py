@@ -143,7 +143,7 @@ class DFE:
     ) -> pd.DataFrame:
         """Apply a single filter operation to the DataFrame."""
         if operator == "contains":
-            mask = modified_df[col].str.contains(criteria, na=False)
+            mask = modified_df[col].str.contains(str(criteria), na=False)
             return modified_df[mask]
         if operator == "cs":
             mask = modified_df[col].apply(
