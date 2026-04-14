@@ -1,6 +1,7 @@
 """Module for the base DFE classes and utilities."""
 
 import contextlib
+import datetime
 import re
 import typing
 
@@ -133,6 +134,30 @@ class DFE:
                     dataframe[col] = pd.to_datetime(dataframe[col])
         return dataframe
 
+    @staticmethod
+    def _apply_column_filter(
+        modified_df: pd.DataFrame,
+        col: str,
+        operator: str,
+        criteria: object,
+    ) -> pd.DataFrame:
+        """Apply a single filter operation to the DataFrame."""
+        if operator == "contains":
+            mask = modified_df[col].str.contains(criteria, na=False)
+            return modified_df[mask]
+        if operator == "cs":
+            mask = modified_df[col].apply(
+                lambda x, c=criteria: c in x if isinstance(x, list) else False,
+            )
+            return modified_df[mask]
+        if isinstance(criteria, datetime.date):
+            converted_col = pd.to_datetime(modified_df[col])
+            criteria_ts = pd.Timestamp(criteria)
+            ops = {">=": "ge", "<=": "le", ">": "gt", "<": "lt"}
+            mask = getattr(converted_col, ops[operator])(criteria_ts)
+            return modified_df.loc[mask]
+        return modified_df.query(f"`{col}` {operator} @criteria")
+
     def _check_for_filters_updates(
         self,
         working_df: pd.DataFrame,
@@ -164,20 +189,12 @@ class DFE:
             if config.filters and config.column_name in modified_df.columns:
                 filters = config.filters.get_pandas_filters()
                 for operator, criteria in filters.items():
-                    col = config.column_name
-
-                    if operator == "contains":
-                        mask = modified_df[col].str.contains(criteria, na=False)
-                        modified_df = modified_df[mask]
-                    elif operator == "cs":
-                        mask = modified_df[col].apply(
-                            lambda x, c=criteria: (
-                                c in x if isinstance(x, list) else False
-                            ),
-                        )
-                        modified_df = modified_df[mask]
-                    else:
-                        modified_df = modified_df.query(f"`{col}` {operator} @criteria")
+                    modified_df = self._apply_column_filter(
+                        modified_df,
+                        config.column_name,
+                        operator,
+                        criteria,
+                    )
 
         changed = len(modified_df) != len(working_df)
         return changed, modified_df.reset_index(drop=True)
