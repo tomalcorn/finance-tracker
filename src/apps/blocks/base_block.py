@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from apps.buttons import add_button, filter_button
+from libs import data_client
 from libs.buttons import constants
 from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
@@ -37,6 +38,9 @@ def render_dfe_tab(
         new_data_added = add_btn(col_configs=writable_configs)
     with filter_col:
         filters_changed, configs = filter_btn(col_configs=configs)
+
+    if filters_changed:
+        data_client.invalidate_table_cache(read_table_name)
 
     base_dfe.DFE(table_names=table_names, configs=configs).load_input_data(
         sample_data,

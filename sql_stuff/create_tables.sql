@@ -129,19 +129,32 @@ SELECT
     bt.name,
     bt.total_budget,
     bt._created_at,
-    COALESCE(SUM(esv.current_month), 0) AS current_month
+    COALESCE(SUM(esv.current_month), 0) AS current_month,
+    bt.total_budget - COALESCE(SUM(esv.current_month), 0) AS remaining,
+    CASE
+        WHEN bt.total_budget > 0
+        THEN COALESCE(SUM(esv.current_month), 0) / bt.total_budget * 100
+        ELSE 0
+    END AS progress,
+    CASE
+        WHEN COALESCE(income_totals.total_income, 0) > 0
+        THEN bt.total_budget / income_totals.total_income * 100
+        ELSE 0
+    END AS props
 FROM
     BUDGET_TRACKER bt
 LEFT JOIN
     EXPENSE_SOURCES es ON bt.id = ANY(es.budget_tracker_ids)
 LEFT JOIN
     EXPENSE_SOURCES_VIEW esv ON es.id = esv.id
-LEFT JOIN
-    INCOME_SOURCES inc ON bt.id = ANY(inc.budget_tracker_ids)
-LEFT JOIN
-    INCOME_SOURCES_VIEW incv ON inc.id = incv.id
+LEFT JOIN LATERAL (
+    SELECT COALESCE(SUM(incv.current_month), 0) AS total_income
+    FROM INCOME_SOURCES inc
+    JOIN INCOME_SOURCES_VIEW incv ON inc.id = incv.id
+    WHERE bt.id = ANY(inc.budget_tracker_ids)
+) income_totals ON TRUE
 GROUP BY
-    bt.id, bt.name, bt.total_budget, bt._created_at;
+    bt.id, bt.name, bt.total_budget, bt._created_at, income_totals.total_income;
 
 -- Create the BANK_ACCOUNTS_VIEW view
 CREATE OR REPLACE VIEW BANK_ACCOUNTS_VIEW AS
