@@ -21,19 +21,27 @@ def render_dfe_tab(
     """Render a single DFE tab with add/filter buttons and a dataframe editor."""
     read_table_name = table_names.read_table or table_names.write_table
     write_table_name = table_names.write_table
+    key_prefix = table_names.key_prefix or write_table_name
 
     add_btn = add_button.AddButton(
         table_name=write_table_name,
+        key_prefix=key_prefix,
         backend_model=backend_model,
         tables_to_clear=tables_to_clear,
     )
-    filter_btn = filter_button.FilterButton(table_name=read_table_name)
+    filter_btn = filter_button.FilterButton(
+        table_name=write_table_name,
+        key_prefix=key_prefix,
+        read_table=read_table_name,
+    )
 
     writable_configs = [
-        c for c in configs if isinstance(c, frontend_models.DFEColumnConfig)
+        c
+        for c in configs
+        if isinstance(c, frontend_models.DFEColumnConfig) and c.visible
     ]
 
-    filter_col, _, add_col = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
+    add_col, filter_col, _ = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
     with add_col:
         new_data_added = add_btn(col_configs=writable_configs)
     with filter_col:

@@ -141,7 +141,7 @@ class TestFilterButtonDialog:
     ) -> None:
         """Test that the filtering button dialog renders text without errors."""
         # Arrange
-        exptected_dialog_text = "Filter **test_table** by:"
+        exptected_dialog_text = "Filter **Test Table** by:"
         expected_multiselect_label = "Filter by col1"
         expected_multiselect_options = ["0.88", "0.23", "0.1"]
         exptected_slider_text = "Filter by col2"
