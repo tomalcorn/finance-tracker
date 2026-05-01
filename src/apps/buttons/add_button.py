@@ -67,7 +67,8 @@ class AddButton(base_button.BaseButton):
         col_configs: list[frontend_models.DFEColumnConfig],
     ) -> None:
         """Render the 'Add' button dialog."""
-        st.write(f"Add a new row to {self._key_prefix}")
+        display_name = self._key_prefix.replace("_", " ").title()
+        st.write(f"Add a new row to {display_name}")
         outputs = [
             col.input_widget(
                 label=col.button_label or col.column_name,
