@@ -110,6 +110,7 @@ def _get_data_cached(
     table_name: str,
     query_string: str,
     table_version: int,
+    filter_key: str = "",  # noqa: ARG001 - used by @st.cache_data as a cache key
     _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
     _connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> list[JsonDict]:
@@ -120,6 +121,8 @@ def _get_data_cached(
         query_string: The select query string.
         table_version: Monotonically increasing version used to bust the cache
             for all queries on a given table via `invalidate_table_cache`.
+        filter_key: Hashable string that differentiates queries with different
+            filter/sort configs on the same table.
         _configs: Optional list of column configurations for filtering and sorting.
         _connection: The Supabase connection to use.
 
@@ -152,6 +155,21 @@ def _get_data_cached(
     return _execute_query(query)
 
 
+def _build_filter_key(
+    configs: list[frontend_models.DFEColumnConfigBase] | None,
+) -> str:
+    """Build a hashable cache key from filter/sort configs."""
+    if not configs:
+        return ""
+    parts: list[str] = []
+    for c in configs:
+        if c.filters:
+            parts.append(f"{c.column_name}:{c.filters.model_dump_json()}")
+        if c.sorting:
+            parts.append(f"{c.column_name}:sort={c.sorting}")
+    return "|".join(parts)
+
+
 def get_data(
     table_name: str,
     query_string: str,
@@ -170,6 +188,7 @@ def get_data(
         table_name,
         query_string,
         version,
+        _build_filter_key(_configs),
         _configs,
         _connection,
     )
@@ -224,6 +243,7 @@ def commit(
     table_name: str,
     tables_to_clear: list[dfe_constants.TableNames],
     connection: st_supabase_connection.SupabaseConnection = CONN,
+    key_prefix: str | None = None,
 ) -> None:
     """Apply any pending sync updates for a table and clear them.
 
@@ -234,9 +254,11 @@ def commit(
         table_name: The table whose pending updates should be applied.
         tables_to_clear: Tables whose cached working_df should be invalidated.
         connection: The Supabase connection to use.
+        key_prefix: The session state key prefix. Defaults to table_name.
 
     """
-    backend_updates_key = f"{table_name}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+    prefix = key_prefix or table_name
+    backend_updates_key = f"{prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
     updates = st.session_state.pop(
         backend_updates_key,
         backend_updates_model.BackendUpdates(),
