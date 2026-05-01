@@ -67,9 +67,38 @@ CREATE TABLE FUN_SPENDING (
     cost FLOAT,
     current_month FLOAT,
     banked FLOAT,
-    budget_tracker_id UUID REFERENCES BUDGET_TRACKER(id),
+    budget_tracker_ids UUID[],
     _created_at TIMESTAMP
 );
+
+-- Create the FUN_SPENDING_VIEW view
+CREATE OR REPLACE VIEW FUN_SPENDING_VIEW AS
+SELECT
+    fs.id,
+    fs.name,
+    fs.cost,
+    fs.current_month,
+    fs.banked,
+    fs.budget_tracker_ids,
+    fs._created_at,
+    fs.cost - fs.current_month - fs.banked AS remaining,
+    CASE
+        WHEN fs.cost > 0
+        THEN (fs.current_month + fs.banked) / fs.cost * 100
+        ELSE 0
+    END AS progress,
+    CASE
+        WHEN COALESCE(bt_totals.total_budget, 0) > 0
+        THEN fs.cost / bt_totals.total_budget * 100
+        ELSE 0
+    END AS split
+FROM
+    FUN_SPENDING fs
+LEFT JOIN LATERAL (
+    SELECT SUM(bt.total_budget) AS total_budget
+    FROM BUDGET_TRACKER bt
+    WHERE bt.id = ANY(fs.budget_tracker_ids)
+) bt_totals ON TRUE;
 
 -- Create the EXPENSE_SOURCES_VIEW view
 CREATE OR REPLACE VIEW EXPENSE_SOURCES_VIEW AS
