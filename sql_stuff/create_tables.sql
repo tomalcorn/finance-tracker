@@ -45,6 +45,7 @@ CREATE TABLE PAYMENTS (
     payment_date DATE,
     checked BOOLEAN,
     bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
+    payment_type TEXT NOT NULL DEFAULT 'expense',
     _created_at TIMESTAMP
 );
 
