@@ -136,6 +136,10 @@ class ExpensePaymentModel(_PaymentBaseModel):
         float,
         pydantic.Field(description="The expense amount for the payment."),
     ] = 0.0
+    income: Annotated[
+        float,
+        pydantic.Field(description="The income amount (always 0 for expenses)."),
+    ] = 0.0
     expense_source_id: Annotated[
         uuid.UUID | None,
         pydantic.Field(description="The associated expense source ID."),
@@ -152,6 +156,10 @@ class IncomePaymentModel(_PaymentBaseModel):
     income: Annotated[
         float,
         pydantic.Field(description="The income amount for the payment."),
+    ] = 0.0
+    expense: Annotated[
+        float,
+        pydantic.Field(description="The expense amount (always 0 for income)."),
     ] = 0.0
     income_source_id: Annotated[
         uuid.UUID | None,
