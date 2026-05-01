@@ -4,9 +4,11 @@ from unittest import mock
 
 import pandas as pd
 import pytest
+import streamlit as st
 
-from libs import data_client
+from libs import data_client, ss_keys
 from libs.dfes import base_dfe
+from libs.models import frontend_models
 
 
 @pytest.fixture(name="input_df")
@@ -238,3 +240,74 @@ class TestDFE:
         # Assert
         # Should find max suffix (10) and add 1
         assert result == {"name": "Item (11)", "value": 100}
+
+
+class TestDFEKeyPrefix:
+    """Tests for DFE key_prefix behaviour."""
+
+    def test_key_prefix_defaults_to_write_table(self) -> None:
+        """Test that key_prefix defaults to write_table when not provided."""
+        dfe = base_dfe.DFE(
+            table_names=frontend_models.DFETableNameConfig(write_table="payments"),
+            configs=[],
+        )
+        assert dfe.key_prefix == "payments"
+
+    def test_key_prefix_uses_provided_value(self) -> None:
+        """Test that key_prefix uses the provided value."""
+        dfe = base_dfe.DFE(
+            table_names=frontend_models.DFETableNameConfig(
+                write_table="payments",
+                key_prefix="income_entries",
+            ),
+            configs=[],
+        )
+        assert dfe.key_prefix == "income_entries"
+
+    def test_session_state_keys_use_key_prefix(self) -> None:
+        """Test that session state keys use key_prefix, not write_table."""
+        dfe = base_dfe.DFE(
+            table_names=frontend_models.DFETableNameConfig(
+                write_table="payments",
+                key_prefix="income_entries",
+            ),
+            configs=[],
+        )
+        test_df = pd.DataFrame({"col1": [1]})
+        dfe.working_df = test_df
+
+        expected_key = f"income_entries_{ss_keys.SSKeys.WORKING_DF}"
+        wrong_key = f"payments_{ss_keys.SSKeys.WORKING_DF}"
+        assert expected_key in st.session_state
+        assert wrong_key not in st.session_state
+        pd.testing.assert_frame_equal(st.session_state[expected_key], test_df)
+
+
+class TestApplyColumnFilter:
+    """Tests for the _apply_column_filter static method."""
+
+    def test_eq_filter_on_string_column(self) -> None:
+        """Test equality filter on a string column."""
+        df = pd.DataFrame({"payment_type": ["expense", "income", "expense"]})
+        result = base_dfe.DFE._apply_column_filter(df, "payment_type", "==", "expense")
+        assert list(result["payment_type"]) == ["expense", "expense"]
+
+    def test_eq_filter_no_matches(self) -> None:
+        """Test equality filter returns empty when no matches."""
+        df = pd.DataFrame({"payment_type": ["expense", "expense"]})
+        result = base_dfe.DFE._apply_column_filter(df, "payment_type", "==", "income")
+        assert result.empty
+
+    def test_contains_filter(self) -> None:
+        """Test contains filter on a string column."""
+        df = pd.DataFrame({"name": ["test item", "other", "test thing"]})
+        result = base_dfe.DFE._apply_column_filter(df, "name", "contains", "test")
+        expected_count = 2
+        assert len(result) == expected_count
+
+    def test_gte_lte_filter_on_numeric(self) -> None:
+        """Test >= and <= filters on a numeric column."""
+        df = pd.DataFrame({"value": [10, 20, 30, 40, 50]})
+        result = base_dfe.DFE._apply_column_filter(df, "value", ">=", 20)
+        result = base_dfe.DFE._apply_column_filter(result, "value", "<=", 40)
+        assert list(result["value"]) == [20, 30, 40]

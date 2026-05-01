@@ -38,13 +38,14 @@ CREATE TABLE PAYMENTS (
     id UUID PRIMARY KEY,
     user_id UUID REFERENCES users(id),
     name TEXT,
-    income FLOAT,
-    expense FLOAT,
+    income FLOAT NOT NULL DEFAULT 0,
+    expense FLOAT NOT NULL DEFAULT 0,
     income_source_id UUID REFERENCES INCOME_SOURCES(id),
     expense_source_id UUID REFERENCES EXPENSE_SOURCES(id),
     payment_date DATE,
     checked BOOLEAN,
     bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
+    payment_type TEXT NOT NULL DEFAULT 'expense',
     _created_at TIMESTAMP
 );
 
@@ -109,7 +110,7 @@ CREATE OR REPLACE VIEW income_sources_view AS
 SELECT
     "income_sources".id,
     "income_sources".name,
-    COALESCE(SUM(payments.income - payments.expense), 0) AS current_month,
+    COALESCE(SUM(payments.income), 0) AS current_month,
     "income_sources".budget_tracker_ids
 FROM
     "income_sources"
