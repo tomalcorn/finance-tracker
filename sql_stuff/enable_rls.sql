@@ -61,7 +61,7 @@ CREATE POLICY profiles_user_policy ON profiles
     WITH CHECK (id = auth.uid());
 
 -- Note: Views automatically inherit RLS from their underlying tables
--- EXPENSE_SOURCES_VIEW, income_sources_view, and BUDGET_TRACKER_VIEW
+-- EXPENSE_SOURCES_VIEW, income_sources_view, BUDGET_TRACKER_VIEW, and FUN_SPENDING_VIEW
 -- will automatically filter based on the RLS policies of their underlying tables
 -- when accessed by users.
 
