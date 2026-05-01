@@ -2,8 +2,82 @@
 
 from unittest import mock
 
+import streamlit as st
+from libs.buttons import constants
+
 from libs import data_client
 from libs.models import frontend_models
+
+
+class TestBuildFilterKey:
+    """Tests for the _build_filter_key function."""
+
+    def test_returns_empty_string_for_none(self) -> None:
+        """Test that None configs return an empty string."""
+        assert data_client._build_filter_key(None) == ""
+
+    def test_returns_empty_string_for_empty_list(self) -> None:
+        """Test that an empty list returns an empty string."""
+        assert data_client._build_filter_key([]) == ""
+
+    def test_includes_filter_info(self) -> None:
+        """Test that filter info is included in the key."""
+        configs = [
+            frontend_models.DFEColumnConfigBase(
+                column_name="payment_type",
+                column_config={},
+                input_widget=st.text_input,
+                filters=frontend_models.Filters(eq="expense"),
+            ),
+        ]
+        result = data_client._build_filter_key(configs)
+        assert all(["payment_type" in result, "expense" in result])
+
+    def test_includes_sorting_info(self) -> None:
+        """Test that sorting info is included in the key."""
+        configs = [
+            frontend_models.DFEColumnConfigBase(
+                column_name="date",
+                column_config={},
+                input_widget=st.text_input,
+                sorting=constants.SortingValues.DESC,
+            ),
+        ]
+        result = data_client._build_filter_key(configs)
+        assert "date:sort=desc" in result
+
+    def test_different_filters_produce_different_keys(self) -> None:
+        """Test that different filter configs produce different keys."""
+        config_expense = [
+            frontend_models.DFEColumnConfigBase(
+                column_name="payment_type",
+                column_config={},
+                input_widget=st.text_input,
+                filters=frontend_models.Filters(eq="expense"),
+            ),
+        ]
+        config_income = [
+            frontend_models.DFEColumnConfigBase(
+                column_name="payment_type",
+                column_config={},
+                input_widget=st.text_input,
+                filters=frontend_models.Filters(eq="income"),
+            ),
+        ]
+        key_expense = data_client._build_filter_key(config_expense)
+        key_income = data_client._build_filter_key(config_income)
+        assert key_expense != key_income
+
+    def test_skips_configs_without_filters_or_sorting(self) -> None:
+        """Test that configs with no filters or sorting don't contribute to key."""
+        configs = [
+            frontend_models.DFEColumnConfigBase(
+                column_name="name",
+                column_config={},
+                input_widget=st.text_input,
+            ),
+        ]
+        assert data_client._build_filter_key(configs) == ""
 
 
 def test_apply_filters_to_query(
