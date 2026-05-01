@@ -32,6 +32,7 @@ def render_dfe_tab(
     filter_btn = filter_button.FilterButton(
         table_name=write_table_name,
         key_prefix=key_prefix,
+        read_table=read_table_name,
     )
 
     writable_configs = [
@@ -40,7 +41,7 @@ def render_dfe_tab(
         if isinstance(c, frontend_models.DFEColumnConfig) and c.visible
     ]
 
-    filter_col, _, add_col = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
+    add_col, filter_col, _ = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
     with add_col:
         new_data_added = add_btn(col_configs=writable_configs)
     with filter_col:
