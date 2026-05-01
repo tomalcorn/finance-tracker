@@ -5,6 +5,29 @@ import pytest
 from libs.models import frontend_models
 
 
+class TestFilters:
+    """Tests for the Filters model."""
+
+    @pytest.mark.parametrize(
+        ("filters_kwargs", "expected"),
+        [
+            pytest.param({"eq": "expense"}, {"==": "expense"}, id="eq"),
+            pytest.param({"gte": 10, "lte": 100}, {">=": 10, "<=": 100}, id="range"),
+            pytest.param({"lt": 5, "gt": 1}, {"<": 5, ">": 1}, id="lt_gt"),
+            pytest.param({"contains": "test"}, {"contains": "test"}, id="contains"),
+            pytest.param({}, {}, id="empty"),
+        ],
+    )
+    def test_get_pandas_filters(
+        self,
+        filters_kwargs: dict,
+        expected: dict,
+    ) -> None:
+        """Test that get_pandas_filters maps operators correctly."""
+        filters = frontend_models.Filters(**filters_kwargs)
+        assert filters.get_pandas_filters() == expected
+
+
 class TestDFEColumnConfig:
     """Tests for the DFEColumnConfig data model."""
 
