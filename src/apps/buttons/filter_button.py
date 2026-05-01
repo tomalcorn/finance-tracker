@@ -19,10 +19,12 @@ class FilterButton(base_button.BaseButton):
         self,
         table_name: str,
         key_prefix: str | None = None,
+        read_table: str | None = None,
     ) -> None:
         """Initialize the FilterButton instance."""
         super().__init__(table_name)
         self._key_prefix = key_prefix or table_name
+        self._read_table = read_table or table_name
 
     @property
     def column_configs(self) -> list[frontend_models.DFEColumnConfigBase]:
@@ -112,7 +114,7 @@ class FilterButton(base_button.BaseButton):
     ) -> frontend_models.Filters | None:
         """Handle filtering for numeric columns."""
         default_min, default_max = self._get_min_max_values(
-            self._table_name,
+            self._read_table,
             col_config.column_name,
         )
 
@@ -215,7 +217,7 @@ class FilterButton(base_button.BaseButton):
             elif (
                 unique_vals := set(
                     data_client.get_column_values(
-                        self._table_name,
+                        self._read_table,
                         col_config.column_name,
                         unique=True,
                     ),
@@ -259,10 +261,7 @@ class FilterButton(base_button.BaseButton):
             ]
 
         _key = f"{self._key_prefix}_filter_button_container"
-        st.markdown(
-            f"<style>.st-key-{_key} {self._current_css_style(col_configs)}</style>",
-            unsafe_allow_html=True,
-        )
+        css = self._current_css_style(col_configs)
         with st.container(key=_key):
             if st.button(
                 label="",
@@ -270,6 +269,10 @@ class FilterButton(base_button.BaseButton):
                 key=f"{self._key_prefix}_filter_button",
             ):
                 self._filtering_button_dialog(col_configs)
+        st.markdown(
+            f"<style>.st-key-{_key} {css}</style>",
+            unsafe_allow_html=True,
+        )
 
         current_configs = self.column_configs or col_configs
         previous_configs = self.previous_column_configs or col_configs
