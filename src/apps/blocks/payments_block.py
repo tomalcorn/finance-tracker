@@ -12,6 +12,7 @@ from libs.dfes import constants as dfe_constants
 from libs.models import backend_models, frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.PAYMENTS.value
+_INCOME_KEY_PREFIX = "income_entries"
 _TABLES_TO_CLEAR = [
     dfe_constants.TableNames.PAYMENTS,
     dfe_constants.TableNames.BANK_ACCOUNTS,
@@ -32,6 +33,7 @@ _EXPENSE_PAYMENTS_SAMPLE_DATA = pd.DataFrame(
         "checked": [False],
         "bank_account_id": ["example bank account"],
         "expense_source_id": ["example expense source"],
+        "payment_type": ["expense"],
     },
 )
 
@@ -43,6 +45,7 @@ _INCOME_ENTRIES_SAMPLE_DATA = pd.DataFrame(
         "checked": [False],
         "bank_account_id": ["example bank account"],
         "income_source_id": ["example income source"],
+        "payment_type": ["income"],
     },
 )
 
@@ -52,6 +55,11 @@ def commit() -> None:
     data_client.commit(
         table_name=_TABLE_NAME,
         tables_to_clear=_TABLES_TO_CLEAR,
+    )
+    data_client.commit(
+        table_name=_TABLE_NAME,
+        tables_to_clear=_TABLES_TO_CLEAR,
+        key_prefix=_INCOME_KEY_PREFIX,
     )
 
 
@@ -100,7 +108,7 @@ def render() -> None:
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
             ),
-            backend_model=backend_models.PaymentsModel,
+            backend_model=backend_models.ExpensePaymentModel,
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
@@ -177,6 +185,13 @@ def render() -> None:
                     },
                     format_func=get_expense_source_name,
                 ),
+                frontend_models.DFEColumnConfig(
+                    column_name="payment_type",
+                    column_config=st.column_config.TextColumn("Type"),
+                    input_widget=st.text_input,
+                    visible=False,
+                    filters=frontend_models.Filters(eq="expense"),
+                ),
             ],
             sample_data=_EXPENSE_PAYMENTS_SAMPLE_DATA,
             tables_to_clear=_TABLES_TO_CLEAR,
@@ -186,8 +201,9 @@ def render() -> None:
         base_block.render_dfe_tab(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
+                key_prefix=_INCOME_KEY_PREFIX,
             ),
-            backend_model=backend_models.PaymentsModel,
+            backend_model=backend_models.IncomePaymentModel,
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
@@ -263,6 +279,13 @@ def render() -> None:
                         "format_func": get_income_source_name,
                     },
                     format_func=get_income_source_name,
+                ),
+                frontend_models.DFEColumnConfig(
+                    column_name="payment_type",
+                    column_config=st.column_config.TextColumn("Type"),
+                    input_widget=st.text_input,
+                    visible=False,
+                    filters=frontend_models.Filters(eq="income"),
                 ),
             ],
             sample_data=_INCOME_ENTRIES_SAMPLE_DATA,
