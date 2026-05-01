@@ -2,7 +2,7 @@
 
 import datetime
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 import pydantic
 
@@ -105,25 +105,9 @@ class IncomeSourceModel(FinanceTrackerBaseModel):
     ] = []
 
 
-class PaymentsModel(FinanceTrackerBaseModel):
-    """Model representing a payment."""
+class _PaymentBaseModel(FinanceTrackerBaseModel):
+    """Base model for payment entries."""
 
-    income: Annotated[
-        float,
-        pydantic.Field(description="The income amount for the payment."),
-    ] = 0.0
-    expense: Annotated[
-        float,
-        pydantic.Field(description="The expense amount for the payment."),
-    ] = 0.0
-    income_source_id: Annotated[
-        uuid.UUID | None,
-        pydantic.Field(description="The associated income source ID."),
-    ] = None
-    expense_source_id: Annotated[
-        uuid.UUID | None,
-        pydantic.Field(description="The associated expense source ID."),
-    ] = None
     payment_date: Annotated[
         datetime.date,
         pydantic.Field(
@@ -139,6 +123,40 @@ class PaymentsModel(FinanceTrackerBaseModel):
         uuid.UUID,
         pydantic.Field(description="The associated bank account ID."),
     ]
+
+
+class ExpensePaymentModel(_PaymentBaseModel):
+    """Model representing an expense payment."""
+
+    payment_type: Annotated[
+        Literal["expense"],
+        pydantic.Field(description="The type of payment."),
+    ] = "expense"
+    expense: Annotated[
+        float,
+        pydantic.Field(description="The expense amount for the payment."),
+    ] = 0.0
+    expense_source_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The associated expense source ID."),
+    ] = None
+
+
+class IncomePaymentModel(_PaymentBaseModel):
+    """Model representing an income payment."""
+
+    payment_type: Annotated[
+        Literal["income"],
+        pydantic.Field(description="The type of payment."),
+    ] = "income"
+    income: Annotated[
+        float,
+        pydantic.Field(description="The income amount for the payment."),
+    ] = 0.0
+    income_source_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The associated income source ID."),
+    ] = None
 
 
 class UserModel(pydantic.BaseModel):
