@@ -1,4 +1,4 @@
-"""Block for the budget tracker section: budget tracker, expense and income sources."""
+"""Block for the budget tracker section."""
 
 import pandas as pd
 import streamlit as st
@@ -22,6 +22,8 @@ _BUDGET_TRACKER_TABLES_TO_CLEAR = [
     dfe_constants.TableNames.BUDGET_TRACKER,
     dfe_constants.TableNames.EXPENSE_SOURCES,
     dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
+    dfe_constants.TableNames.FUN_SPENDING,
+    dfe_constants.TableNames.FUN_SPENDING_VIEW,
     dfe_constants.TableNames.INCOME_SOURCES,
     dfe_constants.TableNames.INCOME_SOURCES_VIEW,
 ]
