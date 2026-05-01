@@ -53,6 +53,7 @@ class Filters(pydantic.BaseModel):
         """Serialise to pandas friendly format."""
         serialised = self.model_dump(exclude_none=True)
         to_pandas_map = {
+            "eq": "==",
             "lt": "<",
             "lte": "<=",
             "gt": ">",
@@ -82,6 +83,16 @@ class DFETableNameConfig(pydantic.BaseModel):
             description=(
                 "The name of the view to read data from. If not provided, data will be "
                 "read directly from the table."
+            ),
+        ),
+    ] = None
+    key_prefix: Annotated[
+        str | None,
+        pydantic.Field(
+            description=(
+                "Prefix for Streamlit widget keys. If not provided, defaults to "
+                "write_table. Use to avoid key collisions when multiple DFEs share "
+                "the same underlying table."
             ),
         ),
     ] = None

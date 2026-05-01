@@ -18,9 +18,11 @@ class AddButton(base_button.BaseButton):
         table_name: str,
         backend_model: type[pydantic.BaseModel],
         tables_to_clear: list | None = None,
+        key_prefix: str | None = None,
     ) -> None:
         """Initialize the AddButton instance."""
         self._table_name = table_name
+        self._key_prefix = key_prefix or table_name
         self._backend_model = backend_model
         self._tables_to_clear = tables_to_clear
 
@@ -65,11 +67,11 @@ class AddButton(base_button.BaseButton):
         col_configs: list[frontend_models.DFEColumnConfig],
     ) -> None:
         """Render the 'Add' button dialog."""
-        st.write(f"Add a new row to {self._table_name}")
+        st.write(f"Add a new row to {self._key_prefix}")
         outputs = [
             col.input_widget(
                 label=col.button_label or col.column_name,
-                key=f"{self._table_name}_new_row_{col.column_name}",
+                key=f"{self._key_prefix}_new_row_{col.column_name}",
                 **col.input_kwargs,
             )
             for col in col_configs
@@ -77,7 +79,7 @@ class AddButton(base_button.BaseButton):
         options_unfilled = any(output is None or output == "" for output in outputs)
         submit_button = st.button(
             label="Submit",
-            key=f"{self._table_name}_submit_new_row_button",
+            key=f"{self._key_prefix}_submit_new_row_button",
             disabled=options_unfilled,
         )
         if submit_button:
@@ -100,7 +102,7 @@ class AddButton(base_button.BaseButton):
         if st.button(
             label="",
             icon=constants.ButtonIcons.ADD,
-            key=f"{self._table_name}_add_row_button",
+            key=f"{self._key_prefix}_add_row_button",
         ):
             self._add_button_dialog(col_configs)
         return self.new_data_added

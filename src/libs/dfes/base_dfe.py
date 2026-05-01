@@ -23,6 +23,7 @@ class DFE:
         """Initialize the DataframeEditor with a Supabase table."""
         self.write_table = table_names.write_table
         self.read_table = table_names.read_table or table_names.write_table
+        self.key_prefix = table_names.key_prefix or table_names.write_table
         self.configs = configs
 
         self._column_config = {
@@ -32,25 +33,25 @@ class DFE:
     @property
     def working_df(self) -> pd.DataFrame | None:
         """Get the working dataframe from session state."""
-        working_df_key = f"{self.write_table}_{ss_keys.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.key_prefix}_{ss_keys.SSKeys.WORKING_DF}"
         return st.session_state.get(working_df_key, None)
 
     @working_df.setter
     def working_df(self, df: pd.DataFrame) -> None:
         """Set the working dataframe in session state."""
-        working_df_key = f"{self.write_table}_{ss_keys.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.key_prefix}_{ss_keys.SSKeys.WORKING_DF}"
         st.session_state[working_df_key] = df
 
     def _clear_working_df(self) -> None:
         """Clear the working dataframe from session state."""
-        working_df_key = f"{self.write_table}_{ss_keys.SSKeys.WORKING_DF}"
+        working_df_key = f"{self.key_prefix}_{ss_keys.SSKeys.WORKING_DF}"
         if working_df_key in st.session_state:
             del st.session_state[working_df_key]
 
     @property
     def editor_state(self) -> dict[str, typing.Any]:
         """Get the editor state from session state."""
-        return st.session_state[self.write_table]
+        return st.session_state[self.key_prefix]
 
     @property
     def edited_rows(self) -> dict[str, dict[str, typing.Any]]:
@@ -65,7 +66,7 @@ class DFE:
     @property
     def backend_updates(self) -> backend_updates_model.BackendUpdates:
         """Get the backend updates from session state."""
-        backend_updates_key = f"{self.write_table}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+        backend_updates_key = f"{self.key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         return st.session_state.get(
             backend_updates_key,
             backend_updates_model.BackendUpdates(),
@@ -74,7 +75,7 @@ class DFE:
     @backend_updates.setter
     def backend_updates(self, updates: backend_updates_model.BackendUpdates) -> None:
         """Set the backend updates in session state."""
-        backend_updates_key = f"{self.write_table}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+        backend_updates_key = f"{self.key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         st.session_state[backend_updates_key] = updates
 
     def load_input_data(
@@ -301,7 +302,7 @@ class DFE:
             raise ValueError(msg)
         return st.data_editor(
             self.working_df,
-            key=self.write_table,
+            key=self.key_prefix,
             column_config=self._column_config,
             column_order=[col.column_name for col in self.configs if col.visible],
             num_rows="delete",
