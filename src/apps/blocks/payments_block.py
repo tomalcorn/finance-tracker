@@ -101,7 +101,7 @@ def render() -> None:
     def get_income_source_name(ins_id: str | float) -> str:
         return income_source_map.get(str(ins_id), "Unknown Income Source")
 
-    expense_tab, income_tab = st.tabs(["Expense Payments", "Income Entries"])
+    expense_tab, income_tab = st.tabs(["Expense Entries", "Income Entries"])
 
     with expense_tab:
         base_block.render_dfe_tab(
