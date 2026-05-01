@@ -13,22 +13,15 @@ class BaseButton:
 
     @property
     def css_style_normal(self) -> str:
-        """CSS for the normal button state."""
-        return """
-            button {
-                background-color: white;
-                border: 1px solid #ccc;
-                color: black;
-            }
-        """
+        """CSS for the normal button state (no override, use Streamlit defaults)."""
+        return ""
 
     @property
     def css_style_active(self) -> str:
         """CSS for the active button state."""
         return """
             button {
-                background-color: rgba(212, 237, 218, 0.5); /* Light green background */
-                border: 1px solid #ccc;
-                color: black;
+                background-color: rgba(33, 195, 84, 0.1);
+                border: 1px solid rgba(33, 195, 84, 0.3);
             }
         """
