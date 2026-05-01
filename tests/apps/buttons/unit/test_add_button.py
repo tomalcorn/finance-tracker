@@ -44,7 +44,7 @@ class TestAddButton:
             btn.label == "Submit" for btn in app_tester.button
         )
         dialog_text_rendered = (
-            "Add a new row to test_table" in conftest.get_rendered_texts(app_tester)
+            "Add a new row to Test Table" in conftest.get_rendered_texts(app_tester)
         )
         assert all(
             [
