@@ -84,12 +84,12 @@ SELECT
     fs.cost - fs.current_month - fs.banked AS remaining,
     CASE
         WHEN fs.cost > 0
-        THEN (fs.current_month + fs.banked) / fs.cost * 100
+        THEN fs.banked / fs.cost * 100
         ELSE 0
     END AS progress,
     CASE
         WHEN COALESCE(bt_totals.total_budget, 0) > 0
-        THEN fs.cost / bt_totals.total_budget * 100
+        THEN fs.current_month / bt_totals.total_budget * 100
         ELSE 0
     END AS split
 FROM
