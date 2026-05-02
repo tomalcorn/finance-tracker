@@ -94,7 +94,7 @@ def _build_dfe() -> DFE:
                     ),
                     button_label="Banked",
                     input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.2f"},
+                    input_kwargs={"value": 0.0, "format": "%.2f"},
                 ),
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="remaining",
