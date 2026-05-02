@@ -100,14 +100,14 @@ def _build_budget_tracker_dfe() -> base_dfe.DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="props",
                     column_config=st.column_config.ProgressColumn(
-                        "Props",
+                        "Split",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
                         width="small",
                         color="blue",
                     ),
-                    button_label="Props",
+                    button_label="Split",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
                 ),
