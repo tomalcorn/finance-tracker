@@ -3,12 +3,17 @@
 from unittest import mock
 
 import pandas as pd
+import pydantic
 import pytest
 import streamlit as st
 
 from libs import data_client, ss_keys
 from libs.dfes import base_dfe
 from libs.models import frontend_models
+
+
+class _StubModel(pydantic.BaseModel):
+    pass
 
 
 @pytest.fixture(name="input_df")
@@ -36,74 +41,62 @@ class TestDFE:
         # Assert
         assert dfe_instance.working_df is None
 
-    def test_load_input_data_no_change_to_configs(
+    def test_load_input_data_no_reload_when_working_df_exists(
         self,
         dfe_instance: base_dfe.DFE,
         input_df: pd.DataFrame,
     ) -> None:
-        """Test loading input data when there is no change to configs."""
+        """Test that load_input_data does not reload when working_df already exists."""
         # Arrange
-        sample_data = input_df.copy()
-        # Changing just to show sample data does nothing
-        sample_data.loc[0, "col1"] = 10
         dfe_instance.working_df = input_df.copy()
 
         # Act
-        dfe_instance.load_input_data(
-            input_df,
-            filters_changed=False,
-            new_data_added=False,
-        )
+        dfe_instance.load_input_data()
 
-        # Assert
+        # Assert - working_df unchanged
         if dfe_instance.working_df is None:
             msg = "working_df is None, expected DataFrame to match input_df"
             raise AssertionError(msg)
         pd.testing.assert_frame_equal(dfe_instance.working_df, input_df)
 
-    def test_load_input_data_with_change_to_configs_loads_new_data(
+    def test_load_input_data_loads_when_working_df_is_none(
         self,
         dfe_instance: base_dfe.DFE,
         input_df: pd.DataFrame,
     ) -> None:
-        """Test loading input data when there is a change to configs."""
-        # Arrange - modify sample data and return input_df from data_client
-        sample_data = input_df.copy()
-        sample_data.loc[0, "col1"] = 10
-        modified_df = input_df.copy()
-        modified_df.loc[0, "col1"] = 20
-
-        dfe_instance.working_df = input_df.copy()
-
-        # mock get_data to return different data on successive calls
+        """Test that load_input_data fetches data when working_df is None."""
+        # Arrange
         mock_get_data = mock.patch.object(
             data_client,
             "get_data",
-            return_value=modified_df,
+            return_value=input_df,
         )
         with mock_get_data:
             # Act
-            dfe_instance.load_input_data(
-                sample_data,
-                filters_changed=True,
-                new_data_added=False,
-            )
+            dfe_instance.load_input_data()
 
         # Assert
         if dfe_instance.working_df is None:
-            msg = "working_df is None, expected modified DataFrame"
+            msg = "working_df is None, expected loaded DataFrame"
             raise AssertionError(msg)
-        pd.testing.assert_frame_equal(dfe_instance.working_df, modified_df)
+        pd.testing.assert_frame_equal(dfe_instance.working_df, input_df)
 
-    def test_load_input_data_get_data_returns_empty_df(
+    def test_load_input_data_uses_sample_data_when_get_data_empty(
         self,
-        dfe_instance: base_dfe.DFE,
         input_df: pd.DataFrame,
     ) -> None:
-        """Test loading input data when get_data returns an empty dataframe."""
-        # Arrange - mock get_data to return empty dataframe
+        """Test load_input_data falls back to sample_data when get_data is empty."""
+        # Arrange - create DFE with sample_data
         sample_data = input_df.copy()
         sample_data.loc[0, "col1"] = 10
+        dfe = base_dfe.DFE(
+            config=frontend_models.DFEConfig(
+                table_names=frontend_models.DFETableNameConfig(write_table="users"),
+                backend_model=_StubModel,
+                configs=[],
+                sample_data=sample_data,
+            ),
+        )
         mock_get_data = mock.patch.object(
             data_client,
             "get_data",
@@ -111,18 +104,13 @@ class TestDFE:
         )
         with mock_get_data:
             # Act
-            dfe_instance.load_input_data(
-                sample_data,
-                filters_changed=False,
-                new_data_added=False,
-            )
+            dfe.load_input_data()
 
         # Assert
-        if dfe_instance.working_df is None:
-            msg = "working_df is None, expected empty DataFrame"
+        if dfe.working_df is None:
+            msg = "working_df is None, expected sample_data fallback"
             raise AssertionError(msg)
-
-        pd.testing.assert_frame_equal(dfe_instance.working_df, sample_data)
+        pd.testing.assert_frame_equal(dfe.working_df, sample_data)
 
     def test_enforce_unique_cols_no_duplicates(
         self,
@@ -248,30 +236,42 @@ class TestDFEKeyPrefix:
     def test_key_prefix_defaults_to_write_table(self) -> None:
         """Test that key_prefix defaults to write_table when not provided."""
         dfe = base_dfe.DFE(
-            table_names=frontend_models.DFETableNameConfig(write_table="payments"),
-            configs=[],
+            config=frontend_models.DFEConfig(
+                table_names=frontend_models.DFETableNameConfig(write_table="payments"),
+                backend_model=_StubModel,
+                configs=[],
+                sample_data=pd.DataFrame(),
+            ),
         )
         assert dfe.key_prefix == "payments"
 
     def test_key_prefix_uses_provided_value(self) -> None:
         """Test that key_prefix uses the provided value."""
         dfe = base_dfe.DFE(
-            table_names=frontend_models.DFETableNameConfig(
-                write_table="payments",
-                key_prefix="income_entries",
+            config=frontend_models.DFEConfig(
+                table_names=frontend_models.DFETableNameConfig(
+                    write_table="payments",
+                    key_prefix="income_entries",
+                ),
+                backend_model=_StubModel,
+                configs=[],
+                sample_data=pd.DataFrame(),
             ),
-            configs=[],
         )
         assert dfe.key_prefix == "income_entries"
 
     def test_session_state_keys_use_key_prefix(self) -> None:
         """Test that session state keys use key_prefix, not write_table."""
         dfe = base_dfe.DFE(
-            table_names=frontend_models.DFETableNameConfig(
-                write_table="payments",
-                key_prefix="income_entries",
+            config=frontend_models.DFEConfig(
+                table_names=frontend_models.DFETableNameConfig(
+                    write_table="payments",
+                    key_prefix="income_entries",
+                ),
+                backend_model=_StubModel,
+                configs=[],
+                sample_data=pd.DataFrame(),
             ),
-            configs=[],
         )
         test_df = pd.DataFrame({"col1": [1]})
         dfe.working_df = test_df

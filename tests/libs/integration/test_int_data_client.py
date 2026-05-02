@@ -269,7 +269,7 @@ class TestUpdateBackend:
         """Test that update_backend clears the get_data cache for the updated table."""
         # Arrange - record the current version
         data_client._get_data_cached.clear()
-        version_before = data_client._table_versions.get("users", 0)
+        version_before = data_client._get_table_versions().get("users", 0)
 
         # Act
         updates = BackendUpdates(
@@ -278,7 +278,7 @@ class TestUpdateBackend:
             },
         )
         data_client.update_backend("users", updates=updates, connection=connection)
-        version_after = data_client._table_versions.get("users", 0)
+        version_after = data_client._get_table_versions().get("users", 0)
 
         # Assert - version should have been bumped, invalidating all cached results
         assert version_after == version_before + 1

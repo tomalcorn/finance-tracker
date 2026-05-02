@@ -9,6 +9,29 @@ from libs import data_client
 from libs.models import frontend_models
 
 
+class TestGetTableVersions:
+    """Tests for the _get_table_versions function."""
+
+    def test_creates_dict_in_session_state_if_missing(self) -> None:
+        """Test that _get_table_versions creates the dict when not in session state."""
+        result = data_client._get_table_versions()
+        assert all(
+            [result == {}, data_client._TABLE_VERSIONS_KEY in st.session_state],
+        )
+
+    def test_returns_existing_dict_from_session_state(self) -> None:
+        """Test that _get_table_versions returns existing dict from session state."""
+        st.session_state[data_client._TABLE_VERSIONS_KEY] = {"users": 3}
+        result = data_client._get_table_versions()
+        assert result == {"users": 3}
+
+    def test_returns_same_reference(self) -> None:
+        """Test that _get_table_versions returns a mutable reference."""
+        versions = data_client._get_table_versions()
+        versions["test_table"] = expected_version = 5
+        assert data_client._get_table_versions()["test_table"] == expected_version
+
+
 class TestBuildFilterKey:
     """Tests for the _build_filter_key function."""
 

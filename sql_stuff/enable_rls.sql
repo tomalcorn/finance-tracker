@@ -7,7 +7,7 @@ ALTER TABLE BANK_ACCOUNTS ENABLE ROW LEVEL SECURITY;
 ALTER TABLE EXPENSE_SOURCES ENABLE ROW LEVEL SECURITY;
 ALTER TABLE INCOME_SOURCES ENABLE ROW LEVEL SECURITY;
 ALTER TABLE BUDGET_TRACKER ENABLE ROW LEVEL SECURITY;
-ALTER TABLE FUN_SPENDING ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ONE_OFFS ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for PAYMENTS table
@@ -45,8 +45,8 @@ CREATE POLICY budget_tracker_user_policy ON BUDGET_TRACKER
     USING (user_id = auth.uid())
     WITH CHECK (user_id = auth.uid());
 
--- Create RLS policies for FUN_SPENDING table
-CREATE POLICY fun_spending_user_policy ON FUN_SPENDING
+-- Create RLS policies for ONE_OFFS table
+CREATE POLICY one_offs_user_policy ON ONE_OFFS
     FOR ALL
     TO authenticated
     USING (user_id = auth.uid())
@@ -61,7 +61,7 @@ CREATE POLICY profiles_user_policy ON profiles
     WITH CHECK (id = auth.uid());
 
 -- Note: Views automatically inherit RLS from their underlying tables
--- EXPENSE_SOURCES_VIEW, income_sources_view, and BUDGET_TRACKER_VIEW
+-- EXPENSE_SOURCES_VIEW, income_sources_view, BUDGET_TRACKER_VIEW, and ONE_OFFS_VIEW
 -- will automatically filter based on the RLS policies of their underlying tables
 -- when accessed by users.
 

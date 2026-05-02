@@ -102,7 +102,14 @@ def _apply_sorting_to_query(
     return query
 
 
-_table_versions: dict[str, int] = {}
+_TABLE_VERSIONS_KEY = "_data_client_table_versions"
+
+
+def _get_table_versions() -> dict[str, int]:
+    """Get the table versions dict from session state, creating if needed."""
+    if _TABLE_VERSIONS_KEY not in st.session_state:
+        st.session_state[_TABLE_VERSIONS_KEY] = {}
+    return st.session_state[_TABLE_VERSIONS_KEY]
 
 
 @st.cache_data(ttl=300)
@@ -177,7 +184,7 @@ def get_data(
     _connection: st_supabase_connection.SupabaseConnection = CONN,
 ) -> list[JsonDict]:
     """Fetch data from the specified table, routing through the versioned cache."""
-    version = _table_versions.get(table_name, 0)
+    version = _get_table_versions().get(table_name, 0)
     logger.info(
         "Cache lookup: table=%r query=%r version=%d",
         table_name,
@@ -196,8 +203,9 @@ def get_data(
 
 def invalidate_table_cache(table_name: str) -> None:
     """Invalidate all cached `get_data` results for the given table."""
-    new_version = _table_versions.get(table_name, 0) + 1
-    _table_versions[table_name] = new_version
+    table_versions = _get_table_versions()
+    new_version = table_versions.get(table_name, 0) + 1
+    table_versions[table_name] = new_version
     logger.info(
         "Cache invalidated: table=%r new version=%d",
         table_name,

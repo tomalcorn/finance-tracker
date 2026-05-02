@@ -1,11 +1,13 @@
-"""Block for the budget tracker section: budget tracker, expense and income sources."""
+"""Block for the budget tracker section."""
+
+from collections.abc import Callable
 
 import pandas as pd
 import streamlit as st
 
-from apps.blocks import base_block
 from libs import data_client
 from libs.dfes import constants as dfe_constants
+from libs.dfes.base_dfe import DFE
 from libs.models import backend_models, frontend_models
 
 _BUDGET_TRACKER_TABLE = dfe_constants.TableNames.BUDGET_TRACKER.value
@@ -22,6 +24,8 @@ _BUDGET_TRACKER_TABLES_TO_CLEAR = [
     dfe_constants.TableNames.BUDGET_TRACKER,
     dfe_constants.TableNames.EXPENSE_SOURCES,
     dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
+    dfe_constants.TableNames.ONE_OFFS,
+    dfe_constants.TableNames.ONE_OFFS_VIEW,
     dfe_constants.TableNames.INCOME_SOURCES,
     dfe_constants.TableNames.INCOME_SOURCES_VIEW,
 ]
@@ -71,51 +75,10 @@ _INCOME_SOURCES_TABLES_TO_CLEAR = [
 ]
 
 
-def commit() -> None:
-    """Apply any pending backend updates for this block."""
-    data_client.commit(
-        table_name=_BUDGET_TRACKER_TABLE,
-        tables_to_clear=_BUDGET_TRACKER_TABLES_TO_CLEAR,
-    )
-    data_client.commit(
-        table_name=_EXPENSE_SOURCES_TABLE,
-        tables_to_clear=_EXPENSE_SOURCES_TABLES_TO_CLEAR,
-    )
-    data_client.commit(
-        table_name=_INCOME_SOURCES_TABLE,
-        tables_to_clear=_INCOME_SOURCES_TABLES_TO_CLEAR,
-    )
-
-
-def render() -> None:
-    """Render the budget tracker block."""
-    budget_tracker_data = data_client.get_data(
-        table_name="budget_tracker",
-        query_string="id,name",
-    )
-    budget_tracker_map: dict[str, str] = {
-        str(bt["id"]): str(bt["name"]) for bt in budget_tracker_data
-    }
-    budget_tracker_ids = list(budget_tracker_map.keys())
-
-    expenses_bt_id = next(
-        (
-            bt_id
-            for bt_id, name in budget_tracker_map.items()
-            if name.lower() == "expenses"
-        ),
-        None,
-    )
-
-    def get_budget_tracker_name(bt_id: str | float) -> str:
-        return budget_tracker_map.get(str(bt_id), "Unknown Budget Tracker")
-
-    budget_tracker_tab, expense_tab, income_tab = st.tabs(
-        ["Budget Tracker", "Expense Sources", "Income Sources"],
-    )
-
-    with budget_tracker_tab:
-        base_block.render_dfe_tab(
+def _build_budget_tracker_dfe() -> DFE:
+    """Build the DFE for the budget tracker tab."""
+    return DFE(
+        config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_BUDGET_TRACKER_TABLE,
                 read_table=_BUDGET_TRACKER_VIEW,
@@ -141,6 +104,7 @@ def render() -> None:
                         min_value=0,
                         max_value=100,
                         width="small",
+                        color="blue",
                     ),
                     button_label="Props",
                     input_widget=st.number_input,
@@ -196,10 +160,15 @@ def render() -> None:
             ],
             sample_data=_BUDGET_TRACKER_SAMPLE_DATA,
             tables_to_clear=_BUDGET_TRACKER_TABLES_TO_CLEAR,
-        )
+            num_rows="fixed",
+        ),
+    )
 
-    with expense_tab:
-        base_block.render_dfe_tab(
+
+def _build_expense_sources_dfe(expenses_bt_id: str | None) -> DFE:
+    """Build the DFE for the expense sources tab."""
+    return DFE(
+        config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_EXPENSE_SOURCES_TABLE,
                 read_table=_EXPENSE_SOURCES_VIEW,
@@ -208,7 +177,10 @@ def render() -> None:
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
-                    column_config=st.column_config.TextColumn("🔠 Name", required=True),
+                    column_config=st.column_config.TextColumn(
+                        "🔠 Name",
+                        required=True,
+                    ),
                     button_label="Name",
                     input_widget=st.text_input,
                     input_kwargs={"value": None},
@@ -232,6 +204,7 @@ def render() -> None:
                         min_value=0,
                         max_value=100,
                         width="small",
+                        color="blue",
                     ),
                     button_label="Split",
                     input_widget=st.number_input,
@@ -289,10 +262,17 @@ def render() -> None:
             ],
             sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
             tables_to_clear=_EXPENSE_SOURCES_TABLES_TO_CLEAR,
-        )
+        ),
+    )
 
-    with income_tab:
-        base_block.render_dfe_tab(
+
+def _build_income_sources_dfe(
+    budget_tracker_ids: list[str],
+    get_budget_tracker_name: Callable,
+) -> DFE:
+    """Build the DFE for the income sources tab."""
+    return DFE(
+        config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_INCOME_SOURCES_TABLE,
                 read_table=_INCOME_SOURCES_VIEW,
@@ -301,7 +281,10 @@ def render() -> None:
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
-                    column_config=st.column_config.TextColumn("🔠 Name", required=True),
+                    column_config=st.column_config.TextColumn(
+                        "🔠 Name",
+                        required=True,
+                    ),
                     button_label="Name",
                     input_widget=st.text_input,
                     input_kwargs={"value": None},
@@ -335,4 +318,67 @@ def render() -> None:
             ],
             sample_data=_INCOME_SOURCES_SAMPLE_DATA,
             tables_to_clear=_INCOME_SOURCES_TABLES_TO_CLEAR,
-        )
+        ),
+    )
+
+
+def commit() -> None:
+    """Apply any pending backend updates for this block."""
+    data_client.commit(
+        table_name=_BUDGET_TRACKER_TABLE,
+        tables_to_clear=_BUDGET_TRACKER_TABLES_TO_CLEAR,
+        key_prefix=_BUDGET_TRACKER_TABLE,
+    )
+    data_client.commit(
+        table_name=_EXPENSE_SOURCES_TABLE,
+        tables_to_clear=_EXPENSE_SOURCES_TABLES_TO_CLEAR,
+        key_prefix=_EXPENSE_SOURCES_TABLE,
+    )
+    data_client.commit(
+        table_name=_INCOME_SOURCES_TABLE,
+        tables_to_clear=_INCOME_SOURCES_TABLES_TO_CLEAR,
+        key_prefix=_INCOME_SOURCES_TABLE,
+    )
+
+
+def render() -> None:
+    """Render the budget tracker block."""
+    budget_tracker_data = data_client.get_data(
+        table_name="budget_tracker",
+        query_string="id,name",
+    )
+    budget_tracker_map: dict[str, str] = {
+        str(bt["id"]): str(bt["name"]) for bt in budget_tracker_data
+    }
+    budget_tracker_ids = list(budget_tracker_map.keys())
+
+    expenses_bt_id = next(
+        (
+            bt_id
+            for bt_id, name in budget_tracker_map.items()
+            if name.lower() == "expenses"
+        ),
+        None,
+    )
+
+    def get_budget_tracker_name(bt_id: str | float) -> str:
+        return budget_tracker_map.get(str(bt_id), "Unknown Budget Tracker")
+
+    budget_tracker_tab, expense_tab, income_tab = st.tabs(
+        ["Budget Tracker", "Expense Sources", "Income Sources"],
+    )
+
+    with budget_tracker_tab:
+        bt_dfe = _build_budget_tracker_dfe()
+        bt_dfe.load_input_data()
+        bt_dfe.render()
+
+    with expense_tab:
+        es_dfe = _build_expense_sources_dfe(expenses_bt_id)
+        es_dfe.load_input_data()
+        es_dfe.render()
+
+    with income_tab:
+        is_dfe = _build_income_sources_dfe(budget_tracker_ids, get_budget_tracker_name)
+        is_dfe.load_input_data()
+        is_dfe.render()

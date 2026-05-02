@@ -3,9 +3,9 @@
 import pandas as pd
 import streamlit as st
 
-from apps.blocks import base_block
 from libs import data_client
 from libs.dfes import constants as dfe_constants
+from libs.dfes.base_dfe import DFE
 from libs.models import backend_models, frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.BANK_ACCOUNTS.value
@@ -25,39 +25,10 @@ _SAMPLE_DATA = pd.DataFrame(
 )
 
 
-def commit() -> None:
-    """Apply any pending backend updates for this block."""
-    data_client.commit(
-        table_name=_TABLE_NAME,
-        tables_to_clear=_TABLES_TO_CLEAR,
-    )
-
-
-def _render_metrics_tab() -> None:
-    """Render the metrics grid tab showing name and current balance per account."""
-    accounts = data_client.get_data(
-        table_name=_VIEW_NAME,
-        query_string="name, current_balance",
-    )
-    cols = st.columns(3)
-    for i, account in enumerate(accounts):
-        with cols[i % 3]:
-            st.metric(
-                label=str(account["name"]),
-                value=f"£{account['current_balance']:,.2f}",
-                border=True,
-            )
-
-
-def render() -> None:
-    """Render the bank accounts block."""
-    metrics_tab, table_tab = st.tabs(["Overview", "Table"])
-
-    with metrics_tab:
-        _render_metrics_tab()
-
-    with table_tab:
-        base_block.render_dfe_tab(
+def _build_dfe() -> DFE:
+    """Build the DFE for the bank accounts block."""
+    return DFE(
+        config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
                 read_table=_VIEW_NAME,
@@ -66,7 +37,10 @@ def render() -> None:
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
-                    column_config=st.column_config.TextColumn("🔠 Name", required=True),
+                    column_config=st.column_config.TextColumn(
+                        "🔠 Name",
+                        required=True,
+                    ),
                     button_label="Name",
                     input_widget=st.text_input,
                     input_kwargs={"value": None},
@@ -95,4 +69,44 @@ def render() -> None:
                 ),
             ],
             sample_data=_SAMPLE_DATA,
-        )
+            tables_to_clear=_TABLES_TO_CLEAR,
+        ),
+    )
+
+
+def commit() -> None:
+    """Apply any pending backend updates for this block."""
+    data_client.commit(
+        table_name=_TABLE_NAME,
+        tables_to_clear=_TABLES_TO_CLEAR,
+        key_prefix=_TABLE_NAME,
+    )
+
+
+def _render_metrics_tab() -> None:
+    """Render the metrics grid tab showing name and current balance per account."""
+    accounts = data_client.get_data(
+        table_name=_VIEW_NAME,
+        query_string="name, current_balance",
+    )
+    cols = st.columns(3)
+    for i, account in enumerate(accounts):
+        with cols[i % 3]:
+            st.metric(
+                label=str(account["name"]),
+                value=f"£{account['current_balance']:,.2f}",
+                border=True,
+            )
+
+
+def render() -> None:
+    """Render the bank accounts block."""
+    metrics_tab, table_tab = st.tabs(["Overview", "Table"])
+
+    with metrics_tab:
+        _render_metrics_tab()
+
+    with table_tab:
+        dfe = _build_dfe()
+        dfe.load_input_data()
+        dfe.render()

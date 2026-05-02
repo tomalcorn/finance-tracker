@@ -3,12 +3,17 @@
 from unittest import mock
 
 import pandas as pd
+import pydantic
 import pytest
 import streamlit as st
 
 from libs import data_client, ss_keys
 from libs.dfes import base_dfe
 from libs.models import frontend_models
+
+
+class _StubModel(pydantic.BaseModel):
+    pass
 
 
 @pytest.fixture(name="sample_df")
@@ -134,8 +139,14 @@ class TestDFESync:
             ),
         ]
         dfe = base_dfe.DFE(
-            table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
-            configs=configs,
+            config=frontend_models.DFEConfig(
+                table_names=frontend_models.DFETableNameConfig(
+                    write_table="test_table",
+                ),
+                backend_model=_StubModel,
+                configs=configs,
+                sample_data=pd.DataFrame(),
+            ),
         )
         dfe.working_df = sample_df.copy()
 
@@ -175,8 +186,14 @@ class TestDFESync:
             ),
         ]
         dfe = base_dfe.DFE(
-            table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
-            configs=configs,
+            config=frontend_models.DFEConfig(
+                table_names=frontend_models.DFETableNameConfig(
+                    write_table="test_table",
+                ),
+                backend_model=_StubModel,
+                configs=configs,
+                sample_data=pd.DataFrame(),
+            ),
         )
         dfe.working_df = sample_df.copy()
 
@@ -244,8 +261,14 @@ class TestDFESync:
             ),
         ]
         dfe = base_dfe.DFE(
-            table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
-            configs=configs,
+            config=frontend_models.DFEConfig(
+                table_names=frontend_models.DFETableNameConfig(
+                    write_table="test_table",
+                ),
+                backend_model=_StubModel,
+                configs=configs,
+                sample_data=pd.DataFrame(),
+            ),
         )
         dfe.working_df = sample_df.copy()
 
@@ -288,8 +311,14 @@ class TestDFESync:
             ),
         ]
         dfe = base_dfe.DFE(
-            table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
-            configs=configs,
+            config=frontend_models.DFEConfig(
+                table_names=frontend_models.DFETableNameConfig(
+                    write_table="test_table",
+                ),
+                backend_model=_StubModel,
+                configs=configs,
+                sample_data=pd.DataFrame(),
+            ),
         )
         dfe.working_df = sample_df.copy()
 
