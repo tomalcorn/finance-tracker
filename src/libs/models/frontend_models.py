@@ -2,11 +2,13 @@
 
 import typing
 from collections.abc import Callable
-from typing import Annotated, Any, Self
+from typing import Annotated, Any, Literal, Self
 
+import pandas as pd
 import pydantic
 
 from libs.buttons import constants
+from libs.dfes import constants as dfe_constants
 
 type StreamlitColumnConfig = Any
 
@@ -215,3 +217,16 @@ class DFEColumnConfig(DFEColumnConfigBase):
         bool,
         pydantic.Field(description="Whether to enforce unique values in the column."),
     ] = False
+
+
+class DFEConfig(pydantic.BaseModel):
+    """Full configuration for a DFE component."""
+
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    table_names: DFETableNameConfig
+    backend_model: type[pydantic.BaseModel]
+    configs: list[DFEColumnConfigBase]
+    sample_data: pd.DataFrame
+    tables_to_clear: list[dfe_constants.TableNames] | None = None
+    num_rows: Literal["fixed", "dynamic", "add", "delete"] = "delete"

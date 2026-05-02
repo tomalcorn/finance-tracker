@@ -72,12 +72,12 @@ class ExpenseSourceModel(FinanceTrackerBaseModel):
         return []
 
 
-class FunSpendingItemModel(FinanceTrackerBaseModel):
-    """Model representing a fun spending item."""
+class OneOffItemModel(FinanceTrackerBaseModel):
+    """Model representing a one-off savings goal item."""
 
     cost: Annotated[
         float,
-        pydantic.Field(description="The cost of the fun spending item."),
+        pydantic.Field(description="The target cost of the one-off item."),
     ] = 0.0
     current_month: Annotated[
         float,
@@ -87,13 +87,26 @@ class FunSpendingItemModel(FinanceTrackerBaseModel):
         float,
         pydantic.Field(description="The amount banked from past months."),
     ] = 0.0
-    budget_tracker_id: Annotated[
-        uuid.UUID,
-        pydantic.Field(
-            description="The associated budget tracker item ID.",
-            default_factory=uuid.uuid4,
-        ),
-    ]
+
+    @pydantic.computed_field
+    @property
+    def budget_tracker_id(self) -> uuid.UUID | None:
+        """Compute the associated budget tracker item ID.
+
+        One-off items should all be connected only to the "one-offs" budget tracker
+        item, so we can compute this based on the name of the budget tracker item
+        rather than needing to store it directly.
+        """
+        rows = data_client.get_data(
+            table_name="budget_tracker",
+            query_string="id,name",
+        )
+        if row := next(
+            (r for r in rows if str(r.get("name", "")).lower() == "one-offs"),
+            None,
+        ):
+            return uuid.UUID(str(row["id"]))
+        return None
 
 
 class IncomeSourceModel(FinanceTrackerBaseModel):

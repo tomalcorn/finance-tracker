@@ -13,5 +13,7 @@ class TableNames(enum.StrEnum):
     BUDGET_TRACKER_VIEW = enum.auto()
     EXPENSE_SOURCES = enum.auto()
     EXPENSE_SOURCES_VIEW = enum.auto()
+    ONE_OFFS = enum.auto()
+    ONE_OFFS_VIEW = enum.auto()
     INCOME_SOURCES = enum.auto()
     INCOME_SOURCES_VIEW = enum.auto()

@@ -59,17 +59,46 @@ CREATE TABLE BUDGET_TRACKER (
     _created_at TIMESTAMP
 );
 
--- Create the FUN_SPENDING table
-CREATE TABLE FUN_SPENDING (
+-- Create the ONE_OFFS table
+CREATE TABLE ONE_OFFS (
     id UUID PRIMARY KEY,
     user_id UUID REFERENCES users(id),
     name TEXT,
     cost FLOAT,
     current_month FLOAT,
     banked FLOAT,
-    budget_tracker_id UUID REFERENCES BUDGET_TRACKER(id),
+    budget_tracker_id UUID,
     _created_at TIMESTAMP
 );
+
+-- Create the ONE_OFFS_VIEW view
+CREATE OR REPLACE VIEW ONE_OFFS_VIEW AS
+SELECT
+    fs.id,
+    fs.name,
+    fs.cost,
+    fs.current_month,
+    fs.banked,
+    fs.budget_tracker_id,
+    fs._created_at,
+    fs.cost - fs.current_month - fs.banked AS remaining,
+    CASE
+        WHEN fs.cost > 0
+        THEN fs.banked / fs.cost * 100
+        ELSE 0
+    END AS progress,
+    CASE
+        WHEN COALESCE(bt_totals.total_budget, 0) > 0
+        THEN fs.current_month / bt_totals.total_budget * 100
+        ELSE 0
+    END AS split
+FROM
+    ONE_OFFS fs
+LEFT JOIN LATERAL (
+    SELECT SUM(bt.total_budget) AS total_budget
+    FROM BUDGET_TRACKER bt
+    WHERE bt.id = fs.budget_tracker_id
+) bt_totals ON TRUE;
 
 -- Create the EXPENSE_SOURCES_VIEW view
 CREATE OR REPLACE VIEW EXPENSE_SOURCES_VIEW AS
