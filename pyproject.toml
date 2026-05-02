@@ -26,6 +26,9 @@ dev = [
 addopts = ["--import-mode=importlib"]
 pythonpath = ["src"]
 
+[tool.uv]
+link-mode = "copy"
+
 [tool.ty.src]
 # To be removed in #23
 exclude = ["src/libs/dataframe_handling.py"]
