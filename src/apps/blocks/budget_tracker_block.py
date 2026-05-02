@@ -6,8 +6,9 @@ import pandas as pd
 import streamlit as st
 
 from libs import data_client
+from libs.buttons import constants
+from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
-from libs.dfes.base_dfe import DFE
 from libs.models import backend_models, frontend_models
 
 _BUDGET_TRACKER_TABLE = dfe_constants.TableNames.BUDGET_TRACKER.value
@@ -75,9 +76,9 @@ _INCOME_SOURCES_TABLES_TO_CLEAR = [
 ]
 
 
-def _build_budget_tracker_dfe() -> DFE:
+def _build_budget_tracker_dfe() -> base_dfe.DFE:
     """Build the DFE for the budget tracker tab."""
-    return DFE(
+    return base_dfe.DFE(
         config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_BUDGET_TRACKER_TABLE,
@@ -88,7 +89,7 @@ def _build_budget_tracker_dfe() -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
-                        "🔠 Name",
+                        "Name",
                         required=True,
                         disabled=True,
                     ),
@@ -99,7 +100,7 @@ def _build_budget_tracker_dfe() -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="props",
                     column_config=st.column_config.ProgressColumn(
-                        "📐 Props",
+                        "Props",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -113,7 +114,7 @@ def _build_budget_tracker_dfe() -> DFE:
                 frontend_models.DFEColumnConfig(
                     column_name="total_budget",
                     column_config=st.column_config.NumberColumn(
-                        "💰 Budget",
+                        "Budget",
                         format="£%.2f",
                         required=True,
                     ),
@@ -124,7 +125,7 @@ def _build_budget_tracker_dfe() -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
-                        "💵 Current Month",
+                        "Current Month",
                         format="£%.2f",
                         disabled=True,
                     ),
@@ -135,7 +136,7 @@ def _build_budget_tracker_dfe() -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
-                        "📊 Progress",
+                        "Progress",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -149,7 +150,7 @@ def _build_budget_tracker_dfe() -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="remaining",
                     column_config=st.column_config.NumberColumn(
-                        "💰 Remaining",
+                        "Remaining",
                         format="£%.2f",
                         disabled=True,
                     ),
@@ -165,9 +166,9 @@ def _build_budget_tracker_dfe() -> DFE:
     )
 
 
-def _build_expense_sources_dfe(expenses_bt_id: str | None) -> DFE:
+def _build_expense_sources_dfe(expenses_bt_id: str | None) -> base_dfe.DFE:
     """Build the DFE for the expense sources tab."""
-    return DFE(
+    return base_dfe.DFE(
         config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_EXPENSE_SOURCES_TABLE,
@@ -178,7 +179,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> DFE:
                 frontend_models.DFEColumnConfig(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
-                        "🔠 Name",
+                        "Name",
                         required=True,
                     ),
                     button_label="Name",
@@ -188,7 +189,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> DFE:
                 frontend_models.DFEColumnConfig(
                     column_name="budget",
                     column_config=st.column_config.NumberColumn(
-                        "💰 Budget",
+                        "Budget",
                         format="£%.2f",
                         required=True,
                     ),
@@ -199,7 +200,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="split",
                     column_config=st.column_config.ProgressColumn(
-                        "📐 Split",
+                        "Split",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -213,7 +214,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
-                        "💵 Current Month",
+                        "Current Month",
                         format="£%.2f",
                         disabled=True,
                     ),
@@ -224,7 +225,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
-                        "📊 Progress",
+                        "Progress",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -238,7 +239,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="remaining",
                     column_config=st.column_config.NumberColumn(
-                        "💰 Remaining",
+                        "Remaining",
                         format="£%.2f",
                         disabled=True,
                     ),
@@ -269,9 +270,9 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> DFE:
 def _build_income_sources_dfe(
     budget_tracker_ids: list[str],
     get_budget_tracker_name: Callable,
-) -> DFE:
+) -> base_dfe.DFE:
     """Build the DFE for the income sources tab."""
-    return DFE(
+    return base_dfe.DFE(
         config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_INCOME_SOURCES_TABLE,
@@ -282,7 +283,7 @@ def _build_income_sources_dfe(
                 frontend_models.DFEColumnConfig(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
-                        "🔠 Name",
+                        "Name",
                         required=True,
                     ),
                     button_label="Name",
@@ -292,7 +293,7 @@ def _build_income_sources_dfe(
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
-                        "💵 Current Month",
+                        "Current Month",
                         format="£%.2f",
                         disabled=True,
                     ),
@@ -303,7 +304,7 @@ def _build_income_sources_dfe(
                 frontend_models.DFEColumnConfig(
                     column_name="budget_tracker_ids",
                     column_config=st.column_config.MultiselectColumn(
-                        "📋 Budget Trackers",
+                        "Budget Trackers",
                         options=budget_tracker_ids,
                         format_func=get_budget_tracker_name,
                     ),
@@ -365,7 +366,11 @@ def render() -> None:
         return budget_tracker_map.get(str(bt_id), "Unknown Budget Tracker")
 
     budget_tracker_tab, expense_tab, income_tab = st.tabs(
-        ["Budget Tracker", "Expense Sources", "Income Sources"],
+        [
+            constants.TabIcons.BUDGET_TRACKER,
+            constants.TabIcons.EXPENSE_SOURCES,
+            constants.TabIcons.INCOME_SOURCES,
+        ],
     )
 
     with budget_tracker_tab:

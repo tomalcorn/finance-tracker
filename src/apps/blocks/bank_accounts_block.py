@@ -4,8 +4,9 @@ import pandas as pd
 import streamlit as st
 
 from libs import data_client
+from libs.buttons import constants
+from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
-from libs.dfes.base_dfe import DFE
 from libs.models import backend_models, frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.BANK_ACCOUNTS.value
@@ -25,9 +26,9 @@ _SAMPLE_DATA = pd.DataFrame(
 )
 
 
-def _build_dfe() -> DFE:
+def _build_dfe() -> base_dfe.DFE:
     """Build the DFE for the bank accounts block."""
-    return DFE(
+    return base_dfe.DFE(
         config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
@@ -38,7 +39,7 @@ def _build_dfe() -> DFE:
                 frontend_models.DFEColumnConfig(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
-                        "🔠 Name",
+                        "Name",
                         required=True,
                     ),
                     button_label="Name",
@@ -48,7 +49,7 @@ def _build_dfe() -> DFE:
                 frontend_models.DFEColumnConfig(
                     column_name="starting_balance",
                     column_config=st.column_config.NumberColumn(
-                        "💰 Starting Balance",
+                        "Starting Balance",
                         format="£%.2f",
                         required=True,
                     ),
@@ -59,7 +60,7 @@ def _build_dfe() -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="current_balance",
                     column_config=st.column_config.NumberColumn(
-                        "💵 Current Balance",
+                        "Current Balance",
                         format="£%.2f",
                         disabled=True,
                     ),
@@ -101,7 +102,9 @@ def _render_metrics_tab() -> None:
 
 def render() -> None:
     """Render the bank accounts block."""
-    metrics_tab, table_tab = st.tabs(["Overview", "Table"])
+    metrics_tab, table_tab = st.tabs(
+        [constants.TabIcons.OVERVIEW, constants.TabIcons.TABLE],
+    )
 
     with metrics_tab:
         _render_metrics_tab()

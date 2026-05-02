@@ -8,8 +8,8 @@ import streamlit as st
 
 from libs import data_client
 from libs.buttons import constants
+from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
-from libs.dfes.base_dfe import DFE
 from libs.models import backend_models, frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.PAYMENTS.value
@@ -58,9 +58,9 @@ def _build_expense_dfe(
     get_bank_account_name: Callable,
     expense_source_ids: list[str],
     get_expense_source_name: Callable,
-) -> DFE:
+) -> base_dfe.DFE:
     """Build the DFE for expense payments."""
-    return DFE(
+    return base_dfe.DFE(
         config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
@@ -70,7 +70,7 @@ def _build_expense_dfe(
                 frontend_models.DFEColumnConfig(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
-                        "🔠 Name",
+                        "Name",
                         required=True,
                     ),
                     button_label="Name",
@@ -80,7 +80,7 @@ def _build_expense_dfe(
                 frontend_models.DFEColumnConfig(
                     column_name="payment_date",
                     column_config=st.column_config.DateColumn(
-                        "📆 Date",
+                        "Date",
                         format="localized",
                     ),
                     button_label="Payment Date",
@@ -94,7 +94,7 @@ def _build_expense_dfe(
                 frontend_models.DFEColumnConfig(
                     column_name="expense",
                     column_config=st.column_config.NumberColumn(
-                        "💵 Expense",
+                        "Expense",
                         format="£%.2f",
                     ),
                     button_label="Expense",
@@ -103,7 +103,9 @@ def _build_expense_dfe(
                 ),
                 frontend_models.DFEColumnConfig(
                     column_name="checked",
-                    column_config=st.column_config.CheckboxColumn("✅ Checked"),
+                    column_config=st.column_config.CheckboxColumn(
+                        "Checked",
+                    ),
                     button_label="Checked",
                     input_widget=st.checkbox,
                     input_kwargs={"value": False},
@@ -161,9 +163,9 @@ def _build_income_dfe(
     get_bank_account_name: Callable,
     income_source_ids: list[str],
     get_income_source_name: Callable,
-) -> DFE:
+) -> base_dfe.DFE:
     """Build the DFE for income payments."""
-    return DFE(
+    return base_dfe.DFE(
         config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
@@ -174,7 +176,7 @@ def _build_income_dfe(
                 frontend_models.DFEColumnConfig(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
-                        "🔠 Name",
+                        "Name",
                         required=True,
                     ),
                     button_label="Name",
@@ -184,7 +186,7 @@ def _build_income_dfe(
                 frontend_models.DFEColumnConfig(
                     column_name="payment_date",
                     column_config=st.column_config.DateColumn(
-                        "📆 Date",
+                        "Date",
                         format="localized",
                     ),
                     button_label="Payment Date",
@@ -198,7 +200,7 @@ def _build_income_dfe(
                 frontend_models.DFEColumnConfig(
                     column_name="income",
                     column_config=st.column_config.NumberColumn(
-                        "💵 Income",
+                        "Income",
                         format="£%.2f",
                     ),
                     button_label="Income",
@@ -207,7 +209,9 @@ def _build_income_dfe(
                 ),
                 frontend_models.DFEColumnConfig(
                     column_name="checked",
-                    column_config=st.column_config.CheckboxColumn("✅ Checked"),
+                    column_config=st.column_config.CheckboxColumn(
+                        "Checked",
+                    ),
                     button_label="Checked",
                     input_widget=st.checkbox,
                     input_kwargs={"value": False},
@@ -312,7 +316,12 @@ def render() -> None:
     def get_income_source_name(ins_id: str | float) -> str:
         return income_source_map.get(str(ins_id), "Unknown Income Source")
 
-    expense_tab, income_tab = st.tabs(["Expense Entries", "Income Entries"])
+    expense_tab, income_tab = st.tabs(
+        [
+            constants.TabIcons.EXPENSE_ENTRIES,
+            constants.TabIcons.INCOME_ENTRIES,
+        ],
+    )
 
     with expense_tab:
         expense_dfe = _build_expense_dfe(
