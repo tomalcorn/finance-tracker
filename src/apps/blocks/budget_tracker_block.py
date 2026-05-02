@@ -1,5 +1,7 @@
 """Block for the budget tracker section."""
 
+from collections.abc import Callable
+
 import pandas as pd
 import streamlit as st
 
@@ -266,7 +268,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> DFE:
 
 def _build_income_sources_dfe(
     budget_tracker_ids: list[str],
-    get_budget_tracker_name: callable,
+    get_budget_tracker_name: Callable,
 ) -> DFE:
     """Build the DFE for the income sources tab."""
     return DFE(

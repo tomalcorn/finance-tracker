@@ -1,6 +1,7 @@
 """Payments block for the finance tracker app."""
 
 import datetime
+from collections.abc import Callable
 
 import pandas as pd
 import streamlit as st
@@ -54,9 +55,9 @@ _INCOME_ENTRIES_SAMPLE_DATA = pd.DataFrame(
 
 def _build_expense_dfe(
     bank_account_ids: list[str],
-    get_bank_account_name: callable,
+    get_bank_account_name: Callable,
     expense_source_ids: list[str],
-    get_expense_source_name: callable,
+    get_expense_source_name: Callable,
 ) -> DFE:
     """Build the DFE for expense payments."""
     return DFE(
@@ -157,9 +158,9 @@ def _build_expense_dfe(
 
 def _build_income_dfe(
     bank_account_ids: list[str],
-    get_bank_account_name: callable,
+    get_bank_account_name: Callable,
     income_source_ids: list[str],
-    get_income_source_name: callable,
+    get_income_source_name: Callable,
 ) -> DFE:
     """Build the DFE for income payments."""
     return DFE(
