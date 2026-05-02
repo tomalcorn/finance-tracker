@@ -38,7 +38,7 @@ _BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
         "current_month": [0],
         "remaining": [0],
         "progress": [0],
-        "props": [0],
+        "split": [0],
     },
 )
 
@@ -98,7 +98,7 @@ def _build_budget_tracker_dfe() -> base_dfe.DFE:
                     input_kwargs={"value": None},
                 ),
                 frontend_models.DFEReadOnlyColumnConfig(
-                    column_name="props",
+                    column_name="split",
                     column_config=st.column_config.ProgressColumn(
                         "Split",
                         format="%.1f%%",
