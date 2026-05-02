@@ -119,7 +119,7 @@ def render() -> None:
                     min_value=0,
                     max_value=100,
                     width="small",
-                    color="auto-inverse",
+                    color="blue",
                 ),
                 button_label="Progress",
                 input_widget=st.number_input,
