@@ -5,10 +5,10 @@ import datetime
 import pandas as pd
 import streamlit as st
 
-from apps.blocks import base_block
 from libs import data_client
 from libs.buttons import constants
 from libs.dfes import constants as dfe_constants
+from libs.dfes.base_dfe import DFE
 from libs.models import backend_models, frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.PAYMENTS.value
@@ -52,61 +52,15 @@ _INCOME_ENTRIES_SAMPLE_DATA = pd.DataFrame(
 )
 
 
-def commit() -> None:
-    """Apply any pending backend updates for this block."""
-    data_client.commit(
-        table_name=_TABLE_NAME,
-        tables_to_clear=_TABLES_TO_CLEAR,
-    )
-    data_client.commit(
-        table_name=_TABLE_NAME,
-        tables_to_clear=_TABLES_TO_CLEAR,
-        key_prefix=_INCOME_KEY_PREFIX,
-    )
-
-
-def render() -> None:
-    """Render the payments block."""
-    bank_accounts_data = data_client.get_data(
-        table_name="bank_accounts",
-        query_string="*",
-    )
-    bank_account_map: dict[str, str] = {
-        str(ba["id"]): str(ba["name"]) for ba in bank_accounts_data
-    }
-    bank_account_ids = list(bank_account_map.keys())
-
-    def get_bank_account_name(ba_id: str | float) -> str:
-        return bank_account_map.get(str(ba_id), "Unknown Bank Account")
-
-    expense_sources = data_client.get_data(
-        table_name="expense_sources",
-        query_string="*",
-    )
-    expense_source_map: dict[str, str] = {
-        str(es["id"]): str(es["name"]) for es in expense_sources
-    }
-    expense_source_ids = list(expense_source_map.keys())
-
-    def get_expense_source_name(es_id: str | float) -> str:
-        return expense_source_map.get(str(es_id), "Unknown Expense Source")
-
-    income_sources = data_client.get_data(
-        table_name="income_sources",
-        query_string="*",
-    )
-    income_source_map: dict[str, str] = {
-        str(ins["id"]): str(ins["name"]) for ins in income_sources
-    }
-    income_source_ids = list(income_source_map.keys())
-
-    def get_income_source_name(ins_id: str | float) -> str:
-        return income_source_map.get(str(ins_id), "Unknown Income Source")
-
-    expense_tab, income_tab = st.tabs(["Expense Entries", "Income Entries"])
-
-    with expense_tab:
-        base_block.render_dfe_tab(
+def _build_expense_dfe(
+    bank_account_ids: list[str],
+    get_bank_account_name: callable,
+    expense_source_ids: list[str],
+    get_expense_source_name: callable,
+) -> DFE:
+    """Build the DFE for expense payments."""
+    return DFE(
+        config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
             ),
@@ -197,10 +151,19 @@ def render() -> None:
             ],
             sample_data=_EXPENSE_PAYMENTS_SAMPLE_DATA,
             tables_to_clear=_TABLES_TO_CLEAR,
-        )
+        ),
+    )
 
-    with income_tab:
-        base_block.render_dfe_tab(
+
+def _build_income_dfe(
+    bank_account_ids: list[str],
+    get_bank_account_name: callable,
+    income_source_ids: list[str],
+    get_income_source_name: callable,
+) -> DFE:
+    """Build the DFE for income payments."""
+    return DFE(
+        config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
                 key_prefix=_INCOME_KEY_PREFIX,
@@ -292,4 +255,80 @@ def render() -> None:
             ],
             sample_data=_INCOME_ENTRIES_SAMPLE_DATA,
             tables_to_clear=_TABLES_TO_CLEAR,
+        ),
+    )
+
+
+def commit() -> None:
+    """Apply any pending backend updates for this block."""
+    data_client.commit(
+        table_name=_TABLE_NAME,
+        tables_to_clear=_TABLES_TO_CLEAR,
+        key_prefix=_TABLE_NAME,
+    )
+    data_client.commit(
+        table_name=_TABLE_NAME,
+        tables_to_clear=_TABLES_TO_CLEAR,
+        key_prefix=_INCOME_KEY_PREFIX,
+    )
+
+
+def render() -> None:
+    """Render the payments block."""
+    bank_accounts_data = data_client.get_data(
+        table_name="bank_accounts",
+        query_string="*",
+    )
+    bank_account_map: dict[str, str] = {
+        str(ba["id"]): str(ba["name"]) for ba in bank_accounts_data
+    }
+    bank_account_ids = list(bank_account_map.keys())
+
+    def get_bank_account_name(ba_id: str | float) -> str:
+        return bank_account_map.get(str(ba_id), "Unknown Bank Account")
+
+    expense_sources = data_client.get_data(
+        table_name="expense_sources",
+        query_string="*",
+    )
+    expense_source_map: dict[str, str] = {
+        str(es["id"]): str(es["name"]) for es in expense_sources
+    }
+    expense_source_ids = list(expense_source_map.keys())
+
+    def get_expense_source_name(es_id: str | float) -> str:
+        return expense_source_map.get(str(es_id), "Unknown Expense Source")
+
+    income_sources = data_client.get_data(
+        table_name="income_sources",
+        query_string="*",
+    )
+    income_source_map: dict[str, str] = {
+        str(ins["id"]): str(ins["name"]) for ins in income_sources
+    }
+    income_source_ids = list(income_source_map.keys())
+
+    def get_income_source_name(ins_id: str | float) -> str:
+        return income_source_map.get(str(ins_id), "Unknown Income Source")
+
+    expense_tab, income_tab = st.tabs(["Expense Entries", "Income Entries"])
+
+    with expense_tab:
+        expense_dfe = _build_expense_dfe(
+            bank_account_ids,
+            get_bank_account_name,
+            expense_source_ids,
+            get_expense_source_name,
         )
+        expense_dfe.load_input_data()
+        expense_dfe.render()
+
+    with income_tab:
+        income_dfe = _build_income_dfe(
+            bank_account_ids,
+            get_bank_account_name,
+            income_source_ids,
+            get_income_source_name,
+        )
+        income_dfe.load_input_data()
+        income_dfe.render()

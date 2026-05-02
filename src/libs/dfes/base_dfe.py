@@ -8,119 +8,224 @@ import typing
 import pandas as pd
 import streamlit as st
 
+from apps.buttons import add_button, filter_button
 from libs import data_client, ss_keys
+from libs.buttons import constants
 from libs.models import backend_updates_model, frontend_models
+
+if typing.TYPE_CHECKING:
+    from libs.dfes import constants as dfe_constants
 
 
 class DFE:
-    """A class that provides Streamlit dataframe editing functionality."""
+    """A self-contained dataframe editor component.
 
-    def __init__(
-        self,
-        table_names: frontend_models.DFETableNameConfig,
-        configs: list[frontend_models.DFEColumnConfigBase],
-    ) -> None:
-        """Initialize the DataframeEditor with a Supabase table."""
-        self.write_table = table_names.write_table
-        self.read_table = table_names.read_table or table_names.write_table
-        self.key_prefix = table_names.key_prefix or table_names.write_table
-        self.configs = configs
+    Handles data loading, add/filter buttons, the st.data_editor widget,
+    and syncing edits to the backend.
+    """
 
+    def __init__(self, config: frontend_models.DFEConfig) -> None:
+        """Initialize the DFE from a config object."""
+        self._config = config
+        table_names = config.table_names
+
+        self._write_table = table_names.write_table
+        self._read_table = table_names.read_table or table_names.write_table
+        self._key_prefix = table_names.key_prefix or table_names.write_table
+        self._configs: list[frontend_models.DFEColumnConfigBase] = list(config.configs)
+        self._backend_model = config.backend_model
+        self._sample_data = config.sample_data
+        self._tables_to_clear: list[dfe_constants.TableNames] | None = (
+            config.tables_to_clear
+        )
+        self._num_rows = config.num_rows
+
+        # Computed once — display config never changes with filter state
         self._column_config = {
-            config.column_name: config.column_config for config in configs
+            cfg.column_name: cfg.column_config for cfg in self._configs
         }
+
+    # ------------------------------------------------------------------
+    # Public properties
+    # ------------------------------------------------------------------
+
+    @property
+    def key_prefix(self) -> str:
+        """The session state key prefix for this DFE."""
+        return self._key_prefix
+
+    @property
+    def write_table(self) -> str:
+        """The write table name for this DFE."""
+        return self._write_table
 
     @property
     def working_df(self) -> pd.DataFrame | None:
         """Get the working dataframe from session state."""
-        working_df_key = f"{self.key_prefix}_{ss_keys.SSKeys.WORKING_DF}"
-        return st.session_state.get(working_df_key, None)
+        key = f"{self._key_prefix}_{ss_keys.SSKeys.WORKING_DF}"
+        return st.session_state.get(key, None)
 
     @working_df.setter
     def working_df(self, df: pd.DataFrame) -> None:
         """Set the working dataframe in session state."""
-        working_df_key = f"{self.key_prefix}_{ss_keys.SSKeys.WORKING_DF}"
-        st.session_state[working_df_key] = df
-
-    def _clear_working_df(self) -> None:
-        """Clear the working dataframe from session state."""
-        working_df_key = f"{self.key_prefix}_{ss_keys.SSKeys.WORKING_DF}"
-        if working_df_key in st.session_state:
-            del st.session_state[working_df_key]
-
-    @property
-    def editor_state(self) -> dict[str, typing.Any]:
-        """Get the editor state from session state."""
-        return st.session_state[self.key_prefix]
-
-    @property
-    def edited_rows(self) -> dict[str, dict[str, typing.Any]]:
-        """Get the edited rows from the editor state."""
-        return self.editor_state[ss_keys.SSKeys.EDITED_ROWS]
-
-    @property
-    def deleted_rows(self) -> list[int]:
-        """Get the deleted rows from the editor state."""
-        return self.editor_state[ss_keys.SSKeys.DELETED_ROWS]
+        key = f"{self._key_prefix}_{ss_keys.SSKeys.WORKING_DF}"
+        st.session_state[key] = df
 
     @property
     def backend_updates(self) -> backend_updates_model.BackendUpdates:
-        """Get the backend updates from session state."""
-        backend_updates_key = f"{self.key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
-        return st.session_state.get(
-            backend_updates_key,
-            backend_updates_model.BackendUpdates(),
-        )
+        """Get pending backend updates for this DFE."""
+        key = f"{self._key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+        return st.session_state.get(key, backend_updates_model.BackendUpdates())
+
+    # ------------------------------------------------------------------
+    # Private properties
+    # ------------------------------------------------------------------
+
+    def _clear_working_df(self) -> None:
+        key = f"{self._key_prefix}_{ss_keys.SSKeys.WORKING_DF}"
+        if key in st.session_state:
+            del st.session_state[key]
+
+    @property
+    def _active_configs(self) -> list[frontend_models.DFEColumnConfigBase]:
+        """Get the active configs (with current filter state from session)."""
+        key = f"{self._key_prefix}_{ss_keys.SSKeys.COL_CONFIGS}"
+        return st.session_state.get(key, self._configs)
+
+    @property
+    def _editor_state(self) -> dict[str, typing.Any]:
+        return st.session_state[self._key_prefix]
+
+    @property
+    def _edited_rows(self) -> dict[str, dict[str, typing.Any]]:
+        return self._editor_state[ss_keys.SSKeys.EDITED_ROWS]
+
+    @property
+    def _deleted_rows(self) -> list[int]:
+        return self._editor_state[ss_keys.SSKeys.DELETED_ROWS]
 
     @backend_updates.setter
     def backend_updates(self, updates: backend_updates_model.BackendUpdates) -> None:
-        """Set the backend updates in session state."""
-        backend_updates_key = f"{self.key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
-        st.session_state[backend_updates_key] = updates
+        key = f"{self._key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+        st.session_state[key] = updates
 
-    def load_input_data(
-        self,
-        sample_data: pd.DataFrame,
-        *,
-        filters_changed: bool,
-        new_data_added: bool,
-    ) -> typing.Self:
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def load_input_data(self) -> typing.Self:
         """Load data into the dataframe editor.
 
-        If filters have changed or new data has been added, the working
-        dataframe is cleared and reloaded from the backend.
-
-        Args:
-            sample_data: Fallback data to show when the backend returns nothing.
-            filters_changed: Whether the active filters have changed.
-            new_data_added: Whether new rows were just added.
-
+        Uses the active filter state from session and the sample_data from config
+        as fallback when no data is returned.
         """
-        if filters_changed or new_data_added:
-            self._clear_working_df()
-
-        # Initialize working_df if needed
         if self.working_df is None:
             working_df = pd.DataFrame(
                 data_client.get_data(
-                    table_name=self.read_table,
+                    table_name=self._read_table,
                     query_string="*",
-                    _configs=self.configs,
+                    _configs=self._active_configs,
                 ),
             )
             if working_df.empty:
-                working_df = sample_data.copy()
+                working_df = self._sample_data.copy()
             working_df = self._convert_cols_to_datetime(working_df)
             self.working_df = working_df
 
         return self
 
-    def _convert_cols_to_datetime(
-        self,
-        dataframe: pd.DataFrame,
-    ) -> pd.DataFrame:
+    def render(self) -> None:
+        """Render the full DFE component: buttons + data editor.
+
+        Requires load_input_data() to have been called first.
+        """
+        if self.working_df is None:
+            msg = "Call load_input_data() before render()."
+            raise ValueError(msg)
+
+        filter_btn = filter_button.FilterButton(
+            table_name=self._write_table,
+            key_prefix=self._key_prefix,
+            read_table=self._read_table,
+        )
+
+        new_data_added = False
+        if self._num_rows != "fixed":
+            add_btn = add_button.AddButton(
+                table_name=self._write_table,
+                key_prefix=self._key_prefix,
+                backend_model=self._backend_model,
+                tables_to_clear=self._tables_to_clear,
+            )
+            writable_configs = [
+                c
+                for c in self._configs
+                if isinstance(c, frontend_models.DFEColumnConfig) and c.visible
+            ]
+            add_col, filter_col, _ = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
+            with add_col:
+                new_data_added = add_btn(col_configs=writable_configs)
+            with filter_col:
+                filters_changed = filter_btn(col_configs=self._configs)
+        else:
+            filter_col, _ = st.columns([1, 5])
+            with filter_col:
+                filters_changed = filter_btn(col_configs=self._configs)
+
+        if filters_changed:
+            data_client.invalidate_table_cache(self._read_table)
+
+        if filters_changed or new_data_added:
+            self._clear_working_df()
+            self.load_input_data()
+
+        self._render_editor()
+
+    def _render_editor(self) -> None:
+        """Render the st.data_editor widget."""
+        st.data_editor(
+            self.working_df,
+            key=self._key_prefix,
+            column_config=self._column_config,
+            column_order=[col.column_name for col in self._configs if col.visible],
+            num_rows=self._num_rows,
+            hide_index=True,
+            on_change=self.sync,
+        )
+
+    def sync(self) -> None:
+        """Prep backend updates for syncing."""
+        if self.working_df is None:
+            msg = "Working dataframe is not initialized. Cannot sync."
+            raise ValueError(msg)
+
+        unique_col_names = [
+            col.column_name
+            for col in self._configs
+            if isinstance(col, frontend_models.DFEColumnConfig) and col.enforce_unique
+        ]
+
+        beu_edited_rows = self._get_edited_rows_for_backend(
+            unique_col_names=unique_col_names,
+            working_df=self.working_df,
+        )
+        beu_deleted_rows = self._get_deleted_rows_for_backend(self.working_df)
+
+        if beu_edited_rows or beu_deleted_rows:
+            filters_changed, modified_df = self._check_for_filters_updates(
+                working_df=self.working_df,
+            )
+            if filters_changed:
+                self.working_df = modified_df
+
+        self.backend_updates = backend_updates_model.BackendUpdates(
+            edited_rows=beu_edited_rows,
+            deleted_rows=beu_deleted_rows,
+        )
+
+    def _convert_cols_to_datetime(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         """Convert columns to datetime/date based on column config type."""
-        for config in self.configs:
+        for config in self._configs:
             col = config.column_name
             if col not in dataframe.columns:
                 continue
@@ -163,30 +268,18 @@ class DFE:
         self,
         working_df: pd.DataFrame,
     ) -> tuple[bool, pd.DataFrame]:
-        """Check if editor changes fall outside current filters.
-
-        Args:
-            working_df: The current working DataFrame
-
-        Returns:
-            A tuple of (bool, pd.DataFrame) where the bool indicates if the DataFrame
-            changed due to filtering, and the DataFrame is the possibly modified result
-
-        """
+        """Check if editor changes fall outside current filters."""
         modified_df = working_df.copy()
 
-        # Apply deletions
-        if self.deleted_rows:
-            modified_df = modified_df.drop(self.deleted_rows).reset_index(drop=True)
+        if self._deleted_rows:
+            modified_df = modified_df.drop(self._deleted_rows).reset_index(drop=True)
 
-        # Apply edits
-        for row_idx, changes in self.edited_rows.items():
+        for row_idx, changes in self._edited_rows.items():
             if int(row_idx) < len(modified_df):
                 for col, value in changes.items():
-                    modified_df.at[int(row_idx), col] = value  # noqa: PD008 - needed to assign list values to a single cell
+                    modified_df.at[int(row_idx), col] = value  # noqa: PD008
 
-        # Apply filters
-        for config in self.configs:
+        for config in self._active_configs:
             if config.filters and config.column_name in modified_df.columns:
                 filters = config.filters.get_pandas_filters()
                 for operator, criteria in filters.items():
@@ -212,19 +305,16 @@ class DFE:
 
             unique_values = set(
                 data_client.get_column_values(
-                    table_name=self.write_table,
+                    table_name=self._write_table,
                     column_name=col,
                     unique=True,
                 ),
             )
             base_value = re.sub(r" \(\d+\)$", "", str(row[col]))
-            # Filter unique_values for entries that start with base_value
             duplicates = [
                 str(v) for v in unique_values if str(v).startswith(base_value)
             ]
             if duplicates:
-                # Extract numeric suffixes like " (123)" and take the max; if none
-                # found, start from 0
                 suffixes: list[int] = []
                 for val in duplicates:
                     match = re.search(r" \((\d+)\)$", val)
@@ -242,7 +332,7 @@ class DFE:
     ) -> dict[str, dict[str, typing.Any]]:
         """Get backend updates for edited rows."""
         beu_edited_rows: dict[str, dict[str, typing.Any]] = {}
-        for row_idx, changes in self.edited_rows.items():
+        for row_idx, changes in self._edited_rows.items():
             unique_changes = self._enforce_unique_cols(
                 row=changes,
                 unique_col_names=unique_col_names,
@@ -254,58 +344,7 @@ class DFE:
     def _get_deleted_rows_for_backend(self, working_df: pd.DataFrame) -> list[str]:
         """Get backend updates for deleted rows."""
         beu_deleted_rows: list[str] = []
-        for row_idx in self.deleted_rows:
+        for row_idx in self._deleted_rows:
             row_id = working_df.iloc[row_idx]["id"]
             beu_deleted_rows.append(row_id)
         return beu_deleted_rows
-
-    def sync(self) -> None:
-        """Prep backend_updates.BackendUpdates for syncing."""
-        if self.working_df is None:
-            msg = "Working dataframe is not initialized. Cannot sync."
-            raise ValueError(msg)
-
-        unique_col_names = [
-            col.column_name
-            for col in self.configs
-            if isinstance(col, frontend_models.DFEColumnConfig) and col.enforce_unique
-        ]
-
-        beu_edited_rows = self._get_edited_rows_for_backend(
-            unique_col_names=unique_col_names,
-            working_df=self.working_df,
-        )
-        beu_deleted_rows = self._get_deleted_rows_for_backend(self.working_df)
-
-        if beu_edited_rows or beu_deleted_rows:
-            # Apply changes to working_df and check changes still in filters
-            filters_changed, modified_df = self._check_for_filters_updates(
-                working_df=self.working_df,
-            )
-            if filters_changed:
-                self.working_df = modified_df
-
-        # in "delete" mode, so no added rows
-        self.backend_updates = backend_updates_model.BackendUpdates(
-            edited_rows=beu_edited_rows,
-            deleted_rows=beu_deleted_rows,
-        )
-
-    def render(self) -> pd.DataFrame:
-        """Render the dataframe editor with the original dataframe."""
-        # Get working dataframe from session state
-        if self.working_df is None:
-            msg = (
-                "Working dataframe is not initialized. Make sure to call "
-                "load_input_data() first."
-            )
-            raise ValueError(msg)
-        return st.data_editor(
-            self.working_df,
-            key=self.key_prefix,
-            column_config=self._column_config,
-            column_order=[col.column_name for col in self.configs if col.visible],
-            num_rows="delete",
-            hide_index=True,
-            on_change=self.sync,
-        )

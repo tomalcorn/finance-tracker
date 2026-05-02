@@ -243,16 +243,14 @@ class FilterButton(base_button.BaseButton):
         col_configs: list[
             frontend_models.DFEColumnConfigBase | frontend_models.DFEColumnConfig
         ],
-    ) -> tuple[bool, list[frontend_models.DFEColumnConfigBase]]:
+    ) -> bool:
         """Render the filter button in the UI.
 
         Args:
             col_configs: The current column configurations.
 
         Returns:
-            If clicked and filtering options selected, returns updated column configs.
-            Otherwise, returns the original column configs. Also returns a bool
-            indicating if filters were changed.
+            Whether the filters have changed since the last render.
 
         """
         if self.previous_column_configs is None:
@@ -283,4 +281,4 @@ class FilterButton(base_button.BaseButton):
             model.model_copy(deep=True) for model in current_configs
         ]
 
-        return filters_changed, current_configs
+        return filters_changed
