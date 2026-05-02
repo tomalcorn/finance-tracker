@@ -183,7 +183,7 @@ erDiagram
         TIMESTAMP _created_at
     }
 
-    FUN_SPENDING {
+    ONE_OFFS {
         UUID id PK
         STRING name
         FLOAT cost
@@ -214,7 +214,7 @@ erDiagram
     INCOME_SOURCES ||--o{ PAYMENTS : "categorises"
     BUDGET_TRACKER }o--o{ EXPENSE_SOURCES : "categorises"
     BUDGET_TRACKER }o--o{ INCOME_SOURCES : "sums"
-    BUDGET_TRACKER ||--o{ FUN_SPENDING : "splits"
+    BUDGET_TRACKER ||--o{ ONE_OFFS : "splits"
     BANK_ACCOUNTS ||--|| BANK_ACCOUNTS_VIEW : "derives"
     EXPENSE_SOURCES ||--|| EXPENSE_SOURCES_VIEW : "derives"
     INCOME_SOURCES ||--|| INCOME_SOURCES_VIEW : "derives"

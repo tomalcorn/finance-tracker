@@ -8,11 +8,11 @@ from libs import data_client
 from libs.dfes import constants as dfe_constants
 from libs.models import backend_models, frontend_models
 
-_TABLE_NAME = dfe_constants.TableNames.FUN_SPENDING.value
-_VIEW_NAME = dfe_constants.TableNames.FUN_SPENDING_VIEW.value
+_TABLE_NAME = dfe_constants.TableNames.ONE_OFFS.value
+_VIEW_NAME = dfe_constants.TableNames.ONE_OFFS_VIEW.value
 _TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.FUN_SPENDING,
-    dfe_constants.TableNames.FUN_SPENDING_VIEW,
+    dfe_constants.TableNames.ONE_OFFS,
+    dfe_constants.TableNames.ONE_OFFS_VIEW,
     dfe_constants.TableNames.BUDGET_TRACKER,
     dfe_constants.TableNames.BUDGET_TRACKER_VIEW,
 ]
@@ -128,10 +128,10 @@ def render() -> None:
             *(
                 [
                     frontend_models.DFEReadOnlyColumnConfig(
-                        column_name="budget_tracker_ids",
+                        column_name="budget_tracker_id",
                         column_config={"disabled": True},
                         visible=False,
-                        filters=frontend_models.Filters(cs=one_offs_bt_id),
+                        filters=frontend_models.Filters(eq=one_offs_bt_id),
                         input_widget=st.text_input,
                     ),
                 ]
