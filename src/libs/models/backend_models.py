@@ -90,8 +90,8 @@ class OneOffItemModel(FinanceTrackerBaseModel):
 
     @pydantic.computed_field
     @property
-    def budget_tracker_ids(self) -> list[uuid.UUID]:
-        """Compute the list of associated budget tracker item IDs.
+    def budget_tracker_id(self) -> uuid.UUID | None:
+        """Compute the associated budget tracker item ID.
 
         One-off items should all be connected only to the "one-offs" budget tracker
         item, so we can compute this based on the name of the budget tracker item
@@ -101,9 +101,12 @@ class OneOffItemModel(FinanceTrackerBaseModel):
             table_name="budget_tracker",
             query_string="id,name",
         )
-        if row := next((r for r in rows if r.get("name") == "one-offs"), None):
-            return [uuid.UUID(str(row["id"]))]
-        return []
+        if row := next(
+            (r for r in rows if str(r.get("name", "")).lower() == "one-offs"),
+            None,
+        ):
+            return uuid.UUID(str(row["id"]))
+        return None
 
 
 class IncomeSourceModel(FinanceTrackerBaseModel):
