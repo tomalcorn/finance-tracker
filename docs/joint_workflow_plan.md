@@ -28,7 +28,7 @@ Introduce a lightweight shared-account model plus an ownership flag on existing 
 - Add `ownership_type` TEXT or ENUM (values: 'personal'|'joint') default 'personal'
 - Add `joint_account_id` (nullable FK to `joint_accounts`) — used when `ownership_type = 'joint'`
 
-These apply to: `PAYMENTS`, `EXPENSE_SOURCES`, `INCOME_SOURCES`, `BUDGET_TRACKER`, `BANK_ACCOUNTS`, `FUN_SPENDING`.
+These apply to: `PAYMENTS`, `EXPENSE_SOURCES`, `INCOME_SOURCES`, `BUDGET_TRACKER`, `BANK_ACCOUNTS`, `ONE_OFFS`.
 
 Note: Optionally add `linked_payment_id` to `PAYMENTS` to trace transfers (personal -> joint).
 
@@ -46,7 +46,7 @@ USING / WITH CHECK:
     ))
 ```
 
-Apply this pattern to: `PAYMENTS`, `EXPENSE_SOURCES`, `INCOME_SOURCES`, `BUDGET_TRACKER`, `BANK_ACCOUNTS`, and `FUN_SPENDING`.
+Apply this pattern to: `PAYMENTS`, `EXPENSE_SOURCES`, `INCOME_SOURCES`, `BUDGET_TRACKER`, `BANK_ACCOUNTS`, and `ONE_OFFS`.
 
 Also enable RLS on `joint_accounts` and `joint_account_members` and create policies so members can see account metadata and membership only if they belong to the account.
 
