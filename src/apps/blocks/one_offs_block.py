@@ -4,8 +4,8 @@ import pandas as pd
 import streamlit as st
 
 from libs import data_client
+from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
-from libs.dfes.base_dfe import DFE
 from libs.models import backend_models, frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.ONE_OFFS.value
@@ -30,7 +30,7 @@ _SAMPLE_DATA = pd.DataFrame(
 )
 
 
-def _build_dfe() -> DFE:
+def _build_dfe() -> base_dfe.DFE:
     """Build the DFE for the one-offs block."""
     budget_tracker_data = data_client.get_data(
         table_name="budget_tracker",
@@ -45,7 +45,7 @@ def _build_dfe() -> DFE:
         None,
     )
 
-    return DFE(
+    return base_dfe.DFE(
         config=frontend_models.DFEConfig(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
@@ -56,7 +56,7 @@ def _build_dfe() -> DFE:
                 frontend_models.DFEColumnConfig(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
-                        "🔠 Name",
+                        "Name",
                         required=True,
                     ),
                     button_label="Name",
@@ -66,7 +66,7 @@ def _build_dfe() -> DFE:
                 frontend_models.DFEColumnConfig(
                     column_name="cost",
                     column_config=st.column_config.NumberColumn(
-                        "💰 Cost",
+                        "Cost",
                         format="£%.2f",
                         required=True,
                     ),
@@ -77,7 +77,7 @@ def _build_dfe() -> DFE:
                 frontend_models.DFEColumnConfig(
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
-                        "💵 Current Month",
+                        "Current Month",
                         format="£%.2f",
                         required=True,
                     ),
@@ -88,7 +88,7 @@ def _build_dfe() -> DFE:
                 frontend_models.DFEColumnConfig(
                     column_name="banked",
                     column_config=st.column_config.NumberColumn(
-                        "🏦 Banked",
+                        "Banked",
                         format="£%.2f",
                         required=True,
                     ),
@@ -99,7 +99,7 @@ def _build_dfe() -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="remaining",
                     column_config=st.column_config.NumberColumn(
-                        "💰 Remaining",
+                        "Remaining",
                         format="£%.2f",
                         disabled=True,
                     ),
@@ -110,7 +110,7 @@ def _build_dfe() -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
-                        "📊 Progress",
+                        "Progress",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -124,7 +124,7 @@ def _build_dfe() -> DFE:
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="split",
                     column_config=st.column_config.ProgressColumn(
-                        "📊 Split",
+                        "Split",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
