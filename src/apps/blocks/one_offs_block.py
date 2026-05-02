@@ -125,6 +125,20 @@ def render() -> None:
                 input_widget=st.number_input,
                 input_kwargs={"value": None, "format": "%.1f"},
             ),
+            frontend_models.DFEReadOnlyColumnConfig(
+                column_name="split",
+                column_config=st.column_config.ProgressColumn(
+                    "📊 Split",
+                    format="%.1f%%",
+                    min_value=0,
+                    max_value=100,
+                    width="small",
+                    color="blue",
+                ),
+                button_label="Split",
+                input_widget=st.number_input,
+                input_kwargs={"value": None, "format": "%.1f"},
+            ),
             *(
                 [
                     frontend_models.DFEReadOnlyColumnConfig(
