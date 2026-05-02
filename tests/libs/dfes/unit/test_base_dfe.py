@@ -85,7 +85,7 @@ class TestDFE:
         self,
         input_df: pd.DataFrame,
     ) -> None:
-        """Test that load_input_data falls back to sample_data when get_data is empty."""
+        """Test load_input_data falls back to sample_data when get_data is empty."""
         # Arrange - create DFE with sample_data
         sample_data = input_df.copy()
         sample_data.loc[0, "col1"] = 10
