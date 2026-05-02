@@ -141,7 +141,7 @@ class TestDFESync:
         dfe = base_dfe.DFE(
             config=frontend_models.DFEConfig(
                 table_names=frontend_models.DFETableNameConfig(
-                    write_table="test_table"
+                    write_table="test_table",
                 ),
                 backend_model=_StubModel,
                 configs=configs,
@@ -188,7 +188,7 @@ class TestDFESync:
         dfe = base_dfe.DFE(
             config=frontend_models.DFEConfig(
                 table_names=frontend_models.DFETableNameConfig(
-                    write_table="test_table"
+                    write_table="test_table",
                 ),
                 backend_model=_StubModel,
                 configs=configs,
@@ -263,7 +263,7 @@ class TestDFESync:
         dfe = base_dfe.DFE(
             config=frontend_models.DFEConfig(
                 table_names=frontend_models.DFETableNameConfig(
-                    write_table="test_table"
+                    write_table="test_table",
                 ),
                 backend_model=_StubModel,
                 configs=configs,
@@ -313,7 +313,7 @@ class TestDFESync:
         dfe = base_dfe.DFE(
             config=frontend_models.DFEConfig(
                 table_names=frontend_models.DFETableNameConfig(
-                    write_table="test_table"
+                    write_table="test_table",
                 ),
                 backend_model=_StubModel,
                 configs=configs,
