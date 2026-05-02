@@ -54,7 +54,9 @@ class AddButton(base_button.BaseButton):
             data_client.update_backend(
                 table_name=self._table_name,
                 updates=backend_updates_model.BackendUpdates(
-                    added_rows=[model_instance.model_dump(mode="json")],
+                    added_rows=[
+                        model_instance.model_dump(mode="json", exclude_none=True),
+                    ],
                     deleted_rows=[],
                     edited_rows={},
                 ),
