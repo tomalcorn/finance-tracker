@@ -89,12 +89,12 @@ def render() -> None:
                 input_widget=st.number_input,
                 input_kwargs={"value": None, "format": "%.2f"},
             ),
-            frontend_models.DFEReadOnlyColumnConfig(
+            frontend_models.DFEColumnConfig(
                 column_name="banked",
                 column_config=st.column_config.NumberColumn(
                     "🏦 Banked",
                     format="£%.2f",
-                    disabled=True,
+                    required=True,
                 ),
                 button_label="Banked",
                 input_widget=st.number_input,
