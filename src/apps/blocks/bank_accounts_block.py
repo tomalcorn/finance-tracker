@@ -103,7 +103,10 @@ def _render_metrics_tab() -> None:
 def render() -> None:
     """Render the bank accounts block."""
     metrics_tab, table_tab = st.tabs(
-        [constants.TabIcons.OVERVIEW, constants.TabIcons.TABLE],
+        [
+            f"{constants.TabIcons.OVERVIEW} Overview",
+            f"{constants.TabIcons.TABLE} Table",
+        ],
     )
 
     with metrics_tab:
