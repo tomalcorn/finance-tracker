@@ -2,7 +2,7 @@
 
 import typing
 from collections.abc import Callable
-from typing import Annotated, Any, Self
+from typing import Annotated, Any, Literal, Self
 
 import pandas as pd
 import pydantic
@@ -229,4 +229,4 @@ class DFEConfig(pydantic.BaseModel):
     configs: list[DFEColumnConfigBase]
     sample_data: pd.DataFrame
     tables_to_clear: list[dfe_constants.TableNames] | None = None
-    num_rows: str = "delete"
+    num_rows: Literal["fixed", "dynamic", "add", "delete"] = "delete"
