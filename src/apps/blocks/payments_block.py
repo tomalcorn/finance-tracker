@@ -318,8 +318,8 @@ def render() -> None:
 
     expense_tab, income_tab = st.tabs(
         [
-            constants.TabIcons.EXPENSE_ENTRIES,
-            constants.TabIcons.INCOME_ENTRIES,
+            f"{constants.TabIcons.EXPENSE} Expense Entries",
+            f"{constants.TabIcons.INCOME} Income Entries",
         ],
     )
 

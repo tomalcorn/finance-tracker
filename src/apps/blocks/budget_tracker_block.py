@@ -367,9 +367,9 @@ def render() -> None:
 
     budget_tracker_tab, expense_tab, income_tab = st.tabs(
         [
-            constants.TabIcons.BUDGET_TRACKER,
-            constants.TabIcons.EXPENSE_SOURCES,
-            constants.TabIcons.INCOME_SOURCES,
+            f"{constants.TabIcons.BUDGET_TRACKER} Budget Tracker",
+            f"{constants.TabIcons.EXPENSE} Expense Sources",
+            f"{constants.TabIcons.INCOME} Income Sources",
         ],
     )
 
