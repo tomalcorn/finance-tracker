@@ -79,7 +79,11 @@ class AddButton(base_button.BaseButton):
             )
             for col in col_configs
         ]
-        options_unfilled = any(output is None or output == "" for output in outputs)
+        options_unfilled = any(
+            (output is None or output == "")
+            for col, output in zip(col_configs, outputs, strict=False)
+            if col.required
+        )
         submit_button = st.button(
             label="Submit",
             key=f"{self._key_prefix}_submit_new_row_button",
