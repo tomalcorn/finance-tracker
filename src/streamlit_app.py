@@ -9,14 +9,15 @@ from apps.blocks import (
     payments_block,
     subscriptions_block,
 )
+from libs import subscription_reconciler
 
 st.set_page_config(layout="wide")
 
 one_offs_container = st.container(border=True)
 budget_tracker_container = st.container(border=True)
-subscriptions_container = st.container(border=True)
 payments_container = st.container(border=True)
 bank_accounts_container = st.container(border=True)
+subscriptions_container = st.container(border=True)
 
 bank_accounts_block.commit()
 payments_block.commit()
@@ -24,7 +25,7 @@ budget_tracker_block.commit()
 one_offs_block.commit()
 subscriptions_block.commit()
 
-subscriptions_block.generate_subscription_payments()
+subscription_reconciler.SubscriptionReconciler().reconcile()
 
 with one_offs_container:
     st.subheader(":material/bubble_chart: :violet[One-Offs]")
