@@ -5,7 +5,6 @@ from collections.abc import Callable
 
 import pandas as pd
 import streamlit as st
-from dateutil import relativedelta
 
 from libs import data_client
 from libs.dfes import base_dfe
@@ -37,14 +36,6 @@ _SAMPLE_DATA = pd.DataFrame(
         "monthly_cost": [0.0],
     },
 )
-
-_CADENCE_DELTAS = {
-    "weekly": relativedelta.relativedelta(weeks=1),
-    "fortnightly": relativedelta.relativedelta(weeks=2),
-    "monthly": relativedelta.relativedelta(months=1),
-    "quarterly": relativedelta.relativedelta(months=3),
-    "yearly": relativedelta.relativedelta(years=1),
-}
 
 
 def _build_dfe(
@@ -147,6 +138,7 @@ def _build_dfe(
                     button_label="End Date",
                     input_widget=st.date_input,
                     input_kwargs={"value": None},
+                    required=False,
                 ),
                 frontend_models.DFEColumnConfig(
                     column_name="is_active",
@@ -171,102 +163,6 @@ def _build_dfe(
             tables_to_clear=_TABLES_TO_CLEAR,
         ),
     )
-
-
-def _get_next_payment_dates(
-    start_date: datetime.date,
-    cadence: str,
-    end_date: datetime.date | None,
-    horizon: datetime.date,
-) -> list[datetime.date]:
-    """Compute payment dates from start_date up to horizon (or end_date).
-
-    Only returns dates that are today or in the future.
-    """
-    delta = _CADENCE_DELTAS.get(cadence)
-    if delta is None:
-        return []
-
-    cutoff = min(end_date, horizon) if end_date else horizon
-    today = datetime.datetime.now(tz=datetime.UTC).date()
-    dates: list[datetime.date] = []
-    current = start_date
-    while current <= cutoff:
-        if current >= today:
-            dates.append(current)
-        current += delta
-    return dates
-
-
-def generate_subscription_payments() -> None:
-    """Generate missing payment entries for active subscriptions (Option C).
-
-    Looks one month ahead from today. For each active subscription, computes
-    expected payment dates and inserts any that don't already exist.
-    """
-    subscriptions = data_client.get_data(
-        table_name=_TABLE_NAME,
-        query_string="*",
-    )
-    if not subscriptions:
-        return
-
-    validated_subs = [
-        backend_models.SubscriptionModel.model_validate(sub) for sub in subscriptions
-    ]
-
-    existing_payments = data_client.get_data(
-        table_name="payments",
-        query_string="subscription_id,payment_date",
-    )
-    existing_set: set[tuple[str, str]] = {
-        (str(p["subscription_id"]), str(p["payment_date"]))
-        for p in existing_payments
-        if p.get("subscription_id")
-    }
-
-    horizon = datetime.datetime.now(
-        tz=datetime.UTC,
-    ).date() + relativedelta.relativedelta(months=1)
-
-    new_payments: list[dict] = []
-    for sub in validated_subs:
-        if not sub.is_active:
-            continue
-
-        sub_id = str(sub.id)
-        dates = _get_next_payment_dates(
-            sub.start_date,
-            sub.cadence,
-            sub.end_date,
-            horizon,
-        )
-
-        for pay_date in dates:
-            key = (sub_id, str(pay_date))
-            if key not in existing_set:
-                payment_model = backend_models.ExpensePaymentModel(
-                    user_id=sub.user_id,
-                    name=f"Sub: {sub.name}",
-                    expense=sub.amount,
-                    payment_date=pay_date,
-                    bank_account_id=sub.bank_account_id,
-                    expense_source_id=sub.expense_source_id,
-                    subscription_id=sub.id,
-                )
-                new_payments.append(
-                    payment_model.model_dump(mode="json"),
-                )
-                existing_set.add(key)
-
-    if new_payments:
-        data_client.CONN.table(dfe_constants.TableNames.PAYMENTS.value).insert(
-            new_payments,
-        ).execute()
-        data_client.invalidate_table_cache(dfe_constants.TableNames.PAYMENTS.value)
-        data_client.invalidate_table_cache(
-            dfe_constants.TableNames.BANK_ACCOUNTS_VIEW.value,
-        )
 
 
 def commit() -> None:
