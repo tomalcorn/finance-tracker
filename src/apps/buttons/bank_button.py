@@ -45,12 +45,16 @@ class BankButton:
             table_name="expense_sources",
             query_string="id,name,budget_tracker_ids",
         )
+
+        def _get_bt_ids(es: data_client.JsonDict) -> list:
+            bt_ids = es.get("budget_tracker_ids")
+            return bt_ids if isinstance(bt_ids, list) else []
+
         return next(
             (
                 str(es["id"])
                 for es in expense_sources
-                if one_offs_bt_id
-                in [str(x) for x in (es.get("budget_tracker_ids") or [])]
+                if one_offs_bt_id in [str(x) for x in _get_bt_ids(es)]
             ),
             None,
         )
