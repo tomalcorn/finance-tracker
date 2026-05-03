@@ -21,6 +21,7 @@ class TabIcons(enum.StrEnum):
     BUDGET_TRACKER = ":material/grid_view:"
     EXPENSE = ":material/do_not_disturb_on:"
     INCOME = ":material/add_circle:"
+    BREAKDOWN = ":material/list:"
 
 
 class SortingValues(enum.StrEnum):
