@@ -8,6 +8,7 @@ ALTER TABLE EXPENSE_SOURCES ENABLE ROW LEVEL SECURITY;
 ALTER TABLE INCOME_SOURCES ENABLE ROW LEVEL SECURITY;
 ALTER TABLE BUDGET_TRACKER ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ONE_OFFS ENABLE ROW LEVEL SECURITY;
+ALTER TABLE SUBSCRIPTIONS ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for PAYMENTS table
@@ -47,6 +48,13 @@ CREATE POLICY budget_tracker_user_policy ON BUDGET_TRACKER
 
 -- Create RLS policies for ONE_OFFS table
 CREATE POLICY one_offs_user_policy ON ONE_OFFS
+    FOR ALL
+    TO authenticated
+    USING (user_id = auth.uid())
+    WITH CHECK (user_id = auth.uid());
+
+-- Create RLS policies for SUBSCRIPTIONS table
+CREATE POLICY subscriptions_user_policy ON SUBSCRIPTIONS
     FOR ALL
     TO authenticated
     USING (user_id = auth.uid())

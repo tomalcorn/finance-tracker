@@ -46,8 +46,43 @@ CREATE TABLE PAYMENTS (
     checked BOOLEAN,
     bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
     payment_type TEXT NOT NULL DEFAULT 'expense',
+    subscription_id UUID,
     _created_at TIMESTAMP
 );
+
+
+-- Create the SUBSCRIPTIONS table
+CREATE TABLE SUBSCRIPTIONS (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    name TEXT NOT NULL,
+    amount FLOAT NOT NULL,
+    cadence TEXT NOT NULL,
+    bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
+    expense_source_id UUID REFERENCES EXPENSE_SOURCES(id),
+    start_date DATE NOT NULL,
+    end_date DATE,
+    is_active BOOLEAN DEFAULT TRUE,
+    _created_at TIMESTAMP
+);
+
+-- Add foreign key from PAYMENTS to SUBSCRIPTIONS
+ALTER TABLE PAYMENTS ADD CONSTRAINT payments_subscription_fk
+    FOREIGN KEY (subscription_id) REFERENCES SUBSCRIPTIONS(id);
+
+-- Create the SUBSCRIPTIONS_VIEW view
+CREATE OR REPLACE VIEW SUBSCRIPTIONS_VIEW AS
+SELECT
+    s.*,
+    CASE s.cadence
+        WHEN 'weekly' THEN s.amount * 52.0 / 12.0
+        WHEN 'fortnightly' THEN s.amount * 26.0 / 12.0
+        WHEN 'monthly' THEN s.amount
+        WHEN 'quarterly' THEN s.amount / 3.0
+        WHEN 'yearly' THEN s.amount / 12.0
+        ELSE 0
+    END AS monthly_cost
+FROM SUBSCRIPTIONS s;
 
 
 -- Create the BUDGET_TRACKER table
