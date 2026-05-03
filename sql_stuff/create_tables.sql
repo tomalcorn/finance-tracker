@@ -68,7 +68,7 @@ CREATE TABLE SUBSCRIPTIONS (
 
 -- Add foreign key from PAYMENTS to SUBSCRIPTIONS
 ALTER TABLE PAYMENTS ADD CONSTRAINT payments_subscription_fk
-    FOREIGN KEY (subscription_id) REFERENCES SUBSCRIPTIONS(id);
+    FOREIGN KEY (subscription_id) REFERENCES SUBSCRIPTIONS(id) ON DELETE CASCADE;
 
 -- Create the SUBSCRIPTIONS_VIEW view
 CREATE OR REPLACE VIEW SUBSCRIPTIONS_VIEW AS
@@ -161,6 +161,7 @@ LEFT JOIN
     PAYMENTS p
 ON
     es.id = p.expense_source_id
+    AND p.payment_date <= CURRENT_DATE
 LEFT JOIN LATERAL (
     SELECT SUM(bt.total_budget) AS total_budget
     FROM BUDGET_TRACKER bt
@@ -182,6 +183,7 @@ LEFT JOIN
     payments
 ON
     "income_sources".id = payments.income_source_id
+    AND payments.payment_date <= CURRENT_DATE
 GROUP BY
     "income_sources".id, 
     "income_sources".name, 
@@ -236,6 +238,7 @@ LEFT JOIN
     PAYMENTS p
 ON
     ba.id = p.bank_account_id
+    AND p.payment_date <= CURRENT_DATE
 GROUP BY
     ba.id,
     ba.user_id,
