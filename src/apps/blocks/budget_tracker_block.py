@@ -376,14 +376,20 @@ def render() -> None:
     with budget_tracker_tab:
         bt_dfe = _build_budget_tracker_dfe()
         bt_dfe.load_input_data()
-        bt_dfe.render()
+        data_added, filters_changed = bt_dfe.render_buttons()
+        bt_dfe.refresh(filters_changed=filters_changed, data_added=data_added)
+        bt_dfe.render_editor()
 
     with expense_tab:
         es_dfe = _build_expense_sources_dfe(expenses_bt_id)
         es_dfe.load_input_data()
-        es_dfe.render()
+        data_added, filters_changed = es_dfe.render_buttons()
+        es_dfe.refresh(filters_changed=filters_changed, data_added=data_added)
+        es_dfe.render_editor()
 
     with income_tab:
         is_dfe = _build_income_sources_dfe(budget_tracker_ids, get_budget_tracker_name)
         is_dfe.load_input_data()
-        is_dfe.render()
+        data_added, filters_changed = is_dfe.render_buttons()
+        is_dfe.refresh(filters_changed=filters_changed, data_added=data_added)
+        is_dfe.render_editor()

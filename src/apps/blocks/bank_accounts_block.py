@@ -115,4 +115,6 @@ def render() -> None:
     with table_tab:
         dfe = _build_dfe()
         dfe.load_input_data()
-        dfe.render()
+        data_added, filters_changed = dfe.render_buttons()
+        dfe.refresh(filters_changed=filters_changed, data_added=data_added)
+        dfe.render_editor()
