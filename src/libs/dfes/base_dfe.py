@@ -77,6 +77,44 @@ class DFE:
         key = f"{self._key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         return st.session_state.get(key, backend_updates_model.BackendUpdates())
 
+    @backend_updates.setter
+    def backend_updates(self, updates: backend_updates_model.BackendUpdates) -> None:
+        key = f"{self._key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+        st.session_state[key] = updates
+
+    @property
+    def add_button(self) -> add_button.AddButton:
+        """Create a configured AddButton for this DFE."""
+        return add_button.AddButton(
+            table_name=self._write_table,
+            key_prefix=self._key_prefix,
+            backend_model=self._backend_model,
+            tables_to_clear=self._tables_to_clear,
+        )
+
+    @property
+    def filter_button(self) -> filter_button.FilterButton:
+        """Create a configured FilterButton for this DFE."""
+        return filter_button.FilterButton(
+            table_name=self._write_table,
+            key_prefix=self._key_prefix,
+            read_table=self._read_table,
+        )
+
+    @property
+    def writable_configs(self) -> list[frontend_models.DFEColumnConfig]:
+        """Get the writable column configs for use with AddButton."""
+        return [
+            c
+            for c in self._configs
+            if isinstance(c, frontend_models.DFEColumnConfig) and c.visible
+        ]
+
+    @property
+    def all_configs(self) -> list[frontend_models.DFEColumnConfigBase]:
+        """Get all column configs for use with FilterButton."""
+        return list(self._configs)
+
     # ------------------------------------------------------------------
     # Private properties
     # ------------------------------------------------------------------
@@ -104,11 +142,6 @@ class DFE:
     def _deleted_rows(self) -> list[int]:
         return self._editor_state[ss_keys.SSKeys.DELETED_ROWS]
 
-    @backend_updates.setter
-    def backend_updates(self, updates: backend_updates_model.BackendUpdates) -> None:
-        key = f"{self._key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
-        st.session_state[key] = updates
-
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -134,13 +167,15 @@ class DFE:
 
         return self
 
-    def render(self) -> None:
-        """Render the full DFE component: buttons + data editor.
+    def render_buttons(self) -> tuple[bool, bool]:
+        """Render the add and filter buttons for this DFE.
 
-        Requires load_input_data() to have been called first.
+        Returns:
+            A tuple of (data_added, filters_changed).
+
         """
         if self.working_df is None:
-            msg = "Call load_input_data() before render()."
+            msg = "Call load_input_data() before render_buttons()."
             raise ValueError(msg)
 
         filter_btn = filter_button.FilterButton(
@@ -149,7 +184,8 @@ class DFE:
             read_table=self._read_table,
         )
 
-        new_data_added = False
+        data_added = False
+        filters_changed = False
         if self._num_rows != "fixed":
             add_btn = add_button.AddButton(
                 table_name=self._write_table,
@@ -164,7 +200,7 @@ class DFE:
             ]
             add_col, filter_col, _ = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
             with add_col:
-                new_data_added = add_btn(col_configs=writable_configs)
+                data_added = add_btn(col_configs=writable_configs)
             with filter_col:
                 filters_changed = filter_btn(col_configs=self._configs)
         else:
@@ -172,17 +208,27 @@ class DFE:
             with filter_col:
                 filters_changed = filter_btn(col_configs=self._configs)
 
+        return data_added, filters_changed
+
+    def refresh(
+        self,
+        *,
+        filters_changed: bool = False,
+        data_added: bool = False,
+    ) -> None:
+        """Refresh the working dataframe if buttons triggered changes."""
         if filters_changed:
             data_client.invalidate_table_cache(self._read_table)
 
-        if filters_changed or new_data_added:
+        if filters_changed or data_added:
             self._clear_working_df()
             self.load_input_data()
 
-        self._render_editor()
-
-    def _render_editor(self) -> None:
+    def render_editor(self) -> None:
         """Render the st.data_editor widget."""
+        if self.working_df is None:
+            msg = "Call load_input_data() before render_editor()."
+            raise ValueError(msg)
         st.data_editor(
             self.working_df,
             key=self._key_prefix,
