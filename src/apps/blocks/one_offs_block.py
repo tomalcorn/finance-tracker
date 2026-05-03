@@ -3,6 +3,7 @@
 import pandas as pd
 import streamlit as st
 
+from apps.buttons import bank_button
 from libs import data_client
 from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
@@ -13,6 +14,15 @@ _VIEW_NAME = dfe_constants.TableNames.ONE_OFFS_VIEW.value
 _TABLES_TO_CLEAR = [
     dfe_constants.TableNames.ONE_OFFS,
     dfe_constants.TableNames.ONE_OFFS_VIEW,
+    dfe_constants.TableNames.BUDGET_TRACKER,
+    dfe_constants.TableNames.BUDGET_TRACKER_VIEW,
+]
+
+_BANK_TABLES_TO_CLEAR = [
+    dfe_constants.TableNames.ONE_OFFS,
+    dfe_constants.TableNames.ONE_OFFS_VIEW,
+    dfe_constants.TableNames.PAYMENTS,
+    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
     dfe_constants.TableNames.BUDGET_TRACKER,
     dfe_constants.TableNames.BUDGET_TRACKER_VIEW,
 ]
@@ -168,4 +178,21 @@ def render() -> None:
     """Render the one-offs block."""
     dfe = _build_dfe()
     dfe.load_input_data()
+
+    working_df = dfe.working_df
+    bankable_items = []
+    if working_df is not None and not working_df.empty:
+        bankable_df = working_df[working_df["current_month"] > 0]
+        if not bankable_df.empty:
+            bankable_items = bankable_df.to_dict("records")
+
+    if bankable_items:
+        bank_col, _ = st.columns([0.05, 0.95])
+        with bank_col:
+            bank_btn = bank_button.BankButton(
+                one_offs_table=_TABLE_NAME,
+                tables_to_clear=_BANK_TABLES_TO_CLEAR,
+            )
+            bank_btn(bankable_items)
+
     dfe.render()
