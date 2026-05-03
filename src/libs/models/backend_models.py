@@ -12,13 +12,10 @@ from libs import data_client
 class FinanceTrackerBaseModel(pydantic.BaseModel):
     """Base model for finance tracker models."""
 
-    id: Annotated[
-        uuid.UUID,
-        pydantic.Field(
-            description="The unique identifier for the item.",
-            default_factory=uuid.uuid4,
-        ),
-    ]
+    id: uuid.UUID = pydantic.Field(
+        description="The unique identifier for the item.",
+        default_factory=uuid.uuid4,
+    )
     user_id: Annotated[
         uuid.UUID,
         pydantic.Field(
