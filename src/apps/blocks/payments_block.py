@@ -372,7 +372,9 @@ def render() -> None:
             get_expense_source_name,
         )
         expense_dfe.load_input_data()
-        expense_dfe.render()
+        data_added, filters_changed = expense_dfe.render_buttons()
+        expense_dfe.refresh(filters_changed=filters_changed, data_added=data_added)
+        expense_dfe.render_editor()
 
     with income_tab:
         income_dfe = _build_income_dfe(
@@ -382,7 +384,9 @@ def render() -> None:
             get_income_source_name,
         )
         income_dfe.load_input_data()
-        income_dfe.render()
+        data_added, filters_changed = income_dfe.render_buttons()
+        income_dfe.refresh(filters_changed=filters_changed, data_added=data_added)
+        income_dfe.render_editor()
 
     with breakdown_tab:
         _render_expense_breakdown(

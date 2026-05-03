@@ -179,6 +179,7 @@ def render() -> None:
     dfe = _build_dfe()
     dfe.load_input_data()
 
+    # Compose buttons: add, filter, and bank-it in one row
     working_df = dfe.working_df
     bankable_items = []
     if working_df is not None and not working_df.empty:
@@ -186,13 +187,19 @@ def render() -> None:
         if not bankable_df.empty:
             bankable_items = bankable_df.to_dict("records")
 
-    if bankable_items:
-        bank_col, _ = st.columns([0.05, 0.95])
-        with bank_col:
+    add_col, filter_col, bank_col, _ = st.columns([0.05, 0.05, 0.05, 0.85])
+
+    with add_col:
+        data_added = dfe.add_button(col_configs=dfe.writable_configs)
+    with filter_col:
+        filters_changed = dfe.filter_button(col_configs=dfe.all_configs)
+    with bank_col:
+        if bankable_items:
             bank_btn = bank_button.BankButton(
                 one_offs_table=_TABLE_NAME,
                 tables_to_clear=_BANK_TABLES_TO_CLEAR,
             )
             bank_btn(bankable_items)
 
-    dfe.render()
+    dfe.refresh(filters_changed=filters_changed, data_added=data_added)
+    dfe.render_editor()
