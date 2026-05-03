@@ -278,6 +278,46 @@ def commit() -> None:
     )
 
 
+def _render_expense_breakdown(
+    expense_dfe: base_dfe.DFE,
+    get_expense_source_name: Callable,
+    get_bank_account_name: Callable,
+) -> None:
+    """Render the expense breakdown tab with collapsible sections per source."""
+    working_df = expense_dfe.working_df
+    if working_df is None or working_df.empty:
+        st.info("No expense data available.")
+        return
+
+    payments_df = working_df[working_df["payment_type"] == "expense"].copy()
+    if payments_df.empty:
+        st.info("No expense payments in the current date range.")
+        return
+
+    grouped = payments_df.groupby("expense_source_id")
+    totals = grouped["expense"].sum().sort_values(ascending=False)
+
+    for source_id in totals.index:
+        source_name = get_expense_source_name(source_id)
+        total = totals[source_id]
+        group_df = grouped.get_group(source_id)
+
+        with st.expander(f"{source_name} — £{total:,.2f}"):
+            display_df = group_df[["name", "expense", "bank_account_id"]].copy()
+            display_df["bank_account_id"] = display_df["bank_account_id"].map(
+                get_bank_account_name,
+            )
+            display_df.columns = ["Name", "Amount", "Bank Account"]
+            st.dataframe(
+                display_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Amount": st.column_config.NumberColumn(format="£%.2f"),
+                },
+            )
+
+
 def render() -> None:
     """Render the payments block."""
     bank_accounts_data = data_client.get_data(
@@ -316,10 +356,11 @@ def render() -> None:
     def get_income_source_name(ins_id: str | float) -> str:
         return income_source_map.get(str(ins_id), "Unknown Income Source")
 
-    expense_tab, income_tab = st.tabs(
+    expense_tab, income_tab, breakdown_tab = st.tabs(
         [
             f"{constants.TabIcons.EXPENSE} Expense Entries",
             f"{constants.TabIcons.INCOME} Income Entries",
+            f"{constants.TabIcons.BREAKDOWN} Expense Breakdown",
         ],
     )
 
@@ -342,3 +383,10 @@ def render() -> None:
         )
         income_dfe.load_input_data()
         income_dfe.render()
+
+    with breakdown_tab:
+        _render_expense_breakdown(
+            expense_dfe=expense_dfe,
+            get_expense_source_name=get_expense_source_name,
+            get_bank_account_name=get_bank_account_name,
+        )
