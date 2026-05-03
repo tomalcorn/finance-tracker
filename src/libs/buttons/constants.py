@@ -11,6 +11,7 @@ class ButtonIcons:
 
     ADD = ":material/add_2:"
     FILTER = ":material/filter_list:"
+    BANK = ":material/savings:"
 
 
 class TabIcons(enum.StrEnum):
