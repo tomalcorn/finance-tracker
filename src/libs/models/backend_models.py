@@ -115,6 +115,39 @@ class IncomeSourceModel(FinanceTrackerBaseModel):
     ] = []
 
 
+class SubscriptionModel(FinanceTrackerBaseModel):
+    """Model representing a recurring subscription."""
+
+    amount: Annotated[
+        float,
+        pydantic.Field(description="The subscription amount per cadence."),
+    ] = 0.0
+    cadence: Annotated[
+        Literal["weekly", "fortnightly", "monthly", "quarterly", "yearly"],
+        pydantic.Field(description="The payment frequency."),
+    ] = "monthly"
+    bank_account_id: Annotated[
+        uuid.UUID,
+        pydantic.Field(description="The associated bank account ID."),
+    ]
+    expense_source_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The associated expense source ID."),
+    ] = None
+    start_date: datetime.date = pydantic.Field(
+        description="The date the subscription starts.",
+        default_factory=datetime.date.today,
+    )
+    end_date: Annotated[
+        datetime.date | None,
+        pydantic.Field(description="The date the subscription ends (None = ongoing)."),
+    ] = None
+    is_active: Annotated[
+        bool,
+        pydantic.Field(description="Whether the subscription is currently active."),
+    ] = True
+
+
 class _PaymentBaseModel(FinanceTrackerBaseModel):
     """Base model for payment entries."""
 
@@ -133,6 +166,10 @@ class _PaymentBaseModel(FinanceTrackerBaseModel):
         uuid.UUID,
         pydantic.Field(description="The associated bank account ID."),
     ]
+    subscription_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The originating subscription ID, if any."),
+    ] = None
 
 
 class ExpensePaymentModel(_PaymentBaseModel):
