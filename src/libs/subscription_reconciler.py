@@ -51,14 +51,13 @@ class SubscriptionReconciler:
 
     def reconcile(
         self,
-        connection: st_supabase_connection.SupabaseConnection | None = None,
+        connection: st_supabase_connection.SupabaseConnection = data_client.CONN,
     ) -> None:
         """Run the reconciliation pass."""
-        conn_kwargs: dict = {"_connection": connection} if connection else {}
         subscriptions = data_client.get_data(
             table_name=_SUBSCRIPTIONS_TABLE,
             query_string="*",
-            **conn_kwargs,
+            _connection=connection,
         )
         if not subscriptions:
             return
@@ -71,7 +70,7 @@ class SubscriptionReconciler:
         existing_payment_data = data_client.get_data(
             table_name=_PAYMENTS_TABLE,
             query_string="*",
-            **conn_kwargs,
+            _connection=connection,
         )
         existing_payments = [
             backend_models.ExpensePaymentModel.model_validate(payment)
@@ -90,12 +89,11 @@ class SubscriptionReconciler:
             current_payments = payments_by_subscription.get(sub_id, [])
             self._reconcile_subscription(sub, current_payments, updates)
 
-        update_kwargs: dict = {"connection": connection} if connection else {}
         data_client.update_backend(
             table_name=_PAYMENTS_TABLE,
             updates=updates,
             tables_to_clear=_TABLES_TO_CLEAR,
-            **update_kwargs,
+            connection=connection,
         )
 
     def _reconcile_subscription(
