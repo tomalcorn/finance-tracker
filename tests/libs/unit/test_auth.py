@@ -19,15 +19,31 @@ class TestGetCurrentUser:
         with mock.patch.dict("streamlit.session_state", {}, clear=True):
             yield
 
+    @pytest.fixture
+    def _stub_sign_in(self) -> typing.Generator[None, None, None]:
+        """Bypass Supabase sign-in by injecting a dummy user."""
+        import streamlit as st
+
+        def fake_sign_in() -> None:
+            st.session_state[ss_keys.SSKeys.CURRENT_USER] = backend_models.UserModel(
+                first_name="Stub", last_name="User"
+            )
+
+        with mock.patch.object(auth, "_sign_in", side_effect=fake_sign_in):
+            yield
+
+    @pytest.mark.usefixtures("_stub_sign_in")
     def test_returns_user_model(self) -> None:
         user = auth.get_current_user()
         assert isinstance(user, backend_models.UserModel)
 
+    @pytest.mark.usefixtures("_stub_sign_in")
     def test_returns_stable_identity(self) -> None:
         first = auth.get_current_user()
         second = auth.get_current_user()
         assert first is second
 
+    @pytest.mark.usefixtures("_stub_sign_in")
     def test_user_has_valid_id(self) -> None:
         user = auth.get_current_user()
         assert isinstance(user.id, uuid.UUID)
