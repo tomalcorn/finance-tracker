@@ -1,12 +1,22 @@
 """Unit tests for the SubscriptionReconciler class."""
 
 import datetime
+import typing
 import uuid
+from collections.abc import Callable
 
 import pytest
 from libs.subscription_reconciler import SubscriptionReconciler
 
 from libs.models import backend_models, backend_updates_model
+
+type Cadence = typing.Literal[
+    "weekly",
+    "fortnightly",
+    "monthly",
+    "quarterly",
+    "yearly",
+]
 
 
 @pytest.fixture(name="user_id")
@@ -34,7 +44,7 @@ def _make_subscription(  # noqa: PLR0913
     *,
     name: str = _DEFAULT_NAME,
     amount: float = _DEFAULT_AMOUNT,
-    cadence: str = "monthly",
+    cadence: Cadence = "monthly",
     start_date: datetime.date = datetime.date(2026, 1, 1),
     end_date: datetime.date | None = None,
     is_active: bool = True,
@@ -117,7 +127,7 @@ class TestReconcileSubscription:
         self,
         user_id: uuid.UUID,
         bank_account_id: uuid.UUID,
-        cadence: str,
+        cadence: Cadence,
         start_date: datetime.date,
         expected_date: datetime.date,
     ) -> None:
@@ -234,7 +244,10 @@ class TestReconcileSubscription:
         user_id: uuid.UUID,
         bank_account_id: uuid.UUID,
         sub_kwargs: dict,
-        payments_factory: object,
+        payments_factory: Callable[
+            [backend_models.SubscriptionModel],
+            list[backend_models.ExpensePaymentModel],
+        ],
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payments = payments_factory(sub)
