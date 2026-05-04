@@ -12,9 +12,9 @@ from libs.models import backend_models, backend_updates_model
 
 type Cadence = typing.Literal[
     "weekly",
-    "fortnightly",
     "monthly",
     "quarterly",
+    "biannually",
     "yearly",
 ]
 
@@ -98,10 +98,10 @@ class TestReconcileSubscription:
                 id="weekly",
             ),
             pytest.param(
-                "fortnightly",
-                datetime.date(2026, 4, 20),
+                "biannually",
+                datetime.date(2025, 11, 4),
                 datetime.date(2026, 5, 4),
-                id="fortnightly",
+                id="biannually",
             ),
             pytest.param(
                 "monthly",
@@ -311,9 +311,9 @@ class TestComputeNextDate:
                 id="weekly_past",
             ),
             pytest.param(
-                {"cadence": "fortnightly", "start_date": datetime.date(2026, 4, 20)},
+                {"cadence": "biannually", "start_date": datetime.date(2025, 11, 4)},
                 datetime.date(2026, 5, 4),
-                id="fortnightly_past",
+                id="biannually_past",
             ),
             pytest.param(
                 {"cadence": "monthly", "start_date": datetime.date(2026, 1, 1)},

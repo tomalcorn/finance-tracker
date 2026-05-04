@@ -21,7 +21,7 @@ _TABLES_TO_CLEAR = [
     dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
 ]
 
-_CADENCE_OPTIONS = ["weekly", "fortnightly", "monthly", "quarterly", "yearly"]
+_CADENCE_OPTIONS = ["weekly", "monthly", "quarterly", "biannually", "yearly"]
 
 _SAMPLE_DATA = pd.DataFrame(
     {

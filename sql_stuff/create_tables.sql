@@ -76,7 +76,7 @@ SELECT
     s.*,
     CASE s.cadence
         WHEN 'weekly' THEN s.amount * 52.0 / 12.0
-        WHEN 'fortnightly' THEN s.amount * 26.0 / 12.0
+        WHEN 'biannually' THEN s.amount / 6.0
         WHEN 'monthly' THEN s.amount
         WHEN 'quarterly' THEN s.amount / 3.0
         WHEN 'yearly' THEN s.amount / 12.0
