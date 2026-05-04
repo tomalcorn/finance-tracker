@@ -1,27 +1,53 @@
 """Authentication helpers for the finance tracker application.
 
 Provides the current user's details for CRUD operations.
-Currently returns a hardcoded user; will be replaced with real
+Currently uses hardcoded credentials; will be replaced with real
 authentication once the login page is fully implemented.
 """
 
 import streamlit as st
+import supabase_auth
 
-from libs import ss_keys
+from libs import data_client, ss_keys
 from libs.models import backend_models
-
-_HARDCODED_USER = backend_models.UserModel(
-    first_name="Tom",
-    last_name="Alcorn",
-)
 
 
 def get_current_user() -> backend_models.UserModel:
     """Return the currently logged-in user.
 
-    Stores the user in session state so the identity is stable
-    for the lifetime of the session.
+    On first call, authenticates with Supabase using hardcoded
+    credentials and stores the user in session state.
     """
     if ss_keys.SSKeys.CURRENT_USER not in st.session_state:
-        st.session_state[ss_keys.SSKeys.CURRENT_USER] = _HARDCODED_USER
+        _sign_in()
     return st.session_state[ss_keys.SSKeys.CURRENT_USER]
+
+
+def is_logged_in() -> bool:
+    """Check whether a user is currently logged in."""
+    return ss_keys.SSKeys.CURRENT_USER in st.session_state
+
+
+def _sign_in() -> None:
+    """Authenticate with Supabase and store the user in session state."""
+    credentials = supabase_auth.SignInWithEmailAndPasswordCredentials(
+        email="tomalcorn777@icloud.com",
+        password="REDACTED",  # noqa: S106
+    )
+
+    with st.spinner("Signing in..."):
+        auth_resp = data_client.CONN.auth.sign_in_with_password(credentials)
+
+        access_token = None
+        user = None
+
+        if hasattr(auth_resp, "session") and auth_resp.session:
+            access_token = auth_resp.session.access_token
+            user = auth_resp.user
+
+        if not access_token:
+            st.error("Authentication failed. Please check your credentials.")
+            st.stop()
+
+        data_client.CONN.client.postgrest.auth(access_token)
+        st.session_state[ss_keys.SSKeys.CURRENT_USER] = user
