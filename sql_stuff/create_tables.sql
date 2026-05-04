@@ -46,8 +46,43 @@ CREATE TABLE PAYMENTS (
     checked BOOLEAN,
     bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
     payment_type TEXT NOT NULL DEFAULT 'expense',
+    subscription_id UUID,
+    _created_at TIMESTAMPTZ DEFAULT (now() AT TIME ZONE 'utc')
+);
+
+
+-- Create the SUBSCRIPTIONS table
+CREATE TABLE SUBSCRIPTIONS (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    name TEXT NOT NULL,
+    amount FLOAT NOT NULL,
+    cadence TEXT NOT NULL,
+    bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
+    expense_source_id UUID REFERENCES EXPENSE_SOURCES(id),
+    start_date DATE NOT NULL,
+    end_date DATE,
+    is_active BOOLEAN DEFAULT TRUE,
     _created_at TIMESTAMP
 );
+
+-- Add foreign key from PAYMENTS to SUBSCRIPTIONS
+ALTER TABLE PAYMENTS ADD CONSTRAINT payments_subscription_fk
+    FOREIGN KEY (subscription_id) REFERENCES SUBSCRIPTIONS(id) ON DELETE CASCADE;
+
+-- Create the SUBSCRIPTIONS_VIEW view
+CREATE OR REPLACE VIEW SUBSCRIPTIONS_VIEW AS
+SELECT
+    s.*,
+    CASE s.cadence
+        WHEN 'weekly' THEN s.amount * 52.0 / 12.0
+        WHEN 'biannually' THEN s.amount / 6.0
+        WHEN 'monthly' THEN s.amount
+        WHEN 'quarterly' THEN s.amount / 3.0
+        WHEN 'yearly' THEN s.amount / 12.0
+        ELSE 0
+    END AS monthly_cost
+FROM SUBSCRIPTIONS s;
 
 
 -- Create the BUDGET_TRACKER table
@@ -55,7 +90,7 @@ CREATE TABLE BUDGET_TRACKER (
     id UUID PRIMARY KEY,
     user_id UUID REFERENCES users(id),
     name TEXT,
-    total_budget FLOAT,
+    total_budget FLOAT DEFAULT 0,
     _created_at TIMESTAMP
 );
 
@@ -126,6 +161,7 @@ LEFT JOIN
     PAYMENTS p
 ON
     es.id = p.expense_source_id
+    AND p.payment_date <= CURRENT_DATE
 LEFT JOIN LATERAL (
     SELECT SUM(bt.total_budget) AS total_budget
     FROM BUDGET_TRACKER bt
@@ -147,6 +183,7 @@ LEFT JOIN
     payments
 ON
     "income_sources".id = payments.income_source_id
+    AND payments.payment_date <= CURRENT_DATE
 GROUP BY
     "income_sources".id, 
     "income_sources".name, 
@@ -170,7 +207,7 @@ SELECT
         WHEN COALESCE(income_totals.total_income, 0) > 0
         THEN bt.total_budget / income_totals.total_income * 100
         ELSE 0
-    END AS props
+    END AS split
 FROM
     BUDGET_TRACKER bt
 LEFT JOIN
@@ -201,6 +238,7 @@ LEFT JOIN
     PAYMENTS p
 ON
     ba.id = p.bank_account_id
+    AND p.payment_date <= CURRENT_DATE
 GROUP BY
     ba.id,
     ba.user_id,
