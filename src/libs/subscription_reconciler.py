@@ -19,9 +19,9 @@ class CadenceDelta(enum.Enum):
     """Relativedelta values for each subscription cadence."""
 
     WEEKLY = relativedelta.relativedelta(weeks=1)
-    FORTNIGHTLY = relativedelta.relativedelta(weeks=2)
     MONTHLY = relativedelta.relativedelta(months=1)
     QUARTERLY = relativedelta.relativedelta(months=3)
+    BIANNUALLY = relativedelta.relativedelta(months=6)
     YEARLY = relativedelta.relativedelta(years=1)
 
 

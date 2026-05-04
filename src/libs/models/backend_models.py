@@ -123,7 +123,7 @@ class SubscriptionModel(FinanceTrackerBaseModel):
         pydantic.Field(description="The subscription amount per cadence."),
     ] = 0.0
     cadence: Annotated[
-        Literal["weekly", "fortnightly", "monthly", "quarterly", "yearly"],
+        Literal["weekly", "monthly", "quarterly", "biannually", "yearly"],
         pydantic.Field(description="The payment frequency."),
     ] = "monthly"
     bank_account_id: Annotated[
