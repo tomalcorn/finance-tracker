@@ -7,6 +7,7 @@ Once created, the user is free to edit the payment date or amount.
 import datetime
 import enum
 
+import st_supabase_connection
 from dateutil import relativedelta
 
 from libs import data_client
@@ -48,11 +49,16 @@ class SubscriptionReconciler:
         """Initialize the reconciler with today's date."""
         self._today = datetime.datetime.now(tz=datetime.UTC).date()
 
-    def reconcile(self) -> None:
+    def reconcile(
+        self,
+        connection: st_supabase_connection.SupabaseConnection | None = None,
+    ) -> None:
         """Run the reconciliation pass."""
+        conn_kwargs: dict = {"_connection": connection} if connection else {}
         subscriptions = data_client.get_data(
             table_name=_SUBSCRIPTIONS_TABLE,
             query_string="*",
+            **conn_kwargs,
         )
         if not subscriptions:
             return
@@ -65,6 +71,7 @@ class SubscriptionReconciler:
         existing_payment_data = data_client.get_data(
             table_name=_PAYMENTS_TABLE,
             query_string="*",
+            **conn_kwargs,
         )
         existing_payments = [
             backend_models.ExpensePaymentModel.model_validate(payment)
@@ -83,10 +90,12 @@ class SubscriptionReconciler:
             current_payments = payments_by_subscription.get(sub_id, [])
             self._reconcile_subscription(sub, current_payments, updates)
 
+        update_kwargs: dict = {"connection": connection} if connection else {}
         data_client.update_backend(
             table_name=_PAYMENTS_TABLE,
             updates=updates,
             tables_to_clear=_TABLES_TO_CLEAR,
+            **update_kwargs,
         )
 
     def _reconcile_subscription(
