@@ -26,7 +26,7 @@ class TestGetCurrentUser:
 
         def fake_sign_in() -> None:
             st.session_state[ss_keys.SSKeys.CURRENT_USER] = backend_models.UserModel(
-                first_name="Stub", last_name="User"
+                first_name="Stub", last_name="User",
             )
 
         with mock.patch.object(auth, "_sign_in", side_effect=fake_sign_in):

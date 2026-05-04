@@ -5,6 +5,8 @@ Currently uses hardcoded credentials; will be replaced with real
 authentication once the login page is fully implemented.
 """
 
+import uuid
+
 import streamlit as st
 import supabase_auth
 
@@ -45,9 +47,30 @@ def _sign_in() -> None:
             access_token = auth_resp.session.access_token
             user = auth_resp.user
 
-        if not access_token:
+        if not access_token or not user:
             st.error("Authentication failed. Please check your credentials.")
             st.stop()
+            return
 
         data_client.CONN.client.postgrest.auth(access_token)
-        st.session_state[ss_keys.SSKeys.CURRENT_USER] = user
+
+        user_id = uuid.UUID(user.id)
+        user_row = (
+            data_client.CONN.table("users")
+            .select("first_name, last_name")
+            .eq("id", str(user_id))
+            .execute()
+            .data
+        )
+        if user_row:
+            first_name = user_row[0].get("first_name", "")
+            last_name = user_row[0].get("last_name", "")
+        else:
+            first_name = user.email or ""
+            last_name = ""
+
+        st.session_state[ss_keys.SSKeys.CURRENT_USER] = backend_models.UserModel(
+            id=user_id,
+            first_name=first_name,
+            last_name=last_name,
+        )
