@@ -47,7 +47,7 @@ CREATE TABLE PAYMENTS (
     bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
     payment_type TEXT NOT NULL DEFAULT 'expense',
     subscription_id UUID,
-    _created_at TIMESTAMP
+    _created_at TIMESTAMPTZ DEFAULT (now() AT TIME ZONE 'utc')
 );
 
 
@@ -90,7 +90,7 @@ CREATE TABLE BUDGET_TRACKER (
     id UUID PRIMARY KEY,
     user_id UUID REFERENCES users(id),
     name TEXT,
-    total_budget FLOAT,
+    total_budget FLOAT DEFAULT 0,
     _created_at TIMESTAMP
 );
 
@@ -207,7 +207,7 @@ SELECT
         WHEN COALESCE(income_totals.total_income, 0) > 0
         THEN bt.total_budget / income_totals.total_income * 100
         ELSE 0
-    END AS props
+    END AS split
 FROM
     BUDGET_TRACKER bt
 LEFT JOIN
