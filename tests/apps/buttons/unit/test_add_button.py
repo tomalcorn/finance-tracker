@@ -1,8 +1,12 @@
 """Unit tests for the add button module."""
 
 import pytest
+import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
+
+from apps.buttons import add_button
+from libs.models import frontend_models
 
 
 def _add_button_dialog_wrapper() -> None:
@@ -52,4 +56,81 @@ class TestAddButton:
                 submit_button_label_rendered,
                 dialog_text_rendered,
             ],
+        )
+
+
+def _make_col_config(
+    name: str,
+    *,
+    required: bool = True,
+) -> frontend_models.DFEColumnConfig:
+    return frontend_models.DFEColumnConfig(
+        column_name=name,
+        column_config=st.column_config.TextColumn(name),
+        button_label=name,
+        input_widget=st.text_input,
+        input_kwargs={},
+        required=required,
+    )
+
+
+def _req(name: str = "name") -> frontend_models.DFEColumnConfig:
+    return _make_col_config(name, required=True)
+
+
+def _opt(name: str = "end_date") -> frontend_models.DFEColumnConfig:
+    return _make_col_config(name, required=False)
+
+
+class TestAddButtonRequiredField:
+    """Tests for the required field behaviour on the add button."""
+
+    @pytest.mark.parametrize(
+        ("col_configs", "outputs", "expected"),
+        [
+            pytest.param([_req()], [""], True, id="required_empty"),
+            pytest.param([_req()], [None], True, id="required_none"),
+            pytest.param(
+                [_req(), _opt()],
+                ["filled", ""],
+                False,
+                id="optional_empty_required_filled",
+            ),
+            pytest.param(
+                [_req(), _opt()],
+                ["filled", None],
+                False,
+                id="optional_none_required_filled",
+            ),
+            pytest.param(
+                [_req(), _opt()],
+                ["", "something"],
+                True,
+                id="required_empty_optional_filled",
+            ),
+            pytest.param(
+                [_req(), _req("other")],
+                ["filled", "also filled"],
+                False,
+                id="all_required_filled",
+            ),
+            pytest.param(
+                [_opt(), _opt("opt2")],
+                ["", None],
+                False,
+                id="no_required_fields",
+            ),
+        ],
+    )
+    def test_options_unfilled(
+        self,
+        col_configs: list[frontend_models.DFEColumnConfig],
+        outputs: list[object],
+        *,
+        expected: bool,
+    ) -> None:
+        """Test the logic for determining if required options are unfilled."""
+        assert (
+            add_button.AddButton._has_unfilled_required(col_configs, outputs)
+            is expected
         )

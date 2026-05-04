@@ -17,3 +17,5 @@ class TableNames(enum.StrEnum):
     ONE_OFFS_VIEW = enum.auto()
     INCOME_SOURCES = enum.auto()
     INCOME_SOURCES_VIEW = enum.auto()
+    SUBSCRIPTIONS = enum.auto()
+    SUBSCRIPTIONS_VIEW = enum.auto()

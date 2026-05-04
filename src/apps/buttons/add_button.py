@@ -79,7 +79,10 @@ class AddButton(base_button.BaseButton):
             )
             for col in col_configs
         ]
-        options_unfilled = any(output is None or output == "" for output in outputs)
+        options_unfilled = self._has_unfilled_required(
+            col_configs,
+            outputs,
+        )
         submit_button = st.button(
             label="Submit",
             key=f"{self._key_prefix}_submit_new_row_button",
@@ -94,6 +97,18 @@ class AddButton(base_button.BaseButton):
             data_client.invalidate_table_cache(self._table_name)
             self.new_data_added = True
             st.rerun()
+
+    @staticmethod
+    def _has_unfilled_required(
+        col_configs: list[frontend_models.DFEColumnConfig],
+        outputs: list[object],
+    ) -> bool:
+        """Check whether any required column has an unfilled output."""
+        return any(
+            (output is None or output == "")
+            for col, output in zip(col_configs, outputs, strict=False)
+            if col.required
+        )
 
     def __call__(self, col_configs: list[frontend_models.DFEColumnConfig]) -> bool:
         """Render the 'Add' button in the UI.

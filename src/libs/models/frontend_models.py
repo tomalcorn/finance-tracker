@@ -217,6 +217,12 @@ class DFEColumnConfig(DFEColumnConfigBase):
         bool,
         pydantic.Field(description="Whether to enforce unique values in the column."),
     ] = False
+    required: Annotated[
+        bool,
+        pydantic.Field(
+            description="Whether this field must be filled in the add dialog.",
+        ),
+    ] = True
 
 
 class DFEConfig(pydantic.BaseModel):
