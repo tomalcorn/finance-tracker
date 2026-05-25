@@ -5,7 +5,7 @@ import typing
 
 import pandas as pd
 import pydantic
-import st_supabase_connection  # type: ignore[import-untyped]
+import st_supabase_connection
 import streamlit as st
 
 from libs import ss_keys
