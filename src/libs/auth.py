@@ -37,6 +37,30 @@ def _authenticate_supabase(auth0_sub: str) -> None:
     data_client.CONN.client.postgrest.auth(token)
 
 
+def _seed_default_budget_trackers(auth0_sub: str) -> None:
+    """Create the four default budget tracker rows if they don't already exist."""
+    existing = data_client.get_data(
+        table_name="budget_tracker",
+        query_string="name",
+    )
+    existing_names = {str(row["name"]) for row in existing}
+
+    missing = [
+        backend_models.BudgetTrackerItemModel(
+            user_id=auth0_sub,
+            name=name.value,
+        ).model_dump(mode="json")
+        for name in backend_models.BudgetTrackerName
+        if name.value not in existing_names
+    ]
+    if missing:
+        data_client.CONN.table("budget_tracker").upsert(
+            missing,
+            on_conflict="user_id,name",
+        ).execute()
+        data_client.invalidate_table_cache("budget_tracker")
+
+
 def get_current_user() -> backend_models.UserModel:
     """Return the currently logged-in user.
 
@@ -55,6 +79,7 @@ def get_current_user() -> backend_models.UserModel:
         last_name = parts[1] if len(parts) > 1 else ""
 
         _authenticate_supabase(auth0_sub)
+        _seed_default_budget_trackers(auth0_sub)
 
         st.session_state[ss_keys.SSKeys.CURRENT_USER] = backend_models.UserModel(
             id=auth0_sub,
