@@ -1,6 +1,6 @@
 -- Create the users table
 CREATE TABLE users (
-    id UUID PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     first_name TEXT,
     last_name TEXT
 );
@@ -8,7 +8,7 @@ CREATE TABLE users (
 -- Create the BANK_ACCOUNTS table
 CREATE TABLE BANK_ACCOUNTS (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT,
     name TEXT,
     starting_balance FLOAT,
     _created_at TIMESTAMP
@@ -17,7 +17,7 @@ CREATE TABLE BANK_ACCOUNTS (
 -- Create the EXPENSE_SOURCES table
 CREATE TABLE EXPENSE_SOURCES (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT,
     name TEXT,
     budget FLOAT,
     budget_tracker_ids UUID[],
@@ -27,7 +27,7 @@ CREATE TABLE EXPENSE_SOURCES (
 -- Create the INCOME_SOURCES table
 CREATE TABLE INCOME_SOURCES (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT,
     name TEXT,
     budget_tracker_ids UUID[],
     _created_at TIMESTAMP
@@ -36,7 +36,7 @@ CREATE TABLE INCOME_SOURCES (
 -- Create the PAYMENTS table
 CREATE TABLE PAYMENTS (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT,
     name TEXT,
     income FLOAT NOT NULL DEFAULT 0,
     expense FLOAT NOT NULL DEFAULT 0,
@@ -54,7 +54,7 @@ CREATE TABLE PAYMENTS (
 -- Create the SUBSCRIPTIONS table
 CREATE TABLE SUBSCRIPTIONS (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT,
     name TEXT NOT NULL,
     amount FLOAT NOT NULL,
     cadence TEXT NOT NULL,
@@ -88,7 +88,7 @@ FROM SUBSCRIPTIONS s;
 -- Create the BUDGET_TRACKER table
 CREATE TABLE BUDGET_TRACKER (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT,
     name TEXT,
     total_budget FLOAT DEFAULT 0,
     _created_at TIMESTAMP
@@ -97,7 +97,7 @@ CREATE TABLE BUDGET_TRACKER (
 -- Create the ONE_OFFS table
 CREATE TABLE ONE_OFFS (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT,
     name TEXT,
     cost FLOAT,
     current_month FLOAT,
