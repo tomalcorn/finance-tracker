@@ -1,6 +1,7 @@
 """Pydantic models for backend model validation."""
 
 import datetime
+import enum
 import uuid
 from typing import Annotated, Literal
 
@@ -34,9 +35,22 @@ class BankAccountModel(FinanceTrackerBaseModel):
     ] = 0.0
 
 
+class BudgetTrackerName(enum.StrEnum):
+    """Fixed names for budget tracker rows."""
+
+    EXPENSES = "Expenses"
+    JOINT = "Joint"
+    ONE_OFFS = "One-offs"
+    SAVINGS = "Savings"
+
+
 class BudgetTrackerItemModel(FinanceTrackerBaseModel):
     """Model representing a budget tracker item."""
 
+    name: Annotated[
+        BudgetTrackerName,
+        pydantic.Field(description="The budget tracker category name."),
+    ]
     total_budget: Annotated[
         float,
         pydantic.Field(description="The total budget amount."),
