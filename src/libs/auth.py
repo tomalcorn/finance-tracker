@@ -68,3 +68,10 @@ def get_current_user() -> backend_models.UserModel:
 def is_logged_in() -> bool:
     """Check whether a user is currently logged in."""
     return bool(st.user.is_logged_in)
+
+
+def logout() -> None:
+    """Clear all session state and caches, then trigger OIDC logout."""
+    st.session_state.clear()
+    st.cache_data.clear()
+    st.logout()

@@ -11,7 +11,7 @@ if auth.is_logged_in():
     st.success(f"Logged in as **{user.first_name} {user.last_name}**")
     st.write(f"Email: {st.user.email}")
     if st.button("Log out"):
-        st.logout()
+        auth.logout()
 else:
     st.info("You are not logged in.")
     st.button("Log in", on_click=st.login, args=["auth0"])
