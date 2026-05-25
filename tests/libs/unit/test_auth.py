@@ -1,7 +1,6 @@
 """Unit tests for the auth module."""
 
 import typing
-import uuid
 from unittest import mock
 
 import pytest
@@ -20,36 +19,44 @@ class TestGetCurrentUser:
             yield
 
     @pytest.fixture
-    def _stub_sign_in(self) -> typing.Generator[None, None, None]:
-        """Bypass Supabase sign-in by injecting a dummy user."""
-        import streamlit as st
+    def _stub_auth0_user(self) -> typing.Generator[None, None, None]:
+        """Simulate an Auth0-authenticated user and bypass Supabase calls."""
+        fake_user = mock.MagicMock(
+            is_logged_in=True,
+            sub="auth0|stub123",
+            name="Stub User",
+        )
+        fake_user.get = mock.MagicMock(return_value="Stub User")
 
-        def fake_sign_in() -> None:
-            st.session_state[ss_keys.SSKeys.CURRENT_USER] = backend_models.UserModel(
-                first_name="Stub", last_name="User",
-            )
-
-        with mock.patch.object(auth, "_sign_in", side_effect=fake_sign_in):
+        with (
+            mock.patch("streamlit.user", fake_user),
+            mock.patch.object(auth, "_authenticate_supabase"),
+        ):
             yield
 
-    @pytest.mark.usefixtures("_stub_sign_in")
+    @pytest.mark.usefixtures("_stub_auth0_user")
     def test_returns_user_model(self) -> None:
         user = auth.get_current_user()
         assert isinstance(user, backend_models.UserModel)
 
-    @pytest.mark.usefixtures("_stub_sign_in")
+    @pytest.mark.usefixtures("_stub_auth0_user")
     def test_returns_stable_identity(self) -> None:
         first = auth.get_current_user()
         second = auth.get_current_user()
         assert first is second
 
-    @pytest.mark.usefixtures("_stub_sign_in")
+    @pytest.mark.usefixtures("_stub_auth0_user")
     def test_user_has_valid_id(self) -> None:
         user = auth.get_current_user()
-        assert isinstance(user.id, uuid.UUID)
+        assert isinstance(user.id, str)
+        assert user.id == "auth0|stub123"
 
     def test_does_not_overwrite_existing_session_user(self) -> None:
-        existing = backend_models.UserModel(first_name="Other", last_name="User")
+        existing = backend_models.UserModel(
+            id="auth0|existing",
+            first_name="Other",
+            last_name="User",
+        )
         import streamlit as st
 
         st.session_state[ss_keys.SSKeys.CURRENT_USER] = existing

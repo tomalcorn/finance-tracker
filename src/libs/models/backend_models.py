@@ -17,9 +17,9 @@ class FinanceTrackerBaseModel(pydantic.BaseModel):
         default_factory=uuid.uuid4,
     )
     user_id: Annotated[
-        uuid.UUID,
+        str,
         pydantic.Field(
-            description="The unique identifier for the user who owns the item.",
+            description="The Auth0 user ID who owns the item.",
         ),
     ]
     name: Annotated[str, pydantic.Field(description="The name of the item.")] = ""
@@ -218,11 +218,11 @@ class UserModel(pydantic.BaseModel):
     """Model representing a user."""
 
     id: Annotated[
-        uuid.UUID,
+        str,
         pydantic.Field(
-            description="TO BE DEPRECATED. The unique identifier for the user.",
+            description="The Auth0 user ID (sub claim).",
         ),
-    ] = pydantic.Field(default_factory=uuid.uuid4)
+    ]
     first_name: Annotated[
         str,
         pydantic.Field(description="The first name of the user."),

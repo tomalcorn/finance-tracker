@@ -50,6 +50,7 @@ def _expense_source_id() -> str:
 @pytest.fixture(autouse=True)
 def _session_user() -> None:
     st.session_state[ss_keys.SSKeys.CURRENT_USER] = backend_models.UserModel(
+        id="auth0|test-bank-user",
         first_name="Test",
         last_name="User",
     )

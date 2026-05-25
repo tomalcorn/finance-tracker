@@ -19,9 +19,13 @@ _BANK_ACCOUNTS = "bank_accounts"
 @pytest.fixture(name="user_and_bank")
 def _user_and_bank(
     connection: st_supabase_connection.SupabaseConnection,
-) -> typing.Generator[tuple[uuid.UUID, uuid.UUID], None, None]:
+) -> typing.Generator[tuple[str, uuid.UUID], None, None]:
     """Create a user and bank account for FK constraints, clean up after."""
-    user = backend_models.UserModel(first_name="Sub", last_name="Tester")
+    user = backend_models.UserModel(
+        id="auth0|int-test-user",
+        first_name="Sub",
+        last_name="Tester",
+    )
     bank = backend_models.BankAccountModel(user_id=user.id, name="Test Account")
 
     connection.table("users").insert(user.model_dump(mode="json")).execute()
@@ -85,7 +89,7 @@ class TestReconcileIntegration:
     def test_creates_payment_for_active_subscription(
         self,
         connection: st_supabase_connection.SupabaseConnection,
-        user_and_bank: tuple[uuid.UUID, uuid.UUID],
+        user_and_bank: tuple[str, uuid.UUID],
     ) -> None:
         """Active sub with no payments should produce one payment."""
         user_id, bank_id = user_and_bank
@@ -113,7 +117,7 @@ class TestReconcileIntegration:
     def test_does_not_duplicate_existing_future_payment(
         self,
         connection: st_supabase_connection.SupabaseConnection,
-        user_and_bank: tuple[uuid.UUID, uuid.UUID],
+        user_and_bank: tuple[str, uuid.UUID],
     ) -> None:
         """Running reconcile twice should not create a second payment."""
         user_id, bank_id = user_and_bank
@@ -137,7 +141,7 @@ class TestReconcileIntegration:
     def test_deletes_future_payment_for_inactive_subscription(
         self,
         connection: st_supabase_connection.SupabaseConnection,
-        user_and_bank: tuple[uuid.UUID, uuid.UUID],
+        user_and_bank: tuple[str, uuid.UUID],
     ) -> None:
         """Deactivating a sub should remove its future payment."""
         user_id, bank_id = user_and_bank
@@ -170,7 +174,7 @@ class TestReconcileIntegration:
     def test_deletes_payment_past_end_date(
         self,
         connection: st_supabase_connection.SupabaseConnection,
-        user_and_bank: tuple[uuid.UUID, uuid.UUID],
+        user_and_bank: tuple[str, uuid.UUID],
     ) -> None:
         """A future payment beyond the sub's end_date should be removed."""
         user_id, bank_id = user_and_bank

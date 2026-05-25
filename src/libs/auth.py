@@ -1,76 +1,70 @@
 """Authentication helpers for the finance tracker application.
 
-Provides the current user's details for CRUD operations.
-Currently uses hardcoded credentials; will be replaced with real
-authentication once the login page is fully implemented.
+Bridges Auth0 identity (via st.login / st.user) to Supabase RLS
+by minting a custom JWT containing the Auth0 user ID.
 """
 
-import uuid
+import time
 
+import jwt
 import streamlit as st
-import supabase_auth
 
 from libs import data_client, ss_keys
 from libs.models import backend_models
 
 
+def _mint_supabase_jwt(auth0_sub: str) -> str:
+    """Mint a JWT that Supabase PostgREST will accept for RLS.
+
+    The ``userId`` claim is read by the custom ``auth.user_id()``
+    Postgres function used in RLS policies.
+    """
+    secret = str(st.secrets["supabase_admin"]["jwt_secret"])
+    now = int(time.time())
+    payload = {
+        "userId": auth0_sub,
+        "role": "authenticated",
+        "aud": "authenticated",
+        "iat": now,
+        "exp": now + 3600,
+    }
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def _authenticate_supabase(auth0_sub: str) -> None:
+    """Set a custom JWT on the Supabase connection for RLS."""
+    token = _mint_supabase_jwt(auth0_sub)
+    data_client.CONN.client.postgrest.auth(token)
+
+
 def get_current_user() -> backend_models.UserModel:
     """Return the currently logged-in user.
 
-    On first call, authenticates with Supabase using hardcoded
-    credentials and stores the user in session state.
+    On first call per session, reads the Auth0 identity from ``st.user``,
+    mints a Supabase JWT, and stores the user in session state.
     """
     if ss_keys.SSKeys.CURRENT_USER not in st.session_state:
-        _sign_in()
+        if not st.user.is_logged_in:
+            st.error("Not logged in.")
+            st.stop()
+
+        auth0_sub = str(st.user.sub)
+        name = str(st.user.get("name", auth0_sub))
+        parts = name.split(" ", 1) if name else [auth0_sub, ""]
+        first_name = parts[0]
+        last_name = parts[1] if len(parts) > 1 else ""
+
+        _authenticate_supabase(auth0_sub)
+
+        st.session_state[ss_keys.SSKeys.CURRENT_USER] = backend_models.UserModel(
+            id=auth0_sub,
+            first_name=first_name,
+            last_name=last_name,
+        )
+
     return st.session_state[ss_keys.SSKeys.CURRENT_USER]
 
 
 def is_logged_in() -> bool:
     """Check whether a user is currently logged in."""
-    return ss_keys.SSKeys.CURRENT_USER in st.session_state
-
-
-def _sign_in() -> None:
-    """Authenticate with Supabase and store the user in session state."""
-    credentials = supabase_auth.SignInWithEmailAndPasswordCredentials(
-        email="tomalcorn777@icloud.com",
-        password="jiwQij-kirwi3-hedtyk",  # noqa: S106
-    )
-
-    with st.spinner("Signing in..."):
-        auth_resp = data_client.CONN.auth.sign_in_with_password(credentials)
-
-        access_token = None
-        user = None
-
-        if hasattr(auth_resp, "session") and auth_resp.session:
-            access_token = auth_resp.session.access_token
-            user = auth_resp.user
-
-        if not access_token or not user:
-            st.error("Authentication failed. Please check your credentials.")
-            st.stop()
-            return
-
-        data_client.CONN.client.postgrest.auth(access_token)
-
-        user_id = uuid.UUID(user.id)
-        user_row = (
-            data_client.CONN.table("users")
-            .select("first_name, last_name")
-            .eq("id", str(user_id))
-            .execute()
-            .data
-        )
-        if user_row:
-            first_name = user_row[0].get("first_name", "")
-            last_name = user_row[0].get("last_name", "")
-        else:
-            first_name = user.email or ""
-            last_name = ""
-
-        st.session_state[ss_keys.SSKeys.CURRENT_USER] = backend_models.UserModel(
-            id=user_id,
-            first_name=first_name,
-            last_name=last_name,
-        )
+    return bool(st.user.is_logged_in)

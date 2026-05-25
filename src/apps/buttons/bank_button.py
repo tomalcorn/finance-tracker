@@ -66,10 +66,10 @@ class BankButton:
         expense_source_id: str | None,
     ) -> None:
         """Perform the banking operation for the selected one-off items."""
-        current_user: backend_models.FinanceTrackerBaseModel = st.session_state[
+        current_user: backend_models.UserModel = st.session_state[
             ss_keys.SSKeys.CURRENT_USER
         ]
-        user_id = str(current_user.id)
+        user_id = current_user.id
 
         for item in items:
             amount = float(item["current_month"])
@@ -91,7 +91,7 @@ class BankButton:
             )
 
             payment = backend_models.ExpensePaymentModel(
-                user_id=uuid.UUID(user_id),
+                user_id=user_id,
                 name=f"Bank: {item['name']}",
                 expense=amount,
                 payment_date=datetime.datetime.now(tz=datetime.UTC).date(),

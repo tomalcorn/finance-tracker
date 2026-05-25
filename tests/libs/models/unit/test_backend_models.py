@@ -20,7 +20,7 @@ class TestOneOffItemModel:
         with mock.patch.object(data_client, "get_data", return_value=mock_data):
             model = backend_models.OneOffItemModel(
                 id=uuid.uuid4(),
-                user_id=uuid.uuid4(),
+                user_id="test-user",
                 name="Test Item",
                 cost=100.0,
             )
@@ -33,7 +33,7 @@ class TestOneOffItemModel:
         with mock.patch.object(data_client, "get_data", return_value=mock_data):
             model = backend_models.OneOffItemModel(
                 id=uuid.uuid4(),
-                user_id=uuid.uuid4(),
+                user_id="test-user",
                 name="Test Item",
             )
             assert model.budget_tracker_id == expected_id
