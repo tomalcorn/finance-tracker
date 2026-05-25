@@ -1,7 +1,6 @@
 """Helper functions and fixtures for tests."""
 
 import typing
-import uuid
 
 import pytest
 import st_supabase_connection
@@ -30,7 +29,11 @@ def _connection() -> st_supabase_connection.SupabaseConnection:
 @pytest.fixture(name="sample_user")
 def _sample_user() -> backend_models.UserModel:
     """Provide a sample user model for tests."""
-    return backend_models.UserModel(first_name="Test", last_name="User1")
+    return backend_models.UserModel(
+        id="auth0|test-user-1",
+        first_name="Test",
+        last_name="User1",
+    )
 
 
 @pytest.fixture(name="yield_sample_user")
@@ -56,7 +59,7 @@ def _yield_sample_users(
     sample_users = [
         sample_user,
         sample_user.model_copy(
-            update={"id": uuid.uuid4(), "last_name": "User2"},
+            update={"id": "auth0|test-user-2", "last_name": "User2"},
             deep=True,
         ),
     ]

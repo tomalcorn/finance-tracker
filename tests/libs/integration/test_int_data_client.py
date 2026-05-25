@@ -204,6 +204,7 @@ class TestUpdateBackend:
         """Test adding, editing and deleting a row in the backend."""
         # Arrange - Add a new user, then edit one of the existing users
         new_user = backend_models.UserModel(
+            id="auth0|int-test-new-user",
             first_name="New",
             last_name="User",
         )
