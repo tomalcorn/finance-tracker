@@ -34,7 +34,7 @@ class BankButton:
             (
                 str(bt["id"])
                 for bt in budget_tracker_data
-                if str(bt.get("name", "")).lower() == "one-offs"
+                if bt.get("name") == backend_models.BudgetTrackerName.ONE_OFFS
             ),
             None,
         )

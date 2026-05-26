@@ -64,21 +64,29 @@ class ExpenseSourceModel(FinanceTrackerBaseModel):
         float,
         pydantic.Field(description="The budget amount for the expense source."),
     ] = 0.0
+    budget_tracker_ids: list[uuid.UUID] = pydantic.Field(
+        description="List of associated budget tracker item IDs.",
+        validate_default=True,
+        default_factory=list,
+    )
 
-    @pydantic.computed_field
-    @property
-    def budget_tracker_ids(self) -> list[uuid.UUID]:
-        """Compute the list of associated budget tracker item IDs.
-
-        Expense sources should all be connected only to the "expenses" budget tracker
-        item, so we can compute this based on the name of the budget tracker item
-        rather than needing to store it directly
-        """
+    @pydantic.field_validator("budget_tracker_ids", mode="before")
+    @classmethod
+    def _default_to_expenses(
+        cls,
+        v: list[uuid.UUID] | None,
+    ) -> list[uuid.UUID]:
+        """Default to the Expenses budget tracker when no IDs are provided."""
+        if v:
+            return v
         rows = data_client.get_data(
             table_name="budget_tracker",
             query_string="id,name",
         )
-        if row := next((r for r in rows if r.get("name") == "expenses"), None):
+        if row := next(
+            (r for r in rows if r.get("name") == BudgetTrackerName.EXPENSES),
+            None,
+        ):
             return [uuid.UUID(str(row["id"]))]
         return []
 
@@ -113,7 +121,7 @@ class OneOffItemModel(FinanceTrackerBaseModel):
             query_string="id,name",
         )
         if row := next(
-            (r for r in rows if str(r.get("name", "")).lower() == "one-offs"),
+            (r for r in rows if r.get("name") == BudgetTrackerName.ONE_OFFS),
             None,
         ):
             return uuid.UUID(str(row["id"]))
@@ -123,10 +131,10 @@ class OneOffItemModel(FinanceTrackerBaseModel):
 class IncomeSourceModel(FinanceTrackerBaseModel):
     """Model representing an income source."""
 
-    budget_tracker_ids: Annotated[
-        list[uuid.UUID],
-        pydantic.Field(description="List of associated budget tracker item IDs."),
-    ] = []
+    budget_tracker_ids: list[uuid.UUID] = pydantic.Field(
+        description="List of associated budget tracker item IDs.",
+        default_factory=list,
+    )
 
 
 class SubscriptionModel(FinanceTrackerBaseModel):
@@ -165,13 +173,10 @@ class SubscriptionModel(FinanceTrackerBaseModel):
 class _PaymentBaseModel(FinanceTrackerBaseModel):
     """Base model for payment entries."""
 
-    payment_date: Annotated[
-        datetime.date,
-        pydantic.Field(
-            description="The date of the payment.",
-            default_factory=datetime.date.today,
-        ),
-    ]
+    payment_date: datetime.date = pydantic.Field(
+        description="The date of the payment.",
+        default_factory=datetime.date.today,
+    )
     checked: Annotated[
         bool,
         pydantic.Field(description="Whether the payment has been checked/verified."),

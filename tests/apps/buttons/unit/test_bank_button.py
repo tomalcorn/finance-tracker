@@ -287,11 +287,11 @@ class TestGetExpenseSourceId:
     def _matching_bt_and_es(self) -> list[list[dict]]:
         """Budget tracker + expense source that match."""
         return [
-            [{"id": _BT_ONE_OFFS_ID, "name": "one-offs"}],
+            [{"id": _BT_ONE_OFFS_ID, "name": "One-offs"}],
             [
                 {
                     "id": _EXPENSE_SOURCE_ID,
-                    "name": "One-Offs",
+                    "name": "One-offs",
                     "budget_tracker_ids": [_BT_ONE_OFFS_ID],
                 },
             ],
@@ -314,48 +314,18 @@ class TestGetExpenseSourceId:
         assert result == _EXPENSE_SOURCE_ID
 
     @pytest.mark.parametrize(
-        "bt_name",
-        ["one-offs", "One-Offs", "ONE-OFFS", "One-offs"],
-        ids=["lowercase", "title-case", "uppercase", "sentence-case"],
-    )
-    @mock.patch.object(bank_button.data_client, "get_data")
-    def test_case_insensitive_budget_tracker_lookup(
-        self,
-        mock_get_data: mock.MagicMock,
-        bt_name: str,
-    ) -> None:
-        """The budget tracker name match should be case-insensitive."""
-        # Arrange
-        mock_get_data.side_effect = [
-            [{"id": _BT_ONE_OFFS_ID, "name": bt_name}],
-            [
-                {
-                    "id": _EXPENSE_SOURCE_ID,
-                    "name": "One-Offs",
-                    "budget_tracker_ids": [_BT_ONE_OFFS_ID],
-                },
-            ],
-        ]
-
-        # Act
-        result = bank_button.BankButton._get_expense_source_id()
-
-        # Assert
-        assert result == _EXPENSE_SOURCE_ID
-
-    @pytest.mark.parametrize(
         ("bt_data", "es_data"),
         [
             (
-                [{"id": str(uuid.uuid4()), "name": "expenses"}],
+                [{"id": str(uuid.uuid4()), "name": "Expenses"}],
                 None,
             ),
             (
-                [{"id": _BT_ONE_OFFS_ID, "name": "one-offs"}],
+                [{"id": _BT_ONE_OFFS_ID, "name": "One-offs"}],
                 [],
             ),
             (
-                [{"id": _BT_ONE_OFFS_ID, "name": "one-offs"}],
+                [{"id": _BT_ONE_OFFS_ID, "name": "One-offs"}],
                 [
                     {
                         "id": str(uuid.uuid4()),
@@ -365,7 +335,7 @@ class TestGetExpenseSourceId:
                 ],
             ),
             (
-                [{"id": _BT_ONE_OFFS_ID, "name": "one-offs"}],
+                [{"id": _BT_ONE_OFFS_ID, "name": "One-offs"}],
                 [
                     {
                         "id": str(uuid.uuid4()),
@@ -411,7 +381,7 @@ class TestGetExpenseSourceId:
         # Arrange
         other_bt_id = str(uuid.uuid4())
         mock_get_data.side_effect = [
-            [{"id": _BT_ONE_OFFS_ID, "name": "one-offs"}],
+            [{"id": _BT_ONE_OFFS_ID, "name": "One-offs"}],
             [
                 {
                     "id": str(uuid.uuid4()),

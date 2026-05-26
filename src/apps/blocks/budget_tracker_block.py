@@ -357,7 +357,7 @@ def render() -> None:
         (
             bt_id
             for bt_id, name in budget_tracker_map.items()
-            if name.lower() == "expenses"
+            if name == backend_models.BudgetTrackerName.EXPENSES
         ),
         None,
     )
