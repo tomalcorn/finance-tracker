@@ -67,19 +67,25 @@ class TestSeedDefaultBudgetTrackersIntegration:
         auth.seed_default_budget_trackers(self._USER_ID, connection=connection)
 
         # Assert — read directly to bypass the cache
-        bt_rows = (
-            connection.table("budget_tracker")
-            .select("id,name")
-            .eq("user_id", self._USER_ID)
-            .execute()
-            .data
+        bt_rows: list[dict[str, typing.Any]] = typing.cast(
+            "list[dict[str, typing.Any]]",
+            (
+                connection.table("budget_tracker")
+                .select("id,name")
+                .eq("user_id", self._USER_ID)
+                .execute()
+                .data
+            ),
         )
-        es_rows = (
-            connection.table("expense_sources")
-            .select("name,budget_tracker_ids")
-            .eq("user_id", self._USER_ID)
-            .execute()
-            .data
+        es_rows: list[dict[str, typing.Any]] = typing.cast(
+            "list[dict[str, typing.Any]]",
+            (
+                connection.table("expense_sources")
+                .select("name,budget_tracker_ids")
+                .eq("user_id", self._USER_ID)
+                .execute()
+                .data
+            ),
         )
         bt_id_by_name = {row["name"]: row["id"] for row in bt_rows}
         assert all(
@@ -105,19 +111,25 @@ class TestSeedDefaultBudgetTrackersIntegration:
         auth.seed_default_budget_trackers(self._USER_ID, connection=connection)
 
         # Assert — still exactly 4 budget trackers and 3 expense sources
-        bt_rows = (
-            connection.table("budget_tracker")
-            .select("id")
-            .eq("user_id", self._USER_ID)
-            .execute()
-            .data
+        bt_rows: list[dict[str, typing.Any]] = typing.cast(
+            "list[dict[str, typing.Any]]",
+            (
+                connection.table("budget_tracker")
+                .select("id")
+                .eq("user_id", self._USER_ID)
+                .execute()
+                .data
+            ),
         )
-        es_rows = (
-            connection.table("expense_sources")
-            .select("id")
-            .eq("user_id", self._USER_ID)
-            .execute()
-            .data
+        es_rows: list[dict[str, typing.Any]] = typing.cast(
+            "list[dict[str, typing.Any]]",
+            (
+                connection.table("expense_sources")
+                .select("id")
+                .eq("user_id", self._USER_ID)
+                .execute()
+                .data
+            ),
         )
         assert all(
             [
