@@ -172,14 +172,16 @@ class TestReconcileIntegration:
     ) -> None:
         """A future payment beyond the sub's end_date should be removed."""
         user_id, bank_id = user_and_bank
+        today = datetime.datetime.now(tz=datetime.UTC).date()
+        end_date = today + datetime.timedelta(days=30)
         sub = backend_models.SubscriptionModel(
             user_id=user_id,
             name="Trial Sub",
             amount=5.00,
             cadence="monthly",
             bank_account_id=bank_id,
-            start_date=datetime.date(2026, 1, 1),
-            end_date=datetime.date(2026, 6, 1),
+            start_date=today,
+            end_date=end_date,
             is_active=True,
         )
         _insert_subscription(connection, sub)
@@ -189,7 +191,7 @@ class TestReconcileIntegration:
             user_id=user_id,
             name="Sub: Trial Sub",
             expense=5.00,
-            payment_date=datetime.date(2026, 7, 1),
+            payment_date=end_date + datetime.timedelta(days=30),
             bank_account_id=bank_id,
             subscription_id=sub.id,
         )
