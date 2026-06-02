@@ -3,9 +3,9 @@
 from unittest import mock
 
 import streamlit as st
-from libs.buttons import constants
 
 from libs import data_client
+from libs.buttons import constants
 from libs.models import frontend_models
 
 
