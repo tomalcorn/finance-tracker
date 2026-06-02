@@ -14,7 +14,7 @@ from pandas.api.types import (
 )
 from st_supabase_connection import SupabaseConnection
 
-from libs import backend_models, constants, frontend_models
+from libs import auth, frontend_models
 
 MAX_UNIQUE_VALUES = 20
 DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}.*")
@@ -136,9 +136,7 @@ class DFEButtons:
             }
             # Insert ID and user ID
             new_row["id"] = str(uuid.uuid4())
-            current_user: backend_models.UserModel = st.session_state[
-                constants.SSKeys.CURRENT_USER
-            ]
+            current_user = auth.get_current_user()
             new_row["user_id"] = current_user.id
 
             # Enforce unique constraint if specified
