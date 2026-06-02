@@ -13,7 +13,9 @@ if not st.user.is_logged_in:
     st.stop()
 
 if st.session_state[ss_keys.SSKeys.FIRST_PASS]:
-    auth.authenticate_supabase_and_seed_default_budget_trackers(auth.get_current_user())
+    current_user = auth.get_current_user()
+    auth.authenticate_supabase(current_user)
+    auth.seed_default_budget_trackers(current_user)
     st.session_state[ss_keys.SSKeys.FIRST_PASS] = False
 
 pages = st.navigation(

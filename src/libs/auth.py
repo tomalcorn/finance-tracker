@@ -9,6 +9,7 @@ import uuid
 from typing import cast
 
 import jwt
+import st_supabase_connection
 import streamlit as st
 
 from libs import data_client
@@ -41,10 +42,33 @@ def _mint_supabase_jwt(auth0_sub: str) -> str:
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
-def authenticate_supabase_and_seed_default_budget_trackers(auth0_sub: str) -> None:
-    """Set a custom JWT on the Supabase connection and seed defaults."""
+def authenticate_supabase(
+    auth0_sub: str,
+    connection: st_supabase_connection.SupabaseConnection | None = None,
+) -> st_supabase_connection.SupabaseConnection:
+    """Mint a Supabase JWT for the Auth0 user and apply it to the connection.
+
+    Args:
+        auth0_sub: The Auth0 user ID (``sub`` claim).
+        connection: The Supabase connection to authenticate. Defaults to the
+            shared ``data_client.CONN``.
+
+    Returns:
+        The authenticated Supabase connection.
+
+    """
+    connection = connection or data_client.CONN
     token = _mint_supabase_jwt(auth0_sub)
-    data_client.CONN.client.postgrest.auth(token)
+    connection.client.postgrest.auth(token)
+    return connection
+
+
+def seed_default_budget_trackers(
+    auth0_sub: str,
+    connection: st_supabase_connection.SupabaseConnection | None = None,
+) -> None:
+    """Seed the default budget tracker rows and hidden expense sources."""
+    connection = connection or data_client.CONN
 
     # Create the four default budget tracker rows and hidden expense sources.
     # --- seed budget trackers ---
@@ -52,6 +76,7 @@ def authenticate_supabase_and_seed_default_budget_trackers(auth0_sub: str) -> No
     bt_rows = data_client.get_data(
         table_name=bt_table_name,
         query_string="id,name",
+        _connection=connection,
     )
     existing_bt_names = {str(row["name"]) for row in bt_rows}
 
@@ -64,7 +89,7 @@ def authenticate_supabase_and_seed_default_budget_trackers(auth0_sub: str) -> No
         if name.value not in existing_bt_names
     ]
     if missing_bts:
-        data_client.CONN.table(bt_table_name).upsert(
+        connection.table(bt_table_name).upsert(
             missing_bts,
             on_conflict="user_id,name",
         ).execute()
@@ -73,6 +98,7 @@ def authenticate_supabase_and_seed_default_budget_trackers(auth0_sub: str) -> No
         bt_rows = data_client.get_data(
             table_name=bt_table_name,
             query_string="id,name",
+            _connection=connection,
         )
 
     # --- seed hidden expense sources for Joint / One-offs / Savings ---
@@ -81,6 +107,7 @@ def authenticate_supabase_and_seed_default_budget_trackers(auth0_sub: str) -> No
     es_rows = data_client.get_data(
         table_name="expense_sources",
         query_string="budget_tracker_ids",
+        _connection=connection,
     )
     existing_bt_links: set[str] = set()
     for row in es_rows:
@@ -98,7 +125,7 @@ def authenticate_supabase_and_seed_default_budget_trackers(auth0_sub: str) -> No
         and bt_id_by_name[name.value] not in existing_bt_links
     ]
     if missing_es:
-        data_client.CONN.table("expense_sources").insert(missing_es).execute()
+        connection.table("expense_sources").insert(missing_es).execute()
         data_client.invalidate_table_cache("expense_sources")
 
 
