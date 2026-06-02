@@ -7,11 +7,10 @@ from libs import auth
 st.title(":material/lock: Profile")
 
 if auth.is_logged_in():
-    user = auth.get_current_user()
-    st.success(f"Logged in as **{user.first_name} {user.last_name}**")
-    st.write(f"Email: {st.user.email}")
+    st.write(f"Logged in as **{st.user.email}**")
     if st.button("Log out"):
         auth.logout()
+        st.rerun()
 else:
-    st.info("You are not logged in.")
-    st.button("Log in", on_click=st.login, args=["auth0"])
+    st.login("auth0")
+    st.stop()

@@ -5,7 +5,7 @@ import uuid
 
 import streamlit as st
 
-from libs import data_client, ss_keys
+from libs import auth, data_client
 from libs.buttons import constants
 from libs.dfes import constants as dfe_constants
 from libs.models import backend_models, backend_updates_model
@@ -66,11 +66,6 @@ class BankButton:
         expense_source_id: str | None,
     ) -> None:
         """Perform the banking operation for the selected one-off items."""
-        current_user: backend_models.UserModel = st.session_state[
-            ss_keys.SSKeys.CURRENT_USER
-        ]
-        user_id = current_user.id
-
         for item in items:
             amount = float(item["current_month"])
             if amount <= 0:
@@ -91,7 +86,7 @@ class BankButton:
             )
 
             payment = backend_models.ExpensePaymentModel(
-                user_id=user_id,
+                user_id=auth.get_current_user(),
                 name=f"Bank: {item['name']}",
                 expense=amount,
                 payment_date=datetime.datetime.now(tz=datetime.UTC).date(),

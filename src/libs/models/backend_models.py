@@ -231,22 +231,3 @@ class IncomePaymentModel(_PaymentBaseModel):
         uuid.UUID | None,
         pydantic.Field(description="The associated income source ID."),
     ] = None
-
-
-class UserModel(pydantic.BaseModel):
-    """Model representing a user."""
-
-    id: Annotated[
-        str,
-        pydantic.Field(
-            description="The Auth0 user ID (sub claim).",
-        ),
-    ]
-    first_name: Annotated[
-        str,
-        pydantic.Field(description="The first name of the user."),
-    ] = ""
-    last_name: Annotated[
-        str,
-        pydantic.Field(description="The last name of the user."),
-    ] = ""
