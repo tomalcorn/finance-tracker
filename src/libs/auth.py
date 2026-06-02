@@ -5,13 +5,13 @@ by minting a custom JWT containing the Auth0 user ID.
 """
 
 import time
-import typing
 import uuid
+from typing import cast
 
 import jwt
 import streamlit as st
 
-from libs import data_client, ss_keys
+from libs import data_client
 from libs.models import backend_models
 
 # Budget tracker names that need a corresponding hidden expense source.
@@ -40,14 +40,12 @@ def _mint_supabase_jwt(auth0_sub: str) -> str:
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
-def _authenticate_supabase(auth0_sub: str) -> None:
-    """Set a custom JWT on the Supabase connection for RLS."""
+def authenticate_supabase_and_seed_default_budget_trackers(auth0_sub: str) -> None:
+    """Set a custom JWT on the Supabase connection and seed defaults."""
     token = _mint_supabase_jwt(auth0_sub)
     data_client.CONN.client.postgrest.auth(token)
 
-
-def _seed_default_budget_trackers(auth0_sub: str) -> None:
-    """Create the four default budget tracker rows and hidden expense sources."""
+    # Create the four default budget tracker rows and hidden expense sources.
     # --- seed budget trackers ---
     bt_rows = data_client.get_data(
         table_name="budget_tracker",
@@ -58,7 +56,7 @@ def _seed_default_budget_trackers(auth0_sub: str) -> None:
     missing_bts = [
         backend_models.BudgetTrackerItemModel(
             user_id=auth0_sub,
-            name=name.value,
+            name=name,
         ).model_dump(mode="json")
         for name in backend_models.BudgetTrackerName
         if name.value not in existing_bt_names
@@ -84,7 +82,7 @@ def _seed_default_budget_trackers(auth0_sub: str) -> None:
     )
     existing_bt_links: set[str] = set()
     for row in es_rows:
-        for bt_id in typing.cast("list[str]", row.get("budget_tracker_ids") or []):
+        for bt_id in cast("list[str]", row.get("budget_tracker_ids") or []):
             existing_bt_links.add(str(bt_id))
 
     missing_es = [
@@ -102,33 +100,20 @@ def _seed_default_budget_trackers(auth0_sub: str) -> None:
         data_client.invalidate_table_cache("expense_sources")
 
 
-def get_current_user() -> backend_models.UserModel:
+def get_current_user() -> str:
     """Return the currently logged-in user.
 
-    On first call per session, reads the Auth0 identity from ``st.user``,
-    mints a Supabase JWT, and stores the user in session state.
+    Reads the Auth0 identity from ``st.user`` and returns the user id.
     """
-    if ss_keys.SSKeys.CURRENT_USER not in st.session_state:
-        if not st.user.is_logged_in:
-            st.error("Not logged in.")
-            st.stop()
+    if not st.user.is_logged_in:
+        st.error("Not logged in.")
+        st.stop()
 
-        auth0_sub = str(st.user.sub)
-        name = str(st.user.get("name", auth0_sub))
-        parts = name.split(" ", 1) if name else [auth0_sub, ""]
-        first_name = parts[0]
-        last_name = parts[1] if len(parts) > 1 else ""
+    if not isinstance((user_id := st.user.sub), str):
+        msg = f"user_id is incorrect, expected str, found: {type(user_id)}"
+        raise TypeError(msg)
 
-        _authenticate_supabase(auth0_sub)
-        _seed_default_budget_trackers(auth0_sub)
-
-        st.session_state[ss_keys.SSKeys.CURRENT_USER] = backend_models.UserModel(
-            id=auth0_sub,
-            first_name=first_name,
-            last_name=last_name,
-        )
-
-    return st.session_state[ss_keys.SSKeys.CURRENT_USER]
+    return user_id
 
 
 def is_logged_in() -> bool:
