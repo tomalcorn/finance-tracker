@@ -1,5 +1,6 @@
 """Unit tests for the BankButton class."""
 
+import typing
 import uuid
 from unittest import mock
 
@@ -42,6 +43,17 @@ def _bank_account_id() -> str:
 @pytest.fixture(name="expense_source_id")
 def _expense_source_id() -> str:
     return str(uuid.uuid4())
+
+
+@pytest.fixture(autouse=True)
+def _mock_current_user() -> typing.Generator[None, None, None]:
+    """Patch the current user lookup so button tests stay isolated from Streamlit."""
+    with mock.patch.object(
+        bank_button.auth,
+        "get_current_user",
+        return_value="auth0|test-user-1",
+    ):
+        yield
 
 
 # ------------------------------------------------------------------

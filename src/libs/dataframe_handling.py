@@ -136,8 +136,7 @@ class DFEButtons:
             }
             # Insert ID and user ID
             new_row["id"] = str(uuid.uuid4())
-            current_user = auth.get_current_user()
-            new_row["user_id"] = current_user.id
+            new_row["user_id"] = auth.get_current_user()
 
             # Enforce unique constraint if specified
             unique_columns = [
