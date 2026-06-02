@@ -10,7 +10,7 @@ from libs import auth, data_client
 
 
 class TestSeedDefaultBudgetTrackers:
-    """Tests for authenticate_supabase_and_seed_default_budget_trackers."""
+    """Tests for seed_default_budget_trackers."""
 
     _BT_IDS: typing.ClassVar[list[str]] = [str(uuid.uuid4()) for _ in range(4)]
     _BT_ROWS_ALL: typing.ClassVar[list[dict[str, object]]] = [
@@ -70,7 +70,7 @@ class TestSeedDefaultBudgetTrackers:
             return []
 
         with mock.patch.object(data_client, "get_data", side_effect=_side_effect):
-            auth.authenticate_supabase_and_seed_default_budget_trackers(
+            auth.seed_default_budget_trackers(
                 "auth0|user1",
             )
 
@@ -86,7 +86,7 @@ class TestSeedDefaultBudgetTrackers:
     ) -> None:
         side_effect = self._get_data_side_effect(self._BT_ROWS_ALL, es_rows=[])
         with mock.patch.object(data_client, "get_data", side_effect=side_effect):
-            auth.authenticate_supabase_and_seed_default_budget_trackers(
+            auth.seed_default_budget_trackers(
                 "auth0|user1",
             )
 
@@ -110,7 +110,7 @@ class TestSeedDefaultBudgetTrackers:
             es_rows=existing_es,
         )
         with mock.patch.object(data_client, "get_data", side_effect=side_effect):
-            auth.authenticate_supabase_and_seed_default_budget_trackers(
+            auth.seed_default_budget_trackers(
                 "auth0|user1",
             )
 
@@ -132,7 +132,7 @@ class TestSeedDefaultBudgetTrackers:
             es_rows=existing_es,
         )
         with mock.patch.object(data_client, "get_data", side_effect=side_effect):
-            auth.authenticate_supabase_and_seed_default_budget_trackers(
+            auth.seed_default_budget_trackers(
                 "auth0|user1",
             )
 
