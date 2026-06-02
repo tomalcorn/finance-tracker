@@ -4,12 +4,9 @@ import uuid
 from unittest import mock
 
 import pytest
-import streamlit as st
 
 from apps.buttons import bank_button
-from libs import ss_keys
 from libs.dfes import constants as dfe_constants
-from libs.models import backend_models
 
 _EXPECTED_CALLS_PER_ITEM = 2
 
@@ -45,15 +42,6 @@ def _bank_account_id() -> str:
 @pytest.fixture(name="expense_source_id")
 def _expense_source_id() -> str:
     return str(uuid.uuid4())
-
-
-@pytest.fixture(autouse=True)
-def _session_user() -> None:
-    st.session_state[ss_keys.SSKeys.CURRENT_USER] = backend_models.UserModel(
-        id="auth0|test-bank-user",
-        first_name="Test",
-        last_name="User",
-    )
 
 
 # ------------------------------------------------------------------

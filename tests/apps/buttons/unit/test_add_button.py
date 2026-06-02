@@ -18,7 +18,7 @@ def _add_button_dialog_wrapper() -> None:
 
     add_button_instance = add_button.AddButton(
         "test_table",
-        backend_model=backend_models.UserModel,
+        backend_model=backend_models.ExpensePaymentModel,
     )
 
     return add_button_instance._add_button_dialog([])
