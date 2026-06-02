@@ -10,7 +10,7 @@ from libs import auth, data_client
 
 
 class TestSeedDefaultBudgetTrackers:
-    """Tests for _seed_default_budget_trackers."""
+    """Tests for authenticate_supabase_and_seed_default_budget_trackers."""
 
     _BT_IDS: typing.ClassVar[list[str]] = [str(uuid.uuid4()) for _ in range(4)]
     _BT_ROWS_ALL: typing.ClassVar[list[dict[str, object]]] = [
@@ -70,7 +70,9 @@ class TestSeedDefaultBudgetTrackers:
             return []
 
         with mock.patch.object(data_client, "get_data", side_effect=_side_effect):
-            auth._seed_default_budget_trackers("auth0|user1")
+            auth.authenticate_supabase_and_seed_default_budget_trackers(
+                "auth0|user1",
+            )
 
         conn = typing.cast("mock.MagicMock", data_client.CONN)
         bt_call = conn.table("budget_tracker").upsert.call_args
@@ -84,7 +86,9 @@ class TestSeedDefaultBudgetTrackers:
     ) -> None:
         side_effect = self._get_data_side_effect(self._BT_ROWS_ALL, es_rows=[])
         with mock.patch.object(data_client, "get_data", side_effect=side_effect):
-            auth._seed_default_budget_trackers("auth0|user1")
+            auth.authenticate_supabase_and_seed_default_budget_trackers(
+                "auth0|user1",
+            )
 
         conn = typing.cast("mock.MagicMock", data_client.CONN)
         conn.table("budget_tracker").upsert.assert_not_called()
@@ -106,7 +110,9 @@ class TestSeedDefaultBudgetTrackers:
             es_rows=existing_es,
         )
         with mock.patch.object(data_client, "get_data", side_effect=side_effect):
-            auth._seed_default_budget_trackers("auth0|user1")
+            auth.authenticate_supabase_and_seed_default_budget_trackers(
+                "auth0|user1",
+            )
 
         conn = typing.cast("mock.MagicMock", data_client.CONN)
         es_call = conn.table("expense_sources").insert.call_args
@@ -126,7 +132,9 @@ class TestSeedDefaultBudgetTrackers:
             es_rows=existing_es,
         )
         with mock.patch.object(data_client, "get_data", side_effect=side_effect):
-            auth._seed_default_budget_trackers("auth0|user1")
+            auth.authenticate_supabase_and_seed_default_budget_trackers(
+                "auth0|user1",
+            )
 
         conn = typing.cast("mock.MagicMock", data_client.CONN)
         conn.table("budget_tracker").upsert.assert_not_called()
