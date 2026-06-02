@@ -12,6 +12,7 @@ import jwt
 import streamlit as st
 
 from libs import data_client
+from libs.dfes import constants
 from libs.models import backend_models
 
 # Budget tracker names that need a corresponding hidden expense source.
@@ -47,8 +48,9 @@ def authenticate_supabase_and_seed_default_budget_trackers(auth0_sub: str) -> No
 
     # Create the four default budget tracker rows and hidden expense sources.
     # --- seed budget trackers ---
+    bt_table_name = constants.TableNames.BUDGET_TRACKER.value
     bt_rows = data_client.get_data(
-        table_name="budget_tracker",
+        table_name=bt_table_name,
         query_string="id,name",
     )
     existing_bt_names = {str(row["name"]) for row in bt_rows}
@@ -62,14 +64,14 @@ def authenticate_supabase_and_seed_default_budget_trackers(auth0_sub: str) -> No
         if name.value not in existing_bt_names
     ]
     if missing_bts:
-        data_client.CONN.table("budget_tracker").upsert(
+        data_client.CONN.table(bt_table_name).upsert(
             missing_bts,
             on_conflict="user_id,name",
         ).execute()
-        data_client.invalidate_table_cache("budget_tracker")
+        data_client.invalidate_table_cache(bt_table_name)
         # Re-fetch so we have IDs for the newly created rows.
         bt_rows = data_client.get_data(
-            table_name="budget_tracker",
+            table_name=bt_table_name,
             query_string="id,name",
         )
 
