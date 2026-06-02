@@ -12,23 +12,23 @@ class TestGetData:
 
     def test_get_data(
         self,
-        yield_sample_user: backend_models.UserModel,
+        yield_sample_bank_account: backend_models.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
-        """Test fetching data using sample user."""
+        """Test fetching data using sample bank account."""
         # Act
-        data = data_client.get_data("users", "*", _connection=connection)
+        data = data_client.get_data("bank_accounts", "*", _connection=connection)
 
         # Assert
-        expected_user_model = yield_sample_user
-        actual_user_model = backend_models.UserModel.model_validate(data[0])
+        expected_model = yield_sample_bank_account
+        actual_model = backend_models.BankAccountModel.model_validate(data[0])
         # Clear up cache
         data_client._get_data_cached.clear()
-        assert actual_user_model == expected_user_model
+        assert actual_model == expected_model
 
     def test_get_data_caching(
         self,
-        yield_sample_user: backend_models.UserModel,  # noqa: ARG002
+        yield_sample_bank_account: backend_models.BankAccountModel,  # noqa: ARG002
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test that repeated identical get_data calls use the cache."""
@@ -43,8 +43,8 @@ class TestGetData:
             "_execute_query",
             wraps=data_client._execute_query,
         ) as mock_execute:
-            data_client.get_data("users", "*", _connection=connection)
-            data_client.get_data("users", "*", _connection=connection)
+            data_client.get_data("bank_accounts", "*", _connection=connection)
+            data_client.get_data("bank_accounts", "*", _connection=connection)
 
         # Clean up
         data_client._get_data_cached.clear()
@@ -58,38 +58,38 @@ class TestGetColumnValues:
 
     def test_get_column_values(
         self,
-        yield_sample_users: list[backend_models.UserModel],
+        yield_sample_bank_accounts: list[backend_models.BankAccountModel],
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
-        """Test fetching distinct column values using sample users."""
+        """Test fetching distinct column values using sample bank accounts."""
         # Act
         column_values = data_client.get_column_values(
-            table_name="users",
-            column_name="last_name",
+            table_name="bank_accounts",
+            column_name="name",
             connection=connection,
         ).to_list()
 
         # Assert
-        expected_last_names = [user.last_name for user in yield_sample_users]
-        assert column_values == expected_last_names
+        expected_names = [account.name for account in yield_sample_bank_accounts]
+        assert column_values == expected_names
 
     def test_get_column_values_unique(
         self,
-        yield_sample_users: list[backend_models.UserModel],
+        yield_sample_bank_accounts: list[backend_models.BankAccountModel],
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
-        """Test fetching unique column values using sample users."""
+        """Test fetching unique column values using sample bank accounts."""
         # Act
         column_values = data_client.get_column_values(
-            table_name="users",
-            column_name="first_name",
+            table_name="bank_accounts",
+            column_name="user_id",
             connection=connection,
             unique=True,
         )
 
         # Assert
-        expected_first_names = {user.first_name for user in yield_sample_users}
-        assert set(column_values) == expected_first_names
+        expected_user_ids = {account.user_id for account in yield_sample_bank_accounts}
+        assert set(column_values) == expected_user_ids
 
 
 class TestUpdateBackend:
@@ -97,55 +97,58 @@ class TestUpdateBackend:
 
     def test_adds_new_row(
         self,
-        sample_user: backend_models.UserModel,
+        sample_bank_account: backend_models.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test adding a new row to the backend."""
         # Arrange
         updates = BackendUpdates(
-            added_rows=[sample_user.model_dump(mode="json")],
+            added_rows=[sample_bank_account.model_dump(mode="json")],
         )
 
         # Act
         data_client.update_backend(
-            table_name="users",
+            table_name="bank_accounts",
             updates=updates,
             connection=connection,
         )
 
         # Assert
         fetched_data = data_client.get_data(
-            table_name="users",
+            table_name="bank_accounts",
             query_string="*",
             _connection=connection,
         )
-        actual_user_model = backend_models.UserModel.model_validate(fetched_data[0])
+        actual_model = backend_models.BankAccountModel.model_validate(fetched_data[0])
         # Clean up
         data_client._get_data_cached.clear()
-        connection.table("users").delete().eq("id", actual_user_model.id).execute()
-        assert actual_user_model == sample_user
+        connection.table("bank_accounts").delete().eq(
+            "id",
+            str(actual_model.id),
+        ).execute()
+        assert actual_model == sample_bank_account
 
     def test_deletes_row(
         self,
-        yield_sample_user: backend_models.UserModel,
+        yield_sample_bank_account: backend_models.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test deleting a row from the backend."""
         # Arrange
         updates = BackendUpdates(
-            deleted_rows=[str(yield_sample_user.id)],
+            deleted_rows=[str(yield_sample_bank_account.id)],
         )
 
         # Act
         data_client.update_backend(
-            table_name="users",
+            table_name="bank_accounts",
             updates=updates,
             connection=connection,
         )
 
         # Assert
         fetched_data = data_client.get_data(
-            table_name="users",
+            table_name="bank_accounts",
             query_string="*",
             _connection=connection,
         )
@@ -153,34 +156,35 @@ class TestUpdateBackend:
         # Clean up cache
         data_client._get_data_cached.clear()
         assert all(
-            backend_models.UserModel.model_validate(row).id != yield_sample_user.id
+            backend_models.BankAccountModel.model_validate(row).id
+            != yield_sample_bank_account.id
             for row in fetched_data
         )
 
     def test_edits_row(
         self,
-        yield_sample_user: backend_models.UserModel,
+        yield_sample_bank_account: backend_models.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test editing a row in the backend."""
         # Arrange
-        new_first_name = "UpdatedName"
+        new_name = "UpdatedName"
         updates = BackendUpdates(
             edited_rows={
-                str(yield_sample_user.id): {"first_name": new_first_name},
+                str(yield_sample_bank_account.id): {"name": new_name},
             },
         )
 
         # Act
         data_client.update_backend(
-            table_name="users",
+            table_name="bank_accounts",
             updates=updates,
             connection=connection,
         )
 
         # Assert
         fetched_data = data_client.get_data(
-            table_name="users",
+            table_name="bank_accounts",
             query_string="*",
             _connection=connection,
         )
@@ -188,116 +192,124 @@ class TestUpdateBackend:
         # Clean up cache
         data_client._get_data_cached.clear()
 
-        # Find the updated user and check the first name
+        # Find the updated bank account and check the name
         for row in fetched_data:
-            user = backend_models.UserModel.model_validate(row)
-            if user.id == yield_sample_user.id:
-                updated_user = user
+            account = backend_models.BankAccountModel.model_validate(row)
+            if account.id == yield_sample_bank_account.id:
+                updated_account = account
                 break
-        assert updated_user.first_name == new_first_name
+        assert updated_account.name == new_name
 
     def test_adds_and_edits_and_deletes_rows(
         self,
-        yield_sample_users: list[backend_models.UserModel],
+        yield_sample_bank_accounts: list[backend_models.BankAccountModel],
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test adding, editing and deleting a row in the backend."""
-        # Arrange - Add a new user, then edit one of the existing users
-        new_user = backend_models.UserModel(
-            id="auth0|int-test-new-user",
-            first_name="New",
-            last_name="User",
+        # Arrange - Add a new account, then edit one of the existing accounts
+        new_account = backend_models.BankAccountModel(
+            user_id="auth0|int-test-new-user",
+            name="New Account",
         )
         updates = BackendUpdates(
-            added_rows=[new_user.model_dump(mode="json")],
+            added_rows=[new_account.model_dump(mode="json")],
             edited_rows={
-                str(yield_sample_users[0].id): {"last_name": "EditedLastName"},
+                str(yield_sample_bank_accounts[0].id): {"name": "EditedName"},
             },
-            deleted_rows=[str(yield_sample_users[1].id)],  # Delete the second user
+            # Delete the second account
+            deleted_rows=[str(yield_sample_bank_accounts[1].id)],
         )
 
         # Act
         data_client.update_backend(
-            table_name="users",
+            table_name="bank_accounts",
             updates=updates,
             connection=connection,
         )
 
         # Assert and clean up
         fetched_data = data_client.get_data(
-            table_name="users",
+            table_name="bank_accounts",
             query_string="*",
             _connection=connection,
         )
-        # Check new user added
-        added_user_found = any(
-            backend_models.UserModel.model_validate(row).id == new_user.id
+        # Check new account added
+        added_account_found = any(
+            backend_models.BankAccountModel.model_validate(row).id == new_account.id
             for row in fetched_data
         )
-        # Check existing user edited
-        edited_user_edited = False
+        # Check existing account edited
+        edited_account_edited = False
         for row in fetched_data:
-            user = backend_models.UserModel.model_validate(row)
+            account = backend_models.BankAccountModel.model_validate(row)
             edited = (
-                user.id == yield_sample_users[0].id
-                and user.last_name == "EditedLastName"
+                account.id == yield_sample_bank_accounts[0].id
+                and account.name == "EditedName"
             )
             if edited:
-                edited_user_edited = True
+                edited_account_edited = True
                 break
-        # Check deleted user is gone
-        deleted_user_not_found = all(
-            backend_models.UserModel.model_validate(row).id != yield_sample_users[1].id
+        # Check deleted account is gone
+        deleted_account_not_found = all(
+            backend_models.BankAccountModel.model_validate(row).id
+            != yield_sample_bank_accounts[1].id
             for row in fetched_data
         )
-        # Clean up added user and cache
-        connection.table("users").delete().eq("id", new_user.id).execute()
+        # Clean up added account and cache
+        connection.table("bank_accounts").delete().eq(
+            "id",
+            str(new_account.id),
+        ).execute()
         data_client._get_data_cached.clear()
 
         assert all(
             [
-                added_user_found,
-                edited_user_edited,
-                deleted_user_not_found,
+                added_account_found,
+                edited_account_edited,
+                deleted_account_not_found,
             ],
         )
 
     def test_clears_cache_for_table(
         self,
-        yield_sample_user: backend_models.UserModel,
+        yield_sample_bank_account: backend_models.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test that update_backend clears the get_data cache for the updated table."""
         # Arrange - record the current version
         data_client._get_data_cached.clear()
-        version_before = data_client._get_table_versions().get("users", 0)
+        version_before = data_client._get_table_versions().get("bank_accounts", 0)
 
         # Act
         updates = BackendUpdates(
             edited_rows={
-                str(yield_sample_user.id): {"first_name": "UpdatedForCacheTest"},
+                str(yield_sample_bank_account.id): {"name": "UpdatedForCacheTest"},
             },
         )
-        data_client.update_backend("users", updates=updates, connection=connection)
-        version_after = data_client._get_table_versions().get("users", 0)
+        data_client.update_backend(
+            "bank_accounts",
+            updates=updates,
+            connection=connection,
+        )
+        version_after = data_client._get_table_versions().get("bank_accounts", 0)
 
         # Assert - version should have been bumped, invalidating all cached results
         assert version_after == version_before + 1
 
     def test_updates_backend_updates_model(
         self,
-        yield_sample_user: backend_models.UserModel,
+        yield_sample_bank_account: backend_models.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test that BackendUpdates model is updated correctly after backend update."""
         # Arrange
         updates = BackendUpdates(
-            deleted_rows=[str(yield_sample_user.id)],
+            deleted_rows=[str(yield_sample_bank_account.id)],
         )
 
         # Act
         updated_updates = data_client.update_backend(
-            table_name="users",
+            table_name="bank_accounts",
             updates=updates,
             connection=connection,
         )

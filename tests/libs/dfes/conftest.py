@@ -19,7 +19,9 @@ def _dfe_instance(
     """Fixture for a DFE instance with sample user data."""
     return base_dfe.DFE(
         config=frontend_models.DFEConfig(
-            table_names=frontend_models.DFETableNameConfig(write_table="users"),
+            table_names=frontend_models.DFETableNameConfig(
+                write_table="bank_accounts",
+            ),
             backend_model=_StubModel,
             configs=col_configs,
             sample_data=pd.DataFrame(),

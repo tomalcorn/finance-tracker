@@ -20,24 +20,18 @@ _BANK_ACCOUNTS = "bank_accounts"
 def _user_and_bank(
     connection: st_supabase_connection.SupabaseConnection,
 ) -> typing.Generator[tuple[str, uuid.UUID], None, None]:
-    """Create a user and bank account for FK constraints, clean up after."""
-    user = backend_models.UserModel(
-        id="auth0|int-test-user",
-        first_name="Sub",
-        last_name="Tester",
-    )
-    bank = backend_models.BankAccountModel(user_id=user.id, name="Test Account")
+    """Create a bank account for FK constraints, clean up after."""
+    user_id = "auth0|int-test-user"
+    bank = backend_models.BankAccountModel(user_id=user_id, name="Test Account")
 
-    connection.table("users").insert(user.model_dump(mode="json")).execute()
     connection.table(_BANK_ACCOUNTS).insert(bank.model_dump(mode="json")).execute()
 
-    yield user.id, bank.id
+    yield user_id, bank.id
 
     # Clean up — cascade handles payments/subscriptions
-    connection.table(_PAYMENTS).delete().eq("user_id", str(user.id)).execute()
-    connection.table(_SUBSCRIPTIONS).delete().eq("user_id", str(user.id)).execute()
+    connection.table(_PAYMENTS).delete().eq("user_id", str(user_id)).execute()
+    connection.table(_SUBSCRIPTIONS).delete().eq("user_id", str(user_id)).execute()
     connection.table(_BANK_ACCOUNTS).delete().eq("id", str(bank.id)).execute()
-    connection.table("users").delete().eq("id", str(user.id)).execute()
     data_client._get_data_cached.clear()
 
 
