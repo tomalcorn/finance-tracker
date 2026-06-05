@@ -1,10 +1,10 @@
 """Integration tests for data_client module."""
 
 import st_supabase_connection
-from libs.models.backend_updates_model import BackendUpdates
 
 from libs import data_client
 from libs.models import backend_models
+from libs.models.backend_updates_model import BackendUpdates
 
 
 class TestGetData:

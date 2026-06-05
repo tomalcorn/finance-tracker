@@ -6,9 +6,9 @@ import uuid
 from collections.abc import Callable
 
 import pytest
-from libs.subscription_reconciler import SubscriptionReconciler
 
 from libs.models import backend_models, backend_updates_model
+from libs.subscription_reconciler import SubscriptionReconciler
 
 type Cadence = typing.Literal[
     "weekly",
