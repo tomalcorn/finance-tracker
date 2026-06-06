@@ -57,14 +57,6 @@ jobs:
           cat > .streamlit/secrets.toml <<'EOF'
           ${{ secrets.SECRETS_TOML }}
           EOF
-      - name: Verify secret exists
-        run: |
-          uv run python - <<'PY'
-          import streamlit as st
-
-          print("jwt exists:", bool(st.secrets["supabase_admin"]["jwt_secret"]))
-          print("jwt length:", len(st.secrets["supabase_admin"]["jwt_secret"]))
-          PY
       - run: uv run pytest -v
   build:
     runs-on: ubuntu-latest
