@@ -53,9 +53,8 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Write secrets file
         run: |
-          mkdir -p .streamlit
-          echo "${{ secrets.SECRETS_TOML }}" > .streamlit/secrets.toml
-          cat .streamlit/secrets.toml
+          mkdir -p /home/runner/work/finance-tracker/finance-tracker/.streamlit
+          echo "${{ secrets.SECRETS_TOML }}" > /home/runner/work/finance-tracker/finance-tracker/.streamlit/secrets.toml
       - run: uv run pytest -v
   build:
     runs-on: ubuntu-latest
