@@ -48,12 +48,13 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     needs: [lock_file]
-    env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      - name: Write secrets file
+        run: |
+          mkdir -p .streamlit
+          echo "${{ secrets.SECRETS_TOML }}" > .streamlit/secrets.toml
       - run: uv run pytest -v
   build:
     runs-on: ubuntu-latest
