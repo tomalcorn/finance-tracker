@@ -53,7 +53,7 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Write secrets file
         run: |
-          mkdir -p .streamlit
+          mkdir -p /home/runner/.streamlit
           echo "${{ secrets.SECRETS_TOML }}" > /home/runner/.streamlit/secrets.toml
       - run: uv run pytest -v
   build:
