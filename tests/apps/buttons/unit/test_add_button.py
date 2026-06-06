@@ -1,5 +1,8 @@
 """Unit tests for the add button module."""
 
+import typing
+from unittest import mock
+
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
@@ -7,6 +10,17 @@ from tests import conftest
 
 from apps.buttons import add_button
 from libs.models import frontend_models
+
+
+@pytest.fixture(autouse=True)
+def _mock_current_user() -> typing.Generator[None, None, None]:
+    """Patch the current user lookup so add button tests avoid Streamlit auth."""
+    with mock.patch.object(
+        add_button.auth,
+        "get_current_user",
+        return_value="auth0|test-user-1",
+    ):
+        yield
 
 
 def _add_button_dialog_wrapper() -> None:
@@ -18,7 +32,7 @@ def _add_button_dialog_wrapper() -> None:
 
     add_button_instance = add_button.AddButton(
         "test_table",
-        backend_model=backend_models.UserModel,
+        backend_model=backend_models.ExpensePaymentModel,
     )
 
     return add_button_instance._add_button_dialog([])

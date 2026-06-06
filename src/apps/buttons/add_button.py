@@ -5,9 +5,9 @@ import typing
 import pydantic
 import streamlit as st
 
-from libs import data_client, ss_keys
+from libs import auth, data_client, ss_keys
 from libs.buttons import base_button, constants
-from libs.models import backend_models, backend_updates_model, frontend_models
+from libs.models import backend_updates_model, frontend_models
 
 
 class AddButton(base_button.BaseButton):
@@ -42,10 +42,7 @@ class AddButton(base_button.BaseButton):
     def _submit_new_row(self, new_row: dict[str, typing.Any]) -> None:
         """Handle the submission of a new row."""
         try:
-            current_user: backend_models.UserModel = st.session_state[
-                ss_keys.SSKeys.CURRENT_USER
-            ]
-            new_row["user_id"] = current_user.id
+            new_row["user_id"] = auth.get_current_user()
             model_instance = self._backend_model.model_validate(new_row)
         except pydantic.ValidationError as e:
             msg = f"Invalid data for new row in {self._table_name}: {e}"
