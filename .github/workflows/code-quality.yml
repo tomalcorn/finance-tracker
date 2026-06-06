@@ -59,7 +59,7 @@ jobs:
           EOF
       - name: Verify secret exists
         run: |
-          python - <<'PY'
+          uv run python - <<'PY'
           import streamlit as st
 
           print("jwt exists:", bool(st.secrets["supabase_admin"]["jwt_secret"]))
