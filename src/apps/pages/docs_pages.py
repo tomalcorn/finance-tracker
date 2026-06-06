@@ -3,7 +3,8 @@
 import collections
 import functools
 import pathlib
-from typing import Annotated
+import re
+from typing import Annotated, cast
 
 import pydantic
 import streamlit as st
@@ -30,13 +31,38 @@ SLUG = Annotated[
 SLUG_ADAPTER = pydantic.TypeAdapter(SLUG)
 
 
-def _parse_frontmatter(content: str) -> tuple[dict[str, str], str]:
+def _parse_frontmatter(content: str) -> tuple[dict[str, object], str]:
     """Return (metadata, body)."""
-    if not content.startswith("---"):
+    if not content.startswith("---\n"):
         return {}, content
 
-    _, raw, body = content.split("---", 2)
-    metadata = yaml.safe_load(raw) or {}
+    try:
+        _, raw, body = content.split("---\n", 2)
+    except ValueError:
+        return {}, content
+
+    raw_lines = raw.splitlines()
+    metadata: dict[str, object] = {}
+    for line in raw_lines:
+        if not line.strip():
+            continue
+
+        if ":" not in line:
+            msg = f"invalid frontmatter line: {line!r}"
+            raise yaml.YAMLError(msg)
+
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+
+        # Treat icon-style values like :book: and :material/menu_book: as literal
+        # strings instead of YAML tags.
+        if re.fullmatch(r":[^:]+:", value):
+            parsed_value: str | int = value
+        else:
+            parsed_value = yaml.safe_load(value)
+
+        metadata[key] = parsed_value
 
     return metadata, body.lstrip()
 
@@ -70,8 +96,11 @@ def load_markdown_doc(path: pathlib.Path) -> MarkdownPage:
     metadata, body = _parse_frontmatter(raw)
 
     # Title: prefer explicit frontmatter, else first heading from body.
-    if metadata.get("front_matter_title"):
-        title = metadata["front_matter_title"]
+    if (front_matter_title := metadata.get("front_matter_title")) and isinstance(
+        front_matter_title,
+        str,
+    ):
+        title = front_matter_title
     else:
         lines = body.splitlines()
         if not lines:
@@ -89,7 +118,7 @@ def load_markdown_doc(path: pathlib.Path) -> MarkdownPage:
         ) from exc
 
     # Order
-    raw_order = metadata.get("order", 9999)
+    raw_order = cast("int | str", metadata.get("order", 9999))
     try:
         order = int(raw_order)
     except (TypeError, ValueError) as exc:
