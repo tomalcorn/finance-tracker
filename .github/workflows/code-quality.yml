@@ -54,7 +54,7 @@ jobs:
       - name: Write secrets file
         run: |
           mkdir -p .streamlit
-          echo "${{ secrets.SECRETS_TOML }}" > .streamlit/secrets.toml
+          echo "${{ secrets.SECRETS_TOML }}" > /home/runner/.streamlit/secrets.toml
       - run: uv run pytest -v
   build:
     runs-on: ubuntu-latest
