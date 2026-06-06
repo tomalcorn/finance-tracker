@@ -53,8 +53,18 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Write secrets file
         run: |
-          mkdir -p /home/runner/work/finance-tracker/finance-tracker/.streamlit
-          echo "${{ secrets.SECRETS_TOML }}" > /home/runner/work/finance-tracker/finance-tracker/.streamlit/secrets.toml
+          mkdir -p .streamlit
+          cat > .streamlit/secrets.toml <<'EOF'
+          ${{ secrets.SECRETS_TOML }}
+          EOF
+      - name: Verify secret exists
+        run: |
+          python - <<'PY'
+          import streamlit as st
+
+          print("jwt exists:", bool(st.secrets["supabase_admin"]["jwt_secret"]))
+          print("jwt length:", len(st.secrets["supabase_admin"]["jwt_secret"]))
+          PY
       - run: uv run pytest -v
   build:
     runs-on: ubuntu-latest
