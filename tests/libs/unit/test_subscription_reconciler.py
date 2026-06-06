@@ -6,9 +6,9 @@ import uuid
 from collections.abc import Callable
 
 import pytest
-from libs.subscription_reconciler import SubscriptionReconciler
 
 from libs.models import backend_models, backend_updates_model
+from libs.subscription_reconciler import SubscriptionReconciler
 
 type Cadence = typing.Literal[
     "weekly",
@@ -20,8 +20,8 @@ type Cadence = typing.Literal[
 
 
 @pytest.fixture(name="user_id")
-def _user_id() -> uuid.UUID:
-    return uuid.uuid4()
+def _user_id() -> str:
+    return "auth0|test-user-123"
 
 
 @pytest.fixture(name="bank_account_id")
@@ -39,7 +39,7 @@ _DEFAULT_NAME = "Netflix"
 
 
 def _make_subscription(  # noqa: PLR0913
-    user_id: uuid.UUID,
+    user_id: str,
     bank_account_id: uuid.UUID,
     *,
     name: str = _DEFAULT_NAME,
@@ -125,7 +125,7 @@ class TestReconcileSubscription:
     )
     def test_active_sub_no_future_payment_creates_one(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         bank_account_id: uuid.UUID,
         cadence: Cadence,
         start_date: datetime.date,
@@ -165,7 +165,7 @@ class TestReconcileSubscription:
     )
     def test_valid_future_payment_is_kept(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         bank_account_id: uuid.UUID,
         sub_kwargs: dict,
         payment_date: datetime.date,
@@ -202,7 +202,7 @@ class TestReconcileSubscription:
     )
     def test_invalid_future_payment_is_deleted(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         bank_account_id: uuid.UUID,
         sub_kwargs: dict,
         payment_date: datetime.date,
@@ -241,7 +241,7 @@ class TestReconcileSubscription:
     )
     def test_no_action_taken(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         bank_account_id: uuid.UUID,
         sub_kwargs: dict,
         payments_factory: Callable[
@@ -265,7 +265,7 @@ class TestReconcileSubscription:
 
     def test_created_payment_has_correct_subscription_id(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         bank_account_id: uuid.UUID,
         expense_source_id: uuid.UUID,
     ) -> None:
@@ -336,7 +336,7 @@ class TestComputeNextDate:
     )
     def test_returns_expected_date(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         bank_account_id: uuid.UUID,
         sub_kwargs: dict,
         expected: datetime.date,
@@ -366,7 +366,7 @@ class TestComputeNextDate:
     )
     def test_returns_none(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         bank_account_id: uuid.UUID,
         sub_kwargs: dict,
     ) -> None:
@@ -379,7 +379,7 @@ class TestGroupPaymentsBySubscription:
 
     def test_groups_by_subscription_id(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         bank_account_id: uuid.UUID,
     ) -> None:
         sub1 = _make_subscription(user_id, bank_account_id, name="Sub1")
@@ -403,7 +403,7 @@ class TestGroupPaymentsBySubscription:
 
     def test_skips_payments_without_subscription_id(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         bank_account_id: uuid.UUID,
     ) -> None:
         payment = backend_models.ExpensePaymentModel(

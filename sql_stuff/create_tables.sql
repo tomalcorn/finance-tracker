@@ -1,77 +1,92 @@
--- Create the users table
-CREATE TABLE users (
+-- Create the bank_accounts table
+CREATE TABLE bank_accounts (
     id UUID PRIMARY KEY,
-    first_name TEXT,
-    last_name TEXT
+    user_id TEXT NOT NULL,
+    name TEXT,
+    starting_balance FLOAT NOT NULL DEFAULT 0,
+    _created_at TIMESTAMPTZ NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
 );
 
--- Create the BANK_ACCOUNTS table
-CREATE TABLE BANK_ACCOUNTS (
+-- Create the expense_sources table
+CREATE TABLE expense_sources (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT NOT NULL,
     name TEXT,
-    starting_balance FLOAT,
-    _created_at TIMESTAMP
-);
-
--- Create the EXPENSE_SOURCES table
-CREATE TABLE EXPENSE_SOURCES (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
-    name TEXT,
-    budget FLOAT,
+    budget FLOAT NOT NULL DEFAULT 0,
     budget_tracker_ids UUID[],
-    _created_at TIMESTAMP
+    _created_at TIMESTAMPTZ NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
 );
 
--- Create the INCOME_SOURCES table
-CREATE TABLE INCOME_SOURCES (
+-- Create the income_sources table
+CREATE TABLE income_sources (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT NOT NULL,
     name TEXT,
     budget_tracker_ids UUID[],
-    _created_at TIMESTAMP
+    _created_at TIMESTAMPTZ NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
 );
 
--- Create the PAYMENTS table
-CREATE TABLE PAYMENTS (
+-- Create the payments table
+CREATE TABLE payments (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT NOT NULL,
     name TEXT,
     income FLOAT NOT NULL DEFAULT 0,
     expense FLOAT NOT NULL DEFAULT 0,
-    income_source_id UUID REFERENCES INCOME_SOURCES(id),
-    expense_source_id UUID REFERENCES EXPENSE_SOURCES(id),
+    income_source_id UUID REFERENCES income_sources(id),
+    expense_source_id UUID REFERENCES expense_sources(id),
     payment_date DATE,
     checked BOOLEAN,
-    bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
+    bank_account_id UUID REFERENCES bank_accounts(id),
     payment_type TEXT NOT NULL DEFAULT 'expense',
     subscription_id UUID,
-    _created_at TIMESTAMPTZ DEFAULT (now() AT TIME ZONE 'utc')
+    _created_at TIMESTAMPTZ NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
 );
 
 
--- Create the SUBSCRIPTIONS table
-CREATE TABLE SUBSCRIPTIONS (
+-- Create the subscriptions table
+CREATE TABLE subscriptions (
     id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
+    user_id TEXT NOT NULL,
     name TEXT NOT NULL,
     amount FLOAT NOT NULL,
     cadence TEXT NOT NULL,
-    bank_account_id UUID REFERENCES BANK_ACCOUNTS(id),
-    expense_source_id UUID REFERENCES EXPENSE_SOURCES(id),
+    bank_account_id UUID REFERENCES bank_accounts(id),
+    expense_source_id UUID REFERENCES expense_sources(id),
     start_date DATE NOT NULL,
     end_date DATE,
     is_active BOOLEAN DEFAULT TRUE,
-    _created_at TIMESTAMP
+    _created_at TIMESTAMPTZ NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
 );
 
--- Add foreign key from PAYMENTS to SUBSCRIPTIONS
-ALTER TABLE PAYMENTS ADD CONSTRAINT payments_subscription_fk
-    FOREIGN KEY (subscription_id) REFERENCES SUBSCRIPTIONS(id) ON DELETE CASCADE;
+-- Add foreign key from payments to subscriptions
+ALTER TABLE payments ADD CONSTRAINT payments_subscription_fk
+    FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE;
 
--- Create the SUBSCRIPTIONS_VIEW view
-CREATE OR REPLACE VIEW SUBSCRIPTIONS_VIEW AS
+-- Create the budget_tracker table
+CREATE TABLE budget_tracker (
+    id UUID PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    total_budget FLOAT NOT NULL DEFAULT 0,
+    _created_at TIMESTAMPTZ NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+    UNIQUE (user_id, name)
+);
+
+-- Create the one_offs table
+CREATE TABLE one_offs (
+    id UUID PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT,
+    cost FLOAT,
+    current_month FLOAT,
+    banked FLOAT,
+    budget_tracker_id UUID,
+    _created_at TIMESTAMPTZ NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+);
+
+-- Create the subscriptions_view view
+CREATE OR REPLACE VIEW subscriptions_view WITH (security_invoker = on) AS
 SELECT
     s.*,
     CASE s.cadence
@@ -82,32 +97,10 @@ SELECT
         WHEN 'yearly' THEN s.amount / 12.0
         ELSE 0
     END AS monthly_cost
-FROM SUBSCRIPTIONS s;
+FROM subscriptions s;
 
-
--- Create the BUDGET_TRACKER table
-CREATE TABLE BUDGET_TRACKER (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
-    name TEXT,
-    total_budget FLOAT DEFAULT 0,
-    _created_at TIMESTAMP
-);
-
--- Create the ONE_OFFS table
-CREATE TABLE ONE_OFFS (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
-    name TEXT,
-    cost FLOAT,
-    current_month FLOAT,
-    banked FLOAT,
-    budget_tracker_id UUID,
-    _created_at TIMESTAMP
-);
-
--- Create the ONE_OFFS_VIEW view
-CREATE OR REPLACE VIEW ONE_OFFS_VIEW AS
+-- Create the one_offs_view view
+CREATE OR REPLACE VIEW one_offs_view WITH (security_invoker = on) AS
 SELECT
     fs.id,
     fs.name,
@@ -128,15 +121,15 @@ SELECT
         ELSE 0
     END AS split
 FROM
-    ONE_OFFS fs
+    one_offs fs
 LEFT JOIN LATERAL (
     SELECT SUM(bt.total_budget) AS total_budget
-    FROM BUDGET_TRACKER bt
+    FROM budget_tracker bt
     WHERE bt.id = fs.budget_tracker_id
 ) bt_totals ON TRUE;
 
--- Create the EXPENSE_SOURCES_VIEW view
-CREATE OR REPLACE VIEW EXPENSE_SOURCES_VIEW AS
+-- Create the expense_sources_view view
+CREATE OR REPLACE VIEW expense_sources_view WITH (security_invoker = on) AS
 SELECT
     es.id,
     es.name,
@@ -156,22 +149,22 @@ SELECT
         ELSE 0
     END AS split
 FROM
-    EXPENSE_SOURCES es
+    expense_sources es
 LEFT JOIN
-    PAYMENTS p
+    payments p
 ON
     es.id = p.expense_source_id
     AND p.payment_date <= CURRENT_DATE
 LEFT JOIN LATERAL (
     SELECT SUM(bt.total_budget) AS total_budget
-    FROM BUDGET_TRACKER bt
+    FROM budget_tracker bt
     WHERE bt.id = ANY(es.budget_tracker_ids)
 ) bt_totals ON TRUE
 GROUP BY
     es.id, es.name, es.budget, es.budget_tracker_ids, es._created_at, bt_totals.total_budget;
 
 -- Create the income_sources_view view
-CREATE OR REPLACE VIEW income_sources_view AS
+CREATE OR REPLACE VIEW income_sources_view WITH (security_invoker = on) AS
 SELECT
     "income_sources".id,
     "income_sources".name,
@@ -189,8 +182,8 @@ GROUP BY
     "income_sources".name, 
     "income_sources".budget_tracker_ids;
 
--- Create the BUDGET_TRACKER_VIEW view
-CREATE OR REPLACE VIEW BUDGET_TRACKER_VIEW AS
+-- Create the budget_tracker_view view
+CREATE OR REPLACE VIEW budget_tracker_view WITH (security_invoker = on) AS
 SELECT
     bt.id,
     bt.name,
@@ -209,22 +202,22 @@ SELECT
         ELSE 0
     END AS split
 FROM
-    BUDGET_TRACKER bt
+    budget_tracker bt
 LEFT JOIN
-    EXPENSE_SOURCES es ON bt.id = ANY(es.budget_tracker_ids)
+    expense_sources es ON bt.id = ANY(es.budget_tracker_ids)
 LEFT JOIN
-    EXPENSE_SOURCES_VIEW esv ON es.id = esv.id
+    expense_sources_view esv ON es.id = esv.id
 LEFT JOIN LATERAL (
     SELECT COALESCE(SUM(incv.current_month), 0) AS total_income
-    FROM INCOME_SOURCES inc
-    JOIN INCOME_SOURCES_VIEW incv ON inc.id = incv.id
+    FROM income_sources inc
+    JOIN income_sources_view incv ON inc.id = incv.id
     WHERE bt.id = ANY(inc.budget_tracker_ids)
 ) income_totals ON TRUE
 GROUP BY
     bt.id, bt.name, bt.total_budget, bt._created_at, income_totals.total_income;
 
--- Create the BANK_ACCOUNTS_VIEW view
-CREATE OR REPLACE VIEW BANK_ACCOUNTS_VIEW AS
+-- Create the bank_accounts_view view
+CREATE OR REPLACE VIEW bank_accounts_view WITH (security_invoker = on) AS
 SELECT
     ba.id,
     ba.user_id,
@@ -233,9 +226,9 @@ SELECT
     ba._created_at,
     ba.starting_balance + COALESCE(SUM(p.income - p.expense), 0) AS current_balance
 FROM
-    BANK_ACCOUNTS ba
+    bank_accounts ba
 LEFT JOIN
-    PAYMENTS p
+    payments p
 ON
     ba.id = p.bank_account_id
     AND p.payment_date <= CURRENT_DATE

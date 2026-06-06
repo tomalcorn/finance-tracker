@@ -6,10 +6,10 @@ import uuid
 
 import pytest
 import st_supabase_connection
-from libs.subscription_reconciler import SubscriptionReconciler
 
 from libs import data_client
 from libs.models import backend_models
+from libs.subscription_reconciler import SubscriptionReconciler
 
 _SUBSCRIPTIONS = "subscriptions"
 _PAYMENTS = "payments"
@@ -19,21 +19,19 @@ _BANK_ACCOUNTS = "bank_accounts"
 @pytest.fixture(name="user_and_bank")
 def _user_and_bank(
     connection: st_supabase_connection.SupabaseConnection,
-) -> typing.Generator[tuple[uuid.UUID, uuid.UUID], None, None]:
-    """Create a user and bank account for FK constraints, clean up after."""
-    user = backend_models.UserModel(first_name="Sub", last_name="Tester")
-    bank = backend_models.BankAccountModel(user_id=user.id, name="Test Account")
+) -> typing.Generator[tuple[str, uuid.UUID], None, None]:
+    """Create a bank account for FK constraints, clean up after."""
+    user_id = "auth0|int-test-user"
+    bank = backend_models.BankAccountModel(user_id=user_id, name="Test Account")
 
-    connection.table("users").insert(user.model_dump(mode="json")).execute()
     connection.table(_BANK_ACCOUNTS).insert(bank.model_dump(mode="json")).execute()
 
-    yield user.id, bank.id
+    yield user_id, bank.id
 
     # Clean up — cascade handles payments/subscriptions
-    connection.table(_PAYMENTS).delete().eq("user_id", str(user.id)).execute()
-    connection.table(_SUBSCRIPTIONS).delete().eq("user_id", str(user.id)).execute()
+    connection.table(_PAYMENTS).delete().eq("user_id", str(user_id)).execute()
+    connection.table(_SUBSCRIPTIONS).delete().eq("user_id", str(user_id)).execute()
     connection.table(_BANK_ACCOUNTS).delete().eq("id", str(bank.id)).execute()
-    connection.table("users").delete().eq("id", str(user.id)).execute()
     data_client._get_data_cached.clear()
 
 
@@ -85,7 +83,7 @@ class TestReconcileIntegration:
     def test_creates_payment_for_active_subscription(
         self,
         connection: st_supabase_connection.SupabaseConnection,
-        user_and_bank: tuple[uuid.UUID, uuid.UUID],
+        user_and_bank: tuple[str, uuid.UUID],
     ) -> None:
         """Active sub with no payments should produce one payment."""
         user_id, bank_id = user_and_bank
@@ -113,7 +111,7 @@ class TestReconcileIntegration:
     def test_does_not_duplicate_existing_future_payment(
         self,
         connection: st_supabase_connection.SupabaseConnection,
-        user_and_bank: tuple[uuid.UUID, uuid.UUID],
+        user_and_bank: tuple[str, uuid.UUID],
     ) -> None:
         """Running reconcile twice should not create a second payment."""
         user_id, bank_id = user_and_bank
@@ -137,7 +135,7 @@ class TestReconcileIntegration:
     def test_deletes_future_payment_for_inactive_subscription(
         self,
         connection: st_supabase_connection.SupabaseConnection,
-        user_and_bank: tuple[uuid.UUID, uuid.UUID],
+        user_and_bank: tuple[str, uuid.UUID],
     ) -> None:
         """Deactivating a sub should remove its future payment."""
         user_id, bank_id = user_and_bank
@@ -170,18 +168,20 @@ class TestReconcileIntegration:
     def test_deletes_payment_past_end_date(
         self,
         connection: st_supabase_connection.SupabaseConnection,
-        user_and_bank: tuple[uuid.UUID, uuid.UUID],
+        user_and_bank: tuple[str, uuid.UUID],
     ) -> None:
         """A future payment beyond the sub's end_date should be removed."""
         user_id, bank_id = user_and_bank
+        today = datetime.datetime.now(tz=datetime.UTC).date()
+        end_date = today + datetime.timedelta(days=30)
         sub = backend_models.SubscriptionModel(
             user_id=user_id,
             name="Trial Sub",
             amount=5.00,
             cadence="monthly",
             bank_account_id=bank_id,
-            start_date=datetime.date(2026, 1, 1),
-            end_date=datetime.date(2026, 6, 1),
+            start_date=today,
+            end_date=end_date,
             is_active=True,
         )
         _insert_subscription(connection, sub)
@@ -191,7 +191,7 @@ class TestReconcileIntegration:
             user_id=user_id,
             name="Sub: Trial Sub",
             expense=5.00,
-            payment_date=datetime.date(2026, 7, 1),
+            payment_date=end_date + datetime.timedelta(days=30),
             bank_account_id=bank_id,
             subscription_id=sub.id,
         )

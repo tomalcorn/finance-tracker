@@ -7,8 +7,8 @@ import pytest
 import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from libs.buttons import constants
 
+from libs.buttons import constants
 from libs.models import backend_models, frontend_models
 
 
@@ -27,48 +27,62 @@ def _connection() -> st_supabase_connection.SupabaseConnection:
     )
 
 
-@pytest.fixture(name="sample_user")
-def _sample_user() -> backend_models.UserModel:
-    """Provide a sample user model for tests."""
-    return backend_models.UserModel(first_name="Test", last_name="User1")
+@pytest.fixture(name="sample_bank_account")
+def _sample_bank_account() -> backend_models.BankAccountModel:
+    """Provide a sample bank account model for tests."""
+    return backend_models.BankAccountModel(
+        user_id="auth0|test-user-1",
+        name="Test Account 1",
+        starting_balance=100.0,
+    )
 
 
-@pytest.fixture(name="yield_sample_user")
-def _yield_sample_user(
+@pytest.fixture(name="yield_sample_bank_account")
+def _yield_sample_bank_account(
     connection: st_supabase_connection.SupabaseConnection,
-    sample_user: backend_models.UserModel,
-) -> typing.Generator[backend_models.UserModel, None, None]:
-    """Set up a sample user for tests."""
-    connection.table("users").insert(sample_user.model_dump(mode="json")).execute()
+    sample_bank_account: backend_models.BankAccountModel,
+) -> typing.Generator[backend_models.BankAccountModel, None, None]:
+    """Set up a sample bank account for tests."""
+    connection.table("bank_accounts").insert(
+        sample_bank_account.model_dump(mode="json"),
+    ).execute()
 
-    yield sample_user
+    yield sample_bank_account
 
-    # Clean up the user from the test database
-    connection.table("users").delete().eq("id", sample_user.id).execute()
+    # Clean up the bank account from the test database
+    connection.table("bank_accounts").delete().eq(
+        "id",
+        str(sample_bank_account.id),
+    ).execute()
 
 
-@pytest.fixture(name="yield_sample_users")
-def _yield_sample_users(
-    sample_user: backend_models.UserModel,
+@pytest.fixture(name="yield_sample_bank_accounts")
+def _yield_sample_bank_accounts(
+    sample_bank_account: backend_models.BankAccountModel,
     connection: st_supabase_connection.SupabaseConnection,
-) -> typing.Generator[list[backend_models.UserModel], None, None]:
-    """Set up multiple sample users for tests."""
-    sample_users = [
-        sample_user,
-        sample_user.model_copy(
-            update={"id": uuid.uuid4(), "last_name": "User2"},
+) -> typing.Generator[list[backend_models.BankAccountModel], None, None]:
+    """Set up multiple sample bank accounts for tests."""
+    sample_bank_accounts = [
+        sample_bank_account,
+        sample_bank_account.model_copy(
+            update={"id": uuid.uuid4(), "name": "Test Account 2"},
             deep=True,
         ),
     ]
-    # Insert users into the test database
-    for user in sample_users:
-        connection.table("users").insert(user.model_dump(mode="json")).execute()
+    # Insert bank accounts into the test database
+    for account in sample_bank_accounts:
+        connection.table("bank_accounts").insert(
+            account.model_dump(mode="json"),
+        ).execute()
 
-    yield sample_users
+    yield sample_bank_accounts
 
-    # Clean up the users from the test database
-    for user in sample_users:
-        connection.table("users").delete().eq("id", user.id).execute()
+    # Clean up the bank accounts from the test database
+    for account in sample_bank_accounts:
+        connection.table("bank_accounts").delete().eq(
+            "id",
+            str(account.id),
+        ).execute()
 
 
 def get_rendered_texts(app_tester: st_test.AppTest) -> list[str]:

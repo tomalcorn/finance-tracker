@@ -2,77 +2,72 @@
 -- This ensures users can only access and modify their own data
 
 -- Enable RLS on all tables
-ALTER TABLE PAYMENTS ENABLE ROW LEVEL SECURITY;
-ALTER TABLE BANK_ACCOUNTS ENABLE ROW LEVEL SECURITY;
-ALTER TABLE EXPENSE_SOURCES ENABLE ROW LEVEL SECURITY;
-ALTER TABLE INCOME_SOURCES ENABLE ROW LEVEL SECURITY;
-ALTER TABLE BUDGET_TRACKER ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ONE_OFFS ENABLE ROW LEVEL SECURITY;
-ALTER TABLE SUBSCRIPTIONS ENABLE ROW LEVEL SECURITY;
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bank_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expense_sources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE income_sources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE budget_tracker ENABLE ROW LEVEL SECURITY;
+ALTER TABLE one_offs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies for PAYMENTS table
-CREATE POLICY payments_user_policy ON PAYMENTS
+-- Create public.user_id() to read Auth0 sub from JWT claims
+CREATE OR REPLACE FUNCTION public.user_id() RETURNS TEXT AS $$
+  SELECT NULLIF(
+    current_setting('request.jwt.claims', true)::json->>'userId',
+    ''
+  )::TEXT;
+$$ LANGUAGE sql STABLE;
+
+-- Create RLS policies for payments table
+CREATE POLICY payments_user_policy ON payments
     FOR ALL
     TO authenticated
-    USING (user_id = auth.uid())
-    WITH CHECK (user_id = auth.uid());
+    USING (user_id = public.user_id())
+    WITH CHECK (user_id = public.user_id());
 
--- Create RLS policies for BANK_ACCOUNTS table
-CREATE POLICY bank_accounts_user_policy ON BANK_ACCOUNTS
+-- Create RLS policies for bank_accounts table
+CREATE POLICY bank_accounts_user_policy ON bank_accounts
     FOR ALL
     TO authenticated
-    USING (user_id = auth.uid())
-    WITH CHECK (user_id = auth.uid());
+    USING (user_id = public.user_id())
+    WITH CHECK (user_id = public.user_id());
 
--- Create RLS policies for EXPENSE_SOURCES table
-CREATE POLICY expense_sources_user_policy ON EXPENSE_SOURCES
+-- Create RLS policies for expense_sources table
+CREATE POLICY expense_sources_user_policy ON expense_sources
     FOR ALL
     TO authenticated
-    USING (user_id = auth.uid())
-    WITH CHECK (user_id = auth.uid());
+    USING (user_id = public.user_id())
+    WITH CHECK (user_id = public.user_id());
 
--- Create RLS policies for INCOME_SOURCES table
-CREATE POLICY income_sources_user_policy ON INCOME_SOURCES
+-- Create RLS policies for income_sources table
+CREATE POLICY income_sources_user_policy ON income_sources
     FOR ALL
     TO authenticated
-    USING (user_id = auth.uid())
-    WITH CHECK (user_id = auth.uid());
+    USING (user_id = public.user_id())
+    WITH CHECK (user_id = public.user_id());
 
--- Create RLS policies for BUDGET_TRACKER table
-CREATE POLICY budget_tracker_user_policy ON BUDGET_TRACKER
+-- Create RLS policies for budget_tracker table
+CREATE POLICY budget_tracker_user_policy ON budget_tracker
     FOR ALL
     TO authenticated
-    USING (user_id = auth.uid())
-    WITH CHECK (user_id = auth.uid());
+    USING (user_id = public.user_id())
+    WITH CHECK (user_id = public.user_id());
 
--- Create RLS policies for ONE_OFFS table
-CREATE POLICY one_offs_user_policy ON ONE_OFFS
+-- Create RLS policies for one_offs table
+CREATE POLICY one_offs_user_policy ON one_offs
     FOR ALL
     TO authenticated
-    USING (user_id = auth.uid())
-    WITH CHECK (user_id = auth.uid());
+    USING (user_id = public.user_id())
+    WITH CHECK (user_id = public.user_id());
 
--- Create RLS policies for SUBSCRIPTIONS table
-CREATE POLICY subscriptions_user_policy ON SUBSCRIPTIONS
+-- Create RLS policies for subscriptions table
+CREATE POLICY subscriptions_user_policy ON subscriptions
     FOR ALL
     TO authenticated
-    USING (user_id = auth.uid())
-    WITH CHECK (user_id = auth.uid());
-
--- Create RLS policies for profiles table
--- Users can only see and modify their own profile
-CREATE POLICY profiles_user_policy ON profiles
-    FOR ALL
-    TO authenticated
-    USING (id = auth.uid())
-    WITH CHECK (id = auth.uid());
+    USING (user_id = public.user_id())
+    WITH CHECK (user_id = public.user_id());
 
 -- Note: Views automatically inherit RLS from their underlying tables
--- EXPENSE_SOURCES_VIEW, income_sources_view, BUDGET_TRACKER_VIEW, and ONE_OFFS_VIEW
+-- expense_sources_view, income_sources_view, budget_tracker_view, and one_offs_view
 -- will automatically filter based on the RLS policies of their underlying tables
 -- when accessed by users.
-
--- Optional: Grant necessary permissions (uncomment if needed)
--- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
--- GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;

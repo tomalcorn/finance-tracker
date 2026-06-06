@@ -5,9 +5,8 @@ import typing
 
 import pandas as pd
 import pydantic
-import st_supabase_connection  # type: ignore[import-untyped]
+import st_supabase_connection
 import streamlit as st
-import supabase_auth
 
 from libs import ss_keys
 from libs.buttons import constants
@@ -22,36 +21,6 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 JsonDict = dict[str, pydantic.JsonValue]
-
-
-def _ensure_authenticated() -> None:
-    """Ensure the user is authenticated and the connection has a valid token."""
-    # Check if we already have a valid session
-    if ss_keys.SSKeys.CURRENT_USER in st.session_state:
-        return
-
-    email_password_creds = supabase_auth.SignInWithEmailAndPasswordCredentials(
-        email="tomalcorn777@icloud.com",
-        password="jiwQij-kirwi3-hedtyk",  # noqa: S106
-    )
-
-    with st.spinner("Signing in..."):
-        auth_resp = CONN.auth.sign_in_with_password(email_password_creds)
-
-        access_token = None
-        user = None
-
-        # Support multiple response shapes (object or dict)
-        if hasattr(auth_resp, "session") and auth_resp.session:
-            access_token = auth_resp.session.access_token
-            user = auth_resp.user
-
-        if not access_token:
-            st.error("Authentication failed. Please check your credentials.")
-            st.stop()
-
-        CONN.client.postgrest.auth(access_token)
-        st.session_state[ss_keys.SSKeys.CURRENT_USER] = user
 
 
 class DataClientError(Exception):
@@ -143,9 +112,6 @@ def _get_data_cached(
         query_string,
         table_version,
     )
-    if _connection is CONN:
-        _ensure_authenticated()
-
     query = _connection.table(table_name).select(query_string)
     if _configs:
         for config in _configs:
@@ -232,9 +198,6 @@ def get_column_values(
         A pandas Series containing the column values.
 
     """
-    if connection is CONN:
-        _ensure_authenticated()
-
     query = connection.table(table_name).select(column_name)
     response = _execute_query(query)
     if not response:
@@ -292,9 +255,6 @@ def update_backend(
         The updated BackendUpdates object reflecting all changes made.
 
     """
-    if connection is CONN:
-        _ensure_authenticated()
-
     update_made = False
     if updates.added_rows:
         connection.table(table_name).insert(updates.added_rows).execute()

@@ -20,14 +20,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: uvx ruff check .
+      - name: Check tool versions
+        run: |
+          uv --version
+          uv run ruff --version
+          uvx ruff --version
+      - run: uv run ruff check .
   formatting:
     runs-on: ubuntu-latest
     needs: [lock_file]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: uvx ruff format --check .
+      - name: Check tool versions
+        run: |
+          uv --version
+          uv run ruff --version
+          uvx ruff --version
+      - run: uv run ruff format --check .
   type_consistency:
     runs-on: ubuntu-latest
     needs: [lock_file]
@@ -38,12 +48,15 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     needs: [lock_file]
-    env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      - name: Write secrets file
+        run: |
+          mkdir -p .streamlit
+          cat > .streamlit/secrets.toml <<'EOF'
+          ${{ secrets.SECRETS_TOML }}
+          EOF
       - run: uv run pytest -v
   build:
     runs-on: ubuntu-latest
