@@ -2,9 +2,10 @@
 
 import json
 import pathlib
+from collections.abc import Callable
 
 import pytest
-from streamlit.testing.v1 import AppTest
+from streamlit.testing import v1 as st_test
 
 from apps.pages import docs_pages, errors
 
@@ -54,59 +55,21 @@ def registry(
     return docs_pages.DocsRegistry(tmp_docs_dir)
 
 
-def _docs_pages_app(docs_dir: pathlib.Path, *, render_boom: bool = False) -> None:
-    from unittest import mock
-
-    import streamlit as st
-
-    from apps.pages import docs_pages
-
-    registry = docs_pages.DocsRegistry(docs_dir)
-    pages = docs_pages.DocsUI(registry).build_pages()
-    st.json(
-        [
-            {
-                "title": page.title,
-                "icon": page.icon,
-                "url_path": page.url_path,
-            }
-            for page in pages
-        ],
-    )
-
-    if render_boom:
-        with mock.patch("streamlit.markdown", side_effect=RuntimeError("render boom")):
-            st.navigation(pages).run()
-        return
-
-    st.navigation(pages).run()
-
-
 # ===========================================================================
 # _parse_frontmatter
 # ===========================================================================
 
 
 class TestParseFrontmatter:
-    def test_no_frontmatter_returns_empty_metadata(self):
+    def test_no_frontmatter_returns_empty_metadata_and_full_content_as_body(self):
         # Arrange
         content = "# Title\n\nBody text."
 
         # Act
-        metadata, _ = docs_pages._parse_frontmatter(content)
+        metadata, body = docs_pages._parse_frontmatter(content)
 
         # Assert
-        assert metadata == {}
-
-    def test_no_frontmatter_returns_full_content_as_body(self):
-        # Arrange
-        content = "# Title\n\nBody text."
-
-        # Act
-        _, body = docs_pages._parse_frontmatter(content)
-
-        # Assert
-        assert body == content
+        assert all([metadata == {}, body == content])
 
     def test_valid_frontmatter_parses_metadata(self):
         # Arrange
@@ -169,43 +132,21 @@ class TestConvertStringToSlug:
 
 
 class TestLoadMarkdownDocHappy:
-    def test_returns_markdown_page_instance(self, valid_md_file: pathlib.Path):
+    def test_valid_doc_populates_core_fields(self, valid_md_file: pathlib.Path):
         # Arrange / Act
         page = docs_pages.load_markdown_doc(valid_md_file)
 
         # Assert
-        assert isinstance(page, docs_pages.MarkdownPage)
-
-    def test_slug_from_frontmatter(self, valid_md_file: pathlib.Path):
-        # Arrange / Act
-        page = docs_pages.load_markdown_doc(valid_md_file)
-
-        # Assert
-        assert page.slug == "getting_started"
-
-    def test_order_from_frontmatter(self, valid_md_file: pathlib.Path):
-        # Arrange / Act
-        page = docs_pages.load_markdown_doc(valid_md_file)
-
-        # Assert
-        assert page.order == 1
-
-    def test_icon_from_frontmatter(self, valid_md_file: pathlib.Path):
-        # Arrange / Act
-        page = docs_pages.load_markdown_doc(valid_md_file)
-
-        # Assert
-        assert page.icon == ":book:"
-
-    def test_title_falls_back_to_first_heading_when_no_front_matter_title(
-        self,
-        valid_md_file: pathlib.Path,
-    ):
-        # Arrange / Act
-        page = docs_pages.load_markdown_doc(valid_md_file)
-
-        # Assert
-        assert page.title == "Getting Started"
+        assert all(
+            [
+                isinstance(page, docs_pages.MarkdownPage),
+                page.slug == "getting_started",
+                page.order == 1,
+                page.icon == ":book:",
+                page.title == "Getting Started",
+                "Welcome to the docs." in page.content,
+            ],
+        )
 
     def test_front_matter_title_takes_priority_over_heading(
         self,
@@ -258,31 +199,13 @@ class TestLoadMarkdownDocHappy:
         default_order = 9999
         assert page.order == default_order
 
-    def test_content_is_body_text(self, valid_md_file: pathlib.Path):
-        # Arrange / Act
-        page = docs_pages.load_markdown_doc(valid_md_file)
-
-        # Assert
-        assert "Welcome to the docs." in page.content
-
-
 # ===========================================================================
 # load_markdown_doc — error paths
 # ===========================================================================
 
 
 class TestLoadMarkdownDocErrors:
-    def test_missing_icon_raises_missing_icon_error(self, tmp_docs_dir: pathlib.Path):
-        # Arrange
-        content = "---\nslug: no_icon\norder: 1\n---\n# No Icon\n"
-        path = tmp_docs_dir / "no_icon.md"
-        path.write_text(content, encoding="utf-8")
-
-        # Act / Assert
-        with pytest.raises(errors.MissingIconError):
-            docs_pages.load_markdown_doc(path)
-
-    def test_missing_icon_error_carries_path(self, tmp_docs_dir: pathlib.Path):
+    def test_missing_icon_error_type_and_path(self, tmp_docs_dir: pathlib.Path):
         # Arrange
         content = "---\nslug: no_icon\norder: 1\n---\n# No Icon\n"
         path = tmp_docs_dir / "no_icon.md"
@@ -292,9 +215,9 @@ class TestLoadMarkdownDocErrors:
         with pytest.raises(errors.MissingIconError) as exc_info:
             docs_pages.load_markdown_doc(path)
 
-        assert exc_info.value.path == path
+        assert all([exc_info.value.path == path])
 
-    def test_non_string_icon_raises_invalid_frontmatter_error(
+    def test_non_string_icon_error_type_and_field(
         self,
         tmp_docs_dir: pathlib.Path,
     ):
@@ -307,9 +230,9 @@ class TestLoadMarkdownDocErrors:
         with pytest.raises(errors.InvalidFrontmatterError) as exc_info:
             docs_pages.load_markdown_doc(path)
 
-        assert exc_info.value.field == "icon"
+        assert all([exc_info.value.field == "icon"])
 
-    def test_non_integer_order_raises_invalid_frontmatter_error(
+    def test_non_integer_order_error_type_and_field(
         self,
         tmp_docs_dir: pathlib.Path,
     ):
@@ -322,31 +245,9 @@ class TestLoadMarkdownDocErrors:
         with pytest.raises(errors.InvalidFrontmatterError) as exc_info:
             docs_pages.load_markdown_doc(path)
 
-        assert exc_info.value.field == "order"
+        assert all([exc_info.value.field == "order", exc_info.value.path == path])
 
-    def test_non_integer_order_error_carries_path(self, tmp_docs_dir: pathlib.Path):
-        # Arrange
-        content = "---\nslug: bad_order\norder: high\nicon: :book:\n---\n# Bad Order\n"
-        path = tmp_docs_dir / "bad_order.md"
-        path.write_text(content, encoding="utf-8")
-
-        # Act / Assert
-        with pytest.raises(errors.InvalidFrontmatterError) as exc_info:
-            docs_pages.load_markdown_doc(path)
-
-        assert exc_info.value.path == path
-
-    def test_empty_body_raises_empty_doc_body_error(self, tmp_docs_dir: pathlib.Path):
-        # Arrange
-        content = "---\nslug: empty\norder: 1\nicon: :book:\n---\n"
-        path = tmp_docs_dir / "empty_body.md"
-        path.write_text(content, encoding="utf-8")
-
-        # Act / Assert
-        with pytest.raises(errors.EmptyDocBodyError):
-            docs_pages.load_markdown_doc(path)
-
-    def test_empty_body_error_carries_path(self, tmp_docs_dir: pathlib.Path):
+    def test_empty_body_error_type_and_path(self, tmp_docs_dir: pathlib.Path):
         # Arrange
         content = "---\nslug: empty\norder: 1\nicon: :book:\n---\n"
         path = tmp_docs_dir / "empty_body.md"
@@ -356,7 +257,7 @@ class TestLoadMarkdownDocErrors:
         with pytest.raises(errors.EmptyDocBodyError) as exc_info:
             docs_pages.load_markdown_doc(path)
 
-        assert exc_info.value.path == path
+        assert all([exc_info.value.path == path])
 
     def test_invalid_slug_raises_invalid_frontmatter_error(
         self,
@@ -395,15 +296,7 @@ class TestLoadMarkdownDocErrors:
 
 
 class TestDocsRegistryInit:
-    def test_raises_docs_directory_error_for_missing_dir(self, tmp_path: pathlib.Path):
-        # Arrange
-        non_existent = tmp_path / "does_not_exist"
-
-        # Act / Assert
-        with pytest.raises(errors.DocsDirectoryError):
-            docs_pages.DocsRegistry(non_existent)
-
-    def test_docs_directory_error_carries_path(self, tmp_path: pathlib.Path):
+    def test_missing_dir_error_type_and_path(self, tmp_path: pathlib.Path):
         # Arrange
         non_existent = tmp_path / "does_not_exist"
 
@@ -411,7 +304,7 @@ class TestDocsRegistryInit:
         with pytest.raises(errors.DocsDirectoryError) as exc_info:
             docs_pages.DocsRegistry(non_existent)
 
-        assert exc_info.value.docs_dir == non_existent
+        assert all([exc_info.value.docs_dir == non_existent])
 
     def test_succeeds_for_existing_directory(self, tmp_docs_dir: pathlib.Path):
         # Arrange / Act
@@ -427,14 +320,10 @@ class TestDocsRegistryInit:
 
 
 class TestDocsRegistryPages:
-    def test_returns_list_of_markdown_pages(self, registry: docs_pages.DocsRegistry):
-        # Arrange / Act
-        pages = registry.pages
-
-        # Assert
-        assert all(isinstance(p, docs_pages.MarkdownPage) for p in pages)
-
-    def test_pages_are_sorted_by_order(self, tmp_docs_dir: pathlib.Path):
+    def test_pages_are_markdown_pages_and_sorted_by_order(
+        self,
+        tmp_docs_dir: pathlib.Path,
+    ):
         # Arrange
         for i, (slug, order) in enumerate(
             [("alpha", 3), ("beta", 1), ("gamma", 2)],
@@ -451,9 +340,14 @@ class TestDocsRegistryPages:
         pages = reg.pages
 
         # Assert
-        assert [p.slug for p in pages] == ["beta", "gamma", "alpha"]
+        assert all(
+            [
+                all(isinstance(p, docs_pages.MarkdownPage) for p in pages),
+                [p.slug for p in pages] == ["beta", "gamma", "alpha"],
+            ],
+        )
 
-    def test_raises_empty_docs_directory_error_when_no_md_files(
+    def test_empty_directory_error_type_and_path(
         self,
         tmp_docs_dir: pathlib.Path,
     ):
@@ -461,33 +355,12 @@ class TestDocsRegistryPages:
         reg = docs_pages.DocsRegistry(tmp_docs_dir)
 
         # Act / Assert
-        with pytest.raises(errors.EmptyDocsDirectoryError):
-            _ = reg.pages
-
-    def test_empty_docs_directory_error_carries_path(self, tmp_docs_dir: pathlib.Path):
-        # Arrange
-        reg = docs_pages.DocsRegistry(tmp_docs_dir)
-
-        # Act / Assert
         with pytest.raises(errors.EmptyDocsDirectoryError) as exc_info:
             _ = reg.pages
+        assert all([exc_info.value.docs_dir == tmp_docs_dir])
 
-        assert exc_info.value.docs_dir == tmp_docs_dir
-
-    def test_raises_duplicate_slug_error(self, tmp_docs_dir: pathlib.Path):
+    def test_duplicate_slug_error_type_and_slug(self, tmp_docs_dir: pathlib.Path):
         # Arrange — two different files that resolve to the same slug
-        for filename, title in [("doc_a.md", "My Topic"), ("doc_b.md", "My Topic")]:
-            content = f"---\norder: 1\nicon: :book:\n---\n# {title}\n"
-            (tmp_docs_dir / filename).write_text(content, encoding="utf-8")
-
-        reg = docs_pages.DocsRegistry(tmp_docs_dir)
-
-        # Act / Assert
-        with pytest.raises(errors.DuplicateSlugError):
-            _ = reg.pages
-
-    def test_duplicate_slug_error_carries_slug(self, tmp_docs_dir: pathlib.Path):
-        # Arrange
         for filename, title in [("doc_a.md", "My Topic"), ("doc_b.md", "My Topic")]:
             content = f"---\norder: 1\nicon: :book:\n---\n# {title}\n"
             (tmp_docs_dir / filename).write_text(content, encoding="utf-8")
@@ -497,8 +370,7 @@ class TestDocsRegistryPages:
         # Act / Assert
         with pytest.raises(errors.DuplicateSlugError) as exc_info:
             _ = reg.pages
-
-        assert exc_info.value.slug == "my_topic"
+        assert all([exc_info.value.slug == "my_topic"])
 
     def test_pages_result_is_cached(self, registry: docs_pages.DocsRegistry):
         # Arrange / Act
@@ -513,43 +385,48 @@ class TestDocsUIBuildPages:
     def test_build_pages_emits_expected_page_manifest(
         self,
         registry: docs_pages.DocsRegistry,
+        app_tester_getter: Callable[..., st_test.AppTest],
     ):
         # Arrange
-        at = AppTest.from_function(
-            _docs_pages_app,
-            kwargs={"docs_dir": registry._docs_dir},
-        )
+        at = app_tester_getter(docs_dir=registry._docs_dir)
 
         # Act
         at.run()
         manifest = json.loads(at.json[0].value)
 
         # Assert
-        assert manifest == [
-            {
-                "title": "Getting Started",
-                "icon": ":material/menu_book:",
-                "url_path": "getting_started",
-            },
-        ]
-        assert any("Welcome to the docs." in item.value for item in at.markdown)
+        assert all(
+            [
+                manifest
+                == [
+                    {
+                        "title": "Getting Started",
+                        "icon": ":material/menu_book:",
+                        "url_path": "getting_started",
+                    },
+                ],
+                any("Welcome to the docs." in item.value for item in at.markdown),
+            ],
+        )
 
     def test_render_exception_is_wrapped_as_page_render_error(
         self,
         registry: docs_pages.DocsRegistry,
+        app_tester_getter: Callable[..., st_test.AppTest],
     ):
         # Arrange
-        at = AppTest.from_function(
-            _docs_pages_app,
-            kwargs={"docs_dir": registry._docs_dir, "render_boom": True},
-        )
+        at = app_tester_getter(docs_dir=registry._docs_dir, render_boom=True)
 
         # Act
         at.run()
 
         # Assert
-        assert len(at.exception) == 1
-        assert (
-            "Failed to render page 'getting_started': render boom"
-            in at.exception[0].message
+        assert all(
+            [
+                len(at.exception) == 1,
+                (
+                    "Failed to render page 'getting_started': render boom"
+                    in at.exception[0].message
+                ),
+            ],
         )
