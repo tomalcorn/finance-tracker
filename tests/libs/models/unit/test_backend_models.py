@@ -24,6 +24,7 @@ class TestExpenseSourceModel:
         )
         assert model.budget_tracker_ids == [explicit_id]
 
+
 class TestOneOffItemModel:
     """Tests for the OneOffItemModel."""
 
