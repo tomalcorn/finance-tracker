@@ -23,7 +23,7 @@ class InitializeUserWorkspaceUseCase:
 
     def __init__(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         budget_tracker_repo: repository.BudgetTrackerRepository,
         expense_source_repo: repository.ExpenseSourceRepository,
     ) -> None:
@@ -63,7 +63,7 @@ class InitializeUserWorkspaceUseCase:
         for name in entities.BudgetTrackerName:
             if name not in existing_names:
                 bt = entities.BudgetTrackerItemModel(
-                    user_id=str(self._user_id),
+                    user_id=self._user_id,
                     name=name,
                 )
                 self._bt_repo.save(bt)
@@ -86,7 +86,7 @@ class InitializeUserWorkspaceUseCase:
             if existing is None:
                 # Create a new expense source
                 new_es = entities.ExpenseSourceModel(
-                    user_id=str(self._user_id),
+                    user_id=self._user_id,
                     name=expense_source_name,
                     budget_tracker_ids=[bt_id],
                 )
