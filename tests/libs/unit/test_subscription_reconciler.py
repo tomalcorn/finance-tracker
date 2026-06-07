@@ -7,7 +7,7 @@ from collections.abc import Callable
 
 import pytest
 
-from libs.models import backend_models, backend_updates_model
+from domain import entities
 from libs.subscription_reconciler import SubscriptionReconciler
 
 type Cadence = typing.Literal[
@@ -50,8 +50,8 @@ def _make_subscription(  # noqa: PLR0913
     is_active: bool = True,
     expense_source_id: uuid.UUID | None = None,
     sub_id: uuid.UUID | None = None,
-) -> backend_models.SubscriptionModel:
-    return backend_models.SubscriptionModel(
+) -> entities.SubscriptionModel:
+    return entities.SubscriptionModel(
         id=sub_id or uuid.uuid4(),
         user_id=user_id,
         name=name,
@@ -66,12 +66,12 @@ def _make_subscription(  # noqa: PLR0913
 
 
 def _make_payment(
-    sub: backend_models.SubscriptionModel,
+    sub: entities.SubscriptionModel,
     payment_date: datetime.date,
     *,
     payment_id: uuid.UUID | None = None,
-) -> backend_models.ExpensePaymentModel:
-    return backend_models.ExpensePaymentModel(
+) -> entities.ExpensePaymentModel:
+    return entities.ExpensePaymentModel(
         id=payment_id or uuid.uuid4(),
         user_id=sub.user_id,
         name=f"Sub: {sub.name}",
@@ -137,7 +137,7 @@ class TestReconcileSubscription:
             cadence=cadence,
             start_date=start_date,
         )
-        updates = backend_updates_model.BackendUpdates()
+        updates = entities.BackendUpdates()
         reconciler = SubscriptionReconciler()
         reconciler._today = self._TODAY
 
@@ -172,7 +172,7 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payment = _make_payment(sub, payment_date)
-        updates = backend_updates_model.BackendUpdates()
+        updates = entities.BackendUpdates()
         reconciler = SubscriptionReconciler()
 
         reconciler._reconcile_subscription(sub, [payment], updates)
@@ -209,7 +209,7 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payment = _make_payment(sub, payment_date)
-        updates = backend_updates_model.BackendUpdates()
+        updates = entities.BackendUpdates()
         reconciler = SubscriptionReconciler()
 
         reconciler._reconcile_subscription(sub, [payment], updates)
@@ -245,13 +245,13 @@ class TestReconcileSubscription:
         bank_account_id: uuid.UUID,
         sub_kwargs: dict,
         payments_factory: Callable[
-            [backend_models.SubscriptionModel],
-            list[backend_models.ExpensePaymentModel],
+            [entities.SubscriptionModel],
+            list[entities.ExpensePaymentModel],
         ],
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payments = payments_factory(sub)
-        updates = backend_updates_model.BackendUpdates()
+        updates = entities.BackendUpdates()
         reconciler = SubscriptionReconciler()
 
         reconciler._reconcile_subscription(sub, payments, updates)
@@ -274,7 +274,7 @@ class TestReconcileSubscription:
             bank_account_id,
             expense_source_id=expense_source_id,
         )
-        updates = backend_updates_model.BackendUpdates()
+        updates = entities.BackendUpdates()
         reconciler = SubscriptionReconciler()
 
         reconciler._reconcile_subscription(sub, [], updates)
@@ -406,7 +406,7 @@ class TestGroupPaymentsBySubscription:
         user_id: str,
         bank_account_id: uuid.UUID,
     ) -> None:
-        payment = backend_models.ExpensePaymentModel(
+        payment = entities.ExpensePaymentModel(
             user_id=user_id,
             name="Manual payment",
             expense=10.0,

@@ -7,8 +7,8 @@ import uuid
 import pytest
 import st_supabase_connection
 
+from domain import entities
 from libs import data_client
-from libs.models import backend_models
 from libs.subscription_reconciler import SubscriptionReconciler
 
 _SUBSCRIPTIONS = "subscriptions"
@@ -22,7 +22,7 @@ def _user_and_bank(
 ) -> typing.Generator[tuple[str, uuid.UUID], None, None]:
     """Create a bank account for FK constraints, clean up after."""
     user_id = "auth0|int-test-user"
-    bank = backend_models.BankAccountModel(user_id=user_id, name="Test Account")
+    bank = entities.BankAccountModel(user_id=user_id, name="Test Account")
 
     connection.table(_BANK_ACCOUNTS).insert(bank.model_dump(mode="json")).execute()
 
@@ -37,7 +37,7 @@ def _user_and_bank(
 
 def _insert_subscription(
     connection: st_supabase_connection.SupabaseConnection,
-    sub: backend_models.SubscriptionModel,
+    sub: entities.SubscriptionModel,
 ) -> None:
     connection.table(_SUBSCRIPTIONS).insert(
         sub.model_dump(mode="json"),
@@ -46,7 +46,7 @@ def _insert_subscription(
 
 def _insert_payment(
     connection: st_supabase_connection.SupabaseConnection,
-    payment: backend_models.ExpensePaymentModel,
+    payment: entities.ExpensePaymentModel,
 ) -> None:
     connection.table(_PAYMENTS).insert(
         payment.model_dump(mode="json"),
@@ -56,7 +56,7 @@ def _insert_payment(
 def _get_payments_for_sub(
     connection: st_supabase_connection.SupabaseConnection,
     subscription_id: uuid.UUID,
-) -> list[backend_models.ExpensePaymentModel]:
+) -> list[entities.ExpensePaymentModel]:
     data_client._get_data_cached.clear()
     rows = (
         connection.table(_PAYMENTS)
@@ -65,7 +65,7 @@ def _get_payments_for_sub(
         .execute()
         .data
     )
-    return [backend_models.ExpensePaymentModel.model_validate(row) for row in rows]
+    return [entities.ExpensePaymentModel.model_validate(row) for row in rows]
 
 
 def _run_reconcile(
@@ -87,7 +87,7 @@ class TestReconcileIntegration:
     ) -> None:
         """Active sub with no payments should produce one payment."""
         user_id, bank_id = user_and_bank
-        sub = backend_models.SubscriptionModel(
+        sub = entities.SubscriptionModel(
             user_id=user_id,
             name="Netflix",
             amount=15.99,
@@ -115,7 +115,7 @@ class TestReconcileIntegration:
     ) -> None:
         """Running reconcile twice should not create a second payment."""
         user_id, bank_id = user_and_bank
-        sub = backend_models.SubscriptionModel(
+        sub = entities.SubscriptionModel(
             user_id=user_id,
             name="Spotify",
             amount=9.99,
@@ -139,7 +139,7 @@ class TestReconcileIntegration:
     ) -> None:
         """Deactivating a sub should remove its future payment."""
         user_id, bank_id = user_and_bank
-        sub = backend_models.SubscriptionModel(
+        sub = entities.SubscriptionModel(
             user_id=user_id,
             name="HBO",
             amount=14.99,
@@ -174,7 +174,7 @@ class TestReconcileIntegration:
         user_id, bank_id = user_and_bank
         today = datetime.datetime.now(tz=datetime.UTC).date()
         end_date = today + datetime.timedelta(days=30)
-        sub = backend_models.SubscriptionModel(
+        sub = entities.SubscriptionModel(
             user_id=user_id,
             name="Trial Sub",
             amount=5.00,
@@ -187,7 +187,7 @@ class TestReconcileIntegration:
         _insert_subscription(connection, sub)
 
         # Manually insert a future payment beyond end_date
-        future_payment = backend_models.ExpensePaymentModel(
+        future_payment = entities.ExpensePaymentModel(
             user_id=user_id,
             name="Sub: Trial Sub",
             expense=5.00,

@@ -7,8 +7,8 @@ import pytest
 import st_supabase_connection
 import streamlit as st
 
+from domain import entities
 from libs import auth, data_client
-from libs.models import backend_models
 
 _ZERO_UUID = "00000000-0000-0000-0000-000000000000"
 _HIDDEN_NAMES = {"Joint", "One-offs", "Savings"}
@@ -91,7 +91,7 @@ class TestSeedDefaultBudgetTrackersIntegration:
         assert all(
             [
                 {row["name"] for row in bt_rows}
-                == {name.value for name in backend_models.BudgetTrackerName},
+                == {name.value for name in entities.BudgetTrackerName},
                 {row["name"] for row in es_rows} == _HIDDEN_NAMES,
                 all(
                     row["budget_tracker_ids"] == [bt_id_by_name[row["name"]]]
@@ -133,7 +133,7 @@ class TestSeedDefaultBudgetTrackersIntegration:
         )
         assert all(
             [
-                len(bt_rows) == len(backend_models.BudgetTrackerName),
+                len(bt_rows) == len(entities.BudgetTrackerName),
                 len(es_rows) == len(_HIDDEN_NAMES),
             ],
         )

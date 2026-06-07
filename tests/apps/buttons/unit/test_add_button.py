@@ -28,11 +28,11 @@ def _add_button_dialog_wrapper() -> None:
     import streamlit as st  # noqa: F401 - needed for app_test from_function
 
     from apps.buttons import add_button
-    from libs.models import backend_models
+    from domain import entities
 
     add_button_instance = add_button.AddButton(
         "test_table",
-        backend_model=backend_models.ExpensePaymentModel,
+        backend_model=entities.ExpensePaymentModel,
     )
 
     return add_button_instance._add_button_dialog([])
