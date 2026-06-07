@@ -1,6 +1,7 @@
 """Module for the AddButton class."""
 
 import typing
+from typing import Any
 
 import pydantic
 import streamlit as st
@@ -19,12 +20,14 @@ class AddButton(base_button.BaseButton):
         backend_model: type[pydantic.BaseModel],
         tables_to_clear: list | None = None,
         key_prefix: str | None = None,
+        extra_row_values: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the AddButton instance."""
         self._table_name = table_name
         self._key_prefix = key_prefix or table_name
         self._backend_model = backend_model
         self._tables_to_clear = tables_to_clear
+        self._extra_row_values = extra_row_values or {}
 
     @property
     def new_data_added(self) -> bool:
@@ -43,6 +46,7 @@ class AddButton(base_button.BaseButton):
         """Handle the submission of a new row."""
         try:
             new_row["user_id"] = auth.get_current_user()
+            new_row.update(self._extra_row_values)
             model_instance = self._backend_model.model_validate(new_row)
         except pydantic.ValidationError as e:
             msg = f"Invalid data for new row in {self._table_name}: {e}"

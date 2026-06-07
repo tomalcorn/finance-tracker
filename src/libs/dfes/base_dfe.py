@@ -90,6 +90,7 @@ class DFE:
             key_prefix=self._key_prefix,
             backend_model=self._backend_model,
             tables_to_clear=self._tables_to_clear,
+            extra_row_values=self._config.extra_row_values,
         )
 
     @property
@@ -192,6 +193,7 @@ class DFE:
                 key_prefix=self._key_prefix,
                 backend_model=self._backend_model,
                 tables_to_clear=self._tables_to_clear,
+                extra_row_values=getattr(self._config, "extra_row_values", None),
             )
             writable_configs = [
                 c
