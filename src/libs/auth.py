@@ -12,15 +12,15 @@ import jwt
 import st_supabase_connection
 import streamlit as st
 
+from domain import entities
 from libs import data_client
 from libs.dfes import constants
-from libs.models import backend_models
 
 # Budget tracker names that need a corresponding hidden expense source.
 _HIDDEN_EXPENSE_SOURCE_BT_NAMES = (
-    backend_models.BudgetTrackerName.JOINT,
-    backend_models.BudgetTrackerName.ONE_OFFS,
-    backend_models.BudgetTrackerName.SAVINGS,
+    entities.BudgetTrackerName.JOINT,
+    entities.BudgetTrackerName.ONE_OFFS,
+    entities.BudgetTrackerName.SAVINGS,
 )
 
 
@@ -81,11 +81,11 @@ def seed_default_budget_trackers(
     existing_bt_names = {str(row["name"]) for row in bt_rows}
 
     missing_bts = [
-        backend_models.BudgetTrackerItemModel(
+        entities.BudgetTrackerItemModel(
             user_id=auth0_sub,
             name=name,
         ).model_dump(mode="json")
-        for name in backend_models.BudgetTrackerName
+        for name in entities.BudgetTrackerName
         if name.value not in existing_bt_names
     ]
     if missing_bts:
@@ -115,7 +115,7 @@ def seed_default_budget_trackers(
             existing_bt_links.add(str(bt_id))
 
     missing_es = [
-        backend_models.ExpenseSourceModel(
+        entities.ExpenseSourceModel(
             user_id=auth0_sub,
             name=name.value,
             budget_tracker_ids=[uuid.UUID(bt_id_by_name[name.value])],

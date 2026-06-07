@@ -5,11 +5,12 @@ from collections.abc import Callable
 import pandas as pd
 import streamlit as st
 
+from domain import entities
 from libs import data_client
 from libs.buttons import constants
 from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
-from libs.models import backend_models, frontend_models
+from libs.models import frontend_models
 
 _BUDGET_TRACKER_TABLE = dfe_constants.TableNames.BUDGET_TRACKER.value
 _BUDGET_TRACKER_VIEW = dfe_constants.TableNames.BUDGET_TRACKER_VIEW.value
@@ -84,7 +85,7 @@ def _build_budget_tracker_dfe() -> base_dfe.DFE:
                 write_table=_BUDGET_TRACKER_TABLE,
                 read_table=_BUDGET_TRACKER_VIEW,
             ),
-            backend_model=backend_models.BudgetTrackerItemModel,
+            backend_model=entities.BudgetTrackerItemModel,
             configs=[
                 frontend_models.DFEReadOnlyColumnConfig(
                     column_name="name",
@@ -174,7 +175,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> base_dfe.DFE:
                 write_table=_EXPENSE_SOURCES_TABLE,
                 read_table=_EXPENSE_SOURCES_VIEW,
             ),
-            backend_model=backend_models.ExpenseSourceModel,
+            backend_model=entities.ExpenseSourceModel,
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
@@ -278,7 +279,7 @@ def _build_income_sources_dfe(
                 write_table=_INCOME_SOURCES_TABLE,
                 read_table=_INCOME_SOURCES_VIEW,
             ),
-            backend_model=backend_models.IncomeSourceModel,
+            backend_model=entities.IncomeSourceModel,
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
@@ -357,7 +358,7 @@ def render() -> None:
         (
             bt_id
             for bt_id, name in budget_tracker_map.items()
-            if name == backend_models.BudgetTrackerName.EXPENSES
+            if name == entities.BudgetTrackerName.EXPENSES
         ),
         None,
     )
