@@ -1,29 +1,17 @@
 """Abstract repository ports for all domain aggregates.
 
 These interfaces define what the application *needs* from persistence.
-Concrete implementations (Supabase, in-memory fakes) live in adapters/.
-
-No I/O, no Supabase imports, no Streamlit here.
 """
 
 import abc
 import uuid
 from typing import Annotated
 
-from domain.entities import (
-    BankAccountModel,
-    BudgetTrackerItemModel,
-    ExpensePaymentModel,
-    ExpenseSourceModel,
-    IncomePaymentModel,
-    IncomeSourceModel,
-    OneOffItemModel,
-    SubscriptionModel,
-)
+from domain import entities
 
 # Union type used wherever a payment row could be either kind.
 AnyPaymentModel = Annotated[
-    ExpensePaymentModel | IncomePaymentModel,
+    entities.ExpensePaymentModel | entities.IncomePaymentModel,
     "A payment that is either an expense or income entry.",
 ]
 
@@ -32,15 +20,15 @@ class BankAccountRepository(abc.ABC):
     """Port for bank account persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[BankAccountModel]:
+    def get_all(self, *, user_id: str) -> list[entities.BankAccountModel]:
         """Return all bank accounts belonging to the given user."""
 
     @abc.abstractmethod
-    def get_by_id(self, account_id: uuid.UUID) -> BankAccountModel | None:
+    def get_by_id(self, account_id: uuid.UUID) -> entities.BankAccountModel | None:
         """Return a single bank account, or None if not found."""
 
     @abc.abstractmethod
-    def save(self, account: BankAccountModel) -> None:
+    def save(self, account: entities.BankAccountModel) -> None:
         """Insert or update a bank account record."""
 
     @abc.abstractmethod
@@ -52,23 +40,26 @@ class BudgetTrackerRepository(abc.ABC):
     """Port for budget tracker item persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[BudgetTrackerItemModel]:
+    def get_all(self, *, user_id: str) -> list[entities.BudgetTrackerItemModel]:
         """Return all budget tracker items belonging to the given user."""
 
     @abc.abstractmethod
-    def get_by_id(self, item_id: uuid.UUID) -> BudgetTrackerItemModel | None:
+    def get_by_id(self, item_id: uuid.UUID) -> entities.BudgetTrackerItemModel | None:
         """Return a single budget tracker item, or None if not found."""
 
     @abc.abstractmethod
-    def get_by_ids(self, item_ids: list[uuid.UUID]) -> list[BudgetTrackerItemModel]:
+    def get_by_ids(
+        self,
+        item_ids: list[uuid.UUID],
+    ) -> list[entities.BudgetTrackerItemModel]:
         """Return budget tracker items matching the given IDs."""
 
     @abc.abstractmethod
-    def save(self, item: BudgetTrackerItemModel) -> None:
+    def save(self, item: entities.BudgetTrackerItemModel) -> None:
         """Insert or update a budget tracker item."""
 
     @abc.abstractmethod
-    def save_many(self, items: list[BudgetTrackerItemModel]) -> None:
+    def save_many(self, items: list[entities.BudgetTrackerItemModel]) -> None:
         """Insert or update multiple budget tracker items in one operation.
 
         Used by InitializeUserWorkspaceUseCase to seed default trackers.
@@ -83,15 +74,15 @@ class ExpenseSourceRepository(abc.ABC):
     """Port for expense source persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[ExpenseSourceModel]:
+    def get_all(self, *, user_id: str) -> list[entities.ExpenseSourceModel]:
         """Return all expense sources belonging to the given user."""
 
     @abc.abstractmethod
-    def get_by_id(self, source_id: uuid.UUID) -> ExpenseSourceModel | None:
+    def get_by_id(self, source_id: uuid.UUID) -> entities.ExpenseSourceModel | None:
         """Return a single expense source, or None if not found."""
 
     @abc.abstractmethod
-    def save(self, source: ExpenseSourceModel) -> None:
+    def save(self, source: entities.ExpenseSourceModel) -> None:
         """Insert or update an expense source."""
 
     @abc.abstractmethod
@@ -103,15 +94,15 @@ class IncomeSourceRepository(abc.ABC):
     """Port for income source persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[IncomeSourceModel]:
+    def get_all(self, *, user_id: str) -> list[entities.IncomeSourceModel]:
         """Return all income sources belonging to the given user."""
 
     @abc.abstractmethod
-    def get_by_id(self, source_id: uuid.UUID) -> IncomeSourceModel | None:
+    def get_by_id(self, source_id: uuid.UUID) -> entities.IncomeSourceModel | None:
         """Return a single income source, or None if not found."""
 
     @abc.abstractmethod
-    def save(self, source: IncomeSourceModel) -> None:
+    def save(self, source: entities.IncomeSourceModel) -> None:
         """Insert or update an income source."""
 
     @abc.abstractmethod
@@ -123,22 +114,22 @@ class OneOffRepository(abc.ABC):
     """Port for one-off savings goal item persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[OneOffItemModel]:
+    def get_all(self, *, user_id: str) -> list[entities.OneOffItemModel]:
         """Return all one-off items belonging to the given user."""
 
     @abc.abstractmethod
-    def get_by_id(self, item_id: uuid.UUID) -> OneOffItemModel | None:
+    def get_by_id(self, item_id: uuid.UUID) -> entities.OneOffItemModel | None:
         """Return a single one-off item, or None if not found."""
 
     @abc.abstractmethod
-    def get_by_ids(self, item_ids: list[uuid.UUID]) -> list[OneOffItemModel]:
+    def get_by_ids(self, item_ids: list[uuid.UUID]) -> list[entities.OneOffItemModel]:
         """Return one-off items matching the given IDs.
 
         Used by BankOneOffsUseCase to load only the selected items.
         """
 
     @abc.abstractmethod
-    def save(self, item: OneOffItemModel) -> None:
+    def save(self, item: entities.OneOffItemModel) -> None:
         """Insert or update a one-off item."""
 
     @abc.abstractmethod
@@ -150,11 +141,11 @@ class SubscriptionRepository(abc.ABC):
     """Port for subscription persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[SubscriptionModel]:
+    def get_all(self, *, user_id: str) -> list[entities.SubscriptionModel]:
         """Return all subscriptions belonging to the given user."""
 
     @abc.abstractmethod
-    def get_active(self, *, user_id: str) -> list[SubscriptionModel]:
+    def get_active(self, *, user_id: str) -> list[entities.SubscriptionModel]:
         """Return only active subscriptions (is_active=True).
 
         Used by ReconcileSubscriptionsUseCase to find subscriptions that
@@ -162,11 +153,14 @@ class SubscriptionRepository(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_by_id(self, subscription_id: uuid.UUID) -> SubscriptionModel | None:
+    def get_by_id(
+        self,
+        subscription_id: uuid.UUID,
+    ) -> entities.SubscriptionModel | None:
         """Return a single subscription, or None if not found."""
 
     @abc.abstractmethod
-    def save(self, subscription: SubscriptionModel) -> None:
+    def save(self, subscription: entities.SubscriptionModel) -> None:
         """Insert or update a subscription."""
 
     @abc.abstractmethod
