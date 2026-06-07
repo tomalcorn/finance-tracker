@@ -1,4 +1,4 @@
-"""Integration tests for SubscriptionReconciler against the test Supabase DB."""
+"""Integration tests for ReconcileSubscriptionsUseCase against the test Supabase DB."""
 
 import datetime
 import typing
@@ -7,9 +7,10 @@ import uuid
 import pytest
 import st_supabase_connection
 
+from adapters.supabase import repository as supabase_repos
 from domain import entities
 from libs import data_client
-from libs.subscription_reconciler import SubscriptionReconciler
+from use_cases.reconcile_subscriptions import ReconcileSubscriptionsUseCase
 
 _SUBSCRIPTIONS = "subscriptions"
 _PAYMENTS = "payments"
@@ -28,7 +29,6 @@ def _user_and_bank(
 
     yield user_id, bank.id
 
-    # Clean up — cascade handles payments/subscriptions
     connection.table(_PAYMENTS).delete().eq("user_id", str(user_id)).execute()
     connection.table(_SUBSCRIPTIONS).delete().eq("user_id", str(user_id)).execute()
     connection.table(_BANK_ACCOUNTS).delete().eq("id", str(bank.id)).execute()
@@ -70,15 +70,23 @@ def _get_payments_for_sub(
 
 def _run_reconcile(
     connection: st_supabase_connection.SupabaseConnection,
+    user_id: str,
 ) -> None:
-    """Run the reconciler with the test connection injected."""
+    """Run the use case with the test connection injected."""
     data_client._get_data_cached.clear()
-    SubscriptionReconciler().reconcile(connection=connection)
+    use_case = ReconcileSubscriptionsUseCase(
+        subscription_repo=supabase_repos.SupabaseSubscriptionRepository(
+            connection,
+            user_id,
+        ),
+        payment_repo=supabase_repos.SupabasePaymentRepository(connection, user_id),
+    )
+    use_case.execute()
     data_client._get_data_cached.clear()
 
 
 class TestReconcileIntegration:
-    """Integration tests for SubscriptionReconciler against the real DB."""
+    """Integration tests for ReconcileSubscriptionsUseCase against the real DB."""
 
     def test_creates_payment_for_active_subscription(
         self,
@@ -98,7 +106,7 @@ class TestReconcileIntegration:
         )
         _insert_subscription(connection, sub)
 
-        _run_reconcile(connection)
+        _run_reconcile(connection, user_id)
 
         payments = _get_payments_for_sub(connection, sub.id)
         assert all(
@@ -126,8 +134,8 @@ class TestReconcileIntegration:
         )
         _insert_subscription(connection, sub)
 
-        _run_reconcile(connection)
-        _run_reconcile(connection)
+        _run_reconcile(connection, user_id)
+        _run_reconcile(connection, user_id)
 
         payments = _get_payments_for_sub(connection, sub.id)
         assert len(payments) == 1
@@ -150,18 +158,15 @@ class TestReconcileIntegration:
         )
         _insert_subscription(connection, sub)
 
-        # First reconcile creates the payment
-        _run_reconcile(connection)
+        _run_reconcile(connection, user_id)
         payments_before = _get_payments_for_sub(connection, sub.id)
         assert len(payments_before) == 1
 
-        # Deactivate the subscription
         connection.table(_SUBSCRIPTIONS).update(
             {"is_active": False},
         ).eq("id", str(sub.id)).execute()
 
-        # Second reconcile should delete the future payment
-        _run_reconcile(connection)
+        _run_reconcile(connection, user_id)
         payments_after = _get_payments_for_sub(connection, sub.id)
         assert len(payments_after) == 0
 
@@ -186,7 +191,6 @@ class TestReconcileIntegration:
         )
         _insert_subscription(connection, sub)
 
-        # Manually insert a future payment beyond end_date
         future_payment = entities.ExpensePaymentModel(
             user_id=user_id,
             name="Sub: Trial Sub",
@@ -197,10 +201,8 @@ class TestReconcileIntegration:
         )
         _insert_payment(connection, future_payment)
 
-        _run_reconcile(connection)
+        _run_reconcile(connection, user_id)
 
-        # The invalid payment (past end_date) is deleted,
-        # but a valid one is created for the next cadence date before end_date
         payments = _get_payments_for_sub(connection, sub.id)
         assert sub.end_date is not None
         assert all(
