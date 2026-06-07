@@ -197,7 +197,7 @@ class TestDocsRegistryIntegration:
         # Assert
         expected_pages_len = 3
         assert all(
-            k[
+            [
                 len(pages) == expected_pages_len,
                 [p.slug for p in pages] == ["intro", "guide", "reference"],
             ],
