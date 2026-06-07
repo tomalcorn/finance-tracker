@@ -6,10 +6,11 @@ from collections.abc import Callable
 import pandas as pd
 import streamlit as st
 
+from domain import entities
 from libs import data_client
 from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
-from libs.models import backend_models, frontend_models
+from libs.models import frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.SUBSCRIPTIONS.value
 _VIEW_NAME = dfe_constants.TableNames.SUBSCRIPTIONS_VIEW.value
@@ -51,7 +52,7 @@ def _build_dfe(
                 write_table=_TABLE_NAME,
                 read_table=_VIEW_NAME,
             ),
-            backend_model=backend_models.SubscriptionModel,
+            backend_model=entities.SubscriptionModel,
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",

@@ -9,9 +9,10 @@ import pandas as pd
 import streamlit as st
 
 from apps.buttons import add_button, filter_button
+from domain import entities
 from libs import data_client, ss_keys
 from libs.buttons import constants
-from libs.models import backend_updates_model, frontend_models
+from libs.models import frontend_models
 
 if typing.TYPE_CHECKING:
     from libs.dfes import constants as dfe_constants
@@ -72,13 +73,13 @@ class DFE:
         st.session_state[key] = df
 
     @property
-    def backend_updates(self) -> backend_updates_model.BackendUpdates:
+    def backend_updates(self) -> entities.BackendUpdates:
         """Get pending backend updates for this DFE."""
         key = f"{self._key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
-        return st.session_state.get(key, backend_updates_model.BackendUpdates())
+        return st.session_state.get(key, entities.BackendUpdates())
 
     @backend_updates.setter
-    def backend_updates(self, updates: backend_updates_model.BackendUpdates) -> None:
+    def backend_updates(self, updates: entities.BackendUpdates) -> None:
         key = f"{self._key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         st.session_state[key] = updates
 
@@ -266,7 +267,7 @@ class DFE:
             if filters_changed:
                 self.working_df = modified_df
 
-        self.backend_updates = backend_updates_model.BackendUpdates(
+        self.backend_updates = entities.BackendUpdates(
             edited_rows=beu_edited_rows,
             deleted_rows=beu_deleted_rows,
         )

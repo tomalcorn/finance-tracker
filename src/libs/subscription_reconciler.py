@@ -10,9 +10,9 @@ import enum
 import st_supabase_connection
 from dateutil import relativedelta
 
+from domain import entities
 from libs import data_client
 from libs.dfes import constants as dfe_constants
-from libs.models import backend_models, backend_updates_model
 
 
 class CadenceDelta(enum.Enum):
@@ -63,8 +63,7 @@ class SubscriptionReconciler:
             return
 
         validated_subs = [
-            backend_models.SubscriptionModel.model_validate(sub)
-            for sub in subscriptions
+            entities.SubscriptionModel.model_validate(sub) for sub in subscriptions
         ]
 
         existing_payment_data = data_client.get_data(
@@ -73,7 +72,7 @@ class SubscriptionReconciler:
             _connection=connection,
         )
         existing_payments = [
-            backend_models.ExpensePaymentModel.model_validate(payment)
+            entities.ExpensePaymentModel.model_validate(payment)
             for payment in existing_payment_data
             if payment.get("subscription_id")
             and payment.get("payment_type") == "expense"
@@ -82,7 +81,7 @@ class SubscriptionReconciler:
             existing_payments,
         )
 
-        updates = backend_updates_model.BackendUpdates()
+        updates = entities.BackendUpdates()
 
         for sub in validated_subs:
             sub_id = str(sub.id)
@@ -98,9 +97,9 @@ class SubscriptionReconciler:
 
     def _reconcile_subscription(
         self,
-        sub: backend_models.SubscriptionModel,
-        current_payments: list[backend_models.ExpensePaymentModel],
-        updates: backend_updates_model.BackendUpdates,
+        sub: entities.SubscriptionModel,
+        current_payments: list[entities.ExpensePaymentModel],
+        updates: entities.BackendUpdates,
     ) -> None:
         """Reconcile a single subscription's payments."""
         future_payments = [
@@ -136,7 +135,7 @@ class SubscriptionReconciler:
         if next_date is None:
             return
 
-        new_payment = backend_models.ExpensePaymentModel(
+        new_payment = entities.ExpensePaymentModel(
             user_id=sub.user_id,
             name=f"Sub: {sub.name}",
             expense=sub.amount,
@@ -149,7 +148,7 @@ class SubscriptionReconciler:
 
     def _compute_next_date(
         self,
-        sub: backend_models.SubscriptionModel,
+        sub: entities.SubscriptionModel,
     ) -> datetime.date | None:
         """Compute the next payment date for a subscription from today onward."""
         try:
@@ -171,10 +170,10 @@ class SubscriptionReconciler:
 
     @staticmethod
     def _group_payments_by_subscription(
-        payments: list[backend_models.ExpensePaymentModel],
-    ) -> dict[str, list[backend_models.ExpensePaymentModel]]:
+        payments: list[entities.ExpensePaymentModel],
+    ) -> dict[str, list[entities.ExpensePaymentModel]]:
         """Group payments by their subscription_id."""
-        grouped: dict[str, list[backend_models.ExpensePaymentModel]] = {}
+        grouped: dict[str, list[entities.ExpensePaymentModel]] = {}
         for payment in payments:
             if payment.subscription_id:
                 sub_id = str(payment.subscription_id)

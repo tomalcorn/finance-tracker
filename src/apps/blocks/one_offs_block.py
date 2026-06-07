@@ -4,10 +4,11 @@ import pandas as pd
 import streamlit as st
 
 from apps.buttons import bank_button
+from domain import entities
 from libs import data_client
 from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
-from libs.models import backend_models, frontend_models
+from libs.models import frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.ONE_OFFS.value
 _VIEW_NAME = dfe_constants.TableNames.ONE_OFFS_VIEW.value
@@ -50,7 +51,7 @@ def _build_dfe() -> base_dfe.DFE:
         (
             str(bt["id"])
             for bt in budget_tracker_data
-            if bt.get("name") == backend_models.BudgetTrackerName.ONE_OFFS
+            if bt.get("name") == entities.BudgetTrackerName.ONE_OFFS
         ),
         None,
     )
@@ -61,7 +62,7 @@ def _build_dfe() -> base_dfe.DFE:
                 write_table=_TABLE_NAME,
                 read_table=_VIEW_NAME,
             ),
-            backend_model=backend_models.OneOffItemModel,
+            backend_model=entities.OneOffItemModel,
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",

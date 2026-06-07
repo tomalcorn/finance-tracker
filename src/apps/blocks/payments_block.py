@@ -6,11 +6,12 @@ from collections.abc import Callable
 import pandas as pd
 import streamlit as st
 
+from domain import entities
 from libs import data_client
 from libs.buttons import constants
 from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
-from libs.models import backend_models, frontend_models
+from libs.models import frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.PAYMENTS.value
 _INCOME_KEY_PREFIX = "income_entries"
@@ -65,7 +66,7 @@ def _build_expense_dfe(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
             ),
-            backend_model=backend_models.ExpensePaymentModel,
+            backend_model=entities.ExpensePaymentModel,
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
@@ -171,7 +172,7 @@ def _build_income_dfe(
                 write_table=_TABLE_NAME,
                 key_prefix=_INCOME_KEY_PREFIX,
             ),
-            backend_model=backend_models.IncomePaymentModel,
+            backend_model=entities.IncomePaymentModel,
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
