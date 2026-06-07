@@ -5,23 +5,16 @@ These interfaces define what the application *needs* from persistence.
 
 import abc
 import uuid
-from typing import Annotated
 
 from domain import entities
-
-# Union type used wherever a payment row could be either kind.
-AnyPaymentModel = Annotated[
-    entities.ExpensePaymentModel | entities.IncomePaymentModel,
-    "A payment that is either an expense or income entry.",
-]
 
 
 class BankAccountRepository(abc.ABC):
     """Port for bank account persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[entities.BankAccountModel]:
-        """Return all bank accounts belonging to the given user."""
+    def get_all(self) -> list[entities.BankAccountModel]:
+        """Return all bank accounts for the current user."""
 
     @abc.abstractmethod
     def get_by_id(self, account_id: uuid.UUID) -> entities.BankAccountModel | None:
@@ -40,8 +33,8 @@ class BudgetTrackerRepository(abc.ABC):
     """Port for budget tracker item persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[entities.BudgetTrackerItemModel]:
-        """Return all budget tracker items belonging to the given user."""
+    def get_all(self) -> list[entities.BudgetTrackerItemModel]:
+        """Return all budget tracker items for the current user."""
 
     @abc.abstractmethod
     def get_by_id(self, item_id: uuid.UUID) -> entities.BudgetTrackerItemModel | None:
@@ -74,8 +67,8 @@ class ExpenseSourceRepository(abc.ABC):
     """Port for expense source persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[entities.ExpenseSourceModel]:
-        """Return all expense sources belonging to the given user."""
+    def get_all(self) -> list[entities.ExpenseSourceModel]:
+        """Return all expense sources for the current user."""
 
     @abc.abstractmethod
     def get_by_id(self, source_id: uuid.UUID) -> entities.ExpenseSourceModel | None:
@@ -94,8 +87,8 @@ class IncomeSourceRepository(abc.ABC):
     """Port for income source persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[entities.IncomeSourceModel]:
-        """Return all income sources belonging to the given user."""
+    def get_all(self) -> list[entities.IncomeSourceModel]:
+        """Return all income sources for the current user."""
 
     @abc.abstractmethod
     def get_by_id(self, source_id: uuid.UUID) -> entities.IncomeSourceModel | None:
@@ -114,8 +107,8 @@ class OneOffRepository(abc.ABC):
     """Port for one-off savings goal item persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[entities.OneOffItemModel]:
-        """Return all one-off items belonging to the given user."""
+    def get_all(self) -> list[entities.OneOffItemModel]:
+        """Return all one-off items for the current user."""
 
     @abc.abstractmethod
     def get_by_id(self, item_id: uuid.UUID) -> entities.OneOffItemModel | None:
@@ -141,12 +134,12 @@ class SubscriptionRepository(abc.ABC):
     """Port for subscription persistence."""
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[entities.SubscriptionModel]:
-        """Return all subscriptions belonging to the given user."""
+    def get_all(self) -> list[entities.SubscriptionModel]:
+        """Return all subscriptions for the current user."""
 
     @abc.abstractmethod
-    def get_active(self, *, user_id: str) -> list[entities.SubscriptionModel]:
-        """Return only active subscriptions (is_active=True).
+    def get_active(self) -> list[entities.SubscriptionModel]:
+        """Return only active subscriptions (is_active=True) for the current user.
 
         Used by ReconcileSubscriptionsUseCase to find subscriptions that
         may need future payments created.
@@ -177,14 +170,14 @@ class PaymentRepository(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_all(self, *, user_id: str) -> list[AnyPaymentModel]:
-        """Return all payments (expense and income) for the given user."""
+    def get_all(self) -> list[entities.AnyPaymentModel]:
+        """Return all payments (expense and income) for the current user."""
 
     @abc.abstractmethod
     def get_by_bank_account(
         self,
         bank_account_id: uuid.UUID,
-    ) -> list[AnyPaymentModel]:
+    ) -> list[entities.AnyPaymentModel]:
         """Return all payments associated with a specific bank account.
 
         Used when banking one-offs to find existing payments for the account.
@@ -194,7 +187,7 @@ class PaymentRepository(abc.ABC):
     def get_by_subscription(
         self,
         subscription_id: uuid.UUID,
-    ) -> list[AnyPaymentModel]:
+    ) -> list[entities.AnyPaymentModel]:
         """Return all payments generated from a specific subscription.
 
         Used by ReconcileSubscriptionsUseCase to determine whether future
@@ -202,11 +195,11 @@ class PaymentRepository(abc.ABC):
         """
 
     @abc.abstractmethod
-    def save(self, payment: AnyPaymentModel) -> None:
+    def save(self, payment: entities.AnyPaymentModel) -> None:
         """Insert or update a single payment."""
 
     @abc.abstractmethod
-    def save_many(self, payments: list[AnyPaymentModel]) -> None:
+    def save_many(self, payments: list[entities.AnyPaymentModel]) -> None:
         """Insert or update multiple payments in one operation.
 
         Used by ReconcileSubscriptionsUseCase to bulk-create future payments.
