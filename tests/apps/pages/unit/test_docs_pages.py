@@ -199,6 +199,7 @@ class TestLoadMarkdownDocHappy:
         default_order = 9999
         assert page.order == default_order
 
+
 # ===========================================================================
 # load_markdown_doc — error paths
 # ===========================================================================
