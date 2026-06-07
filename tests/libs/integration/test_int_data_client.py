@@ -2,9 +2,8 @@
 
 import st_supabase_connection
 
+from domain import entities
 from libs import data_client
-from libs.models import backend_models
-from libs.models.backend_updates_model import BackendUpdates
 
 
 class TestGetData:
@@ -12,7 +11,7 @@ class TestGetData:
 
     def test_get_data(
         self,
-        yield_sample_bank_account: backend_models.BankAccountModel,
+        yield_sample_bank_account: entities.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test fetching data using sample bank account."""
@@ -21,14 +20,14 @@ class TestGetData:
 
         # Assert
         expected_model = yield_sample_bank_account
-        actual_model = backend_models.BankAccountModel.model_validate(data[0])
+        actual_model = entities.BankAccountModel.model_validate(data[0])
         # Clear up cache
         data_client._get_data_cached.clear()
         assert actual_model == expected_model
 
     def test_get_data_caching(
         self,
-        yield_sample_bank_account: backend_models.BankAccountModel,  # noqa: ARG002
+        yield_sample_bank_account: entities.BankAccountModel,  # noqa: ARG002
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test that repeated identical get_data calls use the cache."""
@@ -58,7 +57,7 @@ class TestGetColumnValues:
 
     def test_get_column_values(
         self,
-        yield_sample_bank_accounts: list[backend_models.BankAccountModel],
+        yield_sample_bank_accounts: list[entities.BankAccountModel],
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test fetching distinct column values using sample bank accounts."""
@@ -75,7 +74,7 @@ class TestGetColumnValues:
 
     def test_get_column_values_unique(
         self,
-        yield_sample_bank_accounts: list[backend_models.BankAccountModel],
+        yield_sample_bank_accounts: list[entities.BankAccountModel],
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test fetching unique column values using sample bank accounts."""
@@ -97,12 +96,12 @@ class TestUpdateBackend:
 
     def test_adds_new_row(
         self,
-        sample_bank_account: backend_models.BankAccountModel,
+        sample_bank_account: entities.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test adding a new row to the backend."""
         # Arrange
-        updates = BackendUpdates(
+        updates = entities.BackendUpdates(
             added_rows=[sample_bank_account.model_dump(mode="json")],
         )
 
@@ -119,7 +118,7 @@ class TestUpdateBackend:
             query_string="*",
             _connection=connection,
         )
-        actual_model = backend_models.BankAccountModel.model_validate(fetched_data[0])
+        actual_model = entities.BankAccountModel.model_validate(fetched_data[0])
         # Clean up
         data_client._get_data_cached.clear()
         connection.table("bank_accounts").delete().eq(
@@ -130,12 +129,12 @@ class TestUpdateBackend:
 
     def test_deletes_row(
         self,
-        yield_sample_bank_account: backend_models.BankAccountModel,
+        yield_sample_bank_account: entities.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test deleting a row from the backend."""
         # Arrange
-        updates = BackendUpdates(
+        updates = entities.BackendUpdates(
             deleted_rows=[str(yield_sample_bank_account.id)],
         )
 
@@ -156,20 +155,20 @@ class TestUpdateBackend:
         # Clean up cache
         data_client._get_data_cached.clear()
         assert all(
-            backend_models.BankAccountModel.model_validate(row).id
+            entities.BankAccountModel.model_validate(row).id
             != yield_sample_bank_account.id
             for row in fetched_data
         )
 
     def test_edits_row(
         self,
-        yield_sample_bank_account: backend_models.BankAccountModel,
+        yield_sample_bank_account: entities.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test editing a row in the backend."""
         # Arrange
         new_name = "UpdatedName"
-        updates = BackendUpdates(
+        updates = entities.BackendUpdates(
             edited_rows={
                 str(yield_sample_bank_account.id): {"name": new_name},
             },
@@ -194,7 +193,7 @@ class TestUpdateBackend:
 
         # Find the updated bank account and check the name
         for row in fetched_data:
-            account = backend_models.BankAccountModel.model_validate(row)
+            account = entities.BankAccountModel.model_validate(row)
             if account.id == yield_sample_bank_account.id:
                 updated_account = account
                 break
@@ -202,16 +201,16 @@ class TestUpdateBackend:
 
     def test_adds_and_edits_and_deletes_rows(
         self,
-        yield_sample_bank_accounts: list[backend_models.BankAccountModel],
+        yield_sample_bank_accounts: list[entities.BankAccountModel],
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test adding, editing and deleting a row in the backend."""
         # Arrange - Add a new account, then edit one of the existing accounts
-        new_account = backend_models.BankAccountModel(
+        new_account = entities.BankAccountModel(
             user_id="auth0|int-test-new-user",
             name="New Account",
         )
-        updates = BackendUpdates(
+        updates = entities.BackendUpdates(
             added_rows=[new_account.model_dump(mode="json")],
             edited_rows={
                 str(yield_sample_bank_accounts[0].id): {"name": "EditedName"},
@@ -235,13 +234,13 @@ class TestUpdateBackend:
         )
         # Check new account added
         added_account_found = any(
-            backend_models.BankAccountModel.model_validate(row).id == new_account.id
+            entities.BankAccountModel.model_validate(row).id == new_account.id
             for row in fetched_data
         )
         # Check existing account edited
         edited_account_edited = False
         for row in fetched_data:
-            account = backend_models.BankAccountModel.model_validate(row)
+            account = entities.BankAccountModel.model_validate(row)
             edited = (
                 account.id == yield_sample_bank_accounts[0].id
                 and account.name == "EditedName"
@@ -251,7 +250,7 @@ class TestUpdateBackend:
                 break
         # Check deleted account is gone
         deleted_account_not_found = all(
-            backend_models.BankAccountModel.model_validate(row).id
+            entities.BankAccountModel.model_validate(row).id
             != yield_sample_bank_accounts[1].id
             for row in fetched_data
         )
@@ -272,7 +271,7 @@ class TestUpdateBackend:
 
     def test_clears_cache_for_table(
         self,
-        yield_sample_bank_account: backend_models.BankAccountModel,
+        yield_sample_bank_account: entities.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test that update_backend clears the get_data cache for the updated table."""
@@ -281,7 +280,7 @@ class TestUpdateBackend:
         version_before = data_client._get_table_versions().get("bank_accounts", 0)
 
         # Act
-        updates = BackendUpdates(
+        updates = entities.BackendUpdates(
             edited_rows={
                 str(yield_sample_bank_account.id): {"name": "UpdatedForCacheTest"},
             },
@@ -298,12 +297,12 @@ class TestUpdateBackend:
 
     def test_updates_backend_updates_model(
         self,
-        yield_sample_bank_account: backend_models.BankAccountModel,
+        yield_sample_bank_account: entities.BankAccountModel,
         connection: st_supabase_connection.SupabaseConnection,
     ) -> None:
         """Test that BackendUpdates model is updated correctly after backend update."""
         # Arrange
-        updates = BackendUpdates(
+        updates = entities.BackendUpdates(
             deleted_rows=[str(yield_sample_bank_account.id)],
         )
 
