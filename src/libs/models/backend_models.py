@@ -1,4 +1,12 @@
-"""Pydantic models for backend model validation."""
+"""Pydantic models for backend model validation.
+
+Construction-time dependency audit:
+- ExpenseSourceModel.budget_tracker_ids: should be supplied by a use case when the
+  associated budget tracker is known; otherwise remain ``None`` and let the caller
+  decide later.
+- OneOffItemModel.budget_tracker_id: should be supplied by a use case or adapter
+  before model construction; the model should not query ``data_client``.
+"""
 
 import datetime
 import enum
@@ -6,8 +14,6 @@ import uuid
 from typing import Annotated, Literal
 
 import pydantic
-
-from libs import data_client
 
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):
@@ -64,31 +70,10 @@ class ExpenseSourceModel(FinanceTrackerBaseModel):
         float,
         pydantic.Field(description="The budget amount for the expense source."),
     ] = 0.0
-    budget_tracker_ids: list[uuid.UUID] = pydantic.Field(
+    budget_tracker_ids: list[uuid.UUID] | None = pydantic.Field(
         description="List of associated budget tracker item IDs.",
-        validate_default=True,
-        default_factory=list,
+        default=None,
     )
-
-    @pydantic.field_validator("budget_tracker_ids", mode="before")
-    @classmethod
-    def _default_to_expenses(
-        cls,
-        v: list[uuid.UUID] | None,
-    ) -> list[uuid.UUID]:
-        """Default to the Expenses budget tracker when no IDs are provided."""
-        if v:
-            return v
-        rows = data_client.get_data(
-            table_name="budget_tracker",
-            query_string="id,name",
-        )
-        if row := next(
-            (r for r in rows if r.get("name") == BudgetTrackerName.EXPENSES),
-            None,
-        ):
-            return [uuid.UUID(str(row["id"]))]
-        return []
 
 
 class OneOffItemModel(FinanceTrackerBaseModel):
@@ -106,26 +91,10 @@ class OneOffItemModel(FinanceTrackerBaseModel):
         float,
         pydantic.Field(description="The amount banked from past months."),
     ] = 0.0
-
-    @pydantic.computed_field
-    @property
-    def budget_tracker_id(self) -> uuid.UUID | None:
-        """Compute the associated budget tracker item ID.
-
-        One-off items should all be connected only to the "one-offs" budget tracker
-        item, so we can compute this based on the name of the budget tracker item
-        rather than needing to store it directly.
-        """
-        rows = data_client.get_data(
-            table_name="budget_tracker",
-            query_string="id,name",
-        )
-        if row := next(
-            (r for r in rows if r.get("name") == BudgetTrackerName.ONE_OFFS),
-            None,
-        ):
-            return uuid.UUID(str(row["id"]))
-        return None
+    budget_tracker_id: uuid.UUID | None = pydantic.Field(
+        description="The associated budget tracker item ID.",
+        default=None,
+    )
 
 
 class IncomeSourceModel(FinanceTrackerBaseModel):

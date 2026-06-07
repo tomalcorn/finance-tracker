@@ -236,3 +236,4 @@ class DFEConfig(pydantic.BaseModel):
     sample_data: pd.DataFrame
     tables_to_clear: list[dfe_constants.TableNames] | None = None
     num_rows: Literal["fixed", "dynamic", "add", "delete"] = "delete"
+    extra_row_values: dict[str, Any] | None = None
