@@ -5,10 +5,10 @@ import uuid
 
 import streamlit as st
 
+from domain import entities
 from libs import auth, data_client
 from libs.buttons import constants
 from libs.dfes import constants as dfe_constants
-from libs.models import backend_models, backend_updates_model
 
 
 class BankButton:
@@ -34,7 +34,7 @@ class BankButton:
             (
                 str(bt["id"])
                 for bt in budget_tracker_data
-                if bt.get("name") == backend_models.BudgetTrackerName.ONE_OFFS
+                if bt.get("name") == entities.BudgetTrackerName.ONE_OFFS
             ),
             None,
         )
@@ -74,7 +74,7 @@ class BankButton:
             new_banked = float(item.get("banked", 0)) + amount
             data_client.update_backend(
                 table_name=self._one_offs_table,
-                updates=backend_updates_model.BackendUpdates(
+                updates=entities.BackendUpdates(
                     edited_rows={
                         str(item["id"]): {
                             "banked": new_banked,
@@ -85,7 +85,7 @@ class BankButton:
                 tables_to_clear=self._tables_to_clear,
             )
 
-            payment = backend_models.ExpensePaymentModel(
+            payment = entities.ExpensePaymentModel(
                 user_id=auth.get_current_user(),
                 name=f"Bank: {item['name']}",
                 expense=amount,
@@ -98,7 +98,7 @@ class BankButton:
             )
             data_client.update_backend(
                 table_name=dfe_constants.TableNames.PAYMENTS.value,
-                updates=backend_updates_model.BackendUpdates(
+                updates=entities.BackendUpdates(
                     added_rows=[payment.model_dump(mode="json", exclude_none=True)],
                 ),
                 tables_to_clear=self._tables_to_clear,

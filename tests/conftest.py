@@ -8,8 +8,9 @@ import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
 
+from domain import entities
 from libs.buttons import constants
-from libs.models import backend_models, frontend_models
+from libs.models import frontend_models
 
 
 @pytest.fixture(autouse=True)
@@ -28,9 +29,9 @@ def _connection() -> st_supabase_connection.SupabaseConnection:
 
 
 @pytest.fixture(name="sample_bank_account")
-def _sample_bank_account() -> backend_models.BankAccountModel:
+def _sample_bank_account() -> entities.BankAccountModel:
     """Provide a sample bank account model for tests."""
-    return backend_models.BankAccountModel(
+    return entities.BankAccountModel(
         user_id="auth0|test-user-1",
         name="Test Account 1",
         starting_balance=100.0,
@@ -40,8 +41,8 @@ def _sample_bank_account() -> backend_models.BankAccountModel:
 @pytest.fixture(name="yield_sample_bank_account")
 def _yield_sample_bank_account(
     connection: st_supabase_connection.SupabaseConnection,
-    sample_bank_account: backend_models.BankAccountModel,
-) -> typing.Generator[backend_models.BankAccountModel, None, None]:
+    sample_bank_account: entities.BankAccountModel,
+) -> typing.Generator[entities.BankAccountModel, None, None]:
     """Set up a sample bank account for tests."""
     connection.table("bank_accounts").insert(
         sample_bank_account.model_dump(mode="json"),
@@ -58,9 +59,9 @@ def _yield_sample_bank_account(
 
 @pytest.fixture(name="yield_sample_bank_accounts")
 def _yield_sample_bank_accounts(
-    sample_bank_account: backend_models.BankAccountModel,
+    sample_bank_account: entities.BankAccountModel,
     connection: st_supabase_connection.SupabaseConnection,
-) -> typing.Generator[list[backend_models.BankAccountModel], None, None]:
+) -> typing.Generator[list[entities.BankAccountModel], None, None]:
     """Set up multiple sample bank accounts for tests."""
     sample_bank_accounts = [
         sample_bank_account,

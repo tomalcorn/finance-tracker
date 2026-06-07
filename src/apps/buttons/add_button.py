@@ -6,9 +6,10 @@ from typing import Any
 import pydantic
 import streamlit as st
 
+from domain import entities
 from libs import auth, data_client, ss_keys
 from libs.buttons import base_button, constants
-from libs.models import backend_updates_model, frontend_models
+from libs.models import frontend_models
 
 
 class AddButton(base_button.BaseButton):
@@ -54,7 +55,7 @@ class AddButton(base_button.BaseButton):
         else:
             data_client.update_backend(
                 table_name=self._table_name,
-                updates=backend_updates_model.BackendUpdates(
+                updates=entities.BackendUpdates(
                     added_rows=[
                         model_instance.model_dump(mode="json", exclude_none=True),
                     ],
