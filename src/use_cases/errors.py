@@ -16,3 +16,15 @@ class InvalidCadenceError(ReconciliationError):
         """Construct InvalidCadenceError."""
         self.cadence = cadence
         super().__init__(f"Unknown cadence: {cadence}")
+
+
+class WorkspaceError(UseCaseError):
+    """Base for workspace initialisation errors."""
+
+
+class WorkspaceInitializationError(WorkspaceError):
+    """Raised when the workspace cannot be set up correctly."""
+
+
+class DataAccessError(WorkspaceInitializationError):
+    """Raised when a repository operation fails."""
