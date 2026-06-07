@@ -6,9 +6,9 @@ from unittest import mock
 
 import pytest
 import st_supabase_connection
-from adapters.supabase import repository, table_names
 
 from adapters import errors
+from adapters.supabase import repository, table_names
 from domain import entities
 
 _USER_ID = "auth0|test-user-123"
