@@ -211,3 +211,10 @@ class BackendUpdates(pydantic.BaseModel):
         list[str],
         pydantic.Field(description="List of row ids to be deleted."),
     ] = []
+
+
+# Union type used wherever a payment row could be either kind.
+AnyPaymentModel = Annotated[
+    ExpensePaymentModel | IncomePaymentModel,
+    "A payment that is either an expense or income entry.",
+]
