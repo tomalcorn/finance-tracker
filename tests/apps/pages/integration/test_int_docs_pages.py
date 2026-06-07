@@ -8,6 +8,7 @@ than the unit tests, but catch wiring issues that mocks cannot.
 
 import json
 import pathlib
+from collections.abc import Callable
 
 import pytest
 from streamlit.testing import v1 as st_test
@@ -47,34 +48,6 @@ def _write_doc(  # noqa: PLR0913 - needed for test
     path = directory / filename
     path.write_text(content, encoding="utf-8")
     return path
-
-
-def _docs_pages_app(docs_dir: pathlib.Path, *, render_boom: bool = False) -> None:
-    from unittest import mock
-
-    import streamlit as st
-
-    from apps.pages import docs_pages
-
-    registry = docs_pages.DocsRegistry(docs_dir)
-    pages = docs_pages.DocsUI(registry).build_pages()
-    st.json(
-        [
-            {
-                "title": page.title,
-                "icon": page.icon,
-                "url_path": page.url_path,
-            }
-            for page in pages
-        ],
-    )
-
-    if render_boom:
-        with mock.patch("streamlit.markdown", side_effect=RuntimeError("render boom")):
-            st.navigation(pages).run()
-        return
-
-    st.navigation(pages).run()
 
 
 # ===========================================================================
@@ -211,7 +184,7 @@ class TestFullPipelineFileToPage:
 
 
 class TestDocsRegistryIntegration:
-    def test_registry_loads_all_files_in_directory(
+    def test_registry_loads_all_files_in_directory_and_orders_them(
         self,
         populated_docs_dir: pathlib.Path,
     ):
@@ -222,18 +195,13 @@ class TestDocsRegistryIntegration:
         pages = reg.pages
 
         # Assert
-        expected_num_pages = 3
-        assert len(pages) == expected_num_pages
-
-    def test_registry_pages_are_in_order(self, populated_docs_dir: pathlib.Path):
-        # Arrange
-        reg = docs_pages.DocsRegistry(populated_docs_dir)
-
-        # Act
-        pages = reg.pages
-
-        # Assert
-        assert [p.slug for p in pages] == ["intro", "guide", "reference"]
+        expected_pages_len = 3
+        assert all(
+            [
+                len(pages) == expected_pages_len,
+                [p.slug for p in pages] == ["intro", "guide", "reference"],
+            ],
+        )
 
     def test_registry_ignores_non_md_files(self, docs_dir: pathlib.Path):
         # Arrange
@@ -308,14 +276,15 @@ class TestDocsRegistryIntegration:
 
 
 class TestDocsUIIntegration:
-    def test_build_pages_returns_streamlit_pages(
+    def test_build_pages_emits_expected_manifest(
         self,
         populated_docs_dir: pathlib.Path,
+        app_tester_getter: Callable[..., st_test.AppTest],
     ):
         # Arrange
-        at = st_test.AppTest.from_function(
-            _docs_pages_app,
-            kwargs={"docs_dir": populated_docs_dir},
+        reg = docs_pages.DocsRegistry(populated_docs_dir)
+        at = app_tester_getter(
+            docs_dir=populated_docs_dir,
         )
 
         # Act
@@ -323,69 +292,31 @@ class TestDocsUIIntegration:
         manifest = json.loads(at.json[0].value)
 
         # Assert
-        expected_manifest_len = 3
         assert all(
             [
-                len(manifest) == expected_manifest_len,
-                manifest[0]["title"] == "Introduction",
-                manifest[1]["title"] == "Guide",
-                manifest[2]["title"] == "Reference",
+                len(manifest) == len(reg.pages),
+                manifest
+                == [
+                    {
+                        "title": "Introduction",
+                        "icon": ":material/menu_book:",
+                        "url_path": "intro",
+                    },
+                    {
+                        "title": "Guide",
+                        "icon": ":material/menu_book:",
+                        "url_path": "guide",
+                    },
+                    {
+                        "title": "Reference",
+                        "icon": ":material/menu_book:",
+                        "url_path": "reference",
+                    },
+                ],
+                [item["url_path"] for item in manifest] == [p.slug for p in reg.pages],
+                [item["title"] for item in manifest] == [p.title for p in reg.pages],
             ],
         )
-
-    def test_build_pages_count_matches_registry(
-        self,
-        populated_docs_dir: pathlib.Path,
-    ):
-        # Arrange
-        reg = docs_pages.DocsRegistry(populated_docs_dir)
-        at = st_test.AppTest.from_function(
-            _docs_pages_app,
-            kwargs={"docs_dir": populated_docs_dir},
-        )
-
-        # Act
-        at.run()
-        manifest = json.loads(at.json[0].value)
-
-        # Assert
-        assert len(manifest) == len(reg.pages)
-
-    def test_streamlit_page_url_paths_match_slugs(
-        self,
-        populated_docs_dir: pathlib.Path,
-    ):
-        # Arrange
-        reg = docs_pages.DocsRegistry(populated_docs_dir)
-        at = st_test.AppTest.from_function(
-            _docs_pages_app,
-            kwargs={"docs_dir": populated_docs_dir},
-        )
-
-        # Act
-        at.run()
-        manifest = json.loads(at.json[0].value)
-
-        # Assert
-        assert [item["url_path"] for item in manifest] == [p.slug for p in reg.pages]
-
-    def test_streamlit_page_titles_match_doc_titles(
-        self,
-        populated_docs_dir: pathlib.Path,
-    ):
-        # Arrange
-        reg = docs_pages.DocsRegistry(populated_docs_dir)
-        at = st_test.AppTest.from_function(
-            _docs_pages_app,
-            kwargs={"docs_dir": populated_docs_dir},
-        )
-
-        # Act
-        at.run()
-        manifest = json.loads(at.json[0].value)
-
-        # Assert
-        assert [item["title"] for item in manifest] == [p.title for p in reg.pages]
 
     def test_docs_ui_build_pages_propagates_registry_errors(
         self,
