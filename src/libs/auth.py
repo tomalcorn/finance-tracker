@@ -5,8 +5,6 @@ by minting a custom JWT containing the Auth0 user ID.
 """
 
 import time
-import uuid
-from typing import cast
 
 import jwt
 import st_supabase_connection
@@ -14,7 +12,6 @@ import streamlit as st
 
 from domain import entities
 from libs import data_client
-from libs.dfes import constants
 
 # Budget tracker names that need a corresponding hidden expense source.
 _HIDDEN_EXPENSE_SOURCE_BT_NAMES = (
@@ -61,72 +58,6 @@ def authenticate_supabase(
     token = _mint_supabase_jwt(auth0_sub)
     connection.client.postgrest.auth(token)
     return connection
-
-
-def seed_default_budget_trackers(
-    auth0_sub: str,
-    connection: st_supabase_connection.SupabaseConnection | None = None,
-) -> None:
-    """Seed the default budget tracker rows and hidden expense sources."""
-    connection = connection or data_client.CONN
-
-    # Create the four default budget tracker rows and hidden expense sources.
-    # --- seed budget trackers ---
-    bt_table_name = constants.TableNames.BUDGET_TRACKER.value
-    bt_rows = data_client.get_data(
-        table_name=bt_table_name,
-        query_string="id,name",
-        _connection=connection,
-    )
-    existing_bt_names = {str(row["name"]) for row in bt_rows}
-
-    missing_bts = [
-        entities.BudgetTrackerItemModel(
-            user_id=auth0_sub,
-            name=name,
-        ).model_dump(mode="json")
-        for name in entities.BudgetTrackerName
-        if name.value not in existing_bt_names
-    ]
-    if missing_bts:
-        connection.table(bt_table_name).upsert(
-            missing_bts,
-            on_conflict="user_id,name",
-        ).execute()
-        data_client.invalidate_table_cache(bt_table_name)
-        # Re-fetch so we have IDs for the newly created rows.
-        bt_rows = data_client.get_data(
-            table_name=bt_table_name,
-            query_string="id,name",
-            _connection=connection,
-        )
-
-    # --- seed hidden expense sources for Joint / One-offs / Savings ---
-    bt_id_by_name: dict[str, str] = {str(r["name"]): str(r["id"]) for r in bt_rows}
-
-    es_rows = data_client.get_data(
-        table_name="expense_sources",
-        query_string="budget_tracker_ids",
-        _connection=connection,
-    )
-    existing_bt_links: set[str] = set()
-    for row in es_rows:
-        for bt_id in cast("list[str]", row.get("budget_tracker_ids") or []):
-            existing_bt_links.add(str(bt_id))
-
-    missing_es = [
-        entities.ExpenseSourceModel(
-            user_id=auth0_sub,
-            name=name.value,
-            budget_tracker_ids=[uuid.UUID(bt_id_by_name[name.value])],
-        ).model_dump(mode="json")
-        for name in _HIDDEN_EXPENSE_SOURCE_BT_NAMES
-        if name.value in bt_id_by_name
-        and bt_id_by_name[name.value] not in existing_bt_links
-    ]
-    if missing_es:
-        connection.table("expense_sources").insert(missing_es).execute()
-        data_client.invalidate_table_cache("expense_sources")
 
 
 def get_current_user() -> str:
