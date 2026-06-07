@@ -1,0 +1,34 @@
+"""Supabase table and view name constants.
+
+These are an implementation detail of the Supabase adapter.
+Nothing outside adapters/supabase/ should import from here.
+"""
+
+import enum
+
+
+class TableNames(enum.StrEnum):
+    """Write-able table names in the Supabase schema."""
+
+    PAYMENTS = enum.auto()
+    BANK_ACCOUNTS = enum.auto()
+    BUDGET_TRACKER = enum.auto()
+    EXPENSE_SOURCES = enum.auto()
+    ONE_OFFS = enum.auto()
+    INCOME_SOURCES = enum.auto()
+    SUBSCRIPTIONS = enum.auto()
+
+
+class ViewNames(enum.StrEnum):
+    """Read-only view names in the Supabase schema.
+
+    Views return joined/computed data that the raw tables don't expose.
+    Repository read methods use these; write methods use TableNames.
+    """
+
+    BANK_ACCOUNTS = "bank_accounts_view"
+    BUDGET_TRACKER = "budget_tracker_view"
+    EXPENSE_SOURCES = "expense_sources_view"
+    ONE_OFFS = "one_offs_view"
+    INCOME_SOURCES = "income_sources_view"
+    SUBSCRIPTIONS = "subscriptions_view"
