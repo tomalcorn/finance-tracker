@@ -161,6 +161,9 @@ def _build_dfe() -> base_dfe.DFE:
             ],
             sample_data=_SAMPLE_DATA,
             tables_to_clear=_TABLES_TO_CLEAR,
+            extra_row_values=(
+                {"budget_tracker_id": one_offs_bt_id} if one_offs_bt_id else None
+            ),
         ),
     )
 
