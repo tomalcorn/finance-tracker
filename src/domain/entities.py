@@ -1,12 +1,4 @@
-"""Pydantic models for backend model validation.
-
-Construction-time dependency audit:
-- ExpenseSourceModel.budget_tracker_ids: should be supplied by a use case when the
-  associated budget tracker is known; otherwise remain ``None`` and let the caller
-  decide later.
-- OneOffItemModel.budget_tracker_id: should be supplied by a use case or adapter
-  before model construction; the model should not query ``data_client``.
-"""
+"""Pure domain entities for backend data."""
 
 import datetime
 import enum
@@ -15,9 +7,11 @@ from typing import Annotated, Literal
 
 import pydantic
 
+type JsonDict = dict[str, pydantic.JsonValue]
+
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):
-    """Base model for finance tracker models."""
+    """Base model for finance tracker entities."""
 
     id: uuid.UUID = pydantic.Field(
         description="The unique identifier for the item.",
@@ -200,3 +194,20 @@ class IncomePaymentModel(_PaymentBaseModel):
         uuid.UUID | None,
         pydantic.Field(description="The associated income source ID."),
     ] = None
+
+
+class BackendUpdates(pydantic.BaseModel):
+    """Model for tracking pending creates, edits and deletes before committing."""
+
+    added_rows: Annotated[
+        list[JsonDict],
+        pydantic.Field(description="List of new row data entries."),
+    ] = []
+    edited_rows: Annotated[
+        dict[str, JsonDict],
+        pydantic.Field(description="Dictionary of IDs to updated row data."),
+    ] = {}
+    deleted_rows: Annotated[
+        list[str],
+        pydantic.Field(description="List of row ids to be deleted."),
+    ] = []

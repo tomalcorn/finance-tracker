@@ -3,11 +3,12 @@
 import pandas as pd
 import streamlit as st
 
+from domain import entities
 from libs import data_client
 from libs.buttons import constants
 from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
-from libs.models import backend_models, frontend_models
+from libs.models import frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.BANK_ACCOUNTS.value
 _VIEW_NAME = dfe_constants.TableNames.BANK_ACCOUNTS_VIEW.value
@@ -34,7 +35,7 @@ def _build_dfe() -> base_dfe.DFE:
                 write_table=_TABLE_NAME,
                 read_table=_VIEW_NAME,
             ),
-            backend_model=backend_models.BankAccountModel,
+            backend_model=entities.BankAccountModel,
             configs=[
                 frontend_models.DFEColumnConfig(
                     column_name="name",
