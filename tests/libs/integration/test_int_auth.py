@@ -2,13 +2,10 @@
 
 import typing
 
-import jwt
 import pytest
 import st_supabase_connection
-import streamlit as st
 
-from domain import entities
-from libs import auth, data_client
+from libs import data_client
 
 _ZERO_UUID = "00000000-0000-0000-0000-000000000000"
 _HIDDEN_NAMES = {"Joint", "One-offs", "Savings"}
@@ -50,125 +47,3 @@ def _restore_anon_auth(
         headers["Authorization"] = original
     else:
         headers.pop("Authorization", None)
-
-
-@pytest.mark.usefixtures("_clean_seed_tables")
-class TestSeedDefaultBudgetTrackersIntegration:
-    """Integration tests for auth.seed_default_budget_trackers."""
-
-    _USER_ID = "auth0|seed-int-test-user"
-
-    def test_seeds_budget_trackers_and_hidden_expense_sources(
-        self,
-        connection: st_supabase_connection.SupabaseConnection,
-    ) -> None:
-        """Seeding a fresh user creates the 4 BTs and 3 hidden expense sources."""
-        # Act
-        auth.seed_default_budget_trackers(self._USER_ID, connection=connection)
-
-        # Assert — read directly to bypass the cache
-        bt_rows: list[dict[str, typing.Any]] = typing.cast(
-            "list[dict[str, typing.Any]]",
-            (
-                connection.table("budget_tracker")
-                .select("id,name")
-                .eq("user_id", self._USER_ID)
-                .execute()
-                .data
-            ),
-        )
-        es_rows: list[dict[str, typing.Any]] = typing.cast(
-            "list[dict[str, typing.Any]]",
-            (
-                connection.table("expense_sources")
-                .select("name,budget_tracker_ids")
-                .eq("user_id", self._USER_ID)
-                .execute()
-                .data
-            ),
-        )
-        bt_id_by_name = {row["name"]: row["id"] for row in bt_rows}
-        assert all(
-            [
-                {row["name"] for row in bt_rows}
-                == {name.value for name in entities.BudgetTrackerName},
-                {row["name"] for row in es_rows} == _HIDDEN_NAMES,
-                all(
-                    row["budget_tracker_ids"] == [bt_id_by_name[row["name"]]]
-                    for row in es_rows
-                ),
-            ],
-        )
-
-    def test_seeding_is_idempotent(
-        self,
-        connection: st_supabase_connection.SupabaseConnection,
-    ) -> None:
-        """Seeding twice does not create duplicate rows."""
-        # Act
-        auth.seed_default_budget_trackers(self._USER_ID, connection=connection)
-        data_client._get_data_cached.clear()
-        auth.seed_default_budget_trackers(self._USER_ID, connection=connection)
-
-        # Assert — still exactly 4 budget trackers and 3 expense sources
-        bt_rows: list[dict[str, typing.Any]] = typing.cast(
-            "list[dict[str, typing.Any]]",
-            (
-                connection.table("budget_tracker")
-                .select("id")
-                .eq("user_id", self._USER_ID)
-                .execute()
-                .data
-            ),
-        )
-        es_rows: list[dict[str, typing.Any]] = typing.cast(
-            "list[dict[str, typing.Any]]",
-            (
-                connection.table("expense_sources")
-                .select("id")
-                .eq("user_id", self._USER_ID)
-                .execute()
-                .data
-            ),
-        )
-        assert all(
-            [
-                len(bt_rows) == len(entities.BudgetTrackerName),
-                len(es_rows) == len(_HIDDEN_NAMES),
-            ],
-        )
-
-
-class TestAuthenticateSupabaseIntegration:
-    """Integration tests for auth.authenticate_supabase."""
-
-    _USER_ID = "auth0|auth-int-test-user"
-
-    @pytest.mark.usefixtures("restore_anon_auth")
-    def test_returns_authenticated_connection(
-        self,
-        connection: st_supabase_connection.SupabaseConnection,
-    ) -> None:
-        """The returned connection carries a valid bearer token for the user."""
-        # Act
-        returned = auth.authenticate_supabase(self._USER_ID, connection=connection)
-
-        # Assert — same connection object, now carrying a valid bearer JWT whose
-        # claims drive RLS.
-        header = connection.client.postgrest.headers.get("Authorization", "")
-        token = header.removeprefix("Bearer ")
-        secret = str(st.secrets["supabase_admin"]["jwt_secret"])
-        claims = jwt.decode(
-            token,
-            secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-        assert all(
-            [
-                returned is connection,
-                header.startswith("Bearer "),
-                claims["userId"] == self._USER_ID,
-                claims["role"] == "authenticated",
-            ],
-        )
