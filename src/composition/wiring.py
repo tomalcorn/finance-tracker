@@ -20,10 +20,10 @@ def reconcile_subscriptions_use_case() -> (
     )
 
 
-def workspace_init_use_case() -> initialise_workspace.InitializeUserWorkspaceUseCase:
+def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUseCase:
     """Build InitializeUserWorkspaceUseCase wired to Supabase repositories."""
     current_user = auth.get_current_user()
-    return initialise_workspace.InitializeUserWorkspaceUseCase(
+    return initialise_workspace.InitialiseUserWorkspaceUseCase(
         user_id=current_user,
         budget_tracker_repo=supabase_repos.SupabaseBudgetTrackerRepository(
             connection=data_client.CONN,

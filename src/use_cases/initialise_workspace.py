@@ -18,7 +18,7 @@ _HIDDEN_EXPENSE_SOURCE_BT_NAMES = (
 )
 
 
-class InitializeUserWorkspaceUseCase:
+class InitialiseUserWorkspaceUseCase:
     """Seeds default budget trackers and hidden expense sources for a user."""
 
     def __init__(
@@ -40,14 +40,12 @@ class InitializeUserWorkspaceUseCase:
 
         """
         try:
-            # 1. Create missing budget tracker rows
             self._ensure_default_budget_trackers()
 
-            # 2. Fetch all budget tracker rows again to get IDs
+            # Fetch all budget tracker rows again to get IDs
             all_bts = self._bt_repo.get_all()
             bt_id_by_name = {bt.name: bt.id for bt in all_bts}
 
-            # 3. Create or update hidden expense sources
             self._ensure_hidden_expense_sources(bt_id_by_name)
 
         except Exception as e:
@@ -84,7 +82,6 @@ class InitializeUserWorkspaceUseCase:
             existing = es_by_name.get(expense_source_name)
 
             if existing is None:
-                # Create a new expense source
                 new_es = entities.ExpenseSourceModel(
                     user_id=self._user_id,
                     name=expense_source_name,
