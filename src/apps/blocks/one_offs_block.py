@@ -3,14 +3,13 @@
 import pandas as pd
 import streamlit as st
 
-from adapters.supabase import repository
 from apps.buttons import bank_button
+from composition import wiring
 from domain import entities
-from libs import auth, data_client
+from libs import data_client
 from libs.dfes import base_dfe
 from libs.dfes import constants as dfe_constants
 from libs.models import frontend_models
-from use_cases import bank_one_offs
 
 _TABLE_NAME = dfe_constants.TableNames.ONE_OFFS.value
 _VIEW_NAME = dfe_constants.TableNames.ONE_OFFS_VIEW.value
@@ -182,24 +181,6 @@ def commit() -> None:
 
 def render() -> None:
     """Render the one-offs block."""
-    user_id = auth.get_current_user()
-    one_off_repo = repository.SupabaseOneOffRepository(
-        connection=data_client.CONN,
-        user_id=user_id,
-    )
-    budget_tracker_repo = repository.SupabaseBudgetTrackerRepository(
-        connection=data_client.CONN,
-        user_id=user_id,
-    )
-    expense_source_repo = repository.SupabaseExpenseSourceRepository(
-        connection=data_client.CONN,
-        user_id=user_id,
-    )
-    payment_repo = repository.SupabasePaymentRepository(
-        connection=data_client.CONN,
-        user_id=user_id,
-    )
-
     dfe = _build_dfe()
     dfe.load_input_data()
 
@@ -219,13 +200,7 @@ def render() -> None:
         filters_changed = dfe.filter_button(col_configs=dfe.all_configs)
     with bank_col:
         if bankable_items:
-            bank_one_offs_use_case = bank_one_offs.BankOneOffsUseCase(
-                one_off_repo=one_off_repo,
-                budget_tracker_repo=budget_tracker_repo,
-                expense_source_repo=expense_source_repo,
-                payment_repo=payment_repo,
-            )
-            bank_btn = bank_button.BankButton(bank_one_offs_use_case)
+            bank_btn = bank_button.BankButton(wiring.bank_one_offs_use_case())
             bank_btn(bankable_items)
 
     dfe.refresh(filters_changed=filters_changed, data_added=data_added)
