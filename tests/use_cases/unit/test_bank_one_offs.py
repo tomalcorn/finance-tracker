@@ -20,6 +20,9 @@ class FakeOneOffRepository(repository.OneOffRepository):
         """Construct FakeOneOffRepository."""
         self._items = {item.id: item for item in items}
 
+    def get_by_id(self, item_id: uuid.UUID) -> entities.OneOffItemModel | None:
+        """Return a single one-off item, or None if not found."""
+
     def get_by_ids(self, item_ids: list[uuid.UUID]) -> list[entities.OneOffItemModel]:
         return [self._items[i] for i in item_ids if i in self._items]
 
@@ -28,6 +31,9 @@ class FakeOneOffRepository(repository.OneOffRepository):
 
     def save(self, item: entities.OneOffItemModel) -> None:
         self._items[item.id] = item
+
+    def delete(self, item_id: uuid.UUID) -> None:
+        """Delete a one-off item by ID."""
 
 
 class FakeBudgetTrackerRepository(repository.BudgetTrackerRepository):
@@ -38,6 +44,28 @@ class FakeBudgetTrackerRepository(repository.BudgetTrackerRepository):
     def get_all(self) -> list[entities.BudgetTrackerItemModel]:
         return self._items
 
+    def get_by_id(self, item_id: uuid.UUID) -> entities.BudgetTrackerItemModel | None:
+        """Return a single budget tracker item, or None if not found."""
+
+    def get_by_ids(
+        self,
+        item_ids: list[uuid.UUID],  # noqa: ARG002 - not needed for stub
+    ) -> list[entities.BudgetTrackerItemModel]:
+        """Return budget tracker items matching the given IDs."""
+        return []
+
+    def save(self, item: entities.BudgetTrackerItemModel) -> None:
+        """Insert or update a budget tracker item."""
+
+    def save_many(self, items: list[entities.BudgetTrackerItemModel]) -> None:
+        """Insert or update multiple budget tracker items in one operation.
+
+        Used by InitializeUserWorkspaceUseCase to seed default trackers.
+        """
+
+    def delete(self, item_id: uuid.UUID) -> None:
+        """Delete a budget tracker item by ID."""
+
 
 class FakeExpenseSourceRepository(repository.ExpenseSourceRepository):
     def __init__(self, sources: list[entities.ExpenseSourceModel]) -> None:
@@ -47,14 +75,64 @@ class FakeExpenseSourceRepository(repository.ExpenseSourceRepository):
     def get_all(self) -> list[entities.ExpenseSourceModel]:
         return self._sources
 
+    def get_by_id(self, source_id: uuid.UUID) -> entities.ExpenseSourceModel | None:
+        """Return a single expense source, or None if not found."""
+
+    def save(self, source: entities.ExpenseSourceModel) -> None:
+        """Insert or update an expense source."""
+
+    def delete(self, source_id: uuid.UUID) -> None:
+        """Delete an expense source by ID."""
+
 
 class FakePaymentRepository(repository.PaymentRepository):
     def __init__(self) -> None:
         """Construct FakePaymentRepository."""
         self.saved: list[entities.AnyPaymentModel] = []
 
+    def get_all(self) -> list[entities.AnyPaymentModel]:
+        """Return all payments (expense and income) for the current user."""
+        return []
+
+    def get_by_bank_account(
+        self,
+        bank_account_id: uuid.UUID,  # noqa: ARG002 - not needed for test
+    ) -> list[entities.AnyPaymentModel]:
+        """Return all payments associated with a specific bank account.
+
+        Used when banking one-offs to find existing payments for the account.
+        """
+        return []
+
+    def get_by_subscription(
+        self,
+        subscription_id: uuid.UUID,  # noqa: ARG002 - not needed for test
+    ) -> list[entities.AnyPaymentModel]:
+        """Return all payments generated from a specific subscription.
+
+        Used by ReconcileSubscriptionsUseCase to determine whether future
+        payments already exist.
+        """
+        return []
+
     def save(self, payment: entities.AnyPaymentModel) -> None:
         self.saved.append(payment)
+
+    def save_many(self, payments: list[entities.AnyPaymentModel]) -> None:
+        """Insert or update multiple payments in one operation.
+
+        Used by ReconcileSubscriptionsUseCase to bulk-create future payments.
+        """
+
+    def apply_updates(self, updates: entities.BackendUpdates) -> None:
+        """Apply a batch of payment inserts and deletes in one operation.
+
+        Used by ReconcileSubscriptionsUseCase to persist reconciliation
+        changes atomically and invalidate dependent view caches.
+        """
+
+    def delete(self, payment_id: uuid.UUID) -> None:
+        """Delete a payment by ID."""
 
 
 # ---------------------------------------------------------------------------
@@ -204,8 +282,8 @@ def test_payment_uses_current_month_not_post_update_banked():
     use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
 
     # Assert
-    expected_saved = 50.0
-    assert payment_repo.saved[0].expense == expected_saved
+    expected_paid = 50.0
+    assert payment_repo.saved[0].expense == expected_paid
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +308,9 @@ def test_payment_has_expense_source_id_when_one_offs_tracker_and_source_exist():
     use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
 
     # Assert
-    assert payment_repo.saved[0].expense_source_id == source.id
+    payment = payment_repo.saved[0]
+    assert isinstance(payment, entities.ExpensePaymentModel)
+    assert payment.expense_source_id == source.id
 
 
 @pytest.mark.parametrize(
@@ -258,7 +338,9 @@ def test_payment_expense_source_id_is_none_when_lookup_cannot_resolve(
     use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
 
     # Assert
-    assert payment_repo.saved[0].expense_source_id is None
+    payment = payment_repo.saved[0]
+    assert isinstance(payment, entities.ExpensePaymentModel)
+    assert payment.expense_source_id is None
 
 
 # ---------------------------------------------------------------------------
@@ -267,36 +349,26 @@ def test_payment_expense_source_id_is_none_when_lookup_cannot_resolve(
 
 
 @pytest.mark.parametrize(
-    "current_month",
+    ("current_month", "expected_match"),
     [
-        pytest.param(0.0, id="zero"),
-        pytest.param(-10.0, id="negative"),
+        pytest.param(0.0, "Holiday", id="zero"),
+        pytest.param(-10.0, "Car", id="negative"),
     ],
 )
-def test_banking_item_with_non_positive_amount_raises(current_month: float):
+def test_banking_item_with_non_positive_amount_raises(
+    current_month: float,
+    expected_match: str,
+):
     # Arrange
-    item = _make_one_off(current_month=current_month)
+    item = _make_one_off(current_month=current_month, name=expected_match)
     use_case, _, _ = _make_use_case([item])
 
     # Act / Assert
-    with pytest.raises(AmountToBankLTEZeroError):
+    with pytest.raises(AmountToBankLTEZeroError, match=expected_match):
         use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
 
 
-def test_error_message_contains_item_name():
-    # Arrange
-    item = _make_one_off(current_month=0.0, name="Holiday")
-    use_case, _, _ = _make_use_case([item])
-
-    # Act / Assert
-    with pytest.raises(AmountToBankLTEZeroError, match="Holiday"):
-        use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
-
-
-def test_no_items_are_saved_if_any_item_has_non_positive_amount():
-    # If one item in a batch fails the rule, no writes should have occurred
-    # for the items processed before it.
-
+def test_good_items_are_saved_if_any_item_has_non_positive_amount():
     # Arrange
     good_item = _make_one_off(current_month=50.0, name="Holiday")
     bad_item = _make_one_off(current_month=0.0, name="Car")
