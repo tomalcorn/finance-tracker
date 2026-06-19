@@ -16,7 +16,14 @@ from adapters import errors
 from adapters.supabase import table_names
 from domain import entities
 from libs import data_client
+from libs.dfes import constants as dfe_constants
 from ports import repository
+
+_PAYMENT_TABLES_TO_CLEAR = [
+    dfe_constants.TableNames.PAYMENTS,
+    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
+    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
+]
 
 # TypeAdapter for deserialising payment rows into the correct subtype
 # using the payment_type discriminator field.
@@ -538,6 +545,25 @@ class SupabasePaymentRepository(
         Used by ReconcileSubscriptionsUseCase to bulk-create future payments.
         """
         self._save_many([p.model_dump(mode="json") for p in payments])
+
+    def apply_updates(self, updates: entities.BackendUpdates) -> None:
+        """Apply a batch of payment inserts and deletes in one operation."""
+        if (
+            not updates.added_rows
+            and not updates.deleted_rows
+            and not updates.edited_rows
+        ):
+            return
+        try:
+            data_client.update_backend(
+                self._write_table,
+                updates,
+                tables_to_clear=_PAYMENT_TABLES_TO_CLEAR,
+                connection=self._conn,
+            )
+        except Exception as e:
+            msg = f"Failed to apply payment updates to {self._write_table}: {e}"
+            raise errors.AdapterError(msg) from e
 
     def delete(self, payment_id: uuid.UUID) -> None:
         """Delete a payment by ID."""
