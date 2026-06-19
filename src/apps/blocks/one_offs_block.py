@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from apps.buttons import bank_button
+from composition import wiring
 from domain import entities
 from libs import data_client
 from libs.dfes import base_dfe
@@ -199,10 +200,7 @@ def render() -> None:
         filters_changed = dfe.filter_button(col_configs=dfe.all_configs)
     with bank_col:
         if bankable_items:
-            bank_btn = bank_button.BankButton(
-                one_offs_table=_TABLE_NAME,
-                tables_to_clear=_BANK_TABLES_TO_CLEAR,
-            )
+            bank_btn = bank_button.BankButton(wiring.bank_one_offs_use_case())
             bank_btn(bankable_items)
 
     dfe.refresh(filters_changed=filters_changed, data_added=data_added)

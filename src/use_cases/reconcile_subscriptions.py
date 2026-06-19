@@ -1,18 +1,14 @@
-"""Reconciler for subscription-generated payments.
-
-Ensures each active subscription has one future payment entry.
-Once created, the user is free to edit the payment date or amount.
-"""
+"""Use case for reconciling subscription-generated payments."""
 
 import datetime
 import enum
 
-import st_supabase_connection
 from dateutil import relativedelta
 
 from domain import entities
-from libs import data_client
-from libs.dfes import constants as dfe_constants
+from domain import errors as domain_errors
+from ports import repository
+from use_cases import errors
 
 
 class CadenceDelta(enum.Enum):
@@ -25,57 +21,45 @@ class CadenceDelta(enum.Enum):
     YEARLY = relativedelta.relativedelta(years=1)
 
 
-_PAYMENTS_TABLE = dfe_constants.TableNames.PAYMENTS.value
-_SUBSCRIPTIONS_TABLE = dfe_constants.TableNames.SUBSCRIPTIONS.value
-_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.PAYMENTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
-]
-
-
-class SubscriptionReconciler:
+class ReconcileSubscriptionsUseCase:
     """Ensures each active subscription has a future payment entry.
 
-    On app load, for each active subscription:
-    - If no future payment exists, creates one for the next cadence date.
+    On app load, for each subscription:
+    - If active and no future payment exists, creates one for the next cadence date.
     - If a future payment already exists, leaves it untouched.
+    - For inactive subscriptions, deletes any future payments.
 
-    For inactive subscriptions, deletes any future payments.
     Past payments are never modified.
     """
 
-    def __init__(self) -> None:
-        """Initialize the reconciler with today's date."""
-        self._today = datetime.datetime.now(tz=datetime.UTC).date()
-
-    def reconcile(
+    def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection = data_client.CONN,
+        subscription_repo: repository.SubscriptionRepository,
+        payment_repo: repository.PaymentRepository,
+        *,
+        today: datetime.date | None = None,
     ) -> None:
-        """Run the reconciliation pass."""
-        subscriptions = data_client.get_data(
-            table_name=_SUBSCRIPTIONS_TABLE,
-            query_string="*",
-            _connection=connection,
-        )
+        """Initialise with repository ports and an optional reference date."""
+        self._subscription_repo = subscription_repo
+        self._payment_repo = payment_repo
+        self._today = today or datetime.datetime.now(tz=datetime.UTC).date()
+
+    def execute(self) -> None:
+        """Run the reconciliation pass.
+
+        Raises:
+            InvalidCadenceError: if the provided cadence is not known.
+
+        """
+        subscriptions = self._subscription_repo.get_all()
         if not subscriptions:
             return
 
-        validated_subs = [
-            entities.SubscriptionModel.model_validate(sub) for sub in subscriptions
-        ]
-
-        existing_payment_data = data_client.get_data(
-            table_name=_PAYMENTS_TABLE,
-            query_string="*",
-            _connection=connection,
-        )
         existing_payments = [
-            entities.ExpensePaymentModel.model_validate(payment)
-            for payment in existing_payment_data
-            if payment.get("subscription_id")
-            and payment.get("payment_type") == "expense"
+            payment
+            for payment in self._payment_repo.get_all()
+            if isinstance(payment, entities.ExpensePaymentModel)
+            and payment.subscription_id is not None
         ]
         payments_by_subscription = self._group_payments_by_subscription(
             existing_payments,
@@ -83,17 +67,16 @@ class SubscriptionReconciler:
 
         updates = entities.BackendUpdates()
 
-        for sub in validated_subs:
+        for sub in subscriptions:
             sub_id = str(sub.id)
             current_payments = payments_by_subscription.get(sub_id, [])
-            self._reconcile_subscription(sub, current_payments, updates)
+            try:
+                self._reconcile_subscription(sub, current_payments, updates)
+            except domain_errors.InvalidSubscriptionCadenceError as e:
+                raise errors.InvalidCadenceError(e.cadence) from e
 
-        data_client.update_backend(
-            table_name=_PAYMENTS_TABLE,
-            updates=updates,
-            tables_to_clear=_TABLES_TO_CLEAR,
-            connection=connection,
-        )
+        if updates.added_rows or updates.deleted_rows:
+            self._payment_repo.apply_updates(updates)
 
     def _reconcile_subscription(
         self,
@@ -112,7 +95,6 @@ class SubscriptionReconciler:
             updates.deleted_rows.extend(str(payment.id) for payment in future_payments)
             return
 
-        # Delete future payments that fall after the subscription's end date
         if sub.end_date:
             expired = [
                 payment
@@ -126,11 +108,9 @@ class SubscriptionReconciler:
                 if payment.payment_date <= sub.end_date
             ]
 
-        # If a future payment already exists, leave it alone
         if future_payments:
             return
 
-        # No future payment — create one for the next cadence date
         next_date = self._compute_next_date(sub)
         if next_date is None:
             return
@@ -150,11 +130,17 @@ class SubscriptionReconciler:
         self,
         sub: entities.SubscriptionModel,
     ) -> datetime.date | None:
-        """Compute the next payment date for a subscription from today onward."""
+        """Compute the next payment date for a subscription from today onward.
+
+        Raises:
+            InvalidSubscriptionCadenceError: if the provided cadence is not known.
+
+        """
         try:
+            cadence = sub.cadence.upper()
             delta = CadenceDelta[sub.cadence.upper()].value
-        except KeyError:
-            return None
+        except KeyError as e:
+            raise domain_errors.InvalidSubscriptionCadenceError(cadence) from e
 
         if sub.end_date and sub.end_date < self._today:
             return None

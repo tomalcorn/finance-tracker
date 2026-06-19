@@ -9,7 +9,7 @@ from apps.blocks import (
     payments_block,
     subscriptions_block,
 )
-from libs import subscription_reconciler
+from composition import wiring
 
 one_offs_container = st.container(border=True)
 budget_tracker_container = st.container(border=True)
@@ -23,7 +23,7 @@ budget_tracker_block.commit()
 one_offs_block.commit()
 subscriptions_block.commit()
 
-subscription_reconciler.SubscriptionReconciler().reconcile()
+wiring.reconcile_subscriptions_use_case().execute()
 
 with one_offs_container:
     st.subheader(":material/bubble_chart: :violet[One-Offs]")

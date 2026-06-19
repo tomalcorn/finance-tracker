@@ -206,5 +206,13 @@ class PaymentRepository(abc.ABC):
         """
 
     @abc.abstractmethod
+    def apply_updates(self, updates: entities.BackendUpdates) -> None:
+        """Apply a batch of payment inserts and deletes in one operation.
+
+        Used by ReconcileSubscriptionsUseCase to persist reconciliation
+        changes atomically and invalidate dependent view caches.
+        """
+
+    @abc.abstractmethod
     def delete(self, payment_id: uuid.UUID) -> None:
         """Delete a payment by ID."""

@@ -1,14 +1,15 @@
-"""Unit tests for the SubscriptionReconciler class."""
+"""Unit tests for ReconcileSubscriptionsUseCase."""
 
 import datetime
 import typing
 import uuid
 from collections.abc import Callable
+from unittest import mock
 
 import pytest
 
 from domain import entities
-from libs.subscription_reconciler import SubscriptionReconciler
+from use_cases.reconcile_subscriptions import ReconcileSubscriptionsUseCase
 
 type Cadence = typing.Literal[
     "weekly",
@@ -32,6 +33,16 @@ def _bank_account_id() -> uuid.UUID:
 @pytest.fixture(name="expense_source_id")
 def _expense_source_id() -> uuid.UUID:
     return uuid.uuid4()
+
+
+@pytest.fixture(name="mock_subscription_repo")
+def _mock_subscription_repo() -> mock.MagicMock:
+    return mock.MagicMock()
+
+
+@pytest.fixture(name="mock_payment_repo")
+def _mock_payment_repo() -> mock.MagicMock:
+    return mock.MagicMock()
 
 
 _DEFAULT_AMOUNT = 15.99
@@ -83,10 +94,31 @@ def _make_payment(
     )
 
 
+def _use_case(
+    mock_subscription_repo: mock.MagicMock,
+    mock_payment_repo: mock.MagicMock,
+    *,
+    today: datetime.date | None = None,
+) -> ReconcileSubscriptionsUseCase:
+    return ReconcileSubscriptionsUseCase(
+        subscription_repo=mock_subscription_repo,
+        payment_repo=mock_payment_repo,
+        today=today,
+    )
+
+
 class TestReconcileSubscription:
     """Tests for _reconcile_subscription."""
 
     _TODAY = datetime.date(2026, 5, 4)
+
+    @pytest.fixture(autouse=True)
+    def _setup_use_case(
+        self,
+        mock_subscription_repo: mock.MagicMock,
+        mock_payment_repo: mock.MagicMock,
+    ) -> None:
+        self.use_case = _use_case(mock_subscription_repo, mock_payment_repo)
 
     @pytest.mark.parametrize(
         ("cadence", "start_date", "expected_date"),
@@ -138,10 +170,9 @@ class TestReconcileSubscription:
             start_date=start_date,
         )
         updates = entities.BackendUpdates()
-        reconciler = SubscriptionReconciler()
-        reconciler._today = self._TODAY
+        self.use_case._today = self._TODAY
 
-        reconciler._reconcile_subscription(sub, [], updates)
+        self.use_case._reconcile_subscription(sub, [], updates)
 
         assert all(
             [
@@ -173,9 +204,8 @@ class TestReconcileSubscription:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payment = _make_payment(sub, payment_date)
         updates = entities.BackendUpdates()
-        reconciler = SubscriptionReconciler()
 
-        reconciler._reconcile_subscription(sub, [payment], updates)
+        self.use_case._reconcile_subscription(sub, [payment], updates)
 
         assert all(
             [
@@ -210,9 +240,8 @@ class TestReconcileSubscription:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payment = _make_payment(sub, payment_date)
         updates = entities.BackendUpdates()
-        reconciler = SubscriptionReconciler()
 
-        reconciler._reconcile_subscription(sub, [payment], updates)
+        self.use_case._reconcile_subscription(sub, [payment], updates)
 
         assert all(
             [
@@ -252,9 +281,8 @@ class TestReconcileSubscription:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payments = payments_factory(sub)
         updates = entities.BackendUpdates()
-        reconciler = SubscriptionReconciler()
 
-        reconciler._reconcile_subscription(sub, payments, updates)
+        self.use_case._reconcile_subscription(sub, payments, updates)
 
         assert all(
             [
@@ -275,9 +303,8 @@ class TestReconcileSubscription:
             expense_source_id=expense_source_id,
         )
         updates = entities.BackendUpdates()
-        reconciler = SubscriptionReconciler()
 
-        reconciler._reconcile_subscription(sub, [], updates)
+        self.use_case._reconcile_subscription(sub, [], updates)
 
         added = updates.added_rows[0]
         assert all(
@@ -297,10 +324,17 @@ class TestComputeNextDate:
     _FUTURE = _TODAY + datetime.timedelta(days=30)
 
     @pytest.fixture(autouse=True)
-    def _freeze_today(self) -> None:
-        """Set reconciler's _today to a fixed date for deterministic tests."""
-        self.reconciler = SubscriptionReconciler()
-        self.reconciler._today = self._TODAY
+    def _setup_use_case(
+        self,
+        mock_subscription_repo: mock.MagicMock,
+        mock_payment_repo: mock.MagicMock,
+    ) -> None:
+        """Set use case's reference date to a fixed value for deterministic tests."""
+        self.use_case = _use_case(
+            mock_subscription_repo,
+            mock_payment_repo,
+            today=self._TODAY,
+        )
 
     @pytest.mark.parametrize(
         ("sub_kwargs", "expected"),
@@ -342,7 +376,7 @@ class TestComputeNextDate:
         expected: datetime.date,
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
-        assert self.reconciler._compute_next_date(sub) == expected
+        assert self.use_case._compute_next_date(sub) == expected
 
     @pytest.mark.parametrize(
         "sub_kwargs",
@@ -371,7 +405,7 @@ class TestComputeNextDate:
         sub_kwargs: dict,
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
-        assert self.reconciler._compute_next_date(sub) is None
+        assert self.use_case._compute_next_date(sub) is None
 
 
 class TestGroupPaymentsBySubscription:
@@ -390,7 +424,7 @@ class TestGroupPaymentsBySubscription:
             _make_payment(sub2, datetime.date(2026, 6, 1)),
         ]
 
-        result = SubscriptionReconciler._group_payments_by_subscription(payments)
+        result = ReconcileSubscriptionsUseCase._group_payments_by_subscription(payments)
 
         expected_sub1_count = 2
         expected_sub2_count = 1
@@ -415,6 +449,8 @@ class TestGroupPaymentsBySubscription:
             subscription_id=None,
         )
 
-        result = SubscriptionReconciler._group_payments_by_subscription([payment])
+        result = ReconcileSubscriptionsUseCase._group_payments_by_subscription(
+            [payment],
+        )
 
         assert len(result) == 0
