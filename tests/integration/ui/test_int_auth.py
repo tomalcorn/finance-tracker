@@ -4,8 +4,7 @@ import typing
 
 import pytest
 import st_supabase_connection
-
-from libs import data_client
+from ui import data_client
 
 _ZERO_UUID = "00000000-0000-0000-0000-000000000000"
 _HIDDEN_NAMES = {"Joint", "One-offs", "Savings"}

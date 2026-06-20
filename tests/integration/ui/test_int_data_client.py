@@ -1,9 +1,9 @@
 """Integration tests for data_client module."""
 
 import st_supabase_connection
+from ui import data_client
 
 from domain import entities
-from libs import data_client
 
 
 class TestGetData:

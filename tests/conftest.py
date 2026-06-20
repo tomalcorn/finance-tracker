@@ -2,15 +2,20 @@
 
 import typing
 import uuid
+from collections.abc import Callable
+from typing import Any
 
+import pandas as pd
+import pydantic
 import pytest
 import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
+from ui.components.buttons import constants
+from ui.components.dfes import base_dfe
+from ui.models import frontend_models
 
 from domain import entities
-from libs.buttons import constants
-from libs.models import frontend_models
 
 
 @pytest.fixture(autouse=True)
@@ -112,3 +117,87 @@ def _col_configs() -> list[frontend_models.DFEColumnConfigBase]:
             filters=frontend_models.Filters(lte="2023-01-01", gte="2022-01-01"),
         ),
     ]
+
+
+# == Pages fixtures ==
+
+
+# Can't type docs_dir, doesn't work with AppTest
+def _docs_pages_app(docs_dir, *, render_boom: bool = False) -> None:  # noqa: ANN001
+    from unittest import mock
+
+    import streamlit as st
+    from ui.pages import docs_pages
+
+    registry = docs_pages.DocsRegistry(docs_dir)
+    pages = docs_pages.DocsUI(registry).build_pages()
+    st.json(
+        [
+            {
+                "title": page.title,
+                "icon": page.icon,
+                "url_path": page.url_path,
+            }
+            for page in pages
+        ],
+    )
+
+    if render_boom:
+        with mock.patch("streamlit.markdown", side_effect=RuntimeError("render boom")):
+            st.navigation(pages).run()
+        return
+
+    st.navigation(pages).run()
+
+
+@pytest.fixture(name="app_tester_getter")
+def _app_tester_getter() -> Callable[..., st_test.AppTest]:
+
+    def _app_tester(**kwargs: dict[str, Any]) -> st_test.AppTest:
+        return st_test.AppTest.from_function(
+            _docs_pages_app,
+            default_timeout=120,
+            kwargs=kwargs,
+        )
+
+    return _app_tester
+
+
+# == DFE fixtures ==
+
+
+class _StubModel(pydantic.BaseModel):
+    pass
+
+
+@pytest.fixture(name="dfe_instance")
+def _dfe_instance(
+    col_configs: list[frontend_models.DFEColumnConfigBase],
+) -> base_dfe.DFE:
+    """Fixture for a DFE instance with sample user data."""
+    return base_dfe.DFE(
+        config=frontend_models.DFEConfig(
+            table_names=frontend_models.DFETableNameConfig(
+                write_table="bank_accounts",
+            ),
+            backend_model=_StubModel,
+            configs=col_configs,
+            sample_data=pd.DataFrame(),
+        ),
+    )
+
+
+# == auth fixtures ==
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _clean_bank_accounts_table() -> None:
+    """Remove any rows left over from a previous failed test run."""
+    connection: st_supabase_connection.SupabaseConnection = st.connection(
+        "testing",
+        type=st_supabase_connection.SupabaseConnection,
+    )
+    connection.table("bank_accounts").delete().neq(
+        "id",
+        "00000000-0000-0000-0000-000000000000",
+    ).execute()

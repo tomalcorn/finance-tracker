@@ -8,10 +8,9 @@ import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
-
-from apps.buttons import filter_button
-from libs import data_client
-from libs.models import frontend_models
+from ui import data_client
+from ui.components.buttons import filter_button
+from ui.models import frontend_models
 
 
 def _filter_button_dialog_wrapper() -> None:
@@ -20,10 +19,9 @@ def _filter_button_dialog_wrapper() -> None:
 
     import pandas as pd
     import streamlit as st
-
-    from apps.buttons import filter_button
-    from libs import data_client
-    from libs.models import frontend_models
+    from ui import data_client
+    from ui.components.buttons import filter_button
+    from ui.models import frontend_models
 
     # Mock utils.get_unique_values to return test data
     with mock.patch.object(data_client, "get_column_values") as mock_func:
