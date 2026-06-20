@@ -4,9 +4,9 @@ import logging
 
 import streamlit as st
 
-from apps.pages import constants, docs_pages
 from composition import wiring
-from libs import auth, ss_keys
+from ui import auth, ss_keys
+from ui.pages import constants, docs_pages
 from use_cases import errors as use_case_errors
 
 logger = logging.getLogger(__name__)

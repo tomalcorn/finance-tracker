@@ -15,9 +15,9 @@ import st_supabase_connection
 from adapters import errors
 from adapters.supabase import table_names
 from domain import entities
-from libs import data_client
-from libs.dfes import constants as dfe_constants
 from ports import repository
+from ui import data_client
+from ui.components.dfes import constants as dfe_constants
 
 _PAYMENT_TABLES_TO_CLEAR = [
     dfe_constants.TableNames.PAYMENTS,
