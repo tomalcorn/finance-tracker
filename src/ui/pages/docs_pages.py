@@ -11,7 +11,7 @@ import streamlit as st
 import yaml
 from streamlit.navigation import page as st_page
 
-from apps.pages import errors
+from ui.pages import errors
 
 DOCS_DIR = pathlib.Path(__file__).resolve().parents[2] / "docs"
 

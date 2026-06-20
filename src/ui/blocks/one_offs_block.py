@@ -3,13 +3,13 @@
 import pandas as pd
 import streamlit as st
 
-from apps.buttons import bank_button
 from composition import wiring
 from domain import entities
-from libs import data_client
-from libs.dfes import base_dfe
-from libs.dfes import constants as dfe_constants
-from libs.models import frontend_models
+from ui import data_client
+from ui.components.buttons import bank_button
+from ui.components.dfes import base_dfe
+from ui.components.dfes import constants as dfe_constants
+from ui.models import frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.ONE_OFFS.value
 _VIEW_NAME = dfe_constants.TableNames.ONE_OFFS_VIEW.value

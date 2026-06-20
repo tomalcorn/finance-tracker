@@ -6,8 +6,8 @@ import uuid
 
 import streamlit as st
 
-from libs import data_client
-from libs.buttons import constants
+from ui import data_client
+from ui.components.buttons import constants
 from use_cases import bank_one_offs, errors
 
 logger = logging.getLogger(__name__)

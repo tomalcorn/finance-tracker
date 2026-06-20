@@ -7,10 +7,10 @@ import pandas as pd
 import streamlit as st
 
 from domain import entities
-from libs import data_client
-from libs.dfes import base_dfe
-from libs.dfes import constants as dfe_constants
-from libs.models import frontend_models
+from ui import data_client
+from ui.components.dfes import base_dfe
+from ui.components.dfes import constants as dfe_constants
+from ui.models import frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.SUBSCRIPTIONS.value
 _VIEW_NAME = dfe_constants.TableNames.SUBSCRIPTIONS_VIEW.value

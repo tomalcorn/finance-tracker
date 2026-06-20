@@ -6,11 +6,11 @@ import pandas as pd
 import streamlit as st
 
 from domain import entities
-from libs import data_client
-from libs.buttons import constants
-from libs.dfes import base_dfe
-from libs.dfes import constants as dfe_constants
-from libs.models import frontend_models
+from ui import data_client
+from ui.components.buttons import constants
+from ui.components.dfes import base_dfe
+from ui.components.dfes import constants as dfe_constants
+from ui.models import frontend_models
 
 _BUDGET_TRACKER_TABLE = dfe_constants.TableNames.BUDGET_TRACKER.value
 _BUDGET_TRACKER_VIEW = dfe_constants.TableNames.BUDGET_TRACKER_VIEW.value

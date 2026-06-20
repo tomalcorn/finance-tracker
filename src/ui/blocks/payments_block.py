@@ -7,11 +7,11 @@ import pandas as pd
 import streamlit as st
 
 from domain import entities
-from libs import data_client
-from libs.buttons import constants
-from libs.dfes import base_dfe
-from libs.dfes import constants as dfe_constants
-from libs.models import frontend_models
+from ui import data_client
+from ui.components.buttons import constants
+from ui.components.dfes import base_dfe
+from ui.components.dfes import constants as dfe_constants
+from ui.models import frontend_models
 
 _TABLE_NAME = dfe_constants.TableNames.PAYMENTS.value
 _INCOME_KEY_PREFIX = "income_entries"

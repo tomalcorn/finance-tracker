@@ -7,9 +7,9 @@ import pydantic
 import streamlit as st
 
 from domain import entities
-from libs import auth, data_client, ss_keys
-from libs.buttons import base_button, constants
-from libs.models import frontend_models
+from ui import auth, data_client, ss_keys
+from ui.components.buttons import base_button, constants
+from ui.models import frontend_models
 
 
 class AddButton(base_button.BaseButton):

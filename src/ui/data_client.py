@@ -9,10 +9,10 @@ import st_supabase_connection
 import streamlit as st
 
 from domain import entities
-from libs import ss_keys
-from libs.buttons import constants
-from libs.dfes import constants as dfe_constants
-from libs.models import frontend_models
+from ui import ss_keys
+from ui.components.buttons import constants
+from ui.components.dfes import constants as dfe_constants
+from ui.models import frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
