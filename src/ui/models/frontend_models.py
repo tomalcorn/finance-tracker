@@ -7,8 +7,8 @@ from typing import Annotated, Any, Literal, Self
 import pandas as pd
 import pydantic
 
-from libs.buttons import constants
-from libs.dfes import constants as dfe_constants
+from ui.components.buttons import constants
+from ui.components.dfes import constants as dfe_constants
 
 type StreamlitColumnConfig = Any
 

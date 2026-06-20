@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from libs import auth
+from ui import auth
 
 st.title(":material/lock: Profile")
 

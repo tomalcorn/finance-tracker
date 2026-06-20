@@ -4,9 +4,9 @@ import datetime
 import uuid
 
 from domain import entities
-from libs import data_client
-from libs.dfes import constants as dfe_constants
 from ports import repository
+from ui import data_client
+from ui.components.dfes import constants as dfe_constants
 from use_cases import errors
 
 _TABLES_TO_CLEAR = [

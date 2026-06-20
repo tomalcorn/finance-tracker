@@ -4,14 +4,14 @@ import logging
 
 import streamlit as st
 
-from apps.blocks import (
+from composition import wiring
+from ui.blocks import (
     bank_accounts_block,
     budget_tracker_block,
     one_offs_block,
     payments_block,
     subscriptions_block,
 )
-from composition import wiring
 from use_cases import errors as use_case_errors
 
 logger = logging.getLogger(__name__)

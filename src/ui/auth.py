@@ -11,7 +11,7 @@ import st_supabase_connection
 import streamlit as st
 
 from domain import entities
-from libs import data_client
+from ui import data_client
 
 # Budget tracker names that need a corresponding hidden expense source.
 _HIDDEN_EXPENSE_SOURCE_BT_NAMES = (

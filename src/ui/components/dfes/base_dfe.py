@@ -8,14 +8,13 @@ import typing
 import pandas as pd
 import streamlit as st
 
-from apps.buttons import add_button, filter_button
 from domain import entities
-from libs import data_client, ss_keys
-from libs.buttons import constants
-from libs.models import frontend_models
+from ui import data_client, ss_keys
+from ui.components.buttons import add_button, constants, filter_button
+from ui.models import frontend_models
 
 if typing.TYPE_CHECKING:
-    from libs.dfes import constants as dfe_constants
+    from ui.components.dfes import constants as dfe_constants
 
 
 class DFE:

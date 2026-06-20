@@ -1,7 +1,7 @@
 """Factory functions for constructing use cases with live dependencies."""
 
 from adapters.supabase import repository as supabase_repos
-from libs import auth, data_client
+from ui import auth, data_client
 from use_cases import bank_one_offs, initialise_workspace, reconcile_subscriptions
 
 
