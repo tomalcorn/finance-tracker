@@ -1,5 +1,7 @@
 """Dashboard page for the finance tracker application."""
 
+import logging
+
 import streamlit as st
 
 from apps.blocks import (
@@ -10,6 +12,9 @@ from apps.blocks import (
     subscriptions_block,
 )
 from composition import wiring
+from use_cases import errors as use_case_errors
+
+logger = logging.getLogger(__name__)
 
 one_offs_container = st.container(border=True)
 budget_tracker_container = st.container(border=True)
@@ -23,7 +28,13 @@ budget_tracker_block.commit()
 one_offs_block.commit()
 subscriptions_block.commit()
 
-wiring.reconcile_subscriptions_use_case().execute()
+try:
+    wiring.reconcile_subscriptions_use_case().execute()
+except use_case_errors.ReconciliationError:
+    st.error("Error while reconciling subscriptions. Please contact support.")
+    logger.exception("Subscription reconciliation failed.")
+    st.stop()
+
 
 with one_offs_container:
     st.subheader(":material/bubble_chart: :violet[One-Offs]")
