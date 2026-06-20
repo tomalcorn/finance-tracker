@@ -6,7 +6,7 @@ import uuid
 
 import streamlit as st
 
-from ui import data_client
+from ui import lookups
 from ui.components.buttons import constants
 from use_cases import bank_one_offs, errors
 
@@ -51,7 +51,7 @@ class BankButton:
         selected_bank_account = st.selectbox(
             "Bank Account",
             options=bank_account_ids,
-            format_func=lambda x: bank_account_map.get(x, "Unknown"),
+            format_func=lookups.make_name_formatter(bank_account_map),
             key="bank_it_bank_account",
         )
 
@@ -87,11 +87,5 @@ class BankButton:
             icon=constants.ButtonIcons.BANK,
             key="bank_it_button",
         ):
-            bank_accounts_data = data_client.get_data(
-                table_name="bank_accounts",
-                query_string="*",
-            )
-            bank_account_map = {
-                str(ba["id"]): str(ba["name"]) for ba in bank_accounts_data
-            }
+            bank_account_map = lookups.get_id_name_map("bank_accounts")
             self._bank_it_dialog(bankable_items, bank_account_map)

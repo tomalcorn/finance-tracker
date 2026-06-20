@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from domain import entities
-from ui import data_client
+from ui import data_client, lookups
 from ui.components.buttons import constants
 from ui.components.dfes import base_dfe
 from ui.components.dfes import constants as dfe_constants
@@ -321,41 +321,17 @@ def _render_expense_breakdown(
 
 def render() -> None:
     """Render the payments block."""
-    bank_accounts_data = data_client.get_data(
-        table_name="bank_accounts",
-        query_string="*",
-    )
-    bank_account_map: dict[str, str] = {
-        str(ba["id"]): str(ba["name"]) for ba in bank_accounts_data
-    }
+    bank_account_map = lookups.get_id_name_map("bank_accounts")
     bank_account_ids = list(bank_account_map.keys())
+    bank_account_name_formatter = lookups.make_name_formatter(bank_account_map)
 
-    def get_bank_account_name(ba_id: str | float) -> str:
-        return bank_account_map.get(str(ba_id), "Unknown Bank Account")
-
-    expense_sources = data_client.get_data(
-        table_name="expense_sources",
-        query_string="*",
-    )
-    expense_source_map: dict[str, str] = {
-        str(es["id"]): str(es["name"]) for es in expense_sources
-    }
+    expense_source_map = lookups.get_id_name_map("expense_sources")
     expense_source_ids = list(expense_source_map.keys())
+    expense_source_name_formatter = lookups.make_name_formatter(expense_source_map)
 
-    def get_expense_source_name(es_id: str | float) -> str:
-        return expense_source_map.get(str(es_id), "Unknown Expense Source")
-
-    income_sources = data_client.get_data(
-        table_name="income_sources",
-        query_string="*",
-    )
-    income_source_map: dict[str, str] = {
-        str(ins["id"]): str(ins["name"]) for ins in income_sources
-    }
+    income_source_map = lookups.get_id_name_map("income_sources")
     income_source_ids = list(income_source_map.keys())
-
-    def get_income_source_name(ins_id: str | float) -> str:
-        return income_source_map.get(str(ins_id), "Unknown Income Source")
+    income_source_name_formatter = lookups.make_name_formatter(income_source_map)
 
     expense_tab, income_tab, breakdown_tab = st.tabs(
         [
@@ -367,10 +343,10 @@ def render() -> None:
 
     with expense_tab:
         expense_dfe = _build_expense_dfe(
-            bank_account_ids,
-            get_bank_account_name,
-            expense_source_ids,
-            get_expense_source_name,
+            bank_account_ids=bank_account_ids,
+            get_bank_account_name=bank_account_name_formatter,
+            expense_source_ids=expense_source_ids,
+            get_expense_source_name=expense_source_name_formatter,
         )
         expense_dfe.load_input_data()
         data_added, filters_changed = expense_dfe.render_buttons()
@@ -379,10 +355,10 @@ def render() -> None:
 
     with income_tab:
         income_dfe = _build_income_dfe(
-            bank_account_ids,
-            get_bank_account_name,
-            income_source_ids,
-            get_income_source_name,
+            bank_account_ids=bank_account_ids,
+            get_bank_account_name=bank_account_name_formatter,
+            income_source_ids=income_source_ids,
+            get_income_source_name=income_source_name_formatter,
         )
         income_dfe.load_input_data()
         data_added, filters_changed = income_dfe.render_buttons()
@@ -392,6 +368,6 @@ def render() -> None:
     with breakdown_tab:
         _render_expense_breakdown(
             expense_dfe=expense_dfe,
-            get_expense_source_name=get_expense_source_name,
-            get_bank_account_name=get_bank_account_name,
+            get_expense_source_name=expense_source_name_formatter,
+            get_bank_account_name=bank_account_name_formatter,
         )
