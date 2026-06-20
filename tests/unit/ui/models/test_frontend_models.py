@@ -1,8 +1,7 @@
 """Unit tests for the frontend models module."""
 
 import pytest
-
-from libs.models import frontend_models
+from ui.models import frontend_models
 
 
 class TestFilters:

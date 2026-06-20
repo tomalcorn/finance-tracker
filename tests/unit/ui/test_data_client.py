@@ -3,10 +3,9 @@
 from unittest import mock
 
 import streamlit as st
-
-from libs import data_client
-from libs.buttons import constants
-from libs.models import frontend_models
+from ui import data_client
+from ui.components.buttons import constants
+from ui.models import frontend_models
 
 
 class TestGetTableVersions:

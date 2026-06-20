@@ -7,9 +7,8 @@ import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
-
-from apps.buttons import add_button
-from libs.models import frontend_models
+from ui.components.buttons import add_button
+from ui.models import frontend_models
 
 
 @pytest.fixture(autouse=True)
@@ -26,8 +25,8 @@ def _mock_current_user() -> typing.Generator[None, None, None]:
 def _add_button_dialog_wrapper() -> None:
     """Call the _add_button_dialog method."""
     import streamlit as st  # noqa: F401 - needed for app_test from_function
+    from ui.components.buttons import add_button
 
-    from apps.buttons import add_button
     from domain import entities
 
     add_button_instance = add_button.AddButton(
