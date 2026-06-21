@@ -18,12 +18,6 @@ from adapters.supabase import client, table_names
 from domain import entities, query
 from ports import repository
 
-_PAYMENT_TABLES_TO_CLEAR = [
-    table_names.TableNames.PAYMENTS,
-    table_names.ViewNames.BANK_ACCOUNTS,
-    table_names.ViewNames.EXPENSE_SOURCES,
-]
-
 # TypeAdapter for deserialising payment rows into the correct subtype
 # using the payment_type discriminator field.
 _PaymentAdapter = pydantic.TypeAdapter(entities.AnyPaymentModel)
@@ -194,6 +188,7 @@ class SupabaseBankAccountRepository(
         self,
         connection: st_supabase_connection.SupabaseConnection,
         user_id: str,
+        fetch_rows: FetchRowsFn | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -201,6 +196,7 @@ class SupabaseBankAccountRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.BANK_ACCOUNTS,
             write_table=table_names.TableNames.BANK_ACCOUNTS,
+            fetch_rows=fetch_rows,
         )
 
     def get_all(self) -> list[entities.BankAccountModel]:
@@ -236,6 +232,7 @@ class SupabaseBudgetTrackerRepository(
         self,
         connection: st_supabase_connection.SupabaseConnection,
         user_id: str,
+        fetch_rows: FetchRowsFn | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -243,6 +240,7 @@ class SupabaseBudgetTrackerRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.BUDGET_TRACKER,
             write_table=table_names.TableNames.BUDGET_TRACKER,
+            fetch_rows=fetch_rows,
         )
 
     def get_all(self) -> list[entities.BudgetTrackerItemModel]:
@@ -299,6 +297,7 @@ class SupabaseExpenseSourceRepository(
         self,
         connection: st_supabase_connection.SupabaseConnection,
         user_id: str,
+        fetch_rows: FetchRowsFn | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -306,6 +305,7 @@ class SupabaseExpenseSourceRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.EXPENSE_SOURCES,
             write_table=table_names.TableNames.EXPENSE_SOURCES,
+            fetch_rows=fetch_rows,
         )
 
     def get_all(self) -> list[entities.ExpenseSourceModel]:
@@ -343,6 +343,7 @@ class SupabaseIncomeSourceRepository(
         self,
         connection: st_supabase_connection.SupabaseConnection,
         user_id: str,
+        fetch_rows: FetchRowsFn | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -350,6 +351,7 @@ class SupabaseIncomeSourceRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.INCOME_SOURCES,
             write_table=table_names.TableNames.INCOME_SOURCES,
+            fetch_rows=fetch_rows,
         )
 
     def get_all(self) -> list[entities.IncomeSourceModel]:
@@ -387,6 +389,7 @@ class SupabaseOneOffRepository(
         self,
         connection: st_supabase_connection.SupabaseConnection,
         user_id: str,
+        fetch_rows: FetchRowsFn | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -394,6 +397,7 @@ class SupabaseOneOffRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.ONE_OFFS,
             write_table=table_names.TableNames.ONE_OFFS,
+            fetch_rows=fetch_rows,
         )
 
     def get_all(self) -> list[entities.OneOffItemModel]:
@@ -439,6 +443,7 @@ class SupabaseSubscriptionRepository(
         self,
         connection: st_supabase_connection.SupabaseConnection,
         user_id: str,
+        fetch_rows: FetchRowsFn | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -446,6 +451,7 @@ class SupabaseSubscriptionRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.SUBSCRIPTIONS,
             write_table=table_names.TableNames.SUBSCRIPTIONS,
+            fetch_rows=fetch_rows,
         )
 
     def get_all(self) -> list[entities.SubscriptionModel]:
@@ -499,6 +505,7 @@ class SupabasePaymentRepository(
         self,
         connection: st_supabase_connection.SupabaseConnection,
         user_id: str,
+        fetch_rows: FetchRowsFn | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -506,6 +513,7 @@ class SupabasePaymentRepository(
             user_id=user_id,
             read_table=table_names.TableNames.PAYMENTS,
             write_table=table_names.TableNames.PAYMENTS,
+            fetch_rows=fetch_rows,
         )
 
     def get_all(self) -> list[entities.AnyPaymentModel]:

@@ -9,18 +9,10 @@ import streamlit as st
 from domain import entities
 from ui import data_client
 from ui.components.dfes import base_dfe
-from ui.components.dfes import constants as dfe_constants
 from ui.models import frontend_models
 
-_TABLE_NAME = dfe_constants.TableNames.SUBSCRIPTIONS.value
-_VIEW_NAME = dfe_constants.TableNames.SUBSCRIPTIONS_VIEW.value
-_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.SUBSCRIPTIONS,
-    dfe_constants.TableNames.SUBSCRIPTIONS_VIEW,
-    dfe_constants.TableNames.PAYMENTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
-]
+_TABLE_NAME = "subscriptions"
+_VIEW_NAME = "subscriptions_view"
 
 _CADENCE_OPTIONS = ["weekly", "monthly", "quarterly", "biannually", "yearly"]
 
@@ -161,7 +153,6 @@ def _build_dfe(
                 ),
             ],
             sample_data=_SAMPLE_DATA,
-            tables_to_clear=_TABLES_TO_CLEAR,
         ),
     )
 
@@ -170,7 +161,6 @@ def commit() -> None:
     """Apply any pending backend updates for this block."""
     data_client.commit(
         table_name=_TABLE_NAME,
-        tables_to_clear=_TABLES_TO_CLEAR,
         key_prefix=_TABLE_NAME,
     )
 

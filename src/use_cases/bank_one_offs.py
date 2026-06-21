@@ -5,52 +5,7 @@ import uuid
 
 from domain import entities
 from ports import repository
-from ui import data_client
-from ui.components.dfes import constants as dfe_constants
 from use_cases import errors
-
-_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.ONE_OFFS,
-    dfe_constants.TableNames.ONE_OFFS_VIEW,
-    dfe_constants.TableNames.BUDGET_TRACKER,
-    dfe_constants.TableNames.BUDGET_TRACKER_VIEW,
-]
-
-
-def _get_expense_source_id() -> str | None:
-    """Find the expense source linked to the one-offs budget tracker item."""
-    budget_tracker_data = data_client.get_data(
-        table_name=dfe_constants.TableNames.BUDGET_TRACKER.value,
-        query_string="id,name",
-    )
-    one_offs_bt_id = next(
-        (
-            str(bt["id"])
-            for bt in budget_tracker_data
-            if bt.get("name") == entities.BudgetTrackerName.ONE_OFFS
-        ),
-        None,
-    )
-    if one_offs_bt_id is None:
-        return None
-
-    expense_sources = data_client.get_data(
-        table_name=dfe_constants.TableNames.EXPENSE_SOURCES.value,
-        query_string="id,name,budget_tracker_ids",
-    )
-
-    def _get_bt_ids(es: data_client.JsonDict) -> list:
-        bt_ids = es.get("budget_tracker_ids")
-        return bt_ids if isinstance(bt_ids, list) else []
-
-    return next(
-        (
-            str(es["id"])
-            for es in expense_sources
-            if one_offs_bt_id in [str(x) for x in _get_bt_ids(es)]
-        ),
-        None,
-    )
 
 
 class BankOneOffsUseCase:

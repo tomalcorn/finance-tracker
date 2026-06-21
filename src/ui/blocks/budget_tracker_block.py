@@ -9,28 +9,16 @@ from domain import entities, query
 from ui import data_client
 from ui.components.buttons import constants
 from ui.components.dfes import base_dfe
-from ui.components.dfes import constants as dfe_constants
 from ui.models import frontend_models
 
-_BUDGET_TRACKER_TABLE = dfe_constants.TableNames.BUDGET_TRACKER.value
-_BUDGET_TRACKER_VIEW = dfe_constants.TableNames.BUDGET_TRACKER_VIEW.value
+_BUDGET_TRACKER_TABLE = "budget_tracker"
+_BUDGET_TRACKER_VIEW = "budget_tracker_view"
 
-_EXPENSE_SOURCES_TABLE = dfe_constants.TableNames.EXPENSE_SOURCES.value
-_EXPENSE_SOURCES_VIEW = dfe_constants.TableNames.EXPENSE_SOURCES_VIEW.value
+_EXPENSE_SOURCES_TABLE = "expense_sources"
+_EXPENSE_SOURCES_VIEW = "expense_sources_view"
 
-_INCOME_SOURCES_TABLE = dfe_constants.TableNames.INCOME_SOURCES.value
-_INCOME_SOURCES_VIEW = dfe_constants.TableNames.INCOME_SOURCES_VIEW.value
-
-
-_BUDGET_TRACKER_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.BUDGET_TRACKER,
-    dfe_constants.TableNames.EXPENSE_SOURCES,
-    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
-    dfe_constants.TableNames.ONE_OFFS,
-    dfe_constants.TableNames.ONE_OFFS_VIEW,
-    dfe_constants.TableNames.INCOME_SOURCES,
-    dfe_constants.TableNames.INCOME_SOURCES_VIEW,
-]
+_INCOME_SOURCES_TABLE = "income_sources"
+_INCOME_SOURCES_VIEW = "income_sources_view"
 
 _BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
     {
@@ -42,15 +30,6 @@ _BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
         "split": [0],
     },
 )
-
-_EXPENSE_SOURCES_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.EXPENSE_SOURCES,
-    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
-    dfe_constants.TableNames.PAYMENTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-]
-
 
 _EXPENSE_SOURCES_SAMPLE_DATA = pd.DataFrame(
     {
@@ -70,12 +49,6 @@ _INCOME_SOURCES_SAMPLE_DATA = pd.DataFrame(
         "budget_tracker_ids": [[]],
     },
 )
-
-_INCOME_SOURCES_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.INCOME_SOURCES,
-    dfe_constants.TableNames.INCOME_SOURCES_VIEW,
-]
-
 
 def _build_budget_tracker_dfe() -> base_dfe.DFE:
     """Build the DFE for the budget tracker tab."""
@@ -161,7 +134,6 @@ def _build_budget_tracker_dfe() -> base_dfe.DFE:
                 ),
             ],
             sample_data=_BUDGET_TRACKER_SAMPLE_DATA,
-            tables_to_clear=_BUDGET_TRACKER_TABLES_TO_CLEAR,
             num_rows="fixed",
         ),
     )
@@ -263,7 +235,6 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> base_dfe.DFE:
                 ),
             ],
             sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
-            tables_to_clear=_EXPENSE_SOURCES_TABLES_TO_CLEAR,
         ),
     )
 
@@ -319,7 +290,6 @@ def _build_income_sources_dfe(
                 ),
             ],
             sample_data=_INCOME_SOURCES_SAMPLE_DATA,
-            tables_to_clear=_INCOME_SOURCES_TABLES_TO_CLEAR,
         ),
     )
 
@@ -328,17 +298,14 @@ def commit() -> None:
     """Apply any pending backend updates for this block."""
     data_client.commit(
         table_name=_BUDGET_TRACKER_TABLE,
-        tables_to_clear=_BUDGET_TRACKER_TABLES_TO_CLEAR,
         key_prefix=_BUDGET_TRACKER_TABLE,
     )
     data_client.commit(
         table_name=_EXPENSE_SOURCES_TABLE,
-        tables_to_clear=_EXPENSE_SOURCES_TABLES_TO_CLEAR,
         key_prefix=_EXPENSE_SOURCES_TABLE,
     )
     data_client.commit(
         table_name=_INCOME_SOURCES_TABLE,
-        tables_to_clear=_INCOME_SOURCES_TABLES_TO_CLEAR,
         key_prefix=_INCOME_SOURCES_TABLE,
     )
 
