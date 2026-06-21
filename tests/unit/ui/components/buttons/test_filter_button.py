@@ -22,6 +22,7 @@ def _filter_button_dialog_wrapper() -> None:
     import pandas as pd
     import streamlit as st
 
+    from domain import query
     from ui import data_client
     from ui.components.buttons import filter_button
     from ui.models import frontend_models

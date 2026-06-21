@@ -68,7 +68,7 @@ class SupabaseRepositoryBase:
         self._user_id = user_id
         self._read_table = read_table
         self._write_table = write_table
-        self._fetch_rows_impl = fetch_rows or client.fetch_table
+        self._fetch_rows_impl = fetch_rows
 
     def _fetch_rows(self) -> list[dict]:
         """Fetch all rows for the current user from the read table.
@@ -78,8 +78,9 @@ class SupabaseRepositoryBase:
                 any reason (network, Supabase HTTP error, etc.).
 
         """
+        fetch_rows = self._fetch_rows_impl or client.fetch_table
         try:
-            rows = self._fetch_rows_impl(self._read_table, "*", [], self._conn)
+            rows = fetch_rows(self._read_table, "*", [], self._conn)
             return [r for r in rows if r["user_id"] == self._user_id]
         except Exception as e:
             msg = f"Failed to fetch rows from {self._read_table}: {e}"

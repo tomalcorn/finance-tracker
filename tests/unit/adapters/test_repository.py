@@ -68,7 +68,7 @@ class TestFetchRows:
         # Act
         with mock.patch.object(
             repository.client,
-            "get_data",
+            "fetch_table",
             return_value=[own_row, other_row],
         ):
             rows = repo._fetch_rows()
@@ -94,7 +94,7 @@ class TestFetchRows:
         with (
             mock.patch.object(
                 repository.client,
-                "get_data",
+                "fetch_table",
                 side_effect=RuntimeError("network down"),
             ),
             pytest.raises(errors.AdapterError, match="Failed to fetch rows"),
@@ -118,7 +118,7 @@ class TestFetchById:
         # Act
         with mock.patch.object(
             repository.client,
-            "get_data",
+            "fetch_table",
             return_value=[row],
         ):
             result = repo._fetch_by_id(bank_account_id)
@@ -135,7 +135,7 @@ class TestFetchById:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.client, "get_data", return_value=[]):
+        with mock.patch.object(repository.client, "fetch_table", return_value=[]):
             result = repo._fetch_by_id(uuid.uuid4())
 
         # Assert
@@ -161,7 +161,7 @@ class TestFetchByIds:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo._fetch_by_ids([first_id, second_id])
 
         # Assert
@@ -325,7 +325,7 @@ class TestBankAccountRepository:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_all()
 
         # Assert
@@ -353,7 +353,7 @@ class TestBankAccountRepository:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.client, "get_data", return_value=[row]):
+        with mock.patch.object(repository.client, "fetch_table", return_value=[row]):
             result = repo.get_by_id(bank_account_id)
 
         # Assert
@@ -374,7 +374,7 @@ class TestBankAccountRepository:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.client, "get_data", return_value=[]):
+        with mock.patch.object(repository.client, "fetch_table", return_value=[]):
             result = repo.get_by_id(uuid.uuid4())
 
         # Assert
@@ -449,7 +449,7 @@ class TestBudgetTrackerRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_by_ids([first_id, second_id])
 
         # Assert
@@ -544,7 +544,7 @@ class TestSubscriptionRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_active()
 
         # Assert
@@ -617,7 +617,7 @@ class TestPaymentRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_all()
 
         # Assert
@@ -673,7 +673,7 @@ class TestPaymentRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_by_bank_account(target_account_id)
 
         # Assert
@@ -722,7 +722,7 @@ class TestPaymentRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_by_subscription(target_subscription_id)
 
         # Assert

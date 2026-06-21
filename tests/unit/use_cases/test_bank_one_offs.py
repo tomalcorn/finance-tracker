@@ -35,6 +35,13 @@ class FakeOneOffRepository(repository.OneOffRepository):
     def delete(self, item_id: uuid.UUID) -> None:
         """Delete a one-off item by ID."""
 
+    def get_column_values(
+        self,
+        column_name: str,  # noqa: ARG002 - not needed for stub
+    ) -> set[object]:
+        """Return unique values for a column."""
+        return set()
+
 
 class FakeBudgetTrackerRepository(repository.BudgetTrackerRepository):
     def __init__(self, items: list[entities.BudgetTrackerItemModel]) -> None:
@@ -66,6 +73,13 @@ class FakeBudgetTrackerRepository(repository.BudgetTrackerRepository):
     def delete(self, item_id: uuid.UUID) -> None:
         """Delete a budget tracker item by ID."""
 
+    def get_column_values(
+        self,
+        column_name: str,  # noqa: ARG002 - not needed for stub
+    ) -> set[object]:
+        """Return unique values for a column."""
+        return set()
+
 
 class FakeExpenseSourceRepository(repository.ExpenseSourceRepository):
     def __init__(self, sources: list[entities.ExpenseSourceModel]) -> None:
@@ -83,6 +97,13 @@ class FakeExpenseSourceRepository(repository.ExpenseSourceRepository):
 
     def delete(self, source_id: uuid.UUID) -> None:
         """Delete an expense source by ID."""
+
+    def get_column_values(
+        self,
+        column_name: str,  # noqa: ARG002 - not needed for stub
+    ) -> set[object]:
+        """Return unique values for a column."""
+        return set()
 
 
 class FakePaymentRepository(repository.PaymentRepository):
@@ -133,6 +154,13 @@ class FakePaymentRepository(repository.PaymentRepository):
 
     def delete(self, payment_id: uuid.UUID) -> None:
         """Delete a payment by ID."""
+
+    def get_column_values(
+        self,
+        column_name: str,  # noqa: ARG002 - not needed for stub
+    ) -> set[object]:
+        """Return unique values for a column."""
+        return set()
 
 
 # ---------------------------------------------------------------------------
