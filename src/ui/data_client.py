@@ -234,6 +234,11 @@ def make_repo_fetch_fn(
         _column_queries: list,
         _conn: st_supabase_connection.SupabaseConnection,
     ) -> list[JsonDict]:
+        # Repositories use the Path A read strategy: fetch the full table
+        # (filtered in Python on the returned models), so _column_queries is
+        # always empty and the cache key uses a fixed filter_key of "". Any
+        # future filtered read (Path B) must NOT go through this fn — its
+        # queries would be silently dropped and collide on this one cache key.
         version = _get_table_versions().get(str(table_name), 0)
         return _get_data_cached(table_name, query_string, version, "", None, connection)
 
