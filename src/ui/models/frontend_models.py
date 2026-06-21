@@ -103,10 +103,7 @@ class DFETableNameConfig(pydantic.BaseModel):
 class DFEColumnConfigBase(pydantic.BaseModel):
     """Base configuration for a DataFrame Editor column."""
 
-    column_name: Annotated[
-        str,
-        pydantic.Field(description="The name of the column in the DataFrame."),
-    ]
+    column_name: query.ColumnName
     column_config: Annotated[
         StreamlitColumnConfig,
         pydantic.Field(
@@ -117,14 +114,8 @@ class DFEColumnConfigBase(pydantic.BaseModel):
             ),
         ),
     ]
-    sorting: Annotated[
-        constants.SortingValues | None,
-        pydantic.Field(description="The sorting direction for the column."),
-    ] = None
-    filters: Annotated[
-        Filters | None,
-        pydantic.Field(description="The filtering criteria for the column."),
-    ] = None
+    sorting: query.OptionalSorting = None
+    filters: query.OptionalFilters = None
     visible: Annotated[
         bool,
         pydantic.Field(description="Whether to show the column in the editor."),

@@ -1,11 +1,9 @@
 """Module for the FilterButton class."""
 
+import datetime
 import typing
 
 import streamlit as st
-
-if typing.TYPE_CHECKING:
-    import datetime
 
 from ui import data_client, ss_keys
 from ui.components.buttons import base_button, constants
@@ -86,7 +84,12 @@ class FilterButton(base_button.BaseButton):
         """Handle filtering for date columns."""
         default_dates = None
         if col_config.filters:
-            default_dates = (col_config.filters.gte, col_config.filters.lte)
+            gte = col_config.filters.gte
+            lte = col_config.filters.lte
+            gte_date = gte if isinstance(gte, datetime.date) else None
+            lte_date = lte if isinstance(lte, datetime.date) else None
+            if gte_date is not None or lte_date is not None:
+                default_dates = (gte_date, lte_date)
 
         selected_dates = st.date_input(
             label=f"Filter by {col_config.button_label or col_config.column_name}",
