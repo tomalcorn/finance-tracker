@@ -19,7 +19,6 @@ class AddButton(base_button.BaseButton):
         self,
         table_name: str,
         backend_model: type[pydantic.BaseModel],
-        tables_to_clear: list | None = None,
         key_prefix: str | None = None,
         extra_row_values: dict[str, Any] | None = None,
     ) -> None:
@@ -27,7 +26,6 @@ class AddButton(base_button.BaseButton):
         self._table_name = table_name
         self._key_prefix = key_prefix or table_name
         self._backend_model = backend_model
-        self._tables_to_clear = tables_to_clear
         self._extra_row_values = extra_row_values or {}
 
     @property
@@ -62,7 +60,6 @@ class AddButton(base_button.BaseButton):
                     deleted_rows=[],
                     edited_rows={},
                 ),
-                tables_to_clear=self._tables_to_clear,
             )
 
     @st.dialog("Add Row")
