@@ -9,7 +9,9 @@ from ui import auth, ss_keys
 from ui.pages import constants, docs_pages
 from use_cases import errors as use_case_errors
 
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 st.set_page_config(layout="wide")
 
