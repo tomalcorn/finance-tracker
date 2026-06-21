@@ -1,6 +1,5 @@
 """Module for handling interactions with Supabase backend."""
 
-import logging
 import typing
 
 import pandas as pd
@@ -15,10 +14,6 @@ from ui.components.dfes import constants as dfe_constants
 from ui.models import frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
-
-logging.basicConfig(level=logging.WARNING)
-logger = logging.getLogger(__name__)
-logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 JsonDict = dict[str, pydantic.JsonValue]
