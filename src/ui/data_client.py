@@ -1,72 +1,34 @@
-"""Module for handling interactions with Supabase backend."""
+"""Streamlit cache management for Supabase reads and writes.
 
+All raw I/O is handled by adapters.supabase.client. This module owns:
+  - the versioned @st.cache_data layer for reads
+  - cache invalidation (by table and affected views)
+  - a commit helper that flushes DFE session-state updates
+  - make_repo_fetch_fn, which threads the cache into repository reads
+"""
+
+import collections.abc
 import logging
-import typing
 
 import pandas as pd
 import pydantic
 import st_supabase_connection
 import streamlit as st
 
+from adapters.supabase import client
+from adapters.supabase import table_names as adapter_table_names
 from domain import entities
 from domain import query as query_mod
 from ui import ss_keys
-from ui.components.dfes import constants as dfe_constants
 from ui.models import frontend_models
-
-CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
 logger = logging.getLogger(__name__)
 
 JsonDict = dict[str, pydantic.JsonValue]
 
 
-class DataClientError(Exception):
-    """Custom exception for data client errors."""
-
-    def __init__(self, message: str) -> None:
-        """Initialize DataClientError with a message."""
-        super().__init__(message)
-        self.message = message
-
-
-def _execute_query(
-    query: st_supabase_connection.SyncSelectRequestBuilder,
-) -> list[JsonDict]:
-    """Execute the given query and return the data."""
-    response = query.execute()
-    return typing.cast("list[JsonDict]", response.data or [])
-
-
-def _apply_filters_to_query(
-    query: st_supabase_connection.SyncSelectRequestBuilder,
-    column_name: str,
-    filters: query_mod.Filters | None,
-) -> st_supabase_connection.SyncSelectRequestBuilder:
-    """Apply filters from column configurations to the query."""
-    if filters is not None:
-        for operator, criteria in filters.model_dump(exclude_none=True).items():
-            if operator == "in":
-                query = query.in_(column_name, criteria)
-            elif operator == "cs":
-                query = query.filter(column_name, "cs", f"{{{criteria}}}")
-            else:
-                query = query.filter(column_name, operator, criteria)
-    return query
-
-
-def _apply_sorting_to_query(
-    query: st_supabase_connection.SyncSelectRequestBuilder,
-    column_name: str,
-    sorting: query_mod.SortingValues | None,
-) -> st_supabase_connection.SyncSelectRequestBuilder:
-    """Apply sorting from column configurations to the query."""
-    if sorting is not None:
-        query = query.order(
-            column_name,
-            desc=sorting == query_mod.SortingValues.DESC,
-        )
-    return query
+def _get_connection() -> st_supabase_connection.SupabaseConnection:
+    return st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
 
 _TABLE_VERSIONS_KEY = "_data_client_table_versions"
@@ -86,7 +48,7 @@ def _get_data_cached(
     table_version: int,
     filter_key: str = "",  # noqa: ARG001 - used by @st.cache_data as a cache key
     _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
-    _connection: st_supabase_connection.SupabaseConnection = CONN,
+    _connection: st_supabase_connection.SupabaseConnection | None = None,
 ) -> list[JsonDict]:
     """Fetch data from the specified table with optional filters.
 
@@ -110,20 +72,16 @@ def _get_data_cached(
         query_string,
         table_version,
     )
-    query = _connection.table(table_name).select(query_string)
-    if _configs:
-        for config in _configs:
-            query = _apply_filters_to_query(
-                query=query,
-                column_name=config.column_name,
-                filters=config.filters,
-            )
-            query = _apply_sorting_to_query(
-                query,
-                column_name=config.column_name,
-                sorting=config.sorting,
-            )
-    return _execute_query(query)
+    connection = _connection or _get_connection()
+    column_queries = [
+        query_mod.ColumnQuery(
+            column_name=c.column_name,
+            filters=c.filters,
+            sorting_direction=c.sorting,
+        )
+        for c in (_configs or [])
+    ]
+    return client.fetch_table(table_name, query_string, column_queries, connection)
 
 
 def _build_filter_key(
@@ -145,7 +103,7 @@ def get_data(
     table_name: str,
     query_string: str,
     _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
-    _connection: st_supabase_connection.SupabaseConnection = CONN,
+    _connection: st_supabase_connection.SupabaseConnection | None = None,
 ) -> list[JsonDict]:
     """Fetch data from the specified table, routing through the versioned cache."""
     version = _get_table_versions().get(table_name, 0)
@@ -182,36 +140,20 @@ def get_column_values(
     column_name: str,
     *,
     unique: bool = False,
-    connection: st_supabase_connection.SupabaseConnection = CONN,
+    connection: st_supabase_connection.SupabaseConnection | None = None,
 ) -> pd.Series:
-    """Get all values in a column by executing a select query.
-
-    Args:
-        table_name: The name of the table to query.
-        column_name: The name of the column to retrieve values from.
-        unique: Whether to return only unique values.
-        connection: The Supabase connection to use.
-
-    Returns:
-        A pandas Series containing the column values.
-
-    """
-    query = connection.table(table_name).select(column_name)
-    response = _execute_query(query)
-    if not response:
-        return pd.Series()
-    all_col_values = pd.Series(
-        [row[column_name] for row in response if column_name in row],
-    ).dropna()
-    if unique:
-        return all_col_values.drop_duplicates().reset_index(drop=True)
-    return all_col_values.reset_index(drop=True)
+    """Get all values in a column, delegating to the adapter layer."""
+    return client.get_column_values(
+        table_name,
+        column_name,
+        unique=unique,
+        connection=connection or _get_connection(),
+    )
 
 
 def commit(
     table_name: str,
-    tables_to_clear: list[dfe_constants.TableNames],
-    connection: st_supabase_connection.SupabaseConnection = CONN,
+    connection: st_supabase_connection.SupabaseConnection | None = None,
     key_prefix: str | None = None,
 ) -> None:
     """Apply any pending sync updates for a table and clear them.
@@ -221,7 +163,6 @@ def commit(
 
     Args:
         table_name: The table whose pending updates should be applied.
-        tables_to_clear: Tables whose cached working_df should be invalidated.
         connection: The Supabase connection to use.
         key_prefix: The session state key prefix. Defaults to table_name.
 
@@ -232,50 +173,73 @@ def commit(
         backend_updates_key,
         entities.BackendUpdates(),
     )
-    update_backend(table_name, updates, tables_to_clear, connection)
+    update_backend(table_name, updates, connection)
 
 
 def update_backend(
     table_name: str,
     updates: entities.BackendUpdates,
-    tables_to_clear: list[dfe_constants.TableNames] | None = None,
-    connection: st_supabase_connection.SupabaseConnection = CONN,
+    connection: st_supabase_connection.SupabaseConnection | None = None,
+    tables_to_clear: list[str] | None = None,
 ) -> entities.BackendUpdates:
-    """Update the backend with the provided changes.
+    """Write updates to the backend and invalidate affected caches.
 
     Args:
         table_name: The name of the table to update.
         updates: The BackendUpdates object containing added, edited, and deleted rows.
-        tables_to_clear: List of tables to clear from the cache.
         connection: The Supabase connection to use.
+        tables_to_clear: Extra names to invalidate beyond those derived from
+            VIEWS_AFFECTED_BY. Retained for base_dfe compatibility.
 
     Returns:
         The updated BackendUpdates object reflecting all changes made.
 
     """
-    update_made = False
-    if updates.added_rows:
-        connection.table(table_name).insert(updates.added_rows).execute()
-        update_made = True
-
-    if updates.edited_rows:
-        for row_id, changes in updates.edited_rows.items():
-            connection.table(table_name).update(changes).eq("id", row_id).execute()
-        update_made = True
-    if updates.deleted_rows:
-        connection.table(table_name).delete().in_(
-            "id",
-            updates.deleted_rows,
-        ).execute()
-        updates.deleted_rows.clear()
-        update_made = True
-
-    if update_made:
-        invalidate_table_cache(table_name)
+    had_changes = bool(
+        updates.added_rows or updates.edited_rows or updates.deleted_rows,
+    )
+    client.update_backend(table_name, updates, connection or _get_connection())
+    if had_changes:
+        _invalidate_with_affected_views(table_name)
         for t in tables_to_clear or []:
-            invalidate_table_cache(t.value)
-            working_df_key = f"{t.value}_{ss_keys.SSKeys.WORKING_DF}"
-            if working_df_key in st.session_state:
-                del st.session_state[working_df_key]
-
+            _invalidate_cache_and_working_df(t)
     return updates
+
+
+def _invalidate_cache_and_working_df(name: str) -> None:
+    """Invalidate the fetch cache and remove any cached working DataFrame."""
+    invalidate_table_cache(name)
+    working_df_key = f"{name}_{ss_keys.SSKeys.WORKING_DF}"
+    if working_df_key in st.session_state:
+        del st.session_state[working_df_key]
+
+
+def _invalidate_with_affected_views(table_name: str) -> None:
+    """Invalidate the written table and all views that depend on it."""
+    _invalidate_cache_and_working_df(table_name)
+    try:
+        key = adapter_table_names.TableNames(table_name)
+    except ValueError:
+        return
+    for view in adapter_table_names.VIEWS_AFFECTED_BY.get(key, []):
+        _invalidate_cache_and_working_df(str(view))
+
+
+def make_repo_fetch_fn(
+    connection: st_supabase_connection.SupabaseConnection,
+) -> collections.abc.Callable:
+    """Return a cached fetch function suitable for injecting into repositories.
+
+    The returned function wraps _get_data_cached with a version lookup so
+    repository reads participate in the same cache-busting mechanism as DFE reads.
+    """
+    def _fetch(
+        table_name: str,
+        query_string: str,
+        _column_queries: list,
+        _conn: st_supabase_connection.SupabaseConnection,
+    ) -> list[JsonDict]:
+        version = _get_table_versions().get(str(table_name), 0)
+        return _get_data_cached(table_name, query_string, version, "", None, connection)
+
+    return _fetch

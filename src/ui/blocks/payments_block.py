@@ -10,24 +10,10 @@ from domain import entities, query
 from ui import data_client, lookups
 from ui.components.buttons import constants
 from ui.components.dfes import base_dfe
-from ui.components.dfes import constants as dfe_constants
 from ui.models import frontend_models
 
-_TABLE_NAME = dfe_constants.TableNames.PAYMENTS.value
+_TABLE_NAME = "payments"
 _INCOME_KEY_PREFIX = "income_entries"
-_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.PAYMENTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-    dfe_constants.TableNames.EXPENSE_SOURCES,
-    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
-    dfe_constants.TableNames.ONE_OFFS,
-    dfe_constants.TableNames.ONE_OFFS_VIEW,
-    dfe_constants.TableNames.INCOME_SOURCES,
-    dfe_constants.TableNames.INCOME_SOURCES_VIEW,
-    dfe_constants.TableNames.BUDGET_TRACKER,
-    dfe_constants.TableNames.BUDGET_TRACKER_VIEW,
-]
 
 _EXPENSE_PAYMENTS_SAMPLE_DATA = pd.DataFrame(
     {
@@ -154,7 +140,6 @@ def _build_expense_dfe(
                 ),
             ],
             sample_data=_EXPENSE_PAYMENTS_SAMPLE_DATA,
-            tables_to_clear=_TABLES_TO_CLEAR,
         ),
     )
 
@@ -260,7 +245,6 @@ def _build_income_dfe(
                 ),
             ],
             sample_data=_INCOME_ENTRIES_SAMPLE_DATA,
-            tables_to_clear=_TABLES_TO_CLEAR,
         ),
     )
 
@@ -269,12 +253,10 @@ def commit() -> None:
     """Apply any pending backend updates for this block."""
     data_client.commit(
         table_name=_TABLE_NAME,
-        tables_to_clear=_TABLES_TO_CLEAR,
         key_prefix=_TABLE_NAME,
     )
     data_client.commit(
         table_name=_TABLE_NAME,
-        tables_to_clear=_TABLES_TO_CLEAR,
         key_prefix=_INCOME_KEY_PREFIX,
     )
 

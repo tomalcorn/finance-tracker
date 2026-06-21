@@ -11,7 +11,6 @@ import st_supabase_connection
 import streamlit as st
 
 from domain import entities
-from ui import data_client
 
 # Budget tracker names that need a corresponding hidden expense source.
 _HIDDEN_EXPENSE_SOURCE_BT_NAMES = (
@@ -48,13 +47,15 @@ def authenticate_supabase(
     Args:
         auth0_sub: The Auth0 user ID (``sub`` claim).
         connection: The Supabase connection to authenticate. Defaults to the
-            shared ``data_client.CONN``.
+            shared Supabase connection for this session.
 
     Returns:
         The authenticated Supabase connection.
 
     """
-    connection = connection or data_client.CONN
+    connection = connection or st.connection(
+        "supabase", type=st_supabase_connection.SupabaseConnection,
+    )
     token = _mint_supabase_jwt(auth0_sub)
     connection.client.postgrest.auth(token)
     return connection

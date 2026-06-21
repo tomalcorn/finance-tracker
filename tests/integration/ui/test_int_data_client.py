@@ -2,6 +2,7 @@
 
 import st_supabase_connection
 
+from adapters.supabase import client as client_mod
 from domain import entities
 from ui import data_client
 
@@ -37,11 +38,10 @@ class TestGetData:
         data_client._get_data_cached.clear()
 
         # Act
-        with mock.patch.object(
-            data_client,
-            "_execute_query",
-            wraps=data_client._execute_query,
-        ) as mock_execute:
+        with mock.patch(
+            "adapters.supabase.client.fetch_table",
+            wraps=client_mod.fetch_table,
+        ) as mock_fetch:
             data_client.get_data("bank_accounts", "*", _connection=connection)
             data_client.get_data("bank_accounts", "*", _connection=connection)
 
@@ -49,7 +49,7 @@ class TestGetData:
         data_client._get_data_cached.clear()
 
         # Assert - two identical calls should produce exactly one DB round trip
-        assert mock_execute.call_count == 1
+        assert mock_fetch.call_count == 1
 
 
 class TestGetColumnValues:

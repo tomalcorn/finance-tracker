@@ -8,26 +8,10 @@ from domain import entities, query
 from ui import data_client
 from ui.components.buttons import bank_button
 from ui.components.dfes import base_dfe
-from ui.components.dfes import constants as dfe_constants
 from ui.models import frontend_models
 
-_TABLE_NAME = dfe_constants.TableNames.ONE_OFFS.value
-_VIEW_NAME = dfe_constants.TableNames.ONE_OFFS_VIEW.value
-_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.ONE_OFFS,
-    dfe_constants.TableNames.ONE_OFFS_VIEW,
-    dfe_constants.TableNames.BUDGET_TRACKER,
-    dfe_constants.TableNames.BUDGET_TRACKER_VIEW,
-]
-
-_BANK_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.ONE_OFFS,
-    dfe_constants.TableNames.ONE_OFFS_VIEW,
-    dfe_constants.TableNames.PAYMENTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-    dfe_constants.TableNames.BUDGET_TRACKER,
-    dfe_constants.TableNames.BUDGET_TRACKER_VIEW,
-]
+_TABLE_NAME = "one_offs"
+_VIEW_NAME = "one_offs_view"
 
 _SAMPLE_DATA = pd.DataFrame(
     {
@@ -162,7 +146,6 @@ def _build_dfe() -> base_dfe.DFE:
                 ),
             ],
             sample_data=_SAMPLE_DATA,
-            tables_to_clear=_TABLES_TO_CLEAR,
             extra_row_values=(
                 {"budget_tracker_id": one_offs_bt_id} if one_offs_bt_id else None
             ),
@@ -174,7 +157,6 @@ def commit() -> None:
     """Apply any pending backend updates for this block."""
     data_client.commit(
         table_name=_TABLE_NAME,
-        tables_to_clear=_TABLES_TO_CLEAR,
         key_prefix=_TABLE_NAME,
     )
 
