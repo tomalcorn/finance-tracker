@@ -13,9 +13,6 @@ from ui import data_client, ss_keys
 from ui.components.buttons import add_button, constants, filter_button
 from ui.models import frontend_models
 
-if typing.TYPE_CHECKING:
-    from ui.components.dfes import constants as dfe_constants
-
 
 class DFE:
     """A self-contained dataframe editor component.
@@ -35,9 +32,6 @@ class DFE:
         self._configs: list[frontend_models.DFEColumnConfigBase] = list(config.configs)
         self._backend_model = config.backend_model
         self._sample_data = config.sample_data
-        self._tables_to_clear: list[dfe_constants.TableNames] | None = (
-            config.tables_to_clear
-        )
         self._num_rows = config.num_rows
 
         # Computed once — display config never changes with filter state
@@ -89,7 +83,6 @@ class DFE:
             table_name=self._write_table,
             key_prefix=self._key_prefix,
             backend_model=self._backend_model,
-            tables_to_clear=self._tables_to_clear,
             extra_row_values=self._config.extra_row_values,
         )
 
@@ -186,13 +179,11 @@ class DFE:
         )
 
         data_added = False
-        filters_changed = False
         if self._num_rows != "fixed":
             add_btn = add_button.AddButton(
                 table_name=self._write_table,
                 key_prefix=self._key_prefix,
                 backend_model=self._backend_model,
-                tables_to_clear=self._tables_to_clear,
                 extra_row_values=getattr(self._config, "extra_row_values", None),
             )
             writable_configs = [

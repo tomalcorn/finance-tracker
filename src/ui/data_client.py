@@ -180,7 +180,6 @@ def update_backend(
     table_name: str,
     updates: entities.BackendUpdates,
     connection: st_supabase_connection.SupabaseConnection | None = None,
-    tables_to_clear: list[str] | None = None,
 ) -> entities.BackendUpdates:
     """Write updates to the backend and invalidate affected caches.
 
@@ -188,8 +187,6 @@ def update_backend(
         table_name: The name of the table to update.
         updates: The BackendUpdates object containing added, edited, and deleted rows.
         connection: The Supabase connection to use.
-        tables_to_clear: Extra names to invalidate beyond those derived from
-            VIEWS_AFFECTED_BY. Retained for base_dfe compatibility.
 
     Returns:
         The updated BackendUpdates object reflecting all changes made.
@@ -201,8 +198,6 @@ def update_backend(
     client.update_backend(table_name, updates, connection or _get_connection())
     if had_changes:
         _invalidate_with_affected_views(table_name)
-        for t in tables_to_clear or []:
-            _invalidate_cache_and_working_df(t)
     return updates
 
 

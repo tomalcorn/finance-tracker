@@ -8,7 +8,6 @@ import pandas as pd
 import pydantic
 
 from domain import query
-from ui.components.dfes import constants as dfe_constants
 
 type StreamlitColumnConfig = Any
 
@@ -168,6 +167,5 @@ class DFEConfig(pydantic.BaseModel):
     backend_model: type[pydantic.BaseModel]
     configs: list[DFEColumnConfigBase]
     sample_data: pd.DataFrame
-    tables_to_clear: list[dfe_constants.TableNames] | None = None
     num_rows: Literal["fixed", "dynamic", "add", "delete"] = "delete"
     extra_row_values: dict[str, Any] | None = None
