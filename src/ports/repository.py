@@ -28,6 +28,10 @@ class BankAccountRepository(abc.ABC):
     def delete(self, account_id: uuid.UUID) -> None:
         """Delete a bank account by ID."""
 
+    @abc.abstractmethod
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return a set of unique column values for a column."""
+
 
 class BudgetTrackerRepository(abc.ABC):
     """Port for budget tracker item persistence."""
@@ -62,6 +66,10 @@ class BudgetTrackerRepository(abc.ABC):
     def delete(self, item_id: uuid.UUID) -> None:
         """Delete a budget tracker item by ID."""
 
+    @abc.abstractmethod
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return a set of unique column values for a column."""
+
 
 class ExpenseSourceRepository(abc.ABC):
     """Port for expense source persistence."""
@@ -82,6 +90,10 @@ class ExpenseSourceRepository(abc.ABC):
     def delete(self, source_id: uuid.UUID) -> None:
         """Delete an expense source by ID."""
 
+    @abc.abstractmethod
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return a set of unique column values for a column."""
+
 
 class IncomeSourceRepository(abc.ABC):
     """Port for income source persistence."""
@@ -101,6 +113,10 @@ class IncomeSourceRepository(abc.ABC):
     @abc.abstractmethod
     def delete(self, source_id: uuid.UUID) -> None:
         """Delete an income source by ID."""
+
+    @abc.abstractmethod
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return a set of unique column values for a column."""
 
 
 class OneOffRepository(abc.ABC):
@@ -128,6 +144,10 @@ class OneOffRepository(abc.ABC):
     @abc.abstractmethod
     def delete(self, item_id: uuid.UUID) -> None:
         """Delete a one-off item by ID."""
+
+    @abc.abstractmethod
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return a set of unique column values for a column."""
 
 
 class SubscriptionRepository(abc.ABC):
@@ -159,6 +179,10 @@ class SubscriptionRepository(abc.ABC):
     @abc.abstractmethod
     def delete(self, subscription_id: uuid.UUID) -> None:
         """Delete a subscription by ID."""
+
+    @abc.abstractmethod
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return a set of unique column values for a column."""
 
 
 class PaymentRepository(abc.ABC):
@@ -216,3 +240,7 @@ class PaymentRepository(abc.ABC):
     @abc.abstractmethod
     def delete(self, payment_id: uuid.UUID) -> None:
         """Delete a payment by ID."""
+
+    @abc.abstractmethod
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return a set of unique column values for a column."""

@@ -1,33 +1,37 @@
 """Concrete Supabase implementations of the repository ports.
 
-Each class wraps data_client calls and translates low-level exceptions
+Each class wraps client calls and translates low-level exceptions
 into AdapterError so the use-case layer never sees Supabase internals.
 
-Imports of data_client and st_supabase_connection are intentionally
+Imports of client and st_supabase_connection are intentionally
 confined to this file (and adapters/supabase/ generally).
 """
 
 import uuid
+from collections.abc import Callable
 
 import pydantic
 import st_supabase_connection
 
 from adapters import errors
-from adapters.supabase import table_names
-from domain import entities
+from adapters.supabase import client, table_names
+from domain import entities, query
 from ports import repository
-from ui import data_client
-from ui.components.dfes import constants as dfe_constants
 
 _PAYMENT_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.PAYMENTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
+    table_names.TableNames.PAYMENTS,
+    table_names.ViewNames.BANK_ACCOUNTS,
+    table_names.ViewNames.EXPENSE_SOURCES,
 ]
 
 # TypeAdapter for deserialising payment rows into the correct subtype
 # using the payment_type discriminator field.
 _PaymentAdapter = pydantic.TypeAdapter(entities.AnyPaymentModel)
+
+FetchRowsFn = Callable[
+    [str, str, list[query.ColumnQuery], st_supabase_connection.SupabaseConnection],
+    list[dict],
+]
 
 
 def _parse_payment(row: dict) -> entities.AnyPaymentModel:
@@ -50,6 +54,7 @@ class SupabaseRepositoryBase:
         user_id: str,
         read_table: table_names.ViewNames | table_names.TableNames,
         write_table: table_names.TableNames,
+        fetch_rows: FetchRowsFn | None = None,
     ) -> None:
         """Initialise with a Supabase connection, user scope, and table names.
 
@@ -61,23 +66,26 @@ class SupabaseRepositoryBase:
                 preferred where they exist as they include computed fields.
             write_table: The raw table to target for inserts, updates, and
                 deletes. Must not be a view.
+            fetch_rows: callable which fetches rows from table. Allows to inject
+                cacheing wrapper from ui layer.
 
         """
         self._conn = connection
         self._user_id = user_id
         self._read_table = read_table
         self._write_table = write_table
+        self._fetch_rows_impl = fetch_rows or client.fetch_table
 
     def _fetch_rows(self) -> list[dict]:
         """Fetch all rows for the current user from the read table.
 
         Raises:
-            AdapterError: If the underlying data_client call fails for
+            AdapterError: If the underlying client call fails for
                 any reason (network, Supabase HTTP error, etc.).
 
         """
         try:
-            rows = data_client.get_data(self._read_table, "*", _connection=self._conn)
+            rows = self._fetch_rows_impl(self._read_table, "*", [], self._conn)
             return [r for r in rows if r["user_id"] == self._user_id]
         except Exception as e:
             msg = f"Failed to fetch rows from {self._read_table}: {e}"
@@ -123,7 +131,7 @@ class SupabaseRepositoryBase:
         """
         try:
             updates = entities.BackendUpdates(added_rows=[row])
-            data_client.update_backend(
+            client.update_backend(
                 self._write_table,
                 updates,
                 connection=self._conn,
@@ -144,7 +152,7 @@ class SupabaseRepositoryBase:
         """
         try:
             updates = entities.BackendUpdates(added_rows=rows)
-            data_client.update_backend(
+            client.update_backend(
                 self._write_table,
                 updates,
                 connection=self._conn,
@@ -156,16 +164,13 @@ class SupabaseRepositoryBase:
     def _delete_by_id(self, row_id: uuid.UUID) -> None:
         """Delete a single row by ID from the write table.
 
-        Also invalidates the data_client cache for the write table via
-        update_backend's post-write cache busting.
-
         Raises:
             AdapterError: If the update_backend call fails.
 
         """
         try:
             updates = entities.BackendUpdates(deleted_rows=[str(row_id)])
-            data_client.update_backend(
+            client.update_backend(
                 self._write_table,
                 updates,
                 connection=self._conn,
@@ -173,6 +178,10 @@ class SupabaseRepositoryBase:
         except Exception as e:
             msg = f"Failed to delete row {row_id} from {self._write_table}: {e}"
             raise errors.AdapterError(msg) from e
+
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return a set of unique column values for a column."""
+        return {row[column_name] for row in self._fetch_rows() if column_name in row}
 
 
 class SupabaseBankAccountRepository(
@@ -555,10 +564,9 @@ class SupabasePaymentRepository(
         ):
             return
         try:
-            data_client.update_backend(
+            client.update_backend(
                 self._write_table,
                 updates,
-                tables_to_clear=_PAYMENT_TABLES_TO_CLEAR,
                 connection=self._conn,
             )
         except Exception as e:
