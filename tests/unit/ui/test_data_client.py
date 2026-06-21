@@ -3,8 +3,9 @@
 from unittest import mock
 
 import streamlit as st
+
+from domain import query
 from ui import data_client
-from ui.components.buttons import constants
 from ui.models import frontend_models
 
 
@@ -49,7 +50,7 @@ class TestBuildFilterKey:
                 column_name="payment_type",
                 column_config={},
                 input_widget=st.text_input,
-                filters=frontend_models.Filters(eq="expense"),
+                filters=query.Filters(eq="expense"),
             ),
         ]
         result = data_client._build_filter_key(configs)
@@ -62,7 +63,7 @@ class TestBuildFilterKey:
                 column_name="date",
                 column_config={},
                 input_widget=st.text_input,
-                sorting=constants.SortingValues.DESC,
+                sorting=query.SortingValues.DESC,
             ),
         ]
         result = data_client._build_filter_key(configs)
@@ -75,7 +76,7 @@ class TestBuildFilterKey:
                 column_name="payment_type",
                 column_config={},
                 input_widget=st.text_input,
-                filters=frontend_models.Filters(eq="expense"),
+                filters=query.Filters(eq="expense"),
             ),
         ]
         config_income = [
@@ -83,7 +84,7 @@ class TestBuildFilterKey:
                 column_name="payment_type",
                 column_config={},
                 input_widget=st.text_input,
-                filters=frontend_models.Filters(eq="income"),
+                filters=query.Filters(eq="income"),
             ),
         ]
         key_expense = data_client._build_filter_key(config_expense)

@@ -5,6 +5,7 @@ import typing
 
 import streamlit as st
 
+from domain import query
 from ui import data_client, ss_keys
 from ui.components.buttons import base_button, constants
 from ui.models import frontend_models
@@ -80,7 +81,7 @@ class FilterButton(base_button.BaseButton):
     def _handle_date_filtering(
         self,
         col_config: frontend_models.DFEColumnConfigBase,
-    ) -> frontend_models.Filters | None:
+    ) -> query.Filters | None:
         """Handle filtering for date columns."""
         default_dates = None
         if col_config.filters:
@@ -100,12 +101,12 @@ class FilterButton(base_button.BaseButton):
         if isinstance(selected_dates, tuple):
             date_tuple = typing.cast("tuple[datetime.date, ...]", selected_dates)
             if len(date_tuple) > 1:
-                return frontend_models.Filters(
+                return query.Filters(
                     gte=date_tuple[0],
                     lte=date_tuple[1],
                 )
             if len(date_tuple) == 1:
-                return frontend_models.Filters(
+                return query.Filters(
                     gte=date_tuple[0],
                     lte=date_tuple[0],
                 )
@@ -114,7 +115,7 @@ class FilterButton(base_button.BaseButton):
     def _handle_numeric_filtering(
         self,
         col_config: frontend_models.DFEColumnConfigBase,
-    ) -> frontend_models.Filters | None:
+    ) -> query.Filters | None:
         """Handle filtering for numeric columns."""
         default_min, default_max = self._get_min_max_values(
             self._read_table,
@@ -137,13 +138,13 @@ class FilterButton(base_button.BaseButton):
         if selected_values == (default_min, default_max):
             return None  # No change in filtering
 
-        return frontend_models.Filters(gte=selected_values[0], lte=selected_values[1])
+        return query.Filters(gte=selected_values[0], lte=selected_values[1])
 
     def _handle_multiselect_filtering(
         self,
         col_config: frontend_models.DFEColumnConfigBase,
         unique_values: set[typing.Any],
-    ) -> frontend_models.Filters | None:
+    ) -> query.Filters | None:
         """Filter using a multiselect for columns with limited unique values."""
         # Safely get default selected values
         default_selected: set[typing.Any] = set()
@@ -180,23 +181,19 @@ class FilterButton(base_button.BaseButton):
                 key=f"{self._key_prefix}_filter_selectbox_{col_config.column_name}",
             )
 
-        return frontend_models.Filters(in_=selected_values) if selected_values else None
+        return query.Filters(in_=selected_values) if selected_values else None
 
     def _handle_generic_filtering(
         self,
         col_config: frontend_models.DFEColumnConfigBase,
-    ) -> frontend_models.Filters | None:
+    ) -> query.Filters | None:
         """Handle generic filtering using a text input."""
         user_text_input = st.text_input(
             label=f"Filter by {col_config.button_label or col_config.column_name}",
             value=col_config.filters.eq if col_config.filters else "",
             key=f"{self._key_prefix}_filter_text_{col_config.column_name}",
         )
-        return (
-            frontend_models.Filters(contains=user_text_input)
-            if user_text_input
-            else None
-        )
+        return query.Filters(contains=user_text_input) if user_text_input else None
 
     @st.dialog("Filter Columns")
     def _filtering_button_dialog(

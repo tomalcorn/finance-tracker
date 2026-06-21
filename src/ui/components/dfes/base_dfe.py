@@ -8,7 +8,7 @@ import typing
 import pandas as pd
 import streamlit as st
 
-from domain import entities
+from domain import entities, query
 from ui import data_client, ss_keys
 from ui.components.buttons import add_button, constants, filter_button
 from ui.models import frontend_models
@@ -289,6 +289,27 @@ class DFE:
         return dataframe
 
     @staticmethod
+    def _get_pandas_filters(filters: query.Filters) -> dict[str, object]:
+        """Serialise to pandas friendly format."""
+        serialised: dict[str, query.FilterValue | list[query.FilterValue] | str] = (
+            filters.model_dump(exclude_none=True)
+        )
+        to_pandas_map = {
+            "eq": "==",
+            "lt": "<",
+            "lte": "<=",
+            "gt": ">",
+            "gte": ">=",
+        }
+        serialised_pandas = {}
+        for key, value in serialised.items():
+            if key in to_pandas_map:
+                serialised_pandas[to_pandas_map[key]] = value
+            else:
+                serialised_pandas[key] = value
+        return serialised_pandas
+
+    @staticmethod
     def _apply_column_filter(
         modified_df: pd.DataFrame,
         col: str,
@@ -329,7 +350,7 @@ class DFE:
 
         for config in self._active_configs:
             if config.filters and config.column_name in modified_df.columns:
-                filters = config.filters.get_pandas_filters()
+                filters = self._get_pandas_filters(config.filters)
                 for operator, criteria in filters.items():
                     modified_df = self._apply_column_filter(
                         modified_df,

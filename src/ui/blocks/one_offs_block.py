@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from composition import wiring
-from domain import entities
+from domain import entities, query
 from ui import data_client
 from ui.components.buttons import bank_button
 from ui.components.dfes import base_dfe
@@ -153,7 +153,7 @@ def _build_dfe() -> base_dfe.DFE:
                             column_name="budget_tracker_id",
                             column_config={"disabled": True},
                             visible=False,
-                            filters=frontend_models.Filters(eq=one_offs_bt_id),
+                            filters=query.Filters(eq=one_offs_bt_id),
                             input_widget=st.text_input,
                         ),
                     ]

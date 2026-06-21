@@ -11,11 +11,10 @@ import pytest
 import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from ui.components.buttons import constants
+
+from domain import entities, query
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
-
-from domain import entities
 
 
 @pytest.fixture(autouse=True)
@@ -113,8 +112,8 @@ def _col_configs() -> list[frontend_models.DFEColumnConfigBase]:
             column_name="col1",
             column_config={},
             input_widget=st.text_input,
-            sorting=constants.SortingValues.ASC,
-            filters=frontend_models.Filters(lte="2023-01-01", gte="2022-01-01"),
+            sorting=query.SortingValues.ASC,
+            filters=query.Filters(lte="2023-01-01", gte="2022-01-01"),
         ),
     ]
 
@@ -127,6 +126,7 @@ def _docs_pages_app(docs_dir, *, render_boom: bool = False) -> None:  # noqa: AN
     from unittest import mock
 
     import streamlit as st
+
     from ui.pages import docs_pages
 
     registry = docs_pages.DocsRegistry(docs_dir)

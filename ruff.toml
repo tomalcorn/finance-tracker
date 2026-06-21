@@ -48,13 +48,12 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [lint.isort]
 known-first-party = [
-    "libs",
-    "apps",
     "domain",
     "ports",
     "adapters",
     "use_cases",
     "composition",
+    "ui"
 ]
 
 [format]

@@ -4,6 +4,7 @@ import typing
 
 import pytest
 import st_supabase_connection
+
 from ui import data_client
 
 _ZERO_UUID = "00000000-0000-0000-0000-000000000000"

@@ -1,5 +1,6 @@
 """Module for handling interactions with Supabase backend."""
 
+import logging
 import typing
 
 import pandas as pd
@@ -8,13 +9,14 @@ import st_supabase_connection
 import streamlit as st
 
 from domain import entities
+from domain import query as query_mod
 from ui import ss_keys
-from ui.components.buttons import constants
 from ui.components.dfes import constants as dfe_constants
 from ui.models import frontend_models
 
 CONN = st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
+logger = logging.getLogger(__name__)
 
 JsonDict = dict[str, pydantic.JsonValue]
 
@@ -39,7 +41,7 @@ def _execute_query(
 def _apply_filters_to_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
     column_name: str,
-    filters: frontend_models.Filters | None,
+    filters: query_mod.Filters | None,
 ) -> st_supabase_connection.SyncSelectRequestBuilder:
     """Apply filters from column configurations to the query."""
     if filters is not None:
@@ -56,13 +58,13 @@ def _apply_filters_to_query(
 def _apply_sorting_to_query(
     query: st_supabase_connection.SyncSelectRequestBuilder,
     column_name: str,
-    sorting: constants.SortingValues | None,
+    sorting: query_mod.SortingValues | None,
 ) -> st_supabase_connection.SyncSelectRequestBuilder:
     """Apply sorting from column configurations to the query."""
     if sorting is not None:
         query = query.order(
             column_name,
-            desc=sorting == constants.SortingValues.DESC,
+            desc=sorting == query_mod.SortingValues.DESC,
         )
     return query
 
