@@ -7,67 +7,10 @@ from typing import Annotated, Any, Literal, Self
 import pandas as pd
 import pydantic
 
-from ui.components.buttons import constants
+from domain import query
 from ui.components.dfes import constants as dfe_constants
 
 type StreamlitColumnConfig = Any
-
-
-class Filters(pydantic.BaseModel):
-    """Model for a column filter."""
-
-    model_config = pydantic.ConfigDict(
-        serialize_by_alias=True,
-    )
-
-    eq: Annotated[Any | None, pydantic.Field(description="Equality filter value.")] = (
-        None
-    )
-    in_: Annotated[
-        list[Any] | None,
-        pydantic.Field(description="In filter values.", serialization_alias="in"),
-    ] = None
-    lt: Annotated[Any | None, pydantic.Field(description="Less than filter value.")] = (
-        None
-    )
-    lte: Annotated[
-        Any | None,
-        pydantic.Field(description="Less than or equal to filter value."),
-    ] = None
-    gt: Annotated[
-        Any | None,
-        pydantic.Field(description="Greater than filter value."),
-    ] = None
-    gte: Annotated[
-        Any | None,
-        pydantic.Field(description="Greater than or equal to filter value."),
-    ] = None
-    contains: Annotated[
-        str | None,
-        pydantic.Field(description="Contains filter value for string matching."),
-    ] = None
-    cs: Annotated[
-        str | None,
-        pydantic.Field(description="Array contains filter value."),
-    ] = None
-
-    def get_pandas_filters(self) -> dict[str, Any]:
-        """Serialise to pandas friendly format."""
-        serialised = self.model_dump(exclude_none=True)
-        to_pandas_map = {
-            "eq": "==",
-            "lt": "<",
-            "lte": "<=",
-            "gt": ">",
-            "gte": ">=",
-        }
-        serialised_pandas = {}
-        for key, value in serialised.items():
-            if key in to_pandas_map:
-                serialised_pandas[to_pandas_map[key]] = value
-            else:
-                serialised_pandas[key] = value
-        return serialised_pandas
 
 
 class DFETableNameConfig(pydantic.BaseModel):

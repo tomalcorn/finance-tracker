@@ -6,7 +6,7 @@ from collections.abc import Callable
 import pandas as pd
 import streamlit as st
 
-from domain import entities
+from domain import entities, query
 from ui import data_client, lookups
 from ui.components.buttons import constants
 from ui.components.dfes import base_dfe
@@ -86,8 +86,8 @@ def _build_expense_dfe(
                     ),
                     button_label="Payment Date",
                     input_widget=st.date_input,
-                    sorting=constants.SortingValues.DESC,
-                    filters=frontend_models.Filters(
+                    sorting=query.SortingValues.DESC,
+                    filters=query.Filters(
                         gte=datetime.date(2026, 1, 1),
                         lte=datetime.date(2026, 12, 31),
                     ),
@@ -150,7 +150,7 @@ def _build_expense_dfe(
                     column_config=st.column_config.TextColumn("Type"),
                     input_widget=st.text_input,
                     visible=False,
-                    filters=frontend_models.Filters(eq="expense"),
+                    filters=query.Filters(eq="expense"),
                 ),
             ],
             sample_data=_EXPENSE_PAYMENTS_SAMPLE_DATA,
@@ -192,8 +192,8 @@ def _build_income_dfe(
                     ),
                     button_label="Payment Date",
                     input_widget=st.date_input,
-                    sorting=constants.SortingValues.DESC,
-                    filters=frontend_models.Filters(
+                    sorting=query.SortingValues.DESC,
+                    filters=query.Filters(
                         gte=datetime.date(2026, 1, 1),
                         lte=datetime.date(2026, 12, 31),
                     ),
@@ -256,7 +256,7 @@ def _build_income_dfe(
                     column_config=st.column_config.TextColumn("Type"),
                     input_widget=st.text_input,
                     visible=False,
-                    filters=frontend_models.Filters(eq="income"),
+                    filters=query.Filters(eq="income"),
                 ),
             ],
             sample_data=_INCOME_ENTRIES_SAMPLE_DATA,

@@ -12,6 +12,7 @@ from collections.abc import Callable
 
 import pytest
 from streamlit.testing import v1 as st_test
+
 from ui.pages import docs_pages, errors
 
 # ===========================================================================
