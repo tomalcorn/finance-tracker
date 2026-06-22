@@ -8,7 +8,9 @@ import streamlit as st
 from domain import query
 from ui import data_client, ss_keys
 from ui.components.buttons import base_button, constants
-from ui.models import frontend_models
+
+if typing.TYPE_CHECKING:
+    from ui.models import frontend_models
 
 
 class FilterButton(base_button.BaseButton):
@@ -26,7 +28,7 @@ class FilterButton(base_button.BaseButton):
         self._read_table = read_table or table_name
 
     @property
-    def column_configs(self) -> list[frontend_models.DFEColumnConfigBase]:
+    def column_configs(self) -> list["frontend_models.DFEColumnConfigBase"]:
         """Get the current column configurations from session state."""
         return st.session_state.get(
             f"{self._key_prefix}_{ss_keys.SSKeys.COL_CONFIGS}",
@@ -36,7 +38,7 @@ class FilterButton(base_button.BaseButton):
     @column_configs.setter
     def column_configs(
         self,
-        configs: list[frontend_models.DFEColumnConfigBase],
+        configs: list["frontend_models.DFEColumnConfigBase"],
     ) -> None:
         """Set the column configurations in session state."""
         st.session_state[f"{self._key_prefix}_{ss_keys.SSKeys.COL_CONFIGS}"] = configs
@@ -44,7 +46,7 @@ class FilterButton(base_button.BaseButton):
     @property
     def previous_column_configs(
         self,
-    ) -> list[frontend_models.DFEColumnConfigBase] | None:
+    ) -> list["frontend_models.DFEColumnConfigBase"] | None:
         """Get the previous column configurations from session state."""
         prev_column_configs_key = f"{self._key_prefix}_{ss_keys.SSKeys.PREV_CONFIGS}"
         return st.session_state.get(prev_column_configs_key, None)
@@ -52,7 +54,7 @@ class FilterButton(base_button.BaseButton):
     @previous_column_configs.setter
     def previous_column_configs(
         self,
-        configs: list[frontend_models.DFEColumnConfigBase],
+        configs: list["frontend_models.DFEColumnConfigBase"],
     ) -> None:
         """Set the previous column configurations in session state."""
         prev_column_configs_key = f"{self._key_prefix}_{ss_keys.SSKeys.PREV_CONFIGS}"
@@ -60,7 +62,7 @@ class FilterButton(base_button.BaseButton):
 
     def _current_css_style(
         self,
-        col_configs: list[frontend_models.DFEColumnConfigBase],
+        col_configs: list["frontend_models.DFEColumnConfigBase"],
     ) -> str:
         """Get the current CSS style based on whether filtering is applied."""
         if any(col_config.filters is not None for col_config in col_configs):
@@ -80,7 +82,7 @@ class FilterButton(base_button.BaseButton):
 
     def _handle_date_filtering(
         self,
-        col_config: frontend_models.DFEColumnConfigBase,
+        col_config: "frontend_models.DFEColumnConfigBase",
     ) -> query.Filters | None:
         """Handle filtering for date columns."""
         default_dates = None
@@ -114,7 +116,7 @@ class FilterButton(base_button.BaseButton):
 
     def _handle_numeric_filtering(
         self,
-        col_config: frontend_models.DFEColumnConfigBase,
+        col_config: "frontend_models.DFEColumnConfigBase",
     ) -> query.Filters | None:
         """Handle filtering for numeric columns."""
         default_min, default_max = self._get_min_max_values(
@@ -142,7 +144,7 @@ class FilterButton(base_button.BaseButton):
 
     def _handle_multiselect_filtering(
         self,
-        col_config: frontend_models.DFEColumnConfigBase,
+        col_config: "frontend_models.DFEColumnConfigBase",
         unique_values: set[typing.Any],
     ) -> query.Filters | None:
         """Filter using a multiselect for columns with limited unique values."""
@@ -185,7 +187,7 @@ class FilterButton(base_button.BaseButton):
 
     def _handle_generic_filtering(
         self,
-        col_config: frontend_models.DFEColumnConfigBase,
+        col_config: "frontend_models.DFEColumnConfigBase",
     ) -> query.Filters | None:
         """Handle generic filtering using a text input."""
         user_text_input = st.text_input(
@@ -198,7 +200,7 @@ class FilterButton(base_button.BaseButton):
     @st.dialog("Filter Columns")
     def _filtering_button_dialog(
         self,
-        col_configs: list[frontend_models.DFEColumnConfigBase],
+        col_configs: list["frontend_models.DFEColumnConfigBase"],
     ) -> None:
         """Render the filtering button dialog.
 
@@ -241,7 +243,7 @@ class FilterButton(base_button.BaseButton):
     def __call__(
         self,
         col_configs: list[
-            frontend_models.DFEColumnConfigBase | frontend_models.DFEColumnConfig
+            "frontend_models.DFEColumnConfigBase | frontend_models.DFEColumnConfig"
         ],
     ) -> bool:
         """Render the filter button in the UI.

@@ -1,6 +1,7 @@
 """Block for the budget tracker section."""
 
-from collections.abc import Callable
+
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import streamlit as st
@@ -10,6 +11,9 @@ from ui import data_client
 from ui.components.buttons import constants
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _BUDGET_TRACKER_TABLE = "budget_tracker"
 _BUDGET_TRACKER_VIEW = "budget_tracker_view"
@@ -241,7 +245,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> base_dfe.DFE:
 
 def _build_income_sources_dfe(
     budget_tracker_ids: list[str],
-    get_budget_tracker_name: Callable,
+    get_budget_tracker_name: "Callable",
 ) -> base_dfe.DFE:
     """Build the DFE for the income sources tab."""
     return base_dfe.DFE(

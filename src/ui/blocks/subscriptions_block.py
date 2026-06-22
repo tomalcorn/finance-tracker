@@ -1,7 +1,7 @@
 """Subscriptions block for managing recurring payments."""
 
 import datetime
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import streamlit as st
@@ -10,6 +10,9 @@ from domain import entities
 from ui import data_client
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _TABLE_NAME = "subscriptions"
 _VIEW_NAME = "subscriptions_view"
@@ -33,9 +36,9 @@ _SAMPLE_DATA = pd.DataFrame(
 
 def _build_dfe(
     bank_account_ids: list[str],
-    get_bank_account_name: Callable,
+    get_bank_account_name: "Callable",
     expense_source_ids: list[str],
-    get_expense_source_name: Callable,
+    get_expense_source_name: "Callable",
 ) -> base_dfe.DFE:
     """Build the DFE for the subscriptions block."""
     return base_dfe.DFE(

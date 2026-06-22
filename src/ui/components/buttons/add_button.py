@@ -9,7 +9,9 @@ import streamlit as st
 from domain import entities
 from ui import auth, data_client, ss_keys
 from ui.components.buttons import base_button, constants
-from ui.models import frontend_models
+
+if typing.TYPE_CHECKING:
+    from ui.models import frontend_models
 
 
 class AddButton(base_button.BaseButton):
@@ -65,7 +67,7 @@ class AddButton(base_button.BaseButton):
     @st.dialog("Add Row")
     def _add_button_dialog(
         self,
-        col_configs: list[frontend_models.DFEColumnConfig],
+        col_configs: list["frontend_models.DFEColumnConfig"],
     ) -> None:
         """Render the 'Add' button dialog."""
         display_name = self._key_prefix.replace("_", " ").title()
@@ -99,7 +101,7 @@ class AddButton(base_button.BaseButton):
 
     @staticmethod
     def _has_unfilled_required(
-        col_configs: list[frontend_models.DFEColumnConfig],
+        col_configs: list["frontend_models.DFEColumnConfig"],
         outputs: list[object],
     ) -> bool:
         """Check whether any required column has an unfilled output."""
@@ -109,7 +111,7 @@ class AddButton(base_button.BaseButton):
             if col.required
         )
 
-    def __call__(self, col_configs: list[frontend_models.DFEColumnConfig]) -> bool:
+    def __call__(self, col_configs: list["frontend_models.DFEColumnConfig"]) -> bool:
         """Render the 'Add' button in the UI.
 
         Returns:
