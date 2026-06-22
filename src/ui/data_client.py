@@ -7,20 +7,23 @@ All raw I/O is handled by adapters.supabase.client. This module owns:
   - make_repo_fetch_fn, which threads the cache into repository reads
 """
 
-import collections.abc
 import logging
+from typing import TYPE_CHECKING
 
-import pandas as pd
 import pydantic
 import st_supabase_connection
 import streamlit as st
 
-from adapters.supabase import client
+from adapters.supabase import client, repository
 from adapters.supabase import table_names as adapter_table_names
 from domain import entities
 from domain import query as query_mod
 from ui import ss_keys
-from ui.models import frontend_models
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from ui.models import frontend_models
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +50,7 @@ def _get_data_cached(
     query_string: str,
     table_version: int,
     filter_key: str = "",  # noqa: ARG001 - used by @st.cache_data as a cache key
-    _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
+    _configs: list["frontend_models.DFEColumnConfigBase"] | None = None,
     _connection: st_supabase_connection.SupabaseConnection | None = None,
 ) -> list[JsonDict]:
     """Fetch data from the specified table with optional filters.
@@ -85,7 +88,7 @@ def _get_data_cached(
 
 
 def _build_filter_key(
-    configs: list[frontend_models.DFEColumnConfigBase] | None,
+    configs: list["frontend_models.DFEColumnConfigBase"] | None,
 ) -> str:
     """Build a hashable cache key from filter/sort configs."""
     if not configs:
@@ -102,7 +105,7 @@ def _build_filter_key(
 def get_data(
     table_name: str,
     query_string: str,
-    _configs: list[frontend_models.DFEColumnConfigBase] | None = None,
+    _configs: list["frontend_models.DFEColumnConfigBase"] | None = None,
     _connection: st_supabase_connection.SupabaseConnection | None = None,
 ) -> list[JsonDict]:
     """Fetch data from the specified table, routing through the versioned cache."""
@@ -141,7 +144,7 @@ def get_column_values(
     *,
     unique: bool = False,
     connection: st_supabase_connection.SupabaseConnection | None = None,
-) -> pd.Series:
+) -> "pd.Series":
     """Get all values in a column, delegating to the adapter layer."""
     return client.get_column_values(
         table_name,
@@ -222,12 +225,13 @@ def _invalidate_with_affected_views(table_name: str) -> None:
 
 def make_repo_fetch_fn(
     connection: st_supabase_connection.SupabaseConnection,
-) -> collections.abc.Callable:
+) -> repository.FetchRowsFn:
     """Return a cached fetch function suitable for injecting into repositories.
 
     The returned function wraps _get_data_cached with a version lookup so
     repository reads participate in the same cache-busting mechanism as DFE reads.
     """
+
     def _fetch(
         table_name: str,
         query_string: str,
