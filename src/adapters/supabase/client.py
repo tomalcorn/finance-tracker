@@ -1,19 +1,21 @@
 """Client to support reading/writing/updating to supabase."""
 
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pandas as pd
 import pydantic
-import st_supabase_connection
 
 from domain import entities
 from domain import query as query_mod
+
+if TYPE_CHECKING:
+    import st_supabase_connection
 
 JsonDict = dict[str, pydantic.JsonValue]
 
 
 def _execute_query(
-    query: st_supabase_connection.SyncSelectRequestBuilder,
+    query: "st_supabase_connection.SyncSelectRequestBuilder",
 ) -> list[JsonDict]:
     """Execute the given query and return the data."""
     response = query.execute()
@@ -21,10 +23,10 @@ def _execute_query(
 
 
 def _apply_filters_to_query(
-    query: st_supabase_connection.SyncSelectRequestBuilder,
+    query: "st_supabase_connection.SyncSelectRequestBuilder",
     column_name: str,
     filters: query_mod.Filters | None,
-) -> st_supabase_connection.SyncSelectRequestBuilder:
+) -> "st_supabase_connection.SyncSelectRequestBuilder":
     """Apply filters from column configurations to the query."""
     if filters is not None:
         for operator, criteria in filters.model_dump(exclude_none=True).items():
@@ -40,10 +42,10 @@ def _apply_filters_to_query(
 
 
 def _apply_sorting_to_query(
-    query: st_supabase_connection.SyncSelectRequestBuilder,
+    query: "st_supabase_connection.SyncSelectRequestBuilder",
     column_name: str,
     sorting: query_mod.SortingValues | None,
-) -> st_supabase_connection.SyncSelectRequestBuilder:
+) -> "st_supabase_connection.SyncSelectRequestBuilder":
     """Apply sorting from column configurations to the query."""
     if sorting is not None:
         query = query.order(
@@ -57,7 +59,7 @@ def fetch_table(
     table_name: str,
     query_string: str,
     column_queries: list[query_mod.ColumnQuery],
-    connection: st_supabase_connection.SupabaseConnection,
+    connection: "st_supabase_connection.SupabaseConnection",
 ) -> list[JsonDict]:
     """Fetch data from the specified table with optional filters.
 
@@ -90,7 +92,7 @@ def fetch_table(
 def update_backend(
     table_name: str,
     updates: entities.BackendUpdates,
-    connection: st_supabase_connection.SupabaseConnection,
+    connection: "st_supabase_connection.SupabaseConnection",
 ) -> entities.BackendUpdates:
     """Update the backend with the provided changes.
 
@@ -124,7 +126,7 @@ def get_column_values(
     column_name: str,
     *,
     unique: bool = False,
-    connection: st_supabase_connection.SupabaseConnection,
+    connection: "st_supabase_connection.SupabaseConnection",
 ) -> pd.Series:
     """Get all values in a column by executing a select query.
 

@@ -1,6 +1,9 @@
 """Custom errors for pages."""
 
-import pathlib
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pathlib
 
 # == Domain errors ==
 
@@ -12,7 +15,7 @@ class DocsError(Exception):
 class InvalidFrontmatterError(DocsError):
     """A markdown file has malformed or missing frontmatter values."""
 
-    def __init__(self, path: pathlib.Path, field: str, reason: str) -> None:
+    def __init__(self, path: "pathlib.Path", field: str, reason: str) -> None:
         """Construct InvalidFrontmatterError."""
         self.path = path
         self.field = field
@@ -23,7 +26,7 @@ class InvalidFrontmatterError(DocsError):
 class MissingIconError(InvalidFrontmatterError):
     """Convenience subclass for the common missing-icon case."""
 
-    def __init__(self, path: pathlib.Path) -> None:
+    def __init__(self, path: "pathlib.Path") -> None:
         """Construct MissingIconError."""
         super().__init__(path, field="icon", reason="must be a non-empty string")
 
@@ -31,7 +34,7 @@ class MissingIconError(InvalidFrontmatterError):
 class EmptyDocBodyError(DocsError):
     """A markdown file has no body content to derive a title from."""
 
-    def __init__(self, path: pathlib.Path) -> None:
+    def __init__(self, path: "pathlib.Path") -> None:
         """Construct EmptyDocBodyError."""
         self.path = path
         super().__init__(f"{path.name}: file has no body content")
@@ -43,7 +46,7 @@ class EmptyDocBodyError(DocsError):
 class DocsDirectoryError(DocsError):
     """The docs directory is absent or unreadable."""
 
-    def __init__(self, docs_dir: pathlib.Path) -> None:
+    def __init__(self, docs_dir: "pathlib.Path") -> None:
         """Construct DocsDirectoryError."""
         self.docs_dir = docs_dir
         super().__init__(f"Docs directory not found: {docs_dir}")
@@ -52,7 +55,7 @@ class DocsDirectoryError(DocsError):
 class EmptyDocsDirectoryError(DocsError):
     """The docs directory exists but contains no markdown files."""
 
-    def __init__(self, docs_dir: pathlib.Path) -> None:
+    def __init__(self, docs_dir: "pathlib.Path") -> None:
         """Construct EmptyDocsDirectoryError."""
         self.docs_dir = docs_dir
         super().__init__(f"No markdown files found in: {docs_dir}")
@@ -61,7 +64,7 @@ class EmptyDocsDirectoryError(DocsError):
 class DuplicateSlugError(DocsError):
     """Two docs resolved to the same slug."""
 
-    def __init__(self, slug: str, paths: list[pathlib.Path]) -> None:
+    def __init__(self, slug: str, paths: list["pathlib.Path"]) -> None:
         """Construct DuplicateSlugError."""
         self.slug = slug
         self.paths = paths

@@ -1,13 +1,16 @@
 """Module for pydantic configs for the frontend models."""
 
 import typing
-from collections.abc import Callable
 from typing import Annotated, Any, Literal, Self
 
-import pandas as pd
 import pydantic
 
-from domain import query
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import pandas as pd
+
+    from domain import query
 
 type StreamlitColumnConfig = Any
 
@@ -45,7 +48,7 @@ class DFETableNameConfig(pydantic.BaseModel):
 class DFEColumnConfigBase(pydantic.BaseModel):
     """Base configuration for a DataFrame Editor column."""
 
-    column_name: query.ColumnName
+    column_name: "query.ColumnName"
     column_config: Annotated[
         StreamlitColumnConfig,
         pydantic.Field(
@@ -56,14 +59,14 @@ class DFEColumnConfigBase(pydantic.BaseModel):
             ),
         ),
     ]
-    sorting: query.OptionalSorting = None
-    filters: query.OptionalFilters = None
+    sorting: "query.OptionalSorting" = None
+    filters: "query.OptionalFilters" = None
     visible: Annotated[
         bool,
         pydantic.Field(description="Whether to show the column in the editor."),
     ] = True
     format_func: Annotated[
-        Callable[[str], str] | None,
+        "Callable[[str], str] | None",
         pydantic.Field(
             description="The formatting function for foreign key relationships.",
         ),
@@ -73,7 +76,7 @@ class DFEColumnConfigBase(pydantic.BaseModel):
         pydantic.Field(description="The label for the input button."),
     ] = None
     input_widget: Annotated[
-        Callable[..., Any],
+        "Callable[..., Any]",
         pydantic.Field(description="The input widget callable from Streamlit."),
     ]
     input_kwargs: Annotated[
@@ -95,7 +98,7 @@ class DFEColumnConfigBase(pydantic.BaseModel):
     @classmethod
     def serialize_callables(
         cls,
-        value: Callable,
+        value: "Callable",
     ) -> str:
         """Serialize the input_widget field."""
         return getattr(value, "__name__", str(value))
@@ -166,6 +169,6 @@ class DFEConfig(pydantic.BaseModel):
     table_names: DFETableNameConfig
     backend_model: type[pydantic.BaseModel]
     configs: list[DFEColumnConfigBase]
-    sample_data: pd.DataFrame
+    sample_data: "pd.DataFrame"
     num_rows: Literal["fixed", "dynamic", "add", "delete"] = "delete"
     extra_row_values: dict[str, Any] | None = None

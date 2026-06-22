@@ -2,13 +2,16 @@
 
 import datetime
 import enum
+from typing import TYPE_CHECKING
 
 from dateutil import relativedelta
 
 from domain import entities
 from domain import errors as domain_errors
-from ports import repository
 from use_cases import errors
+
+if TYPE_CHECKING:
+    from ports import repository
 
 
 class CadenceDelta(enum.Enum):
@@ -34,8 +37,8 @@ class ReconcileSubscriptionsUseCase:
 
     def __init__(
         self,
-        subscription_repo: repository.SubscriptionRepository,
-        payment_repo: repository.PaymentRepository,
+        subscription_repo: "repository.SubscriptionRepository",
+        payment_repo: "repository.PaymentRepository",
         *,
         today: datetime.date | None = None,
     ) -> None:

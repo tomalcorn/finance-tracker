@@ -3,12 +3,15 @@
 Seeds default budget trackers and hidden expense sources for a user.
 """
 
-import uuid
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from domain import entities
-from ports import repository
 from use_cases import errors
+
+if TYPE_CHECKING:
+    import uuid
+
+    from ports import repository
 
 # Hidden expense sources are needed for these budget tracker names
 _HIDDEN_EXPENSE_SOURCE_BT_NAMES = (
@@ -24,8 +27,8 @@ class InitialiseUserWorkspaceUseCase:
     def __init__(
         self,
         user_id: str,
-        budget_tracker_repo: repository.BudgetTrackerRepository,
-        expense_source_repo: repository.ExpenseSourceRepository,
+        budget_tracker_repo: "repository.BudgetTrackerRepository",
+        expense_source_repo: "repository.ExpenseSourceRepository",
     ) -> None:
         """Construct InitializeUserWorkspaceUseCase."""
         self._user_id = user_id
@@ -68,7 +71,7 @@ class InitialiseUserWorkspaceUseCase:
 
     def _ensure_hidden_expense_sources(
         self,
-        bt_id_by_name: dict[entities.BudgetTrackerName, uuid.UUID],
+        bt_id_by_name: dict[entities.BudgetTrackerName, "uuid.UUID"],
     ) -> None:
         """For each hidden budget tracker name, ensure an expense source links to it."""
         # Fetch existing expense sources for this user

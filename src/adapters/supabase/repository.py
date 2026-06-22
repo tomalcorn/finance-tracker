@@ -7,8 +7,8 @@ Imports of client and st_supabase_connection are intentionally
 confined to this file (and adapters/supabase/ generally).
 """
 
-import uuid
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pydantic
 import st_supabase_connection
@@ -17,6 +17,9 @@ from adapters import errors
 from adapters.supabase import client, table_names
 from domain import entities, query
 from ports import repository
+
+if TYPE_CHECKING:
+    import uuid
 
 # TypeAdapter for deserialising payment rows into the correct subtype
 # using the payment_type discriminator field.
@@ -86,7 +89,7 @@ class SupabaseRepositoryBase:
             msg = f"Failed to fetch rows from {self._read_table}: {e}"
             raise errors.AdapterError(msg) from e
 
-    def _fetch_by_id(self, row_id: uuid.UUID) -> dict | None:
+    def _fetch_by_id(self, row_id: "uuid.UUID") -> dict | None:
         """Fetch a single row by ID, or return None if not found.
 
         Filters in Python over the cached result of _fetch_rows, so this
@@ -100,7 +103,7 @@ class SupabaseRepositoryBase:
         matches = [r for r in rows if r["id"] == str(row_id)]
         return matches[0] if matches else None
 
-    def _fetch_by_ids(self, row_ids: list[uuid.UUID]) -> list[dict]:
+    def _fetch_by_ids(self, row_ids: list["uuid.UUID"]) -> list[dict]:
         """Fetch multiple rows by ID.
 
         Filters in Python over the cached result of _fetch_rows. Order of
@@ -156,7 +159,7 @@ class SupabaseRepositoryBase:
             msg = f"Failed to bulk-save rows to {self._write_table}: {e}"
             raise errors.AdapterError(msg) from e
 
-    def _delete_by_id(self, row_id: uuid.UUID) -> None:
+    def _delete_by_id(self, row_id: "uuid.UUID") -> None:
         """Delete a single row by ID from the write table.
 
         Raises:
@@ -204,7 +207,7 @@ class SupabaseBankAccountRepository(
         """Return all bank accounts for the current user."""
         return [entities.BankAccountModel.model_validate(r) for r in self._fetch_rows()]
 
-    def get_by_id(self, account_id: uuid.UUID) -> entities.BankAccountModel | None:
+    def get_by_id(self, account_id: "uuid.UUID") -> entities.BankAccountModel | None:
         """Return a single bank account by ID, or None if not found."""
         row = self._fetch_by_id(account_id)
         return entities.BankAccountModel.model_validate(row) if row else None
@@ -213,7 +216,7 @@ class SupabaseBankAccountRepository(
         """Insert or update a bank account record."""
         self._save_one(account.model_dump(mode="json"))
 
-    def delete(self, account_id: uuid.UUID) -> None:
+    def delete(self, account_id: "uuid.UUID") -> None:
         """Delete a bank account by ID."""
         self._delete_by_id(account_id)
 
@@ -251,14 +254,14 @@ class SupabaseBudgetTrackerRepository(
             for r in self._fetch_rows()
         ]
 
-    def get_by_id(self, item_id: uuid.UUID) -> entities.BudgetTrackerItemModel | None:
+    def get_by_id(self, item_id: "uuid.UUID") -> entities.BudgetTrackerItemModel | None:
         """Return a single budget tracker item by ID, or None if not found."""
         row = self._fetch_by_id(item_id)
         return entities.BudgetTrackerItemModel.model_validate(row) if row else None
 
     def get_by_ids(
         self,
-        item_ids: list[uuid.UUID],
+        item_ids: list["uuid.UUID"],
     ) -> list[entities.BudgetTrackerItemModel]:
         """Return budget tracker items matching the given IDs."""
         return [
@@ -278,7 +281,7 @@ class SupabaseBudgetTrackerRepository(
         """
         self._save_many([i.model_dump(mode="json") for i in items])
 
-    def delete(self, item_id: uuid.UUID) -> None:
+    def delete(self, item_id: "uuid.UUID") -> None:
         """Delete a budget tracker item by ID."""
         self._delete_by_id(item_id)
 
@@ -315,7 +318,7 @@ class SupabaseExpenseSourceRepository(
             entities.ExpenseSourceModel.model_validate(r) for r in self._fetch_rows()
         ]
 
-    def get_by_id(self, source_id: uuid.UUID) -> entities.ExpenseSourceModel | None:
+    def get_by_id(self, source_id: "uuid.UUID") -> entities.ExpenseSourceModel | None:
         """Return a single expense source by ID, or None if not found."""
         row = self._fetch_by_id(source_id)
         return entities.ExpenseSourceModel.model_validate(row) if row else None
@@ -324,7 +327,7 @@ class SupabaseExpenseSourceRepository(
         """Insert or update an expense source record."""
         self._save_one(source.model_dump(mode="json"))
 
-    def delete(self, source_id: uuid.UUID) -> None:
+    def delete(self, source_id: "uuid.UUID") -> None:
         """Delete an expense source by ID."""
         self._delete_by_id(source_id)
 
@@ -361,7 +364,7 @@ class SupabaseIncomeSourceRepository(
             entities.IncomeSourceModel.model_validate(r) for r in self._fetch_rows()
         ]
 
-    def get_by_id(self, source_id: uuid.UUID) -> entities.IncomeSourceModel | None:
+    def get_by_id(self, source_id: "uuid.UUID") -> entities.IncomeSourceModel | None:
         """Return a single income source by ID, or None if not found."""
         row = self._fetch_by_id(source_id)
         return entities.IncomeSourceModel.model_validate(row) if row else None
@@ -370,7 +373,7 @@ class SupabaseIncomeSourceRepository(
         """Insert or update an income source record."""
         self._save_one(source.model_dump(mode="json"))
 
-    def delete(self, source_id: uuid.UUID) -> None:
+    def delete(self, source_id: "uuid.UUID") -> None:
         """Delete an income source by ID."""
         self._delete_by_id(source_id)
 
@@ -405,12 +408,12 @@ class SupabaseOneOffRepository(
         """Return all one-off items for the current user."""
         return [entities.OneOffItemModel.model_validate(r) for r in self._fetch_rows()]
 
-    def get_by_id(self, item_id: uuid.UUID) -> entities.OneOffItemModel | None:
+    def get_by_id(self, item_id: "uuid.UUID") -> entities.OneOffItemModel | None:
         """Return a single one-off item by ID, or None if not found."""
         row = self._fetch_by_id(item_id)
         return entities.OneOffItemModel.model_validate(row) if row else None
 
-    def get_by_ids(self, item_ids: list[uuid.UUID]) -> list[entities.OneOffItemModel]:
+    def get_by_ids(self, item_ids: list["uuid.UUID"]) -> list[entities.OneOffItemModel]:
         """Return one-off items matching the given IDs.
 
         Used by BankOneOffsUseCase to load only the items selected by the user.
@@ -424,7 +427,7 @@ class SupabaseOneOffRepository(
         """Insert or update a one-off item record."""
         self._save_one(item.model_dump(mode="json"))
 
-    def delete(self, item_id: uuid.UUID) -> None:
+    def delete(self, item_id: "uuid.UUID") -> None:
         """Delete a one-off item by ID."""
         self._delete_by_id(item_id)
 
@@ -471,7 +474,7 @@ class SupabaseSubscriptionRepository(
 
     def get_by_id(
         self,
-        subscription_id: uuid.UUID,
+        subscription_id: "uuid.UUID",
     ) -> entities.SubscriptionModel | None:
         """Return a single subscription by ID, or None if not found."""
         row = self._fetch_by_id(subscription_id)
@@ -481,7 +484,7 @@ class SupabaseSubscriptionRepository(
         """Insert or update a subscription record."""
         self._save_one(subscription.model_dump(mode="json"))
 
-    def delete(self, subscription_id: uuid.UUID) -> None:
+    def delete(self, subscription_id: "uuid.UUID") -> None:
         """Delete a subscription by ID."""
         self._delete_by_id(subscription_id)
 
@@ -523,7 +526,7 @@ class SupabasePaymentRepository(
 
     def get_by_bank_account(
         self,
-        bank_account_id: uuid.UUID,
+        bank_account_id: "uuid.UUID",
     ) -> list[entities.AnyPaymentModel]:
         """Return all payments associated with a specific bank account.
 
@@ -539,7 +542,7 @@ class SupabasePaymentRepository(
 
     def get_by_subscription(
         self,
-        subscription_id: uuid.UUID,
+        subscription_id: "uuid.UUID",
     ) -> list[entities.AnyPaymentModel]:
         """Return all payments generated from a specific subscription.
 
@@ -582,6 +585,6 @@ class SupabasePaymentRepository(
             msg = f"Failed to apply payment updates to {self._write_table}: {e}"
             raise errors.AdapterError(msg) from e
 
-    def delete(self, payment_id: uuid.UUID) -> None:
+    def delete(self, payment_id: "uuid.UUID") -> None:
         """Delete a payment by ID."""
         self._delete_by_id(payment_id)

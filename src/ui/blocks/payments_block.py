@@ -1,7 +1,7 @@
 """Payments block for the finance tracker app."""
 
 import datetime
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import streamlit as st
@@ -11,6 +11,9 @@ from ui import data_client, lookups
 from ui.components.buttons import constants
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _TABLE_NAME = "payments"
 _INCOME_KEY_PREFIX = "income_entries"
@@ -42,9 +45,9 @@ _INCOME_ENTRIES_SAMPLE_DATA = pd.DataFrame(
 
 def _build_expense_dfe(
     bank_account_ids: list[str],
-    get_bank_account_name: Callable,
+    get_bank_account_name: "Callable",
     expense_source_ids: list[str],
-    get_expense_source_name: Callable,
+    get_expense_source_name: "Callable",
 ) -> base_dfe.DFE:
     """Build the DFE for expense payments."""
     return base_dfe.DFE(
@@ -146,9 +149,9 @@ def _build_expense_dfe(
 
 def _build_income_dfe(
     bank_account_ids: list[str],
-    get_bank_account_name: Callable,
+    get_bank_account_name: "Callable",
     income_source_ids: list[str],
-    get_income_source_name: Callable,
+    get_income_source_name: "Callable",
 ) -> base_dfe.DFE:
     """Build the DFE for income payments."""
     return base_dfe.DFE(
@@ -263,8 +266,8 @@ def commit() -> None:
 
 def _render_expense_breakdown(
     expense_dfe: base_dfe.DFE,
-    get_expense_source_name: Callable,
-    get_bank_account_name: Callable,
+    get_expense_source_name: "Callable",
+    get_bank_account_name: "Callable",
 ) -> None:
     """Render the expense breakdown tab with collapsible sections per source."""
     working_df = expense_dfe.working_df

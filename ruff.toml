@@ -32,6 +32,9 @@ exclude = [
 line-length = 88
 indent-width = 4
 
+[flake8-type-checking]
+quote-annotations = true
+
 [lint]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
