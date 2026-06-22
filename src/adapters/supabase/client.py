@@ -32,6 +32,8 @@ def _apply_filters_to_query(
                 query = query.in_(column_name, criteria)
             elif operator == "cs":
                 query = query.filter(column_name, "cs", f"{{{criteria}}}")
+            elif operator == "contains":
+                query = query.ilike(column_name, f"%{criteria}%")
             else:
                 query = query.filter(column_name, operator, criteria)
     return query
