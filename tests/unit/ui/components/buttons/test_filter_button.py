@@ -3,52 +3,45 @@
 import datetime
 from unittest import mock
 
-import pandas as pd
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
 
 from domain import query
-from ui import data_client
 from ui.components.buttons import filter_button
 from ui.models import frontend_models
 
 
 def _filter_button_dialog_wrapper() -> None:
     """Call the _filtering_button_dialog method."""
-    from unittest import mock
-
-    import pandas as pd
     import streamlit as st
 
     from domain import query
-    from ui import data_client
     from ui.components.buttons import filter_button
     from ui.models import frontend_models
 
-    # Mock utils.get_unique_values to return test data
-    with mock.patch.object(data_client, "get_column_values") as mock_func:
-        mock_func.return_value = pd.Series([0.88, 0.23, 0.1])
+    dfe_configs = [
+        frontend_models.DFEColumnConfigBase(
+            column_name="col1",
+            column_config={},
+            input_widget=st.text_input,
+            filters=query.Filters(contains="test"),
+        ),
+        frontend_models.DFEColumnConfigBase(
+            column_name="col2",
+            column_config={},
+            input_widget=st.number_input,
+            filters=query.Filters(gte=10, lte=100),
+        ),
+    ]
 
-        dfe_configs = [
-            frontend_models.DFEColumnConfigBase(
-                column_name="col1",
-                column_config={},
-                input_widget=st.text_input,
-                filters=query.Filters(contains="test"),
-            ),
-            frontend_models.DFEColumnConfigBase(
-                column_name="col2",
-                column_config={},
-                input_widget=st.number_input,
-                filters=query.Filters(gte=10, lte=100),
-            ),
-        ]
+    filter_button_instance = filter_button.FilterButton(
+        "test_table",
+        unique_values=lambda _column: {0.88, 0.23, 0.1},
+    )
 
-        filter_button_instance = filter_button.FilterButton("test_table")
-
-        return filter_button_instance._filtering_button_dialog(dfe_configs)
+    return filter_button_instance._filtering_button_dialog(dfe_configs)
 
 
 @pytest.fixture(name="app_tester")
@@ -98,32 +91,29 @@ def test_current_css_style_with_filtering(
 
 
 @pytest.mark.parametrize(
-    ("mocked_values", "expected_min", "expected_max"),
+    ("column_values", "expected_min", "expected_max"),
     [
-        (pd.Series([10, 20, 30, 40, 50]), 10, 50),
-        (pd.Series([-5, 0, 5, 10]), -5, 10),
-        (pd.Series([0.1, 0.5, 0.9]), 0.1, 0.9),
-        (pd.Series([]), 0.0, 1.0),  # Edge case: empty series
+        ({10, 20, 30, 40, 50}, 10, 50),
+        ({-5, 0, 5, 10}, -5, 10),
+        ({0.1, 0.5, 0.9}, 0.1, 0.9),
+        (set(), 0.0, 1.0),  # Edge case: no values
     ],
 )
 def test_get_min_max_values(
-    filter_button_instance: filter_button.FilterButton,
-    mocked_values: pd.Series,
+    column_values: set[object],
     expected_min: float,
     expected_max: float,
 ) -> None:
     """Test _get_min_max_values returns correct min and max values."""
-    with mock.patch.object(
-        data_client,
-        "get_column_values",
-    ) as mock_get_column_values:
-        mock_get_column_values.return_value = mocked_values
+    instance = filter_button.FilterButton(
+        "test_table",
+        unique_values=lambda _column: column_values,
+    )
 
-        # Act
-        min_value, max_value = filter_button_instance._get_min_max_values(
-            table_name="test_table",
-            column_name="test_numeric_column",
-        )
+    # Act
+    min_value, max_value = instance._get_min_max_values(
+        column_name="test_numeric_column",
+    )
 
     # Assert
     assert all(
@@ -262,17 +252,13 @@ class TestFilterHandling:
         tester.
         """
         # Arrange
-        with (
-            mock.patch.object(st, "slider") as mock_slider,
-            mock.patch.object(
-                data_client,
-                "get_column_values",
-            ) as mock_get_column_values,
-        ):
-            mock_get_column_values.return_value = pd.Series([10.0, 90.0])
+        with mock.patch.object(st, "slider") as mock_slider:
             mock_slider.return_value = (20.0, 80.0)
 
-            filter_button_instance = filter_button.FilterButton("test_table")
+            filter_button_instance = filter_button.FilterButton(
+                "test_table",
+                unique_values=lambda _column: {10.0, 90.0},
+            )
 
             numeric_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="numeric_col",

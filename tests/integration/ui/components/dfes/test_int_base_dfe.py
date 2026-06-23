@@ -1,20 +1,31 @@
 """Integration tests for the base_dfe module."""
 
-from unittest import mock
-
 import pandas as pd
 import pydantic
 import pytest
 import streamlit as st
 
 from domain import query
-from ui import data_client, ss_keys
+from ui import ss_keys
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
 
 
 class _StubModel(pydantic.BaseModel):
     pass
+
+
+class _StubDataSource:
+    """GridDataSource stub returning fixed unique values for the sync rule."""
+
+    def __init__(self, unique_values: set[object]) -> None:
+        self._unique_values = unique_values
+
+    def load(self) -> list[dict]:
+        return []
+
+    def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
+        return self._unique_values
 
 
 @pytest.fixture(name="sample_df")
@@ -147,6 +158,7 @@ class TestDFESync:
                 backend_model=_StubModel,
                 configs=configs,
                 sample_data=pd.DataFrame(),
+                data_source=_StubDataSource({"Item B", "Item C", "Other Item"}),
             ),
         )
         dfe.working_df = sample_df.copy()
@@ -159,14 +171,8 @@ class TestDFESync:
             ss_keys.SSKeys.DELETED_ROWS: [],
         }
 
-        # Mock get_column_values to return existing names
-        with mock.patch.object(
-            data_client,
-            "get_column_values",
-            return_value=["Item B", "Item C", "Other Item"],
-        ):
-            # Act
-            dfe.sync()
+        # Act
+        dfe.sync()
 
         # Assert - name should remain unchanged since no duplicates
         backend_updates = dfe.backend_updates
@@ -194,6 +200,7 @@ class TestDFESync:
                 backend_model=_StubModel,
                 configs=configs,
                 sample_data=pd.DataFrame(),
+                data_source=_StubDataSource({"Item", "Item (1)", "Item (2)"}),
             ),
         )
         dfe.working_df = sample_df.copy()
@@ -206,14 +213,8 @@ class TestDFESync:
             ss_keys.SSKeys.DELETED_ROWS: [],
         }
 
-        # Mock get_column_values to return duplicates
-        with mock.patch.object(
-            data_client,
-            "get_column_values",
-            return_value=["Item", "Item (1)", "Item (2)"],
-        ):
-            # Act
-            dfe.sync()
+        # Act
+        dfe.sync()
 
         # Assert - name should be incremented to avoid duplicate
         backend_updates = dfe.backend_updates

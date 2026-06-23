@@ -193,6 +193,15 @@ class SupabaseRepositoryBase:
         """Return a set of unique column values for a column."""
         return {row[column_name] for row in self._fetch_rows() if column_name in row}
 
+    def get_rows(self) -> list[dict]:
+        """Return the raw user-scoped rows from the read view.
+
+        Unlike ``get_all`` this skips domain-model validation, so view-only
+        computed columns (e.g. progress, remaining) survive for the grid to
+        display. Used by the UI grid data source under Path A.
+        """
+        return self._fetch_rows()
+
 
 class SupabaseBankAccountRepository(
     SupabaseRepositoryBase,

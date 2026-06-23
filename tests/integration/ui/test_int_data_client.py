@@ -52,45 +52,6 @@ class TestGetData:
         assert mock_fetch.call_count == 1
 
 
-class TestGetColumnValues:
-    """Integration tests for data_client.get_column_values."""
-
-    def test_get_column_values(
-        self,
-        yield_sample_bank_accounts: list[entities.BankAccountModel],
-        connection: st_supabase_connection.SupabaseConnection,
-    ) -> None:
-        """Test fetching distinct column values using sample bank accounts."""
-        # Act
-        column_values = data_client.get_column_values(
-            table_name="bank_accounts",
-            column_name="name",
-            connection=connection,
-        ).to_list()
-
-        # Assert
-        expected_names = [account.name for account in yield_sample_bank_accounts]
-        assert column_values == expected_names
-
-    def test_get_column_values_unique(
-        self,
-        yield_sample_bank_accounts: list[entities.BankAccountModel],
-        connection: st_supabase_connection.SupabaseConnection,
-    ) -> None:
-        """Test fetching unique column values using sample bank accounts."""
-        # Act
-        column_values = data_client.get_column_values(
-            table_name="bank_accounts",
-            column_name="user_id",
-            connection=connection,
-            unique=True,
-        )
-
-        # Assert
-        expected_user_ids = {account.user_id for account in yield_sample_bank_accounts}
-        assert set(column_values) == expected_user_ids
-
-
 class TestUpdateBackend:
     """Integration tests for data_client.update_backend."""
 

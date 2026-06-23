@@ -8,6 +8,7 @@ import pandas as pd
 import pydantic
 
 from domain import query
+from ui.components.dfes import data_source as data_source_mod
 
 type StreamlitColumnConfig = Any
 
@@ -169,3 +170,18 @@ class DFEConfig(pydantic.BaseModel):
     sample_data: pd.DataFrame
     num_rows: Literal["fixed", "dynamic", "add", "delete"] = "delete"
     extra_row_values: dict[str, Any] | None = None
+    data_source: data_source_mod.GridDataSource | None = pydantic.Field(
+        default=None,
+        description=(
+            "Repository-backed reads for this DFE: column values for the "
+            "uniqueness rule and filter widgets, and (when read_via_repository "
+            "is set) the rows to display. Built in composition.wiring."
+        ),
+    )
+    read_via_repository: bool = pydantic.Field(
+        default=False,
+        description=(
+            "When True, load_input_data reads display rows from data_source "
+            "(Path A) instead of the legacy data_client.get_data path."
+        ),
+    )
