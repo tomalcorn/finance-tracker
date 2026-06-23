@@ -67,12 +67,13 @@ class BankOneOffsUseCase:
         """
         items = self._one_off_repo.get_by_ids(item_ids)
 
-        expense_source_id = self._resolve_one_offs_expense_source()
-
         for item in items:
             if item.current_month <= 0:
                 raise errors.AmountToBankLTEZeroError(item.name)
 
+        expense_source_id = self._resolve_one_offs_expense_source()
+
+        for item in items:
             monthly_contribution = item.current_month
             item.banked += monthly_contribution
             item.current_month = 0
