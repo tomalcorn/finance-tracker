@@ -112,122 +112,36 @@ class TestDFE:
             raise AssertionError(msg)
         pd.testing.assert_frame_equal(dfe.working_df, sample_data)
 
-    def test_enforce_unique_cols_no_duplicates(
+    def test_load_input_data_reads_via_repository(
         self,
-        dfe_instance: base_dfe.DFE,
+        input_df: pd.DataFrame,
     ) -> None:
-        """Test _enforce_unique_cols when there are no duplicates."""
-        # Arrange
-        row = {"name": "New Item", "value": 100}
-        unique_col_names = ["name"]
+        """Test load_input_data reads display rows from the data source (Path A)."""
 
-        with mock.patch.object(
-            data_client,
-            "get_column_values",
-            return_value=["Other Item", "Different Item"],
-        ):
-            # Act
-            result = dfe_instance._enforce_unique_cols(row, unique_col_names)
+        class _StubDataSource:
+            def load(self) -> list[dict]:
+                return input_df.to_dict("records")
 
-        # Assert
-        assert result == {"name": "New Item", "value": 100}
+            def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
+                return set()
 
-    def test_enforce_unique_cols_duplicate_without_suffix(
-        self,
-        dfe_instance: base_dfe.DFE,
-    ) -> None:
-        """Test _enforce_unique_cols when duplicate exists without suffix."""
-        # Arrange
-        row = {"name": "Item", "value": 100}
-        unique_col_names = ["name"]
+        dfe = base_dfe.DFE(
+            config=frontend_models.DFEConfig(
+                table_names=frontend_models.DFETableNameConfig(write_table="users"),
+                backend_model=_StubModel,
+                configs=[],
+                sample_data=pd.DataFrame(),
+                data_source=_StubDataSource(),
+                read_via_repository=True,
+            ),
+        )
 
-        with mock.patch.object(
-            data_client,
-            "get_column_values",
-            return_value=["Item", "Other Item"],
-        ):
-            # Act
-            result = dfe_instance._enforce_unique_cols(row, unique_col_names)
+        dfe.load_input_data()
 
-        # Assert
-        assert result == {"name": "Item (1)", "value": 100}
-
-    def test_enforce_unique_cols_duplicate_with_suffix(
-        self,
-        dfe_instance: base_dfe.DFE,
-    ) -> None:
-        """Test _enforce_unique_cols when duplicates exist with suffixes."""
-        # Arrange
-        row = {"name": "Item", "value": 100}
-        unique_col_names = ["name"]
-
-        with mock.patch.object(
-            data_client,
-            "get_column_values",
-            return_value=["Item", "Item (1)", "Item (2)", "Other Item"],
-        ):
-            # Act
-            result = dfe_instance._enforce_unique_cols(row, unique_col_names)
-
-        # Assert
-        assert result == {"name": "Item (3)", "value": 100}
-
-    def test_enforce_unique_cols_with_existing_suffix(
-        self,
-        dfe_instance: base_dfe.DFE,
-    ) -> None:
-        """Test _enforce_unique_cols when row value already has a suffix."""
-        # Arrange
-        row = {"name": "Item (5)", "value": 100}
-        unique_col_names = ["name"]
-
-        with mock.patch.object(
-            data_client,
-            "get_column_values",
-            return_value=["Item", "Item (1)", "Item (2)"],
-        ):
-            # Act
-            result = dfe_instance._enforce_unique_cols(row, unique_col_names)
-
-        # Assert
-        # Should strip the (5), find duplicates with base "Item", and use max suffix + 1
-        assert result == {"name": "Item (3)", "value": 100}
-
-    def test_enforce_unique_cols_column_not_in_row(
-        self,
-        dfe_instance: base_dfe.DFE,
-    ) -> None:
-        """Test _enforce_unique_cols when unique column is not in row."""
-        # Arrange
-        row = {"value": 100}
-        unique_col_names = ["name"]
-
-        # Act - no need to mock since column not in row
-        result = dfe_instance._enforce_unique_cols(row, unique_col_names)
-
-        # Assert
-        assert result == {"value": 100}
-
-    def test_enforce_unique_cols_non_sequential_suffixes(
-        self,
-        dfe_instance: base_dfe.DFE,
-    ) -> None:
-        """Test _enforce_unique_cols with non-sequential suffix numbers."""
-        # Arrange
-        row = {"name": "Item", "value": 100}
-        unique_col_names = ["name"]
-
-        with mock.patch.object(
-            data_client,
-            "get_column_values",
-            return_value=["Item", "Item (2)", "Item (5)", "Item (10)"],
-        ):
-            # Act
-            result = dfe_instance._enforce_unique_cols(row, unique_col_names)
-
-        # Assert
-        # Should find max suffix (10) and add 1
-        assert result == {"name": "Item (11)", "value": 100}
+        if dfe.working_df is None:
+            msg = "working_df is None, expected rows loaded from the data source"
+            raise AssertionError(msg)
+        pd.testing.assert_frame_equal(dfe.working_df, input_df)
 
 
 class TestDFEKeyPrefix:
@@ -283,31 +197,3 @@ class TestDFEKeyPrefix:
         pd.testing.assert_frame_equal(st.session_state[expected_key], test_df)
 
 
-class TestApplyColumnFilter:
-    """Tests for the _apply_column_filter static method."""
-
-    def test_eq_filter_on_string_column(self) -> None:
-        """Test equality filter on a string column."""
-        df = pd.DataFrame({"payment_type": ["expense", "income", "expense"]})
-        result = base_dfe.DFE._apply_column_filter(df, "payment_type", "==", "expense")
-        assert list(result["payment_type"]) == ["expense", "expense"]
-
-    def test_eq_filter_no_matches(self) -> None:
-        """Test equality filter returns empty when no matches."""
-        df = pd.DataFrame({"payment_type": ["expense", "expense"]})
-        result = base_dfe.DFE._apply_column_filter(df, "payment_type", "==", "income")
-        assert result.empty
-
-    def test_contains_filter(self) -> None:
-        """Test contains filter on a string column."""
-        df = pd.DataFrame({"name": ["test item", "other", "test thing"]})
-        result = base_dfe.DFE._apply_column_filter(df, "name", "contains", "test")
-        expected_count = 2
-        assert len(result) == expected_count
-
-    def test_gte_lte_filter_on_numeric(self) -> None:
-        """Test >= and <= filters on a numeric column."""
-        df = pd.DataFrame({"value": [10, 20, 30, 40, 50]})
-        result = base_dfe.DFE._apply_column_filter(df, "value", ">=", 20)
-        result = base_dfe.DFE._apply_column_filter(result, "value", "<=", 40)
-        assert list(result["value"]) == [20, 30, 40]

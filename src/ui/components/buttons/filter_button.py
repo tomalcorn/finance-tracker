@@ -2,15 +2,19 @@
 
 import datetime
 import typing
+from collections.abc import Callable
 
 import streamlit as st
 
 from domain import query
-from ui import data_client, ss_keys
+from ui import ss_keys
 from ui.components.buttons import base_button, constants
 
 if typing.TYPE_CHECKING:
     from ui.models import frontend_models
+
+UniqueValues = Callable[[str], set[object]]
+"""Returns the set of existing values for a column (user-scoped)."""
 
 
 class FilterButton(base_button.BaseButton):
@@ -21,11 +25,29 @@ class FilterButton(base_button.BaseButton):
         table_name: str,
         key_prefix: str | None = None,
         read_table: str | None = None,
+        unique_values: UniqueValues | None = None,
     ) -> None:
-        """Initialize the FilterButton instance."""
+        """Initialize the FilterButton instance.
+
+        Args:
+            table_name: The write table this filter button targets.
+            key_prefix: Session-state key prefix; defaults to table_name.
+            read_table: The view to read from; defaults to table_name.
+            unique_values: Repository-backed reader for a column's existing
+                values, used to populate numeric and multiselect filters.
+
+        """
         super().__init__(table_name)
         self._key_prefix = key_prefix or table_name
         self._read_table = read_table or table_name
+        self._unique_values = unique_values
+
+    def _column_values(self, column_name: str) -> set[object]:
+        """Return the existing values for a column via the injected reader."""
+        if self._unique_values is None:
+            msg = "FilterButton requires a unique_values reader to filter columns."
+            raise ValueError(msg)
+        return self._unique_values(column_name)
 
     @property
     def column_configs(self) -> list["frontend_models.DFEColumnConfigBase"]:
@@ -71,13 +93,12 @@ class FilterButton(base_button.BaseButton):
 
     def _get_min_max_values(
         self,
-        table_name: str,
         column_name: str,
     ) -> tuple[float, float]:
-        """Get min and max values for numeric columns using pandas."""
-        col_vals = data_client.get_column_values(table_name, column_name)
-        min_value = float(col_vals.min()) if not col_vals.empty else 0.0
-        max_value = float(col_vals.max()) if not col_vals.empty else 1.0
+        """Get min and max values for a numeric column."""
+        col_vals = [v for v in self._column_values(column_name) if v is not None]
+        min_value = float(min(col_vals)) if col_vals else 0.0
+        max_value = float(max(col_vals)) if col_vals else 1.0
         return (min_value, max_value)
 
     def _handle_date_filtering(
@@ -120,7 +141,6 @@ class FilterButton(base_button.BaseButton):
     ) -> query.Filters | None:
         """Handle filtering for numeric columns."""
         default_min, default_max = self._get_min_max_values(
-            self._read_table,
             col_config.column_name,
         )
 
@@ -217,13 +237,7 @@ class FilterButton(base_button.BaseButton):
             elif col_config.input_widget == st.number_input:
                 col_config.filters = self._handle_numeric_filtering(col_config)
             elif (
-                unique_vals := set(
-                    data_client.get_column_values(
-                        self._read_table,
-                        col_config.column_name,
-                        unique=True,
-                    ),
-                )
+                unique_vals := self._column_values(col_config.column_name)
             ) and len(unique_vals) < constants.MAX_UNIQUE_VALUES:
                 col_config.filters = self._handle_multiselect_filtering(
                     col_config,

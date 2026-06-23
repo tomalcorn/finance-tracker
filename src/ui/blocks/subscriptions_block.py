@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import streamlit as st
 
+from composition import wiring
 from domain import entities
 from ui import data_client
 from ui.components.dfes import base_dfe
@@ -47,6 +48,7 @@ def _build_dfe(
                 write_table=_TABLE_NAME,
                 read_table=_VIEW_NAME,
             ),
+            data_source=wiring.subscription_data_source(),
             backend_model=entities.SubscriptionModel,
             configs=[
                 frontend_models.DFEColumnConfig(

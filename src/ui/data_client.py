@@ -16,7 +16,6 @@ from domain import entities
 from ui import cache, ss_keys
 
 if TYPE_CHECKING:
-    import pandas as pd
     import st_supabase_connection
 
     from ui.models import frontend_models
@@ -37,22 +36,6 @@ def get_data(
 def invalidate_table_cache(table_name: str) -> None:
     """Invalidate all cached reads for the given table."""
     cache.invalidate_table_cache(table_name)
-
-
-def get_column_values(
-    table_name: str,
-    column_name: str,
-    *,
-    unique: bool = False,
-    connection: "st_supabase_connection.SupabaseConnection | None" = None,
-) -> "pd.Series":
-    """Get all values in a column, delegating to the adapter layer."""
-    return client.get_column_values(
-        table_name,
-        column_name,
-        unique=unique,
-        connection=connection or cache.get_connection(),
-    )
 
 
 def commit(

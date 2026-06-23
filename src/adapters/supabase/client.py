@@ -2,7 +2,6 @@
 
 from typing import TYPE_CHECKING, cast
 
-import pandas as pd
 import pydantic
 
 from domain import entities
@@ -119,34 +118,3 @@ def update_backend(
         updates.deleted_rows.clear()
 
     return updates
-
-
-def get_column_values(
-    table_name: str,
-    column_name: str,
-    *,
-    unique: bool = False,
-    connection: "st_supabase_connection.SupabaseConnection",
-) -> pd.Series:
-    """Get all values in a column by executing a select query.
-
-    Args:
-        table_name: The name of the table to query.
-        column_name: The name of the column to retrieve values from.
-        unique: Whether to return only unique values.
-        connection: The Supabase connection to use.
-
-    Returns:
-        A pandas Series containing the column values.
-
-    """
-    query = connection.table(table_name).select(column_name)
-    response = _execute_query(query)
-    if not response:
-        return pd.Series()
-    all_col_values = pd.Series(
-        [row[column_name] for row in response if column_name in row],
-    ).dropna()
-    if unique:
-        return all_col_values.drop_duplicates().reset_index(drop=True)
-    return all_col_values.reset_index(drop=True)

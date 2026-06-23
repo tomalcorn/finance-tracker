@@ -3,6 +3,7 @@
 import pandas as pd
 import streamlit as st
 
+from composition import wiring
 from domain import entities
 from ui import data_client
 from ui.components.buttons import constants
@@ -29,6 +30,7 @@ def _build_dfe() -> base_dfe.DFE:
                 write_table=_TABLE_NAME,
                 read_table=_VIEW_NAME,
             ),
+            data_source=wiring.bank_account_data_source(),
             backend_model=entities.BankAccountModel,
             configs=[
                 frontend_models.DFEColumnConfig(

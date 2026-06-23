@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import streamlit as st
 
+from composition import wiring
 from domain import entities, query
 from ui import data_client
 from ui.components.buttons import constants
@@ -62,6 +63,8 @@ def _build_budget_tracker_dfe() -> base_dfe.DFE:
                 write_table=_BUDGET_TRACKER_TABLE,
                 read_table=_BUDGET_TRACKER_VIEW,
             ),
+            data_source=wiring.budget_tracker_data_source(),
+            read_via_repository=True,
             backend_model=entities.BudgetTrackerItemModel,
             configs=[
                 frontend_models.DFEReadOnlyColumnConfig(
@@ -151,6 +154,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> base_dfe.DFE:
                 write_table=_EXPENSE_SOURCES_TABLE,
                 read_table=_EXPENSE_SOURCES_VIEW,
             ),
+            data_source=wiring.expense_source_data_source(),
             backend_model=entities.ExpenseSourceModel,
             configs=[
                 frontend_models.DFEColumnConfig(
@@ -254,6 +258,7 @@ def _build_income_sources_dfe(
                 write_table=_INCOME_SOURCES_TABLE,
                 read_table=_INCOME_SOURCES_VIEW,
             ),
+            data_source=wiring.income_source_data_source(),
             backend_model=entities.IncomeSourceModel,
             configs=[
                 frontend_models.DFEColumnConfig(
