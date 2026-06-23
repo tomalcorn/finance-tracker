@@ -8,6 +8,8 @@ import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
+
+from domain import query
 from ui import data_client
 from ui.components.buttons import filter_button
 from ui.models import frontend_models
@@ -19,6 +21,8 @@ def _filter_button_dialog_wrapper() -> None:
 
     import pandas as pd
     import streamlit as st
+
+    from domain import query
     from ui import data_client
     from ui.components.buttons import filter_button
     from ui.models import frontend_models
@@ -32,13 +36,13 @@ def _filter_button_dialog_wrapper() -> None:
                 column_name="col1",
                 column_config={},
                 input_widget=st.text_input,
-                filters=frontend_models.Filters(contains="test"),
+                filters=query.Filters(contains="test"),
             ),
             frontend_models.DFEColumnConfigBase(
                 column_name="col2",
                 column_config={},
                 input_widget=st.number_input,
-                filters=frontend_models.Filters(gte=10, lte=100),
+                filters=query.Filters(gte=10, lte=100),
             ),
         ]
 
@@ -83,7 +87,7 @@ def test_current_css_style_with_filtering(
 ) -> None:
     """Test _current_css_style returns active style when filtering is applied."""
     # Arrange
-    col_configs[0].filters = frontend_models.Filters(contains="test")
+    col_configs[0].filters = query.Filters(contains="test")
     filter_button_instance = filter_button.FilterButton("test_table_1")
 
     # Act
@@ -206,7 +210,7 @@ class TestFilterHandling:
                 column_name="date_col",
                 column_config={},
                 input_widget=st.date_input,
-                filters=frontend_models.Filters(
+                filters=query.Filters(
                     gte=datetime.date(2023, 1, 1),
                     lte=datetime.date(2023, 1, 31),
                 ),
@@ -216,7 +220,7 @@ class TestFilterHandling:
             result = filter_button_instance._handle_date_filtering(date_col_config)
 
             # Assert
-            assert result == frontend_models.Filters(
+            assert result == query.Filters(
                 gte=datetime.date(2024, 1, 1),
                 lte=datetime.date(2024, 1, 31),
             )
@@ -274,7 +278,7 @@ class TestFilterHandling:
                 column_name="numeric_col",
                 column_config={},
                 input_widget=st.number_input,
-                filters=frontend_models.Filters(gte=10.0, lte=100.0),
+                filters=query.Filters(gte=10.0, lte=100.0),
             )
 
             # Act
@@ -283,7 +287,7 @@ class TestFilterHandling:
             )
 
             # Assert
-            assert result == frontend_models.Filters(gte=20.0, lte=80.0)
+            assert result == query.Filters(gte=20.0, lte=80.0)
 
     def test_handle_multiselect_filtering_no_filtering(
         self,
@@ -325,7 +329,7 @@ class TestFilterHandling:
                 column_name="select_col",
                 column_config={},
                 input_widget=st.multiselect,
-                filters=frontend_models.Filters(in_=["value2"]),
+                filters=query.Filters(in_=["value2"]),
             )
 
             # Act
@@ -335,7 +339,7 @@ class TestFilterHandling:
             )
 
             # Assert
-            assert result == frontend_models.Filters(in_=["value1", "value3"])
+            assert result == query.Filters(in_=["value1", "value3"])
 
     def test_generic_filtering_no_filtering(
         self,
@@ -372,7 +376,7 @@ class TestFilterHandling:
                 column_name="generic_col",
                 column_config={},
                 input_widget=st.text_input,
-                filters=frontend_models.Filters(contains="old_filter"),
+                filters=query.Filters(contains="old_filter"),
             )
 
             # Act
@@ -381,4 +385,4 @@ class TestFilterHandling:
             )
 
             # Assert
-            assert result == frontend_models.Filters(contains="new_filter")
+            assert result == query.Filters(contains="new_filter")

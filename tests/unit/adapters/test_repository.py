@@ -67,8 +67,8 @@ class TestFetchRows:
 
         # Act
         with mock.patch.object(
-            repository.data_client,
-            "get_data",
+            repository.client,
+            "fetch_table",
             return_value=[own_row, other_row],
         ):
             rows = repo._fetch_rows()
@@ -93,8 +93,8 @@ class TestFetchRows:
         # Act/Assert
         with (
             mock.patch.object(
-                repository.data_client,
-                "get_data",
+                repository.client,
+                "fetch_table",
                 side_effect=RuntimeError("network down"),
             ),
             pytest.raises(errors.AdapterError, match="Failed to fetch rows"),
@@ -117,8 +117,8 @@ class TestFetchById:
 
         # Act
         with mock.patch.object(
-            repository.data_client,
-            "get_data",
+            repository.client,
+            "fetch_table",
             return_value=[row],
         ):
             result = repo._fetch_by_id(bank_account_id)
@@ -135,7 +135,7 @@ class TestFetchById:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "get_data", return_value=[]):
+        with mock.patch.object(repository.client, "fetch_table", return_value=[]):
             result = repo._fetch_by_id(uuid.uuid4())
 
         # Assert
@@ -161,7 +161,7 @@ class TestFetchByIds:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo._fetch_by_ids([first_id, second_id])
 
         # Assert
@@ -189,7 +189,7 @@ class TestSaveOne:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "update_backend") as mock_update:
+        with mock.patch.object(repository.client, "update_backend") as mock_update:
             repo._save_one(row)
 
         # Assert
@@ -210,7 +210,7 @@ class TestSaveOne:
         # Act/Assert
         with (
             mock.patch.object(
-                repository.data_client,
+                repository.client,
                 "update_backend",
                 side_effect=RuntimeError("write failed"),
             ),
@@ -235,7 +235,7 @@ class TestSaveMany:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "update_backend") as mock_update:
+        with mock.patch.object(repository.client, "update_backend") as mock_update:
             repo._save_many(rows)
 
         # Assert
@@ -256,7 +256,7 @@ class TestSaveMany:
         # Act/Assert
         with (
             mock.patch.object(
-                repository.data_client,
+                repository.client,
                 "update_backend",
                 side_effect=RuntimeError("bulk write failed"),
             ),
@@ -278,7 +278,7 @@ class TestDeleteById:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "update_backend") as mock_update:
+        with mock.patch.object(repository.client, "update_backend") as mock_update:
             repo._delete_by_id(bank_account_id)
 
         # Assert
@@ -300,7 +300,7 @@ class TestDeleteById:
         # Act/Assert
         with (
             mock.patch.object(
-                repository.data_client,
+                repository.client,
                 "update_backend",
                 side_effect=RuntimeError("delete failed"),
             ),
@@ -325,7 +325,7 @@ class TestBankAccountRepository:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_all()
 
         # Assert
@@ -353,7 +353,7 @@ class TestBankAccountRepository:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "get_data", return_value=[row]):
+        with mock.patch.object(repository.client, "fetch_table", return_value=[row]):
             result = repo.get_by_id(bank_account_id)
 
         # Assert
@@ -374,7 +374,7 @@ class TestBankAccountRepository:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "get_data", return_value=[]):
+        with mock.patch.object(repository.client, "fetch_table", return_value=[]):
             result = repo.get_by_id(uuid.uuid4())
 
         # Assert
@@ -394,7 +394,7 @@ class TestBankAccountRepository:
         repo = _bank_account_repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "update_backend") as mock_update:
+        with mock.patch.object(repository.client, "update_backend") as mock_update:
             repo.save(account)
 
         # Assert
@@ -449,7 +449,7 @@ class TestBudgetTrackerRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_by_ids([first_id, second_id])
 
         # Assert
@@ -482,7 +482,7 @@ class TestBudgetTrackerRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "update_backend") as mock_update:
+        with mock.patch.object(repository.client, "update_backend") as mock_update:
             repo.save_many(items)
 
         # Assert
@@ -544,7 +544,7 @@ class TestSubscriptionRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_active()
 
         # Assert
@@ -617,7 +617,7 @@ class TestPaymentRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_all()
 
         # Assert
@@ -673,7 +673,7 @@ class TestPaymentRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_by_bank_account(target_account_id)
 
         # Assert
@@ -722,7 +722,7 @@ class TestPaymentRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "get_data", return_value=rows):
+        with mock.patch.object(repository.client, "fetch_table", return_value=rows):
             result = repo.get_by_subscription(target_subscription_id)
 
         # Assert
@@ -760,7 +760,7 @@ class TestPaymentRepository:
         repo = self._repo(mock_connection, user_id)
 
         # Act
-        with mock.patch.object(repository.data_client, "update_backend") as mock_update:
+        with mock.patch.object(repository.client, "update_backend") as mock_update:
             repo.save_many(payments)
 
         # Assert

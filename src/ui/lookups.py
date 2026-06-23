@@ -3,9 +3,12 @@
 Used to populate selectbox options and render labels.
 """
 
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from ui import data_client
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def get_id_name_map(table_name: str) -> dict[str, str]:
@@ -17,7 +20,7 @@ def get_id_name_map(table_name: str) -> dict[str, str]:
 def make_name_formatter(
     id_name_map: dict[str, str],
     fallback: str = "Unknown",
-) -> Callable[[str | float | None], str]:
+) -> "Callable[[str | float | None], str]":
     """Build a format_func that looks up a name, falling back gracefully."""
 
     def _format(item_id: str | float | None) -> str:

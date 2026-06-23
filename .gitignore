@@ -198,3 +198,4 @@ cython_debug/
 .vscode
 shell_variables.sh
 curl_commands.sh
+.claude

@@ -1,29 +1,26 @@
 """Concrete Supabase implementations of the repository ports.
 
-Each class wraps data_client calls and translates low-level exceptions
+Each class wraps client calls and translates low-level exceptions
 into AdapterError so the use-case layer never sees Supabase internals.
 
-Imports of data_client and st_supabase_connection are intentionally
+Imports of client and st_supabase_connection are intentionally
 confined to this file (and adapters/supabase/ generally).
 """
 
-import uuid
+from typing import TYPE_CHECKING
 
 import pydantic
-import st_supabase_connection
 
+from adapters import cache as cache_mod
 from adapters import errors
-from adapters.supabase import table_names
+from adapters.supabase import client, table_names
 from domain import entities
 from ports import repository
-from ui import data_client
-from ui.components.dfes import constants as dfe_constants
 
-_PAYMENT_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.PAYMENTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
-]
+if TYPE_CHECKING:
+    import uuid
+
+    import st_supabase_connection
 
 # TypeAdapter for deserialising payment rows into the correct subtype
 # using the payment_type discriminator field.
@@ -46,10 +43,11 @@ class SupabaseRepositoryBase:
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
         read_table: table_names.ViewNames | table_names.TableNames,
         write_table: table_names.TableNames,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection, user scope, and table names.
 
@@ -61,29 +59,37 @@ class SupabaseRepositoryBase:
                 preferred where they exist as they include computed fields.
             write_table: The raw table to target for inserts, updates, and
                 deletes. Must not be a view.
+            cache: A CacheGateway that owns both cached reads and
+                write-with-invalidation, injected from the composition layer.
+                When omitted (e.g. in unit tests) reads and writes go directly
+                to the Supabase client, uncached.
 
         """
         self._conn = connection
         self._user_id = user_id
         self._read_table = read_table
         self._write_table = write_table
+        self._cache = cache
 
     def _fetch_rows(self) -> list[dict]:
         """Fetch all rows for the current user from the read table.
 
         Raises:
-            AdapterError: If the underlying data_client call fails for
+            AdapterError: If the underlying client call fails for
                 any reason (network, Supabase HTTP error, etc.).
 
         """
         try:
-            rows = data_client.get_data(self._read_table, "*", _connection=self._conn)
+            if self._cache is not None:
+                rows = self._cache.fetch(self._read_table)
+            else:
+                rows = client.fetch_table(self._read_table, "*", [], self._conn)
             return [r for r in rows if r["user_id"] == self._user_id]
         except Exception as e:
             msg = f"Failed to fetch rows from {self._read_table}: {e}"
             raise errors.AdapterError(msg) from e
 
-    def _fetch_by_id(self, row_id: uuid.UUID) -> dict | None:
+    def _fetch_by_id(self, row_id: "uuid.UUID") -> dict | None:
         """Fetch a single row by ID, or return None if not found.
 
         Filters in Python over the cached result of _fetch_rows, so this
@@ -97,7 +103,7 @@ class SupabaseRepositoryBase:
         matches = [r for r in rows if r["id"] == str(row_id)]
         return matches[0] if matches else None
 
-    def _fetch_by_ids(self, row_ids: list[uuid.UUID]) -> list[dict]:
+    def _fetch_by_ids(self, row_ids: list["uuid.UUID"]) -> list[dict]:
         """Fetch multiple rows by ID.
 
         Filters in Python over the cached result of _fetch_rows. Order of
@@ -111,6 +117,36 @@ class SupabaseRepositoryBase:
         rows = self._fetch_rows()
         return [r for r in rows if r["id"] in id_strs]
 
+    def _write(self, updates: entities.BackendUpdates, error_context: str) -> None:
+        """Apply updates to the write table, routing through the cache if present.
+
+        The single funnel for every write. When a CacheGateway is injected the
+        write goes through it, so the matching cached reads are invalidated in
+        the same call; otherwise it falls back to a direct client write (used
+        in tests and by not-yet-migrated repositories).
+
+        Args:
+            updates: The inserts/edits/deletes to apply.
+            error_context: Human-readable prefix for the AdapterError raised on
+                failure (e.g. "Failed to save row to payments").
+
+        Raises:
+            AdapterError: If the underlying write fails.
+
+        """
+        try:
+            if self._cache is not None:
+                self._cache.write(self._write_table, updates)
+            else:
+                client.update_backend(
+                    self._write_table,
+                    updates,
+                    connection=self._conn,
+                )
+        except Exception as e:
+            msg = f"{error_context}: {e}"
+            raise errors.AdapterError(msg) from e
+
     def _save_one(self, row: dict) -> None:
         """Insert or update a single row in the write table.
 
@@ -118,19 +154,13 @@ class SupabaseRepositoryBase:
         ON CONFLICT DO UPDATE policy on the id column.
 
         Raises:
-            AdapterError: If the update_backend call fails.
+            AdapterError: If the write fails.
 
         """
-        try:
-            updates = entities.BackendUpdates(added_rows=[row])
-            data_client.update_backend(
-                self._write_table,
-                updates,
-                connection=self._conn,
-            )
-        except Exception as e:
-            msg = f"Failed to save row to {self._write_table}: {e}"
-            raise errors.AdapterError(msg) from e
+        self._write(
+            entities.BackendUpdates(added_rows=[row]),
+            f"Failed to save row to {self._write_table}",
+        )
 
     def _save_many(self, rows: list[dict]) -> None:
         """Insert multiple rows in a single batch operation.
@@ -139,40 +169,29 @@ class SupabaseRepositoryBase:
         semantics if any rows already exist.
 
         Raises:
-            AdapterError: If the update_backend call fails.
+            AdapterError: If the write fails.
 
         """
-        try:
-            updates = entities.BackendUpdates(added_rows=rows)
-            data_client.update_backend(
-                self._write_table,
-                updates,
-                connection=self._conn,
-            )
-        except Exception as e:
-            msg = f"Failed to bulk-save rows to {self._write_table}: {e}"
-            raise errors.AdapterError(msg) from e
+        self._write(
+            entities.BackendUpdates(added_rows=rows),
+            f"Failed to bulk-save rows to {self._write_table}",
+        )
 
-    def _delete_by_id(self, row_id: uuid.UUID) -> None:
+    def _delete_by_id(self, row_id: "uuid.UUID") -> None:
         """Delete a single row by ID from the write table.
 
-        Also invalidates the data_client cache for the write table via
-        update_backend's post-write cache busting.
-
         Raises:
-            AdapterError: If the update_backend call fails.
+            AdapterError: If the write fails.
 
         """
-        try:
-            updates = entities.BackendUpdates(deleted_rows=[str(row_id)])
-            data_client.update_backend(
-                self._write_table,
-                updates,
-                connection=self._conn,
-            )
-        except Exception as e:
-            msg = f"Failed to delete row {row_id} from {self._write_table}: {e}"
-            raise errors.AdapterError(msg) from e
+        self._write(
+            entities.BackendUpdates(deleted_rows=[str(row_id)]),
+            f"Failed to delete row {row_id} from {self._write_table}",
+        )
+
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return a set of unique column values for a column."""
+        return {row[column_name] for row in self._fetch_rows() if column_name in row}
 
 
 class SupabaseBankAccountRepository(
@@ -183,8 +202,9 @@ class SupabaseBankAccountRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -192,13 +212,14 @@ class SupabaseBankAccountRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.BANK_ACCOUNTS,
             write_table=table_names.TableNames.BANK_ACCOUNTS,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.BankAccountModel]:
         """Return all bank accounts for the current user."""
         return [entities.BankAccountModel.model_validate(r) for r in self._fetch_rows()]
 
-    def get_by_id(self, account_id: uuid.UUID) -> entities.BankAccountModel | None:
+    def get_by_id(self, account_id: "uuid.UUID") -> entities.BankAccountModel | None:
         """Return a single bank account by ID, or None if not found."""
         row = self._fetch_by_id(account_id)
         return entities.BankAccountModel.model_validate(row) if row else None
@@ -207,7 +228,7 @@ class SupabaseBankAccountRepository(
         """Insert or update a bank account record."""
         self._save_one(account.model_dump(mode="json"))
 
-    def delete(self, account_id: uuid.UUID) -> None:
+    def delete(self, account_id: "uuid.UUID") -> None:
         """Delete a bank account by ID."""
         self._delete_by_id(account_id)
 
@@ -225,8 +246,9 @@ class SupabaseBudgetTrackerRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -234,6 +256,7 @@ class SupabaseBudgetTrackerRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.BUDGET_TRACKER,
             write_table=table_names.TableNames.BUDGET_TRACKER,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.BudgetTrackerItemModel]:
@@ -243,14 +266,14 @@ class SupabaseBudgetTrackerRepository(
             for r in self._fetch_rows()
         ]
 
-    def get_by_id(self, item_id: uuid.UUID) -> entities.BudgetTrackerItemModel | None:
+    def get_by_id(self, item_id: "uuid.UUID") -> entities.BudgetTrackerItemModel | None:
         """Return a single budget tracker item by ID, or None if not found."""
         row = self._fetch_by_id(item_id)
         return entities.BudgetTrackerItemModel.model_validate(row) if row else None
 
     def get_by_ids(
         self,
-        item_ids: list[uuid.UUID],
+        item_ids: list["uuid.UUID"],
     ) -> list[entities.BudgetTrackerItemModel]:
         """Return budget tracker items matching the given IDs."""
         return [
@@ -270,7 +293,7 @@ class SupabaseBudgetTrackerRepository(
         """
         self._save_many([i.model_dump(mode="json") for i in items])
 
-    def delete(self, item_id: uuid.UUID) -> None:
+    def delete(self, item_id: "uuid.UUID") -> None:
         """Delete a budget tracker item by ID."""
         self._delete_by_id(item_id)
 
@@ -288,8 +311,9 @@ class SupabaseExpenseSourceRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -297,6 +321,7 @@ class SupabaseExpenseSourceRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.EXPENSE_SOURCES,
             write_table=table_names.TableNames.EXPENSE_SOURCES,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.ExpenseSourceModel]:
@@ -305,7 +330,7 @@ class SupabaseExpenseSourceRepository(
             entities.ExpenseSourceModel.model_validate(r) for r in self._fetch_rows()
         ]
 
-    def get_by_id(self, source_id: uuid.UUID) -> entities.ExpenseSourceModel | None:
+    def get_by_id(self, source_id: "uuid.UUID") -> entities.ExpenseSourceModel | None:
         """Return a single expense source by ID, or None if not found."""
         row = self._fetch_by_id(source_id)
         return entities.ExpenseSourceModel.model_validate(row) if row else None
@@ -314,7 +339,7 @@ class SupabaseExpenseSourceRepository(
         """Insert or update an expense source record."""
         self._save_one(source.model_dump(mode="json"))
 
-    def delete(self, source_id: uuid.UUID) -> None:
+    def delete(self, source_id: "uuid.UUID") -> None:
         """Delete an expense source by ID."""
         self._delete_by_id(source_id)
 
@@ -332,8 +357,9 @@ class SupabaseIncomeSourceRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -341,6 +367,7 @@ class SupabaseIncomeSourceRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.INCOME_SOURCES,
             write_table=table_names.TableNames.INCOME_SOURCES,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.IncomeSourceModel]:
@@ -349,7 +376,7 @@ class SupabaseIncomeSourceRepository(
             entities.IncomeSourceModel.model_validate(r) for r in self._fetch_rows()
         ]
 
-    def get_by_id(self, source_id: uuid.UUID) -> entities.IncomeSourceModel | None:
+    def get_by_id(self, source_id: "uuid.UUID") -> entities.IncomeSourceModel | None:
         """Return a single income source by ID, or None if not found."""
         row = self._fetch_by_id(source_id)
         return entities.IncomeSourceModel.model_validate(row) if row else None
@@ -358,7 +385,7 @@ class SupabaseIncomeSourceRepository(
         """Insert or update an income source record."""
         self._save_one(source.model_dump(mode="json"))
 
-    def delete(self, source_id: uuid.UUID) -> None:
+    def delete(self, source_id: "uuid.UUID") -> None:
         """Delete an income source by ID."""
         self._delete_by_id(source_id)
 
@@ -376,8 +403,9 @@ class SupabaseOneOffRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -385,18 +413,19 @@ class SupabaseOneOffRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.ONE_OFFS,
             write_table=table_names.TableNames.ONE_OFFS,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.OneOffItemModel]:
         """Return all one-off items for the current user."""
         return [entities.OneOffItemModel.model_validate(r) for r in self._fetch_rows()]
 
-    def get_by_id(self, item_id: uuid.UUID) -> entities.OneOffItemModel | None:
+    def get_by_id(self, item_id: "uuid.UUID") -> entities.OneOffItemModel | None:
         """Return a single one-off item by ID, or None if not found."""
         row = self._fetch_by_id(item_id)
         return entities.OneOffItemModel.model_validate(row) if row else None
 
-    def get_by_ids(self, item_ids: list[uuid.UUID]) -> list[entities.OneOffItemModel]:
+    def get_by_ids(self, item_ids: list["uuid.UUID"]) -> list[entities.OneOffItemModel]:
         """Return one-off items matching the given IDs.
 
         Used by BankOneOffsUseCase to load only the items selected by the user.
@@ -410,7 +439,7 @@ class SupabaseOneOffRepository(
         """Insert or update a one-off item record."""
         self._save_one(item.model_dump(mode="json"))
 
-    def delete(self, item_id: uuid.UUID) -> None:
+    def delete(self, item_id: "uuid.UUID") -> None:
         """Delete a one-off item by ID."""
         self._delete_by_id(item_id)
 
@@ -428,8 +457,9 @@ class SupabaseSubscriptionRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -437,6 +467,7 @@ class SupabaseSubscriptionRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.SUBSCRIPTIONS,
             write_table=table_names.TableNames.SUBSCRIPTIONS,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.SubscriptionModel]:
@@ -455,7 +486,7 @@ class SupabaseSubscriptionRepository(
 
     def get_by_id(
         self,
-        subscription_id: uuid.UUID,
+        subscription_id: "uuid.UUID",
     ) -> entities.SubscriptionModel | None:
         """Return a single subscription by ID, or None if not found."""
         row = self._fetch_by_id(subscription_id)
@@ -465,7 +496,7 @@ class SupabaseSubscriptionRepository(
         """Insert or update a subscription record."""
         self._save_one(subscription.model_dump(mode="json"))
 
-    def delete(self, subscription_id: uuid.UUID) -> None:
+    def delete(self, subscription_id: "uuid.UUID") -> None:
         """Delete a subscription by ID."""
         self._delete_by_id(subscription_id)
 
@@ -488,8 +519,9 @@ class SupabasePaymentRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -497,6 +529,7 @@ class SupabasePaymentRepository(
             user_id=user_id,
             read_table=table_names.TableNames.PAYMENTS,
             write_table=table_names.TableNames.PAYMENTS,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.AnyPaymentModel]:
@@ -505,7 +538,7 @@ class SupabasePaymentRepository(
 
     def get_by_bank_account(
         self,
-        bank_account_id: uuid.UUID,
+        bank_account_id: "uuid.UUID",
     ) -> list[entities.AnyPaymentModel]:
         """Return all payments associated with a specific bank account.
 
@@ -521,7 +554,7 @@ class SupabasePaymentRepository(
 
     def get_by_subscription(
         self,
-        subscription_id: uuid.UUID,
+        subscription_id: "uuid.UUID",
     ) -> list[entities.AnyPaymentModel]:
         """Return all payments generated from a specific subscription.
 
@@ -554,17 +587,11 @@ class SupabasePaymentRepository(
             and not updates.edited_rows
         ):
             return
-        try:
-            data_client.update_backend(
-                self._write_table,
-                updates,
-                tables_to_clear=_PAYMENT_TABLES_TO_CLEAR,
-                connection=self._conn,
-            )
-        except Exception as e:
-            msg = f"Failed to apply payment updates to {self._write_table}: {e}"
-            raise errors.AdapterError(msg) from e
+        self._write(
+            updates,
+            f"Failed to apply payment updates to {self._write_table}",
+        )
 
-    def delete(self, payment_id: uuid.UUID) -> None:
+    def delete(self, payment_id: "uuid.UUID") -> None:
         """Delete a payment by ID."""
         self._delete_by_id(payment_id)

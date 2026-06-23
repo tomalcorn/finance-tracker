@@ -9,7 +9,9 @@ import streamlit as st
 from domain import entities
 from ui import auth, data_client, ss_keys
 from ui.components.buttons import base_button, constants
-from ui.models import frontend_models
+
+if typing.TYPE_CHECKING:
+    from ui.models import frontend_models
 
 
 class AddButton(base_button.BaseButton):
@@ -19,7 +21,6 @@ class AddButton(base_button.BaseButton):
         self,
         table_name: str,
         backend_model: type[pydantic.BaseModel],
-        tables_to_clear: list | None = None,
         key_prefix: str | None = None,
         extra_row_values: dict[str, Any] | None = None,
     ) -> None:
@@ -27,7 +28,6 @@ class AddButton(base_button.BaseButton):
         self._table_name = table_name
         self._key_prefix = key_prefix or table_name
         self._backend_model = backend_model
-        self._tables_to_clear = tables_to_clear
         self._extra_row_values = extra_row_values or {}
 
     @property
@@ -62,13 +62,12 @@ class AddButton(base_button.BaseButton):
                     deleted_rows=[],
                     edited_rows={},
                 ),
-                tables_to_clear=self._tables_to_clear,
             )
 
     @st.dialog("Add Row")
     def _add_button_dialog(
         self,
-        col_configs: list[frontend_models.DFEColumnConfig],
+        col_configs: list["frontend_models.DFEColumnConfig"],
     ) -> None:
         """Render the 'Add' button dialog."""
         display_name = self._key_prefix.replace("_", " ").title()
@@ -96,13 +95,12 @@ class AddButton(base_button.BaseButton):
                 for col, output in zip(col_configs, outputs, strict=False)
             }
             self._submit_new_row(new_row)
-            data_client.invalidate_table_cache(self._table_name)
             self.new_data_added = True
             st.rerun()
 
     @staticmethod
     def _has_unfilled_required(
-        col_configs: list[frontend_models.DFEColumnConfig],
+        col_configs: list["frontend_models.DFEColumnConfig"],
         outputs: list[object],
     ) -> bool:
         """Check whether any required column has an unfilled output."""
@@ -112,7 +110,7 @@ class AddButton(base_button.BaseButton):
             if col.required
         )
 
-    def __call__(self, col_configs: list[frontend_models.DFEColumnConfig]) -> bool:
+    def __call__(self, col_configs: list["frontend_models.DFEColumnConfig"]) -> bool:
         """Render the 'Add' button in the UI.
 
         Returns:

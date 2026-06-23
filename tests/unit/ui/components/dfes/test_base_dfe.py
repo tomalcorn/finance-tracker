@@ -6,6 +6,7 @@ import pandas as pd
 import pydantic
 import pytest
 import streamlit as st
+
 from ui import data_client, ss_keys
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models

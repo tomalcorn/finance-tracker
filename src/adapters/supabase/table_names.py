@@ -32,3 +32,29 @@ class ViewNames(enum.StrEnum):
     ONE_OFFS = "one_offs_view"
     INCOME_SOURCES = "income_sources_view"
     SUBSCRIPTIONS = "subscriptions_view"
+
+
+VIEWS_AFFECTED_BY: dict[TableNames, list[ViewNames]] = {
+    TableNames.PAYMENTS: [
+        ViewNames.BANK_ACCOUNTS,
+        ViewNames.EXPENSE_SOURCES,
+        ViewNames.INCOME_SOURCES,
+        ViewNames.BUDGET_TRACKER,
+    ],
+    TableNames.BANK_ACCOUNTS: [ViewNames.BANK_ACCOUNTS],
+    TableNames.EXPENSE_SOURCES: [
+        ViewNames.EXPENSE_SOURCES,
+        ViewNames.BUDGET_TRACKER,
+    ],
+    TableNames.INCOME_SOURCES: [
+        ViewNames.INCOME_SOURCES,
+        ViewNames.BUDGET_TRACKER,
+    ],
+    TableNames.SUBSCRIPTIONS: [ViewNames.SUBSCRIPTIONS],
+    TableNames.ONE_OFFS: [ViewNames.ONE_OFFS],
+    TableNames.BUDGET_TRACKER: [
+        ViewNames.ONE_OFFS,
+        ViewNames.EXPENSE_SOURCES,
+        ViewNames.BUDGET_TRACKER,
+    ],
+}

@@ -4,14 +4,16 @@ import collections
 import functools
 import pathlib
 import re
-from typing import Annotated, cast
+from typing import TYPE_CHECKING, Annotated, cast
 
 import pydantic
 import streamlit as st
 import yaml
-from streamlit.navigation import page as st_page
 
 from ui.pages import errors
+
+if TYPE_CHECKING:
+    from streamlit.navigation import page as st_page
 
 DOCS_DIR = pathlib.Path(__file__).resolve().parents[2] / "docs"
 
@@ -207,7 +209,7 @@ class DocsUI:
         """Construct the DocsUI."""
         self.registry = registry
 
-    def _to_streamlit_page(self, doc: MarkdownPage) -> st_page.StreamlitPage:
+    def _to_streamlit_page(self, doc: MarkdownPage) -> "st_page.StreamlitPage":
         def _render() -> None:
             # Translate unexpected render-time exceptions into adapter errors.
             try:
@@ -222,6 +224,6 @@ class DocsUI:
             url_path=doc.slug,
         )
 
-    def build_pages(self) -> list[st_page.StreamlitPage]:
+    def build_pages(self) -> list["st_page.StreamlitPage"]:
         """Build the StreamlitPage items for all registered docs."""
         return [self._to_streamlit_page(page) for page in self.registry.pages]
