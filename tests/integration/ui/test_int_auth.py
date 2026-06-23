@@ -5,7 +5,7 @@ import typing
 import pytest
 import st_supabase_connection
 
-from ui import data_client
+from ui import cache
 
 _ZERO_UUID = "00000000-0000-0000-0000-000000000000"
 _HIDDEN_NAMES = {"Joint", "One-offs", "Savings"}
@@ -24,7 +24,7 @@ def _clean_seed_tables(
     def _wipe() -> None:
         connection.table("expense_sources").delete().neq("id", _ZERO_UUID).execute()
         connection.table("budget_tracker").delete().neq("id", _ZERO_UUID).execute()
-        data_client._get_data_cached.clear()
+        cache._get_data_cached.clear()
 
     _wipe()
     yield

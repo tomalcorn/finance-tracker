@@ -7,28 +7,24 @@ Imports of client and st_supabase_connection are intentionally
 confined to this file (and adapters/supabase/ generally).
 """
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import pydantic
-import st_supabase_connection
 
+from adapters import cache as cache_mod
 from adapters import errors
 from adapters.supabase import client, table_names
-from domain import entities, query
+from domain import entities
 from ports import repository
 
 if TYPE_CHECKING:
     import uuid
 
+    import st_supabase_connection
+
 # TypeAdapter for deserialising payment rows into the correct subtype
 # using the payment_type discriminator field.
 _PaymentAdapter = pydantic.TypeAdapter(entities.AnyPaymentModel)
-
-FetchRowsFn = Callable[
-    [str, str, list[query.ColumnQuery], st_supabase_connection.SupabaseConnection],
-    list[dict],
-]
 
 
 def _parse_payment(row: dict) -> entities.AnyPaymentModel:
@@ -47,11 +43,11 @@ class SupabaseRepositoryBase:
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
         read_table: table_names.ViewNames | table_names.TableNames,
         write_table: table_names.TableNames,
-        fetch_rows: FetchRowsFn | None = None,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection, user scope, and table names.
 
@@ -63,15 +59,17 @@ class SupabaseRepositoryBase:
                 preferred where they exist as they include computed fields.
             write_table: The raw table to target for inserts, updates, and
                 deletes. Must not be a view.
-            fetch_rows: callable which fetches rows from table. Allows to inject
-                cacheing wrapper from ui layer.
+            cache: A CacheGateway that owns both cached reads and
+                write-with-invalidation, injected from the composition layer.
+                When omitted (e.g. in unit tests) reads and writes go directly
+                to the Supabase client, uncached.
 
         """
         self._conn = connection
         self._user_id = user_id
         self._read_table = read_table
         self._write_table = write_table
-        self._fetch_rows_impl = fetch_rows
+        self._cache = cache
 
     def _fetch_rows(self) -> list[dict]:
         """Fetch all rows for the current user from the read table.
@@ -81,9 +79,11 @@ class SupabaseRepositoryBase:
                 any reason (network, Supabase HTTP error, etc.).
 
         """
-        fetch_rows = self._fetch_rows_impl or client.fetch_table
         try:
-            rows = fetch_rows(self._read_table, "*", [], self._conn)
+            if self._cache is not None:
+                rows = self._cache.fetch(self._read_table)
+            else:
+                rows = client.fetch_table(self._read_table, "*", [], self._conn)
             return [r for r in rows if r["user_id"] == self._user_id]
         except Exception as e:
             msg = f"Failed to fetch rows from {self._read_table}: {e}"
@@ -117,6 +117,36 @@ class SupabaseRepositoryBase:
         rows = self._fetch_rows()
         return [r for r in rows if r["id"] in id_strs]
 
+    def _write(self, updates: entities.BackendUpdates, error_context: str) -> None:
+        """Apply updates to the write table, routing through the cache if present.
+
+        The single funnel for every write. When a CacheGateway is injected the
+        write goes through it, so the matching cached reads are invalidated in
+        the same call; otherwise it falls back to a direct client write (used
+        in tests and by not-yet-migrated repositories).
+
+        Args:
+            updates: The inserts/edits/deletes to apply.
+            error_context: Human-readable prefix for the AdapterError raised on
+                failure (e.g. "Failed to save row to payments").
+
+        Raises:
+            AdapterError: If the underlying write fails.
+
+        """
+        try:
+            if self._cache is not None:
+                self._cache.write(self._write_table, updates)
+            else:
+                client.update_backend(
+                    self._write_table,
+                    updates,
+                    connection=self._conn,
+                )
+        except Exception as e:
+            msg = f"{error_context}: {e}"
+            raise errors.AdapterError(msg) from e
+
     def _save_one(self, row: dict) -> None:
         """Insert or update a single row in the write table.
 
@@ -124,19 +154,13 @@ class SupabaseRepositoryBase:
         ON CONFLICT DO UPDATE policy on the id column.
 
         Raises:
-            AdapterError: If the update_backend call fails.
+            AdapterError: If the write fails.
 
         """
-        try:
-            updates = entities.BackendUpdates(added_rows=[row])
-            client.update_backend(
-                self._write_table,
-                updates,
-                connection=self._conn,
-            )
-        except Exception as e:
-            msg = f"Failed to save row to {self._write_table}: {e}"
-            raise errors.AdapterError(msg) from e
+        self._write(
+            entities.BackendUpdates(added_rows=[row]),
+            f"Failed to save row to {self._write_table}",
+        )
 
     def _save_many(self, rows: list[dict]) -> None:
         """Insert multiple rows in a single batch operation.
@@ -145,37 +169,25 @@ class SupabaseRepositoryBase:
         semantics if any rows already exist.
 
         Raises:
-            AdapterError: If the update_backend call fails.
+            AdapterError: If the write fails.
 
         """
-        try:
-            updates = entities.BackendUpdates(added_rows=rows)
-            client.update_backend(
-                self._write_table,
-                updates,
-                connection=self._conn,
-            )
-        except Exception as e:
-            msg = f"Failed to bulk-save rows to {self._write_table}: {e}"
-            raise errors.AdapterError(msg) from e
+        self._write(
+            entities.BackendUpdates(added_rows=rows),
+            f"Failed to bulk-save rows to {self._write_table}",
+        )
 
     def _delete_by_id(self, row_id: "uuid.UUID") -> None:
         """Delete a single row by ID from the write table.
 
         Raises:
-            AdapterError: If the update_backend call fails.
+            AdapterError: If the write fails.
 
         """
-        try:
-            updates = entities.BackendUpdates(deleted_rows=[str(row_id)])
-            client.update_backend(
-                self._write_table,
-                updates,
-                connection=self._conn,
-            )
-        except Exception as e:
-            msg = f"Failed to delete row {row_id} from {self._write_table}: {e}"
-            raise errors.AdapterError(msg) from e
+        self._write(
+            entities.BackendUpdates(deleted_rows=[str(row_id)]),
+            f"Failed to delete row {row_id} from {self._write_table}",
+        )
 
     def get_column_values(self, column_name: str) -> set[object]:
         """Return a set of unique column values for a column."""
@@ -190,9 +202,9 @@ class SupabaseBankAccountRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
-        fetch_rows: FetchRowsFn | None = None,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -200,7 +212,7 @@ class SupabaseBankAccountRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.BANK_ACCOUNTS,
             write_table=table_names.TableNames.BANK_ACCOUNTS,
-            fetch_rows=fetch_rows,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.BankAccountModel]:
@@ -234,9 +246,9 @@ class SupabaseBudgetTrackerRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
-        fetch_rows: FetchRowsFn | None = None,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -244,7 +256,7 @@ class SupabaseBudgetTrackerRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.BUDGET_TRACKER,
             write_table=table_names.TableNames.BUDGET_TRACKER,
-            fetch_rows=fetch_rows,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.BudgetTrackerItemModel]:
@@ -299,9 +311,9 @@ class SupabaseExpenseSourceRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
-        fetch_rows: FetchRowsFn | None = None,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -309,7 +321,7 @@ class SupabaseExpenseSourceRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.EXPENSE_SOURCES,
             write_table=table_names.TableNames.EXPENSE_SOURCES,
-            fetch_rows=fetch_rows,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.ExpenseSourceModel]:
@@ -345,9 +357,9 @@ class SupabaseIncomeSourceRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
-        fetch_rows: FetchRowsFn | None = None,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -355,7 +367,7 @@ class SupabaseIncomeSourceRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.INCOME_SOURCES,
             write_table=table_names.TableNames.INCOME_SOURCES,
-            fetch_rows=fetch_rows,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.IncomeSourceModel]:
@@ -391,9 +403,9 @@ class SupabaseOneOffRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
-        fetch_rows: FetchRowsFn | None = None,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -401,7 +413,7 @@ class SupabaseOneOffRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.ONE_OFFS,
             write_table=table_names.TableNames.ONE_OFFS,
-            fetch_rows=fetch_rows,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.OneOffItemModel]:
@@ -445,9 +457,9 @@ class SupabaseSubscriptionRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
-        fetch_rows: FetchRowsFn | None = None,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -455,7 +467,7 @@ class SupabaseSubscriptionRepository(
             user_id=user_id,
             read_table=table_names.ViewNames.SUBSCRIPTIONS,
             write_table=table_names.TableNames.SUBSCRIPTIONS,
-            fetch_rows=fetch_rows,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.SubscriptionModel]:
@@ -507,9 +519,9 @@ class SupabasePaymentRepository(
 
     def __init__(
         self,
-        connection: st_supabase_connection.SupabaseConnection,
+        connection: "st_supabase_connection.SupabaseConnection",
         user_id: str,
-        fetch_rows: FetchRowsFn | None = None,
+        cache: cache_mod.CacheGateway | None = None,
     ) -> None:
         """Initialise with a Supabase connection and user scope."""
         super().__init__(
@@ -517,7 +529,7 @@ class SupabasePaymentRepository(
             user_id=user_id,
             read_table=table_names.TableNames.PAYMENTS,
             write_table=table_names.TableNames.PAYMENTS,
-            fetch_rows=fetch_rows,
+            cache=cache,
         )
 
     def get_all(self) -> list[entities.AnyPaymentModel]:
@@ -575,15 +587,10 @@ class SupabasePaymentRepository(
             and not updates.edited_rows
         ):
             return
-        try:
-            client.update_backend(
-                self._write_table,
-                updates,
-                connection=self._conn,
-            )
-        except Exception as e:
-            msg = f"Failed to apply payment updates to {self._write_table}: {e}"
-            raise errors.AdapterError(msg) from e
+        self._write(
+            updates,
+            f"Failed to apply payment updates to {self._write_table}",
+        )
 
     def delete(self, payment_id: "uuid.UUID") -> None:
         """Delete a payment by ID."""
