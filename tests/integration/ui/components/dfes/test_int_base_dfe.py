@@ -6,6 +6,8 @@ import pandas as pd
 import pydantic
 import pytest
 import streamlit as st
+
+from domain import query
 from ui import data_client, ss_keys
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
@@ -256,7 +258,7 @@ class TestDFESync:
                 column_name="value",
                 column_config={},
                 input_widget=st.number_input,
-                filters=frontend_models.Filters(gte=100, lte=500),
+                filters=query.Filters(gte=100, lte=500),
             ),
         ]
         dfe = base_dfe.DFE(
@@ -306,7 +308,7 @@ class TestDFESync:
                 column_name="value",
                 column_config={},
                 input_widget=st.number_input,
-                filters=frontend_models.Filters(gte=100, lte=500),
+                filters=query.Filters(gte=100, lte=500),
             ),
         ]
         dfe = base_dfe.DFE(

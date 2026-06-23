@@ -1,33 +1,22 @@
 """Payments block for the finance tracker app."""
 
 import datetime
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import streamlit as st
 
-from domain import entities
+from domain import entities, query
 from ui import data_client, lookups
 from ui.components.buttons import constants
 from ui.components.dfes import base_dfe
-from ui.components.dfes import constants as dfe_constants
 from ui.models import frontend_models
 
-_TABLE_NAME = dfe_constants.TableNames.PAYMENTS.value
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+_TABLE_NAME = "payments"
 _INCOME_KEY_PREFIX = "income_entries"
-_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.PAYMENTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-    dfe_constants.TableNames.EXPENSE_SOURCES,
-    dfe_constants.TableNames.EXPENSE_SOURCES_VIEW,
-    dfe_constants.TableNames.ONE_OFFS,
-    dfe_constants.TableNames.ONE_OFFS_VIEW,
-    dfe_constants.TableNames.INCOME_SOURCES,
-    dfe_constants.TableNames.INCOME_SOURCES_VIEW,
-    dfe_constants.TableNames.BUDGET_TRACKER,
-    dfe_constants.TableNames.BUDGET_TRACKER_VIEW,
-]
 
 _EXPENSE_PAYMENTS_SAMPLE_DATA = pd.DataFrame(
     {
@@ -56,9 +45,9 @@ _INCOME_ENTRIES_SAMPLE_DATA = pd.DataFrame(
 
 def _build_expense_dfe(
     bank_account_ids: list[str],
-    get_bank_account_name: Callable,
+    get_bank_account_name: "Callable",
     expense_source_ids: list[str],
-    get_expense_source_name: Callable,
+    get_expense_source_name: "Callable",
 ) -> base_dfe.DFE:
     """Build the DFE for expense payments."""
     return base_dfe.DFE(
@@ -86,8 +75,8 @@ def _build_expense_dfe(
                     ),
                     button_label="Payment Date",
                     input_widget=st.date_input,
-                    sorting=constants.SortingValues.DESC,
-                    filters=frontend_models.Filters(
+                    sorting=query.SortingValues.DESC,
+                    filters=query.Filters(
                         gte=datetime.date(2026, 1, 1),
                         lte=datetime.date(2026, 12, 31),
                     ),
@@ -150,20 +139,19 @@ def _build_expense_dfe(
                     column_config=st.column_config.TextColumn("Type"),
                     input_widget=st.text_input,
                     visible=False,
-                    filters=frontend_models.Filters(eq="expense"),
+                    filters=query.Filters(eq="expense"),
                 ),
             ],
             sample_data=_EXPENSE_PAYMENTS_SAMPLE_DATA,
-            tables_to_clear=_TABLES_TO_CLEAR,
         ),
     )
 
 
 def _build_income_dfe(
     bank_account_ids: list[str],
-    get_bank_account_name: Callable,
+    get_bank_account_name: "Callable",
     income_source_ids: list[str],
-    get_income_source_name: Callable,
+    get_income_source_name: "Callable",
 ) -> base_dfe.DFE:
     """Build the DFE for income payments."""
     return base_dfe.DFE(
@@ -192,8 +180,8 @@ def _build_income_dfe(
                     ),
                     button_label="Payment Date",
                     input_widget=st.date_input,
-                    sorting=constants.SortingValues.DESC,
-                    filters=frontend_models.Filters(
+                    sorting=query.SortingValues.DESC,
+                    filters=query.Filters(
                         gte=datetime.date(2026, 1, 1),
                         lte=datetime.date(2026, 12, 31),
                     ),
@@ -256,11 +244,10 @@ def _build_income_dfe(
                     column_config=st.column_config.TextColumn("Type"),
                     input_widget=st.text_input,
                     visible=False,
-                    filters=frontend_models.Filters(eq="income"),
+                    filters=query.Filters(eq="income"),
                 ),
             ],
             sample_data=_INCOME_ENTRIES_SAMPLE_DATA,
-            tables_to_clear=_TABLES_TO_CLEAR,
         ),
     )
 
@@ -269,20 +256,18 @@ def commit() -> None:
     """Apply any pending backend updates for this block."""
     data_client.commit(
         table_name=_TABLE_NAME,
-        tables_to_clear=_TABLES_TO_CLEAR,
         key_prefix=_TABLE_NAME,
     )
     data_client.commit(
         table_name=_TABLE_NAME,
-        tables_to_clear=_TABLES_TO_CLEAR,
         key_prefix=_INCOME_KEY_PREFIX,
     )
 
 
 def _render_expense_breakdown(
     expense_dfe: base_dfe.DFE,
-    get_expense_source_name: Callable,
-    get_bank_account_name: Callable,
+    get_expense_source_name: "Callable",
+    get_bank_account_name: "Callable",
 ) -> None:
     """Render the expense breakdown tab with collapsible sections per source."""
     working_df = expense_dfe.working_df

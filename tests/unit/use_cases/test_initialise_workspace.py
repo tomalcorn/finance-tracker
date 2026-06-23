@@ -49,6 +49,14 @@ class FakeBudgetTrackerRepository(repository.BudgetTrackerRepository):
     def delete(self, item_id: uuid.UUID) -> None:
         self._items.pop(item_id, None)
 
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return unique values for a column."""
+        return {
+            value
+            for item in self._items.values()
+            if (value := getattr(item, column_name, None)) is not None
+        }
+
 
 class FakeExpenseSourceRepository(repository.ExpenseSourceRepository):
     def __init__(
@@ -75,6 +83,14 @@ class FakeExpenseSourceRepository(repository.ExpenseSourceRepository):
 
     def delete(self, source_id: uuid.UUID) -> None:
         self._sources.pop(source_id, None)
+
+    def get_column_values(self, column_name: str) -> set[object]:
+        """Return unique values for a column."""
+        return {
+            value
+            for source in self._sources.values()
+            if (value := getattr(source, column_name, None)) is not None
+        }
 
 
 # ---------------------------------------------------------------------------

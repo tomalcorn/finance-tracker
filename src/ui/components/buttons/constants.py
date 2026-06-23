@@ -23,10 +23,3 @@ class TabIcons(enum.StrEnum):
     EXPENSE = ":material/do_not_disturb_on:"
     INCOME = ":material/add_circle:"
     BREAKDOWN = ":material/list:"
-
-
-class SortingValues(enum.StrEnum):
-    """Sorting direction values."""
-
-    ASC = enum.auto()
-    DESC = enum.auto()

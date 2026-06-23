@@ -35,6 +35,13 @@ class FakeOneOffRepository(repository.OneOffRepository):
     def delete(self, item_id: uuid.UUID) -> None:
         """Delete a one-off item by ID."""
 
+    def get_column_values(
+        self,
+        column_name: str,  # noqa: ARG002 - not needed for stub
+    ) -> set[object]:
+        """Return unique values for a column."""
+        return set()
+
 
 class FakeBudgetTrackerRepository(repository.BudgetTrackerRepository):
     def __init__(self, items: list[entities.BudgetTrackerItemModel]) -> None:
@@ -66,6 +73,13 @@ class FakeBudgetTrackerRepository(repository.BudgetTrackerRepository):
     def delete(self, item_id: uuid.UUID) -> None:
         """Delete a budget tracker item by ID."""
 
+    def get_column_values(
+        self,
+        column_name: str,  # noqa: ARG002 - not needed for stub
+    ) -> set[object]:
+        """Return unique values for a column."""
+        return set()
+
 
 class FakeExpenseSourceRepository(repository.ExpenseSourceRepository):
     def __init__(self, sources: list[entities.ExpenseSourceModel]) -> None:
@@ -83,6 +97,13 @@ class FakeExpenseSourceRepository(repository.ExpenseSourceRepository):
 
     def delete(self, source_id: uuid.UUID) -> None:
         """Delete an expense source by ID."""
+
+    def get_column_values(
+        self,
+        column_name: str,  # noqa: ARG002 - not needed for stub
+    ) -> set[object]:
+        """Return unique values for a column."""
+        return set()
 
 
 class FakePaymentRepository(repository.PaymentRepository):
@@ -133,6 +154,13 @@ class FakePaymentRepository(repository.PaymentRepository):
 
     def delete(self, payment_id: uuid.UUID) -> None:
         """Delete a payment by ID."""
+
+    def get_column_values(
+        self,
+        column_name: str,  # noqa: ARG002 - not needed for stub
+    ) -> set[object]:
+        """Return unique values for a column."""
+        return set()
 
 
 # ---------------------------------------------------------------------------
@@ -368,7 +396,7 @@ def test_banking_item_with_non_positive_amount_raises(
         use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
 
 
-def test_good_items_are_saved_if_any_item_has_non_positive_amount():
+def test_no_items_are_saved_if_any_item_has_non_positive_amount():
     # Arrange
     good_item = _make_one_off(current_month=50.0, name="Holiday")
     bad_item = _make_one_off(current_month=0.0, name="Car")
@@ -378,12 +406,14 @@ def test_good_items_are_saved_if_any_item_has_non_positive_amount():
     with pytest.raises(AmountToBankLTEZeroError):
         use_case.execute([good_item.id, bad_item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
 
-    # Assert — good_item was processed before the error, so this test documents
-    # the current behaviour: partial writes DO occur. Update this test if you
-    # introduce a transaction / rollback mechanism.
+    # Assert — all items are validated before any are mutated, so a single bad
+    # item aborts the whole batch with no partial writes.
+    unchanged_current_month = 50.0
+    saved_good_item = one_off_repo.get_all()[0]
     assert all(
         [
-            one_off_repo.get_all()[0].current_month == 0,  # good_item was saved
-            len(payment_repo.saved) == 1,  # its payment was created
+            saved_good_item.current_month == unchanged_current_month,
+            saved_good_item.banked == 0.0,
+            len(payment_repo.saved) == 0,
         ],
     )

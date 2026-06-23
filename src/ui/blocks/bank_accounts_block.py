@@ -7,16 +7,10 @@ from domain import entities
 from ui import data_client
 from ui.components.buttons import constants
 from ui.components.dfes import base_dfe
-from ui.components.dfes import constants as dfe_constants
 from ui.models import frontend_models
 
-_TABLE_NAME = dfe_constants.TableNames.BANK_ACCOUNTS.value
-_VIEW_NAME = dfe_constants.TableNames.BANK_ACCOUNTS_VIEW.value
-_TABLES_TO_CLEAR = [
-    dfe_constants.TableNames.PAYMENTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS,
-    dfe_constants.TableNames.BANK_ACCOUNTS_VIEW,
-]
+_TABLE_NAME = "bank_accounts"
+_VIEW_NAME = "bank_accounts_view"
 
 _SAMPLE_DATA = pd.DataFrame(
     {
@@ -71,7 +65,6 @@ def _build_dfe() -> base_dfe.DFE:
                 ),
             ],
             sample_data=_SAMPLE_DATA,
-            tables_to_clear=_TABLES_TO_CLEAR,
         ),
     )
 
@@ -80,7 +73,6 @@ def commit() -> None:
     """Apply any pending backend updates for this block."""
     data_client.commit(
         table_name=_TABLE_NAME,
-        tables_to_clear=_TABLES_TO_CLEAR,
         key_prefix=_TABLE_NAME,
     )
 
