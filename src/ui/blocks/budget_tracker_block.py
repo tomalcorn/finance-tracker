@@ -1,6 +1,5 @@
 """Block for the budget tracker section."""
 
-
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -53,6 +52,7 @@ _INCOME_SOURCES_SAMPLE_DATA = pd.DataFrame(
         "budget_tracker_ids": [[]],
     },
 )
+
 
 def _build_budget_tracker_dfe() -> base_dfe.DFE:
     """Build the DFE for the budget tracker tab."""

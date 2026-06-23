@@ -99,5 +99,3 @@ class TestBuildFilterKey:
             ),
         ]
         assert data_client._build_filter_key(configs) == ""
-
-

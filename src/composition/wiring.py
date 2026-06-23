@@ -22,10 +22,14 @@ def reconcile_subscriptions_use_case() -> (
     fetch_rows = data_client.make_repo_fetch_fn(conn)
     return reconcile_subscriptions.ReconcileSubscriptionsUseCase(
         subscription_repo=supabase_repos.SupabaseSubscriptionRepository(
-            conn, user_id, fetch_rows=fetch_rows,
+            conn,
+            user_id,
+            fetch_rows=fetch_rows,
         ),
         payment_repo=supabase_repos.SupabasePaymentRepository(
-            conn, user_id, fetch_rows=fetch_rows,
+            conn,
+            user_id,
+            fetch_rows=fetch_rows,
         ),
     )
 
