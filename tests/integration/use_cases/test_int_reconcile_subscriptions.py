@@ -9,7 +9,7 @@ import st_supabase_connection
 
 from adapters.supabase import repository as supabase_repos
 from domain import entities
-from ui import data_client
+from ui import cache
 from use_cases.reconcile_subscriptions import ReconcileSubscriptionsUseCase
 
 _SUBSCRIPTIONS = "subscriptions"
@@ -32,7 +32,7 @@ def _user_and_bank(
     connection.table(_PAYMENTS).delete().eq("user_id", str(user_id)).execute()
     connection.table(_SUBSCRIPTIONS).delete().eq("user_id", str(user_id)).execute()
     connection.table(_BANK_ACCOUNTS).delete().eq("id", str(bank.id)).execute()
-    data_client._get_data_cached.clear()
+    cache._get_data_cached.clear()
 
 
 def _insert_subscription(
@@ -57,7 +57,7 @@ def _get_payments_for_sub(
     connection: st_supabase_connection.SupabaseConnection,
     subscription_id: uuid.UUID,
 ) -> list[entities.ExpensePaymentModel]:
-    data_client._get_data_cached.clear()
+    cache._get_data_cached.clear()
     rows = (
         connection.table(_PAYMENTS)
         .select("*")
@@ -73,7 +73,7 @@ def _run_reconcile(
     user_id: str,
 ) -> None:
     """Run the use case with the test connection injected."""
-    data_client._get_data_cached.clear()
+    cache._get_data_cached.clear()
     use_case = ReconcileSubscriptionsUseCase(
         subscription_repo=supabase_repos.SupabaseSubscriptionRepository(
             connection,
@@ -82,7 +82,7 @@ def _run_reconcile(
         payment_repo=supabase_repos.SupabasePaymentRepository(connection, user_id),
     )
     use_case.execute()
-    data_client._get_data_cached.clear()
+    cache._get_data_cached.clear()
 
 
 class TestReconcileIntegration:

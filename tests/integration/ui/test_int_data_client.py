@@ -4,7 +4,7 @@ import st_supabase_connection
 
 from adapters.supabase import client as client_mod
 from domain import entities
-from ui import data_client
+from ui import cache, data_client
 
 
 class TestGetData:
@@ -23,7 +23,7 @@ class TestGetData:
         expected_model = yield_sample_bank_account
         actual_model = entities.BankAccountModel.model_validate(data[0])
         # Clear up cache
-        data_client._get_data_cached.clear()
+        cache._get_data_cached.clear()
         assert actual_model == expected_model
 
     def test_get_data_caching(
@@ -35,7 +35,7 @@ class TestGetData:
         from unittest import mock
 
         # Arrange
-        data_client._get_data_cached.clear()
+        cache._get_data_cached.clear()
 
         # Act
         with mock.patch(
@@ -46,7 +46,7 @@ class TestGetData:
             data_client.get_data("bank_accounts", "*", _connection=connection)
 
         # Clean up
-        data_client._get_data_cached.clear()
+        cache._get_data_cached.clear()
 
         # Assert - two identical calls should produce exactly one DB round trip
         assert mock_fetch.call_count == 1
@@ -120,7 +120,7 @@ class TestUpdateBackend:
         )
         actual_model = entities.BankAccountModel.model_validate(fetched_data[0])
         # Clean up
-        data_client._get_data_cached.clear()
+        cache._get_data_cached.clear()
         connection.table("bank_accounts").delete().eq(
             "id",
             str(actual_model.id),
@@ -153,7 +153,7 @@ class TestUpdateBackend:
         )
 
         # Clean up cache
-        data_client._get_data_cached.clear()
+        cache._get_data_cached.clear()
         assert all(
             entities.BankAccountModel.model_validate(row).id
             != yield_sample_bank_account.id
@@ -189,7 +189,7 @@ class TestUpdateBackend:
         )
 
         # Clean up cache
-        data_client._get_data_cached.clear()
+        cache._get_data_cached.clear()
 
         # Find the updated bank account and check the name
         for row in fetched_data:
@@ -259,7 +259,7 @@ class TestUpdateBackend:
             "id",
             str(new_account.id),
         ).execute()
-        data_client._get_data_cached.clear()
+        cache._get_data_cached.clear()
 
         assert all(
             [
@@ -276,8 +276,8 @@ class TestUpdateBackend:
     ) -> None:
         """Test that update_backend clears the get_data cache for the updated table."""
         # Arrange - record the current version
-        data_client._get_data_cached.clear()
-        version_before = data_client._get_table_versions().get("bank_accounts", 0)
+        cache._get_data_cached.clear()
+        version_before = cache._get_table_versions().get("bank_accounts", 0)
 
         # Act
         updates = entities.BackendUpdates(
@@ -290,7 +290,7 @@ class TestUpdateBackend:
             updates=updates,
             connection=connection,
         )
-        version_after = data_client._get_table_versions().get("bank_accounts", 0)
+        version_after = cache._get_table_versions().get("bank_accounts", 0)
 
         # Assert - version should have been bumped, invalidating all cached results
         assert version_after == version_before + 1
