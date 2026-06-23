@@ -54,7 +54,8 @@ def authenticate_supabase(
 
     """
     connection = connection or st.connection(
-        "supabase", type=st_supabase_connection.SupabaseConnection,
+        "supabase",
+        type=st_supabase_connection.SupabaseConnection,
     )
     token = _mint_supabase_jwt(auth0_sub)
     connection.client.postgrest.auth(token)

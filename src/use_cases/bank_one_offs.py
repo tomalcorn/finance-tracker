@@ -1,6 +1,5 @@
 """Use-case with the steps to complete after a user fills in the Bank It! dialog."""
 
-
 from typing import TYPE_CHECKING
 
 from domain import entities

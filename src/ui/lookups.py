@@ -3,7 +3,6 @@
 Used to populate selectbox options and render labels.
 """
 
-
 from typing import TYPE_CHECKING
 
 from ui import data_client
