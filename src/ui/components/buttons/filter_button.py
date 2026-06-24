@@ -236,9 +236,9 @@ class FilterButton(base_button.BaseButton):
                 col_config.filters = self._handle_date_filtering(col_config)
             elif col_config.input_widget == st.number_input:
                 col_config.filters = self._handle_numeric_filtering(col_config)
-            elif (
-                unique_vals := self._column_values(col_config.column_name)
-            ) and len(unique_vals) < constants.MAX_UNIQUE_VALUES:
+;            elif (unique_vals := self._column_values(col_config.column_name)) and len(
+                unique_vals,
+            ) < constants.MAX_UNIQUE_VALUES:
                 col_config.filters = self._handle_multiselect_filtering(
                     col_config,
                     unique_vals,
