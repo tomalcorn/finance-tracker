@@ -190,8 +190,16 @@ class SupabaseRepositoryBase:
         )
 
     def get_column_values(self, column_name: str) -> set[object]:
-        """Return a set of unique column values for a column."""
-        return {row[column_name] for row in self._fetch_rows() if column_name in row}
+        """Return a set of unique non-null column values for a column.
+
+        Null values are dropped so they never surface as filter-widget
+        options (parity with the old pandas reader's ``.dropna()``).
+        """
+        return {
+            row[column_name]
+            for row in self._fetch_rows()
+            if row.get(column_name) is not None
+        }
 
     def get_rows(self) -> list[dict]:
         """Return the raw user-scoped rows from the read view.
