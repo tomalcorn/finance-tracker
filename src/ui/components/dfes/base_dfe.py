@@ -258,6 +258,9 @@ class DFE:
             for col in self._configs
             if isinstance(col, frontend_models.DFEColumnConfig) and col.enforce_unique
         ]
+        if unique_col_names and self._unique_checker is None:
+            msg = "DFE requires a unique_values reader to enforce unique columns."
+            raise ValueError(msg)
         unique_checker = self._unique_checker or (lambda _column: set())
 
         updates = grid_sync.compute_backend_updates(
