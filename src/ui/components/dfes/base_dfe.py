@@ -96,7 +96,6 @@ class DFE:
         return filter_button.FilterButton(
             table_name=self._write_table,
             key_prefix=self._key_prefix,
-            read_table=self._read_table,
             unique_values=self._unique_checker,
         )
 
@@ -187,7 +186,6 @@ class DFE:
         filter_btn = filter_button.FilterButton(
             table_name=self._write_table,
             key_prefix=self._key_prefix,
-            read_table=self._read_table,
             unique_values=self._unique_checker,
         )
 

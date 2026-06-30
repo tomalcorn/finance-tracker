@@ -24,7 +24,6 @@ class FilterButton(base_button.BaseButton):
         self,
         table_name: str,
         key_prefix: str | None = None,
-        read_table: str | None = None,
         unique_values: UniqueValues | None = None,
     ) -> None:
         """Initialize the FilterButton instance.
@@ -32,14 +31,12 @@ class FilterButton(base_button.BaseButton):
         Args:
             table_name: The write table this filter button targets.
             key_prefix: Session-state key prefix; defaults to table_name.
-            read_table: The view to read from; defaults to table_name.
             unique_values: Repository-backed reader for a column's existing
                 values, used to populate numeric and multiselect filters.
 
         """
         super().__init__(table_name)
         self._key_prefix = key_prefix or table_name
-        self._read_table = read_table or table_name
         self._unique_values = unique_values
 
     def _column_values(self, column_name: str) -> set[object]:
