@@ -185,3 +185,11 @@ class DFEConfig(pydantic.BaseModel):
             "(Path A) instead of the legacy data_client.get_data path."
         ),
     )
+
+    @pydantic.model_validator(mode="after")
+    def check_data_source_present_when_reading_via_repository(self) -> Self:
+        """Validate that repository reads have a data source to read from."""
+        if self.read_via_repository and self.data_source is None:
+            msg = "read_via_repository=True requires a data_source."
+            raise ValueError(msg)
+        return self
