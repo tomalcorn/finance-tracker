@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import streamlit as st
 
+from composition import wiring
 from domain import entities, query
 from ui import data_client, lookups
 from ui.components.buttons import constants
@@ -55,6 +56,7 @@ def _build_expense_dfe(
             table_names=frontend_models.DFETableNameConfig(
                 write_table=_TABLE_NAME,
             ),
+            data_source=wiring.payment_data_source(),
             backend_model=entities.ExpensePaymentModel,
             configs=[
                 frontend_models.DFEColumnConfig(
@@ -160,6 +162,7 @@ def _build_income_dfe(
                 write_table=_TABLE_NAME,
                 key_prefix=_INCOME_KEY_PREFIX,
             ),
+            data_source=wiring.payment_data_source(),
             backend_model=entities.IncomePaymentModel,
             configs=[
                 frontend_models.DFEColumnConfig(

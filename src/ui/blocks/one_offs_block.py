@@ -47,6 +47,7 @@ def _build_dfe() -> base_dfe.DFE:
                 write_table=_TABLE_NAME,
                 read_table=_VIEW_NAME,
             ),
+            data_source=wiring.one_off_data_source(),
             backend_model=entities.OneOffItemModel,
             configs=[
                 frontend_models.DFEColumnConfig(

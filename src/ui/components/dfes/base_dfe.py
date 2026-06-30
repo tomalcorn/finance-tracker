@@ -1,16 +1,15 @@
 """Module for the base DFE classes and utilities."""
 
 import contextlib
-import datetime
-import re
 import typing
 
 import pandas as pd
 import streamlit as st
 
-from domain import entities, query
+from domain import entities
 from ui import data_client, ss_keys
 from ui.components.buttons import add_button, constants, filter_button
+from ui.components.dfes import grid_sync
 from ui.models import frontend_models
 
 
@@ -33,6 +32,11 @@ class DFE:
         self._backend_model = config.backend_model
         self._sample_data = config.sample_data
         self._num_rows = config.num_rows
+        self._data_source = config.data_source
+        self._read_via_repository = config.read_via_repository
+        self._unique_checker: grid_sync.UniqueChecker | None = (
+            config.data_source.unique_values if config.data_source else None
+        )
 
         # Computed once — display config never changes with filter state
         self._column_config = {
@@ -92,7 +96,7 @@ class DFE:
         return filter_button.FilterButton(
             table_name=self._write_table,
             key_prefix=self._key_prefix,
-            read_table=self._read_table,
+            unique_values=self._unique_checker,
         )
 
     @property
@@ -147,13 +151,20 @@ class DFE:
         as fallback when no data is returned.
         """
         if self.working_df is None:
-            working_df = pd.DataFrame(
-                data_client.get_data(
-                    table_name=self._read_table,
-                    query_string="*",
-                    _configs=self._active_configs,
-                ),
-            )
+            if self._read_via_repository and self._data_source is not None:
+                working_df = pd.DataFrame(self._data_source.load())
+                working_df = grid_sync.apply_active_filters(
+                    working_df,
+                    self._active_configs,
+                )
+            else:
+                working_df = pd.DataFrame(
+                    data_client.get_data(
+                        table_name=self._read_table,
+                        query_string="*",
+                        _configs=self._active_configs,
+                    ),
+                )
             if working_df.empty:
                 working_df = self._sample_data.copy()
             working_df = self._convert_cols_to_datetime(working_df)
@@ -175,7 +186,7 @@ class DFE:
         filter_btn = filter_button.FilterButton(
             table_name=self._write_table,
             key_prefix=self._key_prefix,
-            read_table=self._read_table,
+            unique_values=self._unique_checker,
         )
 
         data_added = False
@@ -233,7 +244,11 @@ class DFE:
         )
 
     def sync(self) -> None:
-        """Prep backend updates for syncing."""
+        """Prep backend updates for syncing.
+
+        A thin caller over the pure grid_sync helpers: it pulls the editor
+        deltas and active filter state out of session and hands them off.
+        """
         if self.working_df is None:
             msg = "Working dataframe is not initialized. Cannot sync."
             raise ValueError(msg)
@@ -243,24 +258,30 @@ class DFE:
             for col in self._configs
             if isinstance(col, frontend_models.DFEColumnConfig) and col.enforce_unique
         ]
+        if unique_col_names and self._unique_checker is None:
+            msg = "DFE requires a unique_values reader to enforce unique columns."
+            raise ValueError(msg)
+        unique_checker = self._unique_checker or (lambda _column: set())
 
-        beu_edited_rows = self._get_edited_rows_for_backend(
-            unique_col_names=unique_col_names,
+        updates = grid_sync.compute_backend_updates(
             working_df=self.working_df,
+            edited_rows=self._edited_rows,
+            deleted_rows=self._deleted_rows,
+            unique_col_names=unique_col_names,
+            unique_checker=unique_checker,
         )
-        beu_deleted_rows = self._get_deleted_rows_for_backend(self.working_df)
 
-        if beu_edited_rows or beu_deleted_rows:
-            filters_changed, modified_df = self._check_for_filters_updates(
+        if updates.edited_rows or updates.deleted_rows:
+            filters_changed, modified_df = grid_sync.check_for_filters_updates(
                 working_df=self.working_df,
+                edited_rows=self._edited_rows,
+                deleted_rows=self._deleted_rows,
+                active_configs=self._active_configs,
             )
             if filters_changed:
                 self.working_df = modified_df
 
-        self.backend_updates = entities.BackendUpdates(
-            edited_rows=beu_edited_rows,
-            deleted_rows=beu_deleted_rows,
-        )
+        self.backend_updates = updates
 
     def _convert_cols_to_datetime(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         """Convert columns to datetime/date based on column config type."""
@@ -278,133 +299,3 @@ class DFE:
                 with contextlib.suppress(Exception):
                     dataframe[col] = pd.to_datetime(dataframe[col])
         return dataframe
-
-    @staticmethod
-    def _get_pandas_filters(filters: query.Filters) -> dict[str, object]:
-        """Serialise to pandas friendly format."""
-        serialised: dict[str, query.FilterValue | list[query.FilterValue] | str] = (
-            filters.model_dump(exclude_none=True)
-        )
-        to_pandas_map = {
-            "eq": "==",
-            "lt": "<",
-            "lte": "<=",
-            "gt": ">",
-            "gte": ">=",
-        }
-        serialised_pandas = {}
-        for key, value in serialised.items():
-            if key in to_pandas_map:
-                serialised_pandas[to_pandas_map[key]] = value
-            else:
-                serialised_pandas[key] = value
-        return serialised_pandas
-
-    @staticmethod
-    def _apply_column_filter(
-        modified_df: pd.DataFrame,
-        col: str,
-        operator: str,
-        criteria: object,
-    ) -> pd.DataFrame:
-        """Apply a single filter operation to the DataFrame."""
-        if operator == "contains":
-            mask = modified_df[col].str.contains(str(criteria), na=False)
-            return modified_df[mask]
-        if operator == "cs":
-            mask = modified_df[col].apply(
-                lambda x, c=criteria: c in x if isinstance(x, list) else False,
-            )
-            return modified_df[mask]
-        if isinstance(criteria, datetime.date):
-            converted_col = pd.to_datetime(modified_df[col])
-            criteria_ts = pd.Timestamp(criteria)
-            ops = {">=": "ge", "<=": "le", ">": "gt", "<": "lt"}
-            mask = getattr(converted_col, ops[operator])(criteria_ts)
-            return modified_df.loc[mask]
-        return modified_df.query(f"`{col}` {operator} @criteria")
-
-    def _check_for_filters_updates(
-        self,
-        working_df: pd.DataFrame,
-    ) -> tuple[bool, pd.DataFrame]:
-        """Check if editor changes fall outside current filters."""
-        modified_df = working_df.copy()
-
-        if self._deleted_rows:
-            modified_df = modified_df.drop(self._deleted_rows).reset_index(drop=True)
-
-        for row_idx, changes in self._edited_rows.items():
-            if int(row_idx) < len(modified_df):
-                for col, value in changes.items():
-                    modified_df.at[int(row_idx), col] = value  # noqa: PD008
-
-        for config in self._active_configs:
-            if config.filters and config.column_name in modified_df.columns:
-                filters = self._get_pandas_filters(config.filters)
-                for operator, criteria in filters.items():
-                    modified_df = self._apply_column_filter(
-                        modified_df,
-                        config.column_name,
-                        operator,
-                        criteria,
-                    )
-
-        changed = len(modified_df) != len(working_df)
-        return changed, modified_df.reset_index(drop=True)
-
-    def _enforce_unique_cols(
-        self,
-        row: dict[str, typing.Any],
-        unique_col_names: list[str],
-    ) -> dict[str, typing.Any]:
-        """Process a single row to enforce unique constraints."""
-        for col in unique_col_names:
-            if col not in row:
-                continue
-
-            unique_values = set(
-                data_client.get_column_values(
-                    table_name=self._write_table,
-                    column_name=col,
-                    unique=True,
-                ),
-            )
-            base_value = re.sub(r" \(\d+\)$", "", str(row[col]))
-            duplicates = [
-                str(v) for v in unique_values if str(v).startswith(base_value)
-            ]
-            if duplicates:
-                suffixes: list[int] = []
-                for val in duplicates:
-                    match = re.search(r" \((\d+)\)$", val)
-                    if match:
-                        with contextlib.suppress(ValueError):
-                            suffixes.append(int(match.group(1)))
-                max_suffix = max(suffixes) if suffixes else 0
-                row[col] = f"{base_value} ({max_suffix + 1})"
-        return row
-
-    def _get_edited_rows_for_backend(
-        self,
-        unique_col_names: list[str],
-        working_df: pd.DataFrame,
-    ) -> dict[str, dict[str, typing.Any]]:
-        """Get backend updates for edited rows."""
-        beu_edited_rows: dict[str, dict[str, typing.Any]] = {}
-        for row_idx, changes in self._edited_rows.items():
-            unique_changes = self._enforce_unique_cols(
-                row=changes,
-                unique_col_names=unique_col_names,
-            )
-            row_id = working_df.iloc[int(row_idx)]["id"]
-            beu_edited_rows[row_id] = unique_changes
-        return beu_edited_rows
-
-    def _get_deleted_rows_for_backend(self, working_df: pd.DataFrame) -> list[str]:
-        """Get backend updates for deleted rows."""
-        beu_deleted_rows: list[str] = []
-        for row_idx in self._deleted_rows:
-            row_id = working_df.iloc[row_idx]["id"]
-            beu_deleted_rows.append(row_id)
-        return beu_deleted_rows
