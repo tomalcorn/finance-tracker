@@ -1,7 +1,9 @@
-"""Frozen read models representing SQL view rows (query side of CQRS-lite).
+"""Frozen read models representing view rows (query side of CQRS-lite).
 
-Each model corresponds to one view in the Supabase schema, carrying the
-view's computed columns alongside the base writable-table columns.
+Most models correspond to one view in the Supabase schema, carrying the
+view's computed columns alongside the base writable-table columns. The
+exception is ``PaymentView``, which reads the raw ``payments`` table (payments
+have no view) and therefore carries no computed columns.
 """
 
 import datetime
@@ -142,6 +144,53 @@ class SubscriptionView(_ViewBase):
         float,
         pydantic.Field(description="amount normalised to a monthly equivalent."),
     ]
+
+
+class PaymentView(_ViewBase):
+    """Read model for payment rows.
+
+    Payments have no SQL view — this reads the raw ``payments`` table, so it
+    carries no computed columns, only the flat union of expense and income
+    payment fields. The source-id columns are nullable because only one of
+    ``expense_source_id`` / ``income_source_id`` is set per row.
+    """
+
+    payment_date: Annotated[
+        datetime.date,
+        pydantic.Field(description="The date of the payment."),
+    ]
+    payment_type: Annotated[
+        Literal["expense", "income"],
+        pydantic.Field(description="Whether the row is an expense or income entry."),
+    ]
+    expense: Annotated[
+        float,
+        pydantic.Field(description="The expense amount (0 for income rows)."),
+    ]
+    income: Annotated[
+        float,
+        pydantic.Field(description="The income amount (0 for expense rows)."),
+    ]
+    checked: Annotated[
+        bool,
+        pydantic.Field(description="Whether the payment has been checked/verified."),
+    ]
+    bank_account_id: Annotated[
+        uuid.UUID,
+        pydantic.Field(description="The associated bank account ID."),
+    ]
+    expense_source_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The associated expense source ID, if any."),
+    ] = None
+    income_source_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The associated income source ID, if any."),
+    ] = None
+    subscription_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The originating subscription ID, if any."),
+    ] = None
 
 
 class OneOffView(_ViewBase):

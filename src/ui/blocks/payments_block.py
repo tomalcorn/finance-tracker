@@ -57,6 +57,7 @@ def _build_expense_dfe(
                 write_table=_TABLE_NAME,
             ),
             data_source=wiring.payment_data_source(),
+            read_via_repository=True,
             backend_model=entities.ExpensePaymentModel,
             configs=[
                 frontend_models.DFEColumnConfig(
@@ -163,6 +164,7 @@ def _build_income_dfe(
                 key_prefix=_INCOME_KEY_PREFIX,
             ),
             data_source=wiring.payment_data_source(),
+            read_via_repository=True,
             backend_model=entities.IncomePaymentModel,
             configs=[
                 frontend_models.DFEColumnConfig(

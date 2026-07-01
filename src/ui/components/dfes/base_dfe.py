@@ -153,19 +153,13 @@ class DFE:
         if self.working_df is None:
             if self._read_via_repository and self._data_source is not None:
                 rows = self._data_source.rows()
-                working_df = pd.DataFrame([row.model_dump() for row in rows])
+                working_df = pd.DataFrame([row.model_dump(mode="json") for row in rows])
                 working_df = grid_sync.apply_active_filters(
                     working_df,
                     self._active_configs,
                 )
             else:
-                working_df = pd.DataFrame(
-                    data_client.get_data(
-                        table_name=self._read_table,
-                        query_string="*",
-                        _configs=self._active_configs,
-                    ),
-                )
+                working_df = pd.DataFrame()
             if working_df.empty:
                 working_df = self._sample_data.copy()
             working_df = self._convert_cols_to_datetime(working_df)

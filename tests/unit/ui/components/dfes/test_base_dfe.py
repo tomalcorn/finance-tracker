@@ -1,20 +1,34 @@
 """Unit tests for the base_dfe module."""
 
-from unittest import mock
-
 import pandas as pd
 import pydantic
 import pytest
 import streamlit as st
 
 from domain import entities
-from ui import data_client, ss_keys
+from ui import ss_keys
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
 
 
 class _StubModel(pydantic.BaseModel):
     pass
+
+
+class _StubDataSource:
+    """Minimal GridDataSource stub returning fixed view-model rows."""
+
+    def __init__(self, rows: list[pydantic.BaseModel] | None = None) -> None:
+        self._rows = rows or []
+
+    def rows(self) -> list[pydantic.BaseModel]:
+        return self._rows
+
+    def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
+        return set()
+
+    def apply(self, changes: entities.BackendUpdates) -> None:
+        """Record nothing; these tests never write."""
 
 
 @pytest.fixture(name="input_df")
@@ -60,34 +74,12 @@ class TestDFE:
             raise AssertionError(msg)
         pd.testing.assert_frame_equal(dfe_instance.working_df, input_df)
 
-    def test_load_input_data_loads_when_working_df_is_none(
+    def test_load_input_data_without_data_source_uses_sample_data(
         self,
-        dfe_instance: base_dfe.DFE,
         input_df: pd.DataFrame,
     ) -> None:
-        """Test that load_input_data fetches data when working_df is None."""
+        """load_input_data falls back to sample_data when there is no data source."""
         # Arrange
-        mock_get_data = mock.patch.object(
-            data_client,
-            "get_data",
-            return_value=input_df,
-        )
-        with mock_get_data:
-            # Act
-            dfe_instance.load_input_data()
-
-        # Assert
-        if dfe_instance.working_df is None:
-            msg = "working_df is None, expected loaded DataFrame"
-            raise AssertionError(msg)
-        pd.testing.assert_frame_equal(dfe_instance.working_df, input_df)
-
-    def test_load_input_data_uses_sample_data_when_get_data_empty(
-        self,
-        input_df: pd.DataFrame,
-    ) -> None:
-        """Test load_input_data falls back to sample_data when get_data is empty."""
-        # Arrange - create DFE with sample_data
         sample_data = input_df.copy()
         sample_data.loc[0, "col1"] = 10
         dfe = base_dfe.DFE(
@@ -98,14 +90,37 @@ class TestDFE:
                 sample_data=sample_data,
             ),
         )
-        mock_get_data = mock.patch.object(
-            data_client,
-            "get_data",
-            return_value=pd.DataFrame(),
+
+        # Act
+        dfe.load_input_data()
+
+        # Assert
+        if dfe.working_df is None:
+            msg = "working_df is None, expected sample_data fallback"
+            raise AssertionError(msg)
+        pd.testing.assert_frame_equal(dfe.working_df, sample_data)
+
+    def test_load_input_data_uses_sample_data_when_source_empty(
+        self,
+        input_df: pd.DataFrame,
+    ) -> None:
+        """load_input_data falls back to sample_data when the source has no rows."""
+        # Arrange
+        sample_data = input_df.copy()
+        sample_data.loc[0, "col1"] = 10
+        dfe = base_dfe.DFE(
+            config=frontend_models.DFEConfig(
+                table_names=frontend_models.DFETableNameConfig(write_table="users"),
+                backend_model=_StubModel,
+                configs=[],
+                sample_data=sample_data,
+                data_source=_StubDataSource(rows=[]),
+                read_via_repository=True,
+            ),
         )
-        with mock_get_data:
-            # Act
-            dfe.load_input_data()
+
+        # Act
+        dfe.load_input_data()
 
         # Assert
         if dfe.working_df is None:
@@ -123,24 +138,16 @@ class TestDFE:
             col1: int
             col2: int
 
-        class _StubDataSource:
-            def rows(self) -> list[pydantic.BaseModel]:
-                records = input_df.to_dict("records")
-                return [_RowModel.model_validate(record) for record in records]
-
-            def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
-                return set()
-
-            def apply(self, changes: entities.BackendUpdates) -> None:
-                """Record nothing; this test never writes."""
-
+        rows: list[pydantic.BaseModel] = [
+            _RowModel.model_validate(record) for record in input_df.to_dict("records")
+        ]
         dfe = base_dfe.DFE(
             config=frontend_models.DFEConfig(
                 table_names=frontend_models.DFETableNameConfig(write_table="users"),
                 backend_model=_StubModel,
                 configs=[],
                 sample_data=pd.DataFrame(),
-                data_source=_StubDataSource(),
+                data_source=_StubDataSource(rows=rows),
                 read_via_repository=True,
             ),
         )

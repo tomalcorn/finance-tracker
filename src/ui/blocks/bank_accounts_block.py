@@ -31,6 +31,7 @@ def _build_dfe() -> base_dfe.DFE:
                 read_table=_VIEW_NAME,
             ),
             data_source=wiring.bank_account_data_source(),
+            read_via_repository=True,
             backend_model=entities.BankAccountModel,
             configs=[
                 frontend_models.DFEColumnConfig(

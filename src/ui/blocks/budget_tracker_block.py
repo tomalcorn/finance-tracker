@@ -155,6 +155,7 @@ def _build_expense_sources_dfe(expenses_bt_id: str | None) -> base_dfe.DFE:
                 read_table=_EXPENSE_SOURCES_VIEW,
             ),
             data_source=wiring.expense_source_data_source(),
+            read_via_repository=True,
             backend_model=entities.ExpenseSourceModel,
             configs=[
                 frontend_models.DFEColumnConfig(
@@ -259,6 +260,7 @@ def _build_income_sources_dfe(
                 read_table=_INCOME_SOURCES_VIEW,
             ),
             data_source=wiring.income_source_data_source(),
+            read_via_repository=True,
             backend_model=entities.IncomeSourceModel,
             configs=[
                 frontend_models.DFEColumnConfig(
