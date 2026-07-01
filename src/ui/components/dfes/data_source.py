@@ -1,11 +1,11 @@
-"""The read seam a DFE depends on, defined by the UI that consumes it.
+"""The read/write seam a DFE depends on, defined by the UI that consumes it.
 
 A ``GridDataSource`` is the narrow port a dataframe editor needs from the
-persistence layer: read the rows to display (as typed view read models), and
-read the existing values of a column (for uniqueness suffixing and filter
-widgets). The concrete implementation is built in the composition layer over a
-repository and injected via ``DFEConfig`` — keeping the UI decoupled from the
-repository port surface.
+persistence layer: read the rows to display (as typed view read models), read
+the existing values of a column (for uniqueness suffixing and filter widgets),
+and apply a batch of edits back. The concrete implementation is built in the
+composition layer over a repository and injected via ``DFEConfig`` — keeping
+the UI decoupled from the repository port surface.
 """
 
 import typing
@@ -13,10 +13,12 @@ import typing
 if typing.TYPE_CHECKING:
     import pydantic
 
+    from domain import entities
+
 
 @typing.runtime_checkable
 class GridDataSource(typing.Protocol):
-    """The reads a DFE needs from persistence, scoped to the current user."""
+    """The reads and writes a DFE needs, scoped to the current user."""
 
     def rows(self) -> "list[pydantic.BaseModel]":
         """Return all rows to display, as typed view models (Path A: fetch-all).
@@ -29,4 +31,14 @@ class GridDataSource(typing.Protocol):
 
     def unique_values(self, column_name: str) -> set[object]:
         """Return the set of existing values for a column."""
+        ...
+
+    def apply(self, changes: "entities.BackendUpdates") -> None:
+        """Persist a batch of added, edited, and deleted rows.
+
+        The grid speaks display rows and DataFrame deltas; the concrete
+        implementation bridges those to the repository's write model and
+        invalidates the reads the write affects. Computed view columns are
+        never written back — the writable table has no such fields.
+        """
         ...

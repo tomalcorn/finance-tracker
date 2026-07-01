@@ -4,6 +4,7 @@ import pandas as pd
 import pydantic
 import pytest
 
+from domain import entities
 from ui.models import frontend_models
 
 
@@ -19,6 +20,9 @@ class _StubDataSource:
 
     def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
         return set()
+
+    def apply(self, changes: entities.BackendUpdates) -> None:
+        """Record nothing; DFEConfig validation never writes."""
 
 
 class TestDFEConfig:

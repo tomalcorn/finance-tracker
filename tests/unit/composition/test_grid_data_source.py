@@ -5,7 +5,7 @@ import uuid
 import pytest
 
 from composition import grid_data_source
-from domain import read_models
+from domain import entities, read_models
 
 
 @pytest.fixture(name="budget_tracker_row")
@@ -24,7 +24,7 @@ def _budget_tracker_row() -> dict:
 
 
 class _StubRepository:
-    """Stub repository returning fixed raw view rows and column values."""
+    """Stub repository recording writes and returning fixed reads."""
 
     def __init__(
         self,
@@ -33,12 +33,16 @@ class _StubRepository:
     ) -> None:
         self._rows = rows or []
         self._column_values = column_values or set()
+        self.applied: list[entities.BackendUpdates] = []
 
     def get_rows(self) -> list[dict]:
         return self._rows
 
     def get_column_values(self, column_name: str) -> set[object]:  # noqa: ARG002
         return self._column_values
+
+    def apply_updates(self, updates: entities.BackendUpdates) -> None:
+        self.applied.append(updates)
 
 
 def test_rows_maps_raw_rows_to_view_models(budget_tracker_row: dict) -> None:
@@ -99,3 +103,45 @@ def test_unique_values_delegates_to_repository() -> None:
 
     # Assert
     assert values == {"Expenses", "Savings"}
+
+
+@pytest.fixture(name="changes")
+def _changes() -> entities.BackendUpdates:
+    """Return a BackendUpdates batch with an add, an edit, and a delete."""
+    return entities.BackendUpdates(
+        added_rows=[{"name": "New"}],
+        edited_rows={str(uuid.uuid4()): {"name": "Renamed"}},
+        deleted_rows=[str(uuid.uuid4())],
+    )
+
+
+def test_apply_delegates_batch_to_repository(
+    changes: entities.BackendUpdates,
+) -> None:
+    # Arrange
+    repository = _StubRepository()
+    source = grid_data_source.RepositoryGridDataSource(
+        repository,
+        view_model=read_models.BudgetTrackerView,
+    )
+
+    # Act
+    source.apply(changes)
+
+    # Assert
+    assert repository.applied == [changes]
+
+
+def test_apply_forwards_empty_batch() -> None:
+    # Arrange
+    repository = _StubRepository()
+    source = grid_data_source.RepositoryGridDataSource(
+        repository,
+        view_model=read_models.BudgetTrackerView,
+    )
+
+    # Act
+    source.apply(entities.BackendUpdates())
+
+    # Assert
+    assert repository.applied == [entities.BackendUpdates()]
