@@ -323,13 +323,7 @@ def commit() -> None:
 
 def render() -> None:
     """Render the budget tracker block."""
-    budget_tracker_data = data_client.get_data(
-        table_name="budget_tracker",
-        query_string="id,name",
-    )
-    budget_tracker_map: dict[str, str] = {
-        str(bt["id"]): str(bt["name"]) for bt in budget_tracker_data
-    }
+    budget_tracker_map = wiring.budget_tracker_id_name_map()
     budget_tracker_ids = list(budget_tracker_map.keys())
 
     expenses_bt_id = next(
