@@ -5,7 +5,7 @@ import pydantic
 import pytest
 import streamlit as st
 
-from domain import query
+from domain import entities, query
 from ui import ss_keys
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
@@ -26,6 +26,9 @@ class _StubDataSource:
 
     def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
         return self._unique_values
+
+    def apply(self, changes: entities.BackendUpdates) -> None:
+        """Record nothing; this test never writes."""
 
 
 @pytest.fixture(name="sample_df")

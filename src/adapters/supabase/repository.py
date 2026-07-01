@@ -189,6 +189,28 @@ class SupabaseRepositoryBase:
             f"Failed to delete row {row_id} from {self._write_table}",
         )
 
+    def apply_updates(self, updates: entities.BackendUpdates) -> None:
+        """Apply a batch of inserts, edits, and deletes in one operation.
+
+        The single entry point for grid edits: added, edited, and deleted rows
+        are written together and the affected reads invalidated. A no-op batch
+        is skipped so an unchanged grid never touches the backend.
+
+        Raises:
+            AdapterError: If the write fails.
+
+        """
+        if (
+            not updates.added_rows
+            and not updates.edited_rows
+            and not updates.deleted_rows
+        ):
+            return
+        self._write(
+            updates,
+            f"Failed to apply updates to {self._write_table}",
+        )
+
     def get_column_values(self, column_name: str) -> set[object]:
         """Return a set of unique non-null column values for a column.
 
@@ -595,19 +617,6 @@ class SupabasePaymentRepository(
         Used by ReconcileSubscriptionsUseCase to bulk-create future payments.
         """
         self._save_many([p.model_dump(mode="json") for p in payments])
-
-    def apply_updates(self, updates: entities.BackendUpdates) -> None:
-        """Apply a batch of payment inserts and deletes in one operation."""
-        if (
-            not updates.added_rows
-            and not updates.deleted_rows
-            and not updates.edited_rows
-        ):
-            return
-        self._write(
-            updates,
-            f"Failed to apply payment updates to {self._write_table}",
-        )
 
     def delete(self, payment_id: "uuid.UUID") -> None:
         """Delete a payment by ID."""

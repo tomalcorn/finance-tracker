@@ -7,6 +7,7 @@ import pydantic
 import pytest
 import streamlit as st
 
+from domain import entities
 from ui import data_client, ss_keys
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
@@ -129,6 +130,9 @@ class TestDFE:
 
             def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
                 return set()
+
+            def apply(self, changes: entities.BackendUpdates) -> None:
+                """Record nothing; this test never writes."""
 
         dfe = base_dfe.DFE(
             config=frontend_models.DFEConfig(
