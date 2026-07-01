@@ -9,6 +9,7 @@ import streamlit as st
 from domain import entities
 from ui import data_client, ss_keys
 from ui.components.buttons import add_button, constants, filter_button
+from ui.components.dfes import data_source as data_source_mod
 from ui.components.dfes import grid_sync
 from ui.models import frontend_models
 
@@ -88,6 +89,7 @@ class DFE:
             key_prefix=self._key_prefix,
             backend_model=self._backend_model,
             extra_row_values=self._config.extra_row_values,
+            data_source=self._data_source,
         )
 
     @property
@@ -191,6 +193,7 @@ class DFE:
                 key_prefix=self._key_prefix,
                 backend_model=self._backend_model,
                 extra_row_values=getattr(self._config, "extra_row_values", None),
+                data_source=self._data_source,
             )
             writable_configs = [
                 c
@@ -215,10 +218,13 @@ class DFE:
         filters_changed: bool = False,
         data_added: bool = False,
     ) -> None:
-        """Refresh the working dataframe if buttons triggered changes."""
-        if filters_changed:
-            data_client.invalidate_table_cache(self._read_table)
+        """Refresh the working dataframe if buttons triggered changes.
 
+        Clears the cached working frame and reloads. Backend-mutating writes
+        (add/edit/delete) already invalidate the affected cached reads through
+        the grid port, so no separate cache bust is needed here — a filter
+        change does not mutate backend data.
+        """
         if filters_changed or data_added:
             self._clear_working_df()
             self.load_input_data()
@@ -294,3 +300,19 @@ class DFE:
                 with contextlib.suppress(Exception):
                     dataframe[col] = pd.to_datetime(dataframe[col])
         return dataframe
+
+
+def commit_pending(
+    data_source: data_source_mod.GridDataSource,
+    key_prefix: str,
+) -> None:
+    """Apply and clear a grid's pending BackendUpdates through the port.
+
+    Pops the BackendUpdates that ``DFE.sync()`` wrote to session state under
+    ``key_prefix`` and hands them to the grid data source, which writes them
+    and invalidates the reads they affect. An empty batch is a no-op the port
+    skips.
+    """
+    key = f"{key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
+    updates = st.session_state.pop(key, entities.BackendUpdates())
+    data_source.apply(updates)

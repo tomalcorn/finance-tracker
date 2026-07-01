@@ -3,11 +3,13 @@
 import typing
 from unittest import mock
 
+import pydantic
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
 
+from domain import entities
 from ui.components.buttons import add_button
 from ui.models import frontend_models
 
@@ -21,6 +23,47 @@ def _mock_current_user() -> typing.Generator[None, None, None]:
         return_value="auth0|test-user-1",
     ):
         yield
+
+
+class _StubDataSource:
+    """GridDataSource stub recording the batches applied through the port."""
+
+    def __init__(self) -> None:
+        self.applied: list[entities.BackendUpdates] = []
+
+    def rows(self) -> list[pydantic.BaseModel]:
+        return []
+
+    def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
+        return set()
+
+    def apply(self, changes: entities.BackendUpdates) -> None:
+        self.applied.append(changes)
+
+
+class _RowModel(pydantic.BaseModel):
+    name: str
+    user_id: str
+
+
+def test_submit_new_row_applies_through_data_source() -> None:
+    # Arrange
+    data_source = _StubDataSource()
+    button = add_button.AddButton(
+        "bank_accounts",
+        backend_model=_RowModel,
+        data_source=data_source,
+    )
+
+    # Act
+    button._submit_new_row({"name": "Savings"})
+
+    # Assert
+    assert data_source.applied == [
+        entities.BackendUpdates(
+            added_rows=[{"name": "Savings", "user_id": "auth0|test-user-1"}],
+        ),
+    ]
 
 
 def _add_button_dialog_wrapper() -> None:
