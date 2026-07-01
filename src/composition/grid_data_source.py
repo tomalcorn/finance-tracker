@@ -1,13 +1,8 @@
-"""Concrete GridDataSource built over a Supabase repository.
-
-Lives in the composition layer because it is the seam where a UI component's
-read port (``ui.components.dfes.data_source.GridDataSource``) is satisfied by
-a concrete adapter. Both reads are user-scoped by the repository.
+"""Adapt a repository to the UI's ``GridDataSource`` read port.
 
 ``rows()`` maps the repository's raw user-scoped view rows into the aggregate's
-frozen ``domain.read_models`` view model. This is where the typed read *is* the
-view — the ``get_all()``-drops-computed-columns footgun cannot recur here
-because the computed columns are declared on the read model.
+frozen ``domain.read_models`` view model; ``unique_values()`` passes through.
+Both reads are user-scoped by the repository.
 """
 
 import typing
