@@ -21,7 +21,7 @@ class _StubDataSource:
     def __init__(self, unique_values: set[object]) -> None:
         self._unique_values = unique_values
 
-    def load(self) -> list[dict]:
+    def rows(self) -> list[pydantic.BaseModel]:
         return []
 
     def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
