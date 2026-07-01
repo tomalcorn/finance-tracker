@@ -118,9 +118,14 @@ class TestDFE:
     ) -> None:
         """Test load_input_data reads display rows from the data source (Path A)."""
 
+        class _RowModel(pydantic.BaseModel):
+            col1: int
+            col2: int
+
         class _StubDataSource:
-            def load(self) -> list[dict]:
-                return input_df.to_dict("records")
+            def rows(self) -> list[pydantic.BaseModel]:
+                records = input_df.to_dict("records")
+                return [_RowModel.model_validate(record) for record in records]
 
             def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
                 return set()

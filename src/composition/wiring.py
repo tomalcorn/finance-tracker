@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from adapters.supabase import repository as supabase_repos
 from composition import cache, grid_data_source
+from domain import read_models
 from ui import auth
 from ui import cache as ui_cache
 from use_cases import bank_one_offs, initialise_workspace, reconcile_subscriptions
@@ -11,6 +12,7 @@ from use_cases import bank_one_offs, initialise_workspace, reconcile_subscriptio
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import pydantic
     import st_supabase_connection
 
 
@@ -21,49 +23,76 @@ def _get_connection() -> "st_supabase_connection.SupabaseConnection":
 
 def _grid_data_source(
     repository_factory: "Callable[..., supabase_repos.SupabaseRepositoryBase]",
+    view_model: "type[pydantic.BaseModel] | None" = None,
 ) -> grid_data_source.RepositoryGridDataSource:
-    """Build a GridDataSource backed by the given repository, fully wired."""
+    """Build a GridDataSource backed by the given repository, fully wired.
+
+    Args:
+        repository_factory: The repository class to instantiate for reads.
+        view_model: The ``domain.read_models`` view model that ``rows()`` maps
+            raw rows into. ``None`` for payments, which has no view.
+
+    """
     conn = _get_connection()
     user_id = auth.get_current_user()
     cache_gateway = cache.make_cache_gateway(conn)
     return grid_data_source.RepositoryGridDataSource(
         repository_factory(conn, user_id, cache=cache_gateway),
+        view_model=view_model,
     )
 
 
 def bank_account_data_source() -> grid_data_source.RepositoryGridDataSource:
     """GridDataSource for the bank accounts DFE."""
-    return _grid_data_source(supabase_repos.SupabaseBankAccountRepository)
+    return _grid_data_source(
+        supabase_repos.SupabaseBankAccountRepository,
+        read_models.BankAccountView,
+    )
 
 
 def budget_tracker_data_source() -> grid_data_source.RepositoryGridDataSource:
     """GridDataSource for the budget tracker DFE."""
-    return _grid_data_source(supabase_repos.SupabaseBudgetTrackerRepository)
+    return _grid_data_source(
+        supabase_repos.SupabaseBudgetTrackerRepository,
+        read_models.BudgetTrackerView,
+    )
 
 
 def expense_source_data_source() -> grid_data_source.RepositoryGridDataSource:
     """GridDataSource for the expense sources DFE."""
-    return _grid_data_source(supabase_repos.SupabaseExpenseSourceRepository)
+    return _grid_data_source(
+        supabase_repos.SupabaseExpenseSourceRepository,
+        read_models.ExpenseSourceView,
+    )
 
 
 def income_source_data_source() -> grid_data_source.RepositoryGridDataSource:
     """GridDataSource for the income sources DFE."""
-    return _grid_data_source(supabase_repos.SupabaseIncomeSourceRepository)
+    return _grid_data_source(
+        supabase_repos.SupabaseIncomeSourceRepository,
+        read_models.IncomeSourceView,
+    )
 
 
 def one_off_data_source() -> grid_data_source.RepositoryGridDataSource:
     """GridDataSource for the one-offs DFE."""
-    return _grid_data_source(supabase_repos.SupabaseOneOffRepository)
+    return _grid_data_source(
+        supabase_repos.SupabaseOneOffRepository,
+        read_models.OneOffView,
+    )
 
 
 def payment_data_source() -> grid_data_source.RepositoryGridDataSource:
-    """GridDataSource for the payments DFEs."""
+    """GridDataSource for the payments DFEs (no view model; rows() unavailable)."""
     return _grid_data_source(supabase_repos.SupabasePaymentRepository)
 
 
 def subscription_data_source() -> grid_data_source.RepositoryGridDataSource:
     """GridDataSource for the subscriptions DFE."""
-    return _grid_data_source(supabase_repos.SupabaseSubscriptionRepository)
+    return _grid_data_source(
+        supabase_repos.SupabaseSubscriptionRepository,
+        read_models.SubscriptionView,
+    )
 
 
 def reconcile_subscriptions_use_case() -> (

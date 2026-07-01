@@ -152,7 +152,8 @@ class DFE:
         """
         if self.working_df is None:
             if self._read_via_repository and self._data_source is not None:
-                working_df = pd.DataFrame(self._data_source.load())
+                rows = self._data_source.rows()
+                working_df = pd.DataFrame([row.model_dump() for row in rows])
                 working_df = grid_sync.apply_active_filters(
                     working_df,
                     self._active_configs,

@@ -14,7 +14,7 @@ class _StubModel(pydantic.BaseModel):
 class _StubDataSource:
     """Minimal GridDataSource for DFEConfig validation tests."""
 
-    def load(self) -> list[dict]:
+    def rows(self) -> list[pydantic.BaseModel]:
         return []
 
     def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
