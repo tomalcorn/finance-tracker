@@ -74,10 +74,7 @@ def _build_dfe() -> base_dfe.DFE:
 
 def commit() -> None:
     """Apply any pending backend updates for this block."""
-    data_client.commit(
-        table_name=_TABLE_NAME,
-        key_prefix=_TABLE_NAME,
-    )
+    base_dfe.commit_pending(wiring.bank_account_data_source(), _TABLE_NAME)
 
 
 def _render_metrics_tab() -> None:

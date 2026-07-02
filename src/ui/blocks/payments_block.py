@@ -8,7 +8,7 @@ import streamlit as st
 
 from composition import wiring
 from domain import entities, query
-from ui import data_client, lookups
+from ui import lookups
 from ui.components.buttons import constants
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
@@ -259,14 +259,8 @@ def _build_income_dfe(
 
 def commit() -> None:
     """Apply any pending backend updates for this block."""
-    data_client.commit(
-        table_name=_TABLE_NAME,
-        key_prefix=_TABLE_NAME,
-    )
-    data_client.commit(
-        table_name=_TABLE_NAME,
-        key_prefix=_INCOME_KEY_PREFIX,
-    )
+    base_dfe.commit_pending(wiring.payment_data_source(), _TABLE_NAME)
+    base_dfe.commit_pending(wiring.payment_data_source(), _INCOME_KEY_PREFIX)
 
 
 def _render_expense_breakdown(

@@ -307,18 +307,9 @@ def _build_income_sources_dfe(
 
 def commit() -> None:
     """Apply any pending backend updates for this block."""
-    data_client.commit(
-        table_name=_BUDGET_TRACKER_TABLE,
-        key_prefix=_BUDGET_TRACKER_TABLE,
-    )
-    data_client.commit(
-        table_name=_EXPENSE_SOURCES_TABLE,
-        key_prefix=_EXPENSE_SOURCES_TABLE,
-    )
-    data_client.commit(
-        table_name=_INCOME_SOURCES_TABLE,
-        key_prefix=_INCOME_SOURCES_TABLE,
-    )
+    base_dfe.commit_pending(wiring.budget_tracker_data_source(), _BUDGET_TRACKER_TABLE)
+    base_dfe.commit_pending(wiring.expense_source_data_source(), _EXPENSE_SOURCES_TABLE)
+    base_dfe.commit_pending(wiring.income_source_data_source(), _INCOME_SOURCES_TABLE)
 
 
 def render() -> None:

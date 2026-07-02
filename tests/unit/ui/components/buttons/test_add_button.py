@@ -3,11 +3,13 @@
 import typing
 from unittest import mock
 
+import pydantic
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
 from tests import conftest
 
+from domain import entities
 from ui.components.buttons import add_button
 from ui.models import frontend_models
 
@@ -23,8 +25,56 @@ def _mock_current_user() -> typing.Generator[None, None, None]:
         yield
 
 
-def _add_button_dialog_wrapper() -> None:
-    """Call the _add_button_dialog method."""
+class _StubDataSource:
+    """GridDataSource stub recording the batches applied through the port."""
+
+    def __init__(self) -> None:
+        self.applied: list[entities.BackendUpdates] = []
+
+    def rows(self) -> list[pydantic.BaseModel]:
+        return []
+
+    # column_name is unused: the stub only exists to satisfy the GridDataSource
+    # protocol; these tests never read unique values.
+    def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
+        return set()
+
+    def apply(self, changes: entities.BackendUpdates) -> None:
+        self.applied.append(changes)
+
+
+class _RowModel(pydantic.BaseModel):
+    name: str
+    user_id: str
+
+
+def test_submit_new_row_applies_through_data_source() -> None:
+    # Arrange
+    data_source = _StubDataSource()
+    button = add_button.AddButton(
+        "bank_accounts",
+        backend_model=_RowModel,
+        data_source=data_source,
+    )
+
+    # Act
+    button._submit_new_row({"name": "Savings"})
+
+    # Assert
+    assert data_source.applied == [
+        entities.BackendUpdates(
+            added_rows=[{"name": "Savings", "user_id": "auth0|test-user-1"}],
+        ),
+    ]
+
+
+def _add_button_dialog_wrapper(data_source: "_StubDataSource") -> None:
+    """Call the _add_button_dialog method.
+
+    ``data_source`` is injected via AppTest ``kwargs`` because from_function
+    re-executes this body in a fresh namespace where module-level names aren't
+    visible; the dialog render never writes, so any GridDataSource stub works.
+    """
     import streamlit as st  # noqa: F401 - needed for app_test from_function
 
     from domain import entities
@@ -33,6 +83,7 @@ def _add_button_dialog_wrapper() -> None:
     add_button_instance = add_button.AddButton(
         "test_table",
         backend_model=entities.ExpensePaymentModel,
+        data_source=data_source,
     )
 
     return add_button_instance._add_button_dialog([])
@@ -43,6 +94,7 @@ def _app_tester() -> st_test.AppTest:
     return st_test.AppTest.from_function(
         _add_button_dialog_wrapper,
         default_timeout=120,
+        kwargs={"data_source": _StubDataSource()},
     )
 
 

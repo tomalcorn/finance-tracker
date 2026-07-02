@@ -165,10 +165,7 @@ def _build_dfe(
 
 def commit() -> None:
     """Apply any pending backend updates for this block."""
-    data_client.commit(
-        table_name=_TABLE_NAME,
-        key_prefix=_TABLE_NAME,
-    )
+    base_dfe.commit_pending(wiring.subscription_data_source(), _TABLE_NAME)
 
 
 def render() -> None:
