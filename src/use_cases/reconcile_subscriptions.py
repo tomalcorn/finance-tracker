@@ -94,7 +94,8 @@ class ReconcileSubscriptionsUseCase:
             if payment.payment_date >= self._today
         ]
 
-        if not sub.is_active:
+        is_expired = sub.end_date is not None and sub.end_date < self._today
+        if not sub.is_active or is_expired:
             updates.deleted_rows.extend(str(payment.id) for payment in future_payments)
             return
 
