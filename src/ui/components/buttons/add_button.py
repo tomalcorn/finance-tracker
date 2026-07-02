@@ -7,10 +7,11 @@ import pydantic
 import streamlit as st
 
 from domain import entities
-from ui import auth, data_client, ss_keys
+from ui import auth, ss_keys
 from ui.components.buttons import base_button, constants
 
 if typing.TYPE_CHECKING:
+    from ui.components.dfes import data_source as data_source_mod
     from ui.models import frontend_models
 
 
@@ -21,6 +22,7 @@ class AddButton(base_button.BaseButton):
         self,
         table_name: str,
         backend_model: type[pydantic.BaseModel],
+        data_source: "data_source_mod.GridDataSource",
         key_prefix: str | None = None,
         extra_row_values: dict[str, Any] | None = None,
     ) -> None:
@@ -29,6 +31,7 @@ class AddButton(base_button.BaseButton):
         self._key_prefix = key_prefix or table_name
         self._backend_model = backend_model
         self._extra_row_values = extra_row_values or {}
+        self._data_source = data_source
 
     @property
     def new_data_added(self) -> bool:
@@ -53,14 +56,11 @@ class AddButton(base_button.BaseButton):
             msg = f"Invalid data for new row in {self._table_name}: {e}"
             raise ValueError(msg) from e
         else:
-            data_client.update_backend(
-                table_name=self._table_name,
-                updates=entities.BackendUpdates(
+            self._data_source.apply(
+                entities.BackendUpdates(
                     added_rows=[
                         model_instance.model_dump(mode="json", exclude_none=True),
                     ],
-                    deleted_rows=[],
-                    edited_rows={},
                 ),
             )
 
