@@ -1,8 +1,10 @@
-"""Unit tests for the filter button."""
+"""Unit tests for the filter button free functions."""
 
 import datetime
 from unittest import mock
 
+import pandas as pd
+import pydantic
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
@@ -13,15 +15,75 @@ from ui.components.buttons import filter_button
 from ui.models import frontend_models
 
 
-def _filter_button_dialog_wrapper() -> None:
-    """Call the _filtering_button_dialog method."""
-    import streamlit as st
+class _StubModel(pydantic.BaseModel):
+    pass
 
-    from domain import query
+
+class _StubDataSource:
+    """GridDataSource stub returning a fixed set of column values."""
+
+    def __init__(self, column_values: set[object] | None = None) -> None:
+        self._column_values = column_values or set()
+
+    def rows(self) -> list[pydantic.BaseModel]:
+        return []
+
+    def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
+        return self._column_values
+
+    def apply(self, changes: object) -> None:
+        """No-op; filter tests never write."""
+
+
+def _config(unique_values: set[object] | None = None) -> frontend_models.DFEConfig:
+    """Build a minimal grid config whose data source yields ``unique_values``."""
+    return frontend_models.DFEConfig(
+        table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
+        backend_model=_StubModel,
+        configs=[],
+        sample_data=pd.DataFrame(),
+        data_source=_StubDataSource(unique_values),
+        read_via_repository=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("column_values", "expected_min", "expected_max"),
+    [
+        ({10, 20, 30, 40, 50}, 10, 50),
+        ({-5, 0, 5, 10}, -5, 10),
+        ({0.1, 0.5, 0.9}, 0.1, 0.9),
+        (set(), 0.0, 1.0),
+    ],
+)
+def test_get_min_max_values(
+    column_values: set[object],
+    expected_min: float,
+    expected_max: float,
+) -> None:
+    """Test _get_min_max_values returns correct min and max values."""
+    # Act
+    min_value, max_value = filter_button._get_min_max_values(
+        _config(column_values),
+        "test_numeric_column",
+    )
+
+    # Assert
+    assert all([min_value == expected_min, max_value == expected_max])
+
+
+def _filter_dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
+    """Render the filter dialog for AppTest (config injected via kwargs)."""
+    import streamlit as st  # noqa: F401 - needed for app_test from_function
+
     from ui.components.buttons import filter_button
-    from ui.models import frontend_models
 
-    dfe_configs = [
+    filter_button._filter_dialog(config)
+
+
+@pytest.fixture(name="app_tester")
+def _app_tester() -> st_test.AppTest:
+    dialog_configs = [
         frontend_models.DFEColumnConfigBase(
             column_name="col1",
             column_config={},
@@ -35,138 +97,47 @@ def _filter_button_dialog_wrapper() -> None:
             filters=query.Filters(gte=10, lte=100),
         ),
     ]
-
-    filter_button_instance = filter_button.FilterButton(
-        "test_table",
-        unique_values=lambda _column: {0.88, 0.23, 0.1},
+    config = frontend_models.DFEConfig(
+        table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
+        backend_model=_StubModel,
+        configs=dialog_configs,
+        sample_data=pd.DataFrame(),
+        data_source=_StubDataSource({0.88, 0.23, 0.1}),
+        read_via_repository=True,
     )
-
-    return filter_button_instance._filtering_button_dialog(dfe_configs)
-
-
-@pytest.fixture(name="app_tester")
-def _app_tester() -> st_test.AppTest:
     return st_test.AppTest.from_function(
-        _filter_button_dialog_wrapper,
+        _filter_dialog_wrapper,
         default_timeout=120,
+        kwargs={"config": config},
     )
 
 
-@pytest.fixture(name="filter_button_instance")
-def _filter_button_instance() -> filter_button.FilterButton:
-    return filter_button.FilterButton("test_table")
-
-
-def test_current_css_style_no_filtering(
-    col_configs: list[frontend_models.DFEColumnConfigBase],
-) -> None:
-    """Test _current_css_style returns normal style when no filtering applied."""
+def test_filter_dialog_renders(app_tester: st_test.AppTest) -> None:
+    """Test that the filter dialog renders its widgets without errors."""
     # Arrange
-    col_configs_no_filters = [
-        col_configs[i].model_copy(update={"filters": None})
-        for i in range(len(col_configs))
-    ]
-    filter_button_instance = filter_button.FilterButton("test_table_1")
+    expected_slider_min, expected_slider_max = 0.1, 0.88
 
     # Act
-    result = filter_button_instance._current_css_style(col_configs_no_filters)
-
-    # Assert
-    assert result == filter_button_instance.css_style_normal
-
-
-def test_current_css_style_with_filtering(
-    col_configs: list[frontend_models.DFEColumnConfigBase],
-) -> None:
-    """Test _current_css_style returns active style when filtering is applied."""
-    # Arrange
-    col_configs[0].filters = query.Filters(contains="test")
-    filter_button_instance = filter_button.FilterButton("test_table_1")
-
-    # Act
-    result = filter_button_instance._current_css_style(col_configs)
-
-    # Assert
-    assert result == filter_button_instance.css_style_active
-
-
-@pytest.mark.parametrize(
-    ("column_values", "expected_min", "expected_max"),
-    [
-        ({10, 20, 30, 40, 50}, 10, 50),
-        ({-5, 0, 5, 10}, -5, 10),
-        ({0.1, 0.5, 0.9}, 0.1, 0.9),
-        (set(), 0.0, 1.0),  # Edge case: no values
-    ],
-)
-def test_get_min_max_values(
-    column_values: set[object],
-    expected_min: float,
-    expected_max: float,
-) -> None:
-    """Test _get_min_max_values returns correct min and max values."""
-    instance = filter_button.FilterButton(
-        "test_table",
-        unique_values=lambda _column: column_values,
-    )
-
-    # Act
-    min_value, max_value = instance._get_min_max_values(
-        column_name="test_numeric_column",
-    )
+    app_tester.run()
 
     # Assert
     assert all(
         [
-            min_value == expected_min,
-            max_value == expected_max,
+            "Filter **Test Table** by:" in conftest.get_rendered_texts(app_tester),
+            app_tester.multiselect[0].label == "Filter by col1",
+            set(app_tester.multiselect[0].options) == {"0.88", "0.23", "0.1"},
+            app_tester.slider[0].label == "Filter by col2",
+            app_tester.slider[0].min == expected_slider_min,
+            app_tester.slider[0].max == expected_slider_max,
         ],
     )
 
 
-class TestFilterButtonDialog:
-    """Tests for the FilterButton dialog method."""
-
-    def test_filtering_button_dialog_text_renders(
-        self,
-        app_tester: st_test.AppTest,
-    ) -> None:
-        """Test that the filtering button dialog renders text without errors."""
-        # Arrange
-        exptected_dialog_text = "Filter **Test Table** by:"
-        expected_multiselect_label = "Filter by col1"
-        expected_multiselect_options = ["0.88", "0.23", "0.1"]
-        exptected_slider_text = "Filter by col2"
-        expected_slider_min, expected_slider_max = 0.1, 0.88
-        # Act
-        app_tester.run()
-
-        # Assert
-        actual_multiselect_label = app_tester.multiselect[0].label
-        actual_multiselect_options = app_tester.multiselect[0].options
-        actual_slider_label = app_tester.slider[0].label
-        actual_slider_min = app_tester.slider[0].min
-        actual_slider_max = app_tester.slider[0].max
-        assert all(
-            [
-                exptected_dialog_text in conftest.get_rendered_texts(app_tester),
-                actual_multiselect_label == expected_multiselect_label,
-                set(actual_multiselect_options) == set(expected_multiselect_options),
-                actual_slider_label == exptected_slider_text,
-                actual_slider_min == expected_slider_min,
-                actual_slider_max == expected_slider_max,
-            ],
-        )
-
-
 class TestFilterHandling:
-    """Tests for filter handling methods."""
+    """Tests for the individual filter-handling functions."""
 
-    def test_handle_date_filtering_no_filtering(
-        self,
-        filter_button_instance: filter_button.FilterButton,
-    ) -> None:
-        """Test _handle_date_filtering returns None when no filtering applied."""
+    def test_handle_date_filtering_no_filtering(self) -> None:
+        """_handle_date_filtering returns None when no range is chosen."""
         # Arrange
         date_col_config = frontend_models.DFEColumnConfigBase(
             column_name="date_col",
@@ -176,26 +147,19 @@ class TestFilterHandling:
         )
 
         # Act
-        result = filter_button_instance._handle_date_filtering(date_col_config)
+        result = filter_button._handle_date_filtering(_config(), date_col_config)
 
         # Assert
         assert result is None
 
     def test_handle_date_filtering_with_filtering(self) -> None:
-        """Test _handle_date_filtering returns Filters when filtering is applied.
-
-        Have to mock streamlit date input because impossible to return config from app
-        tester.
-        """
+        """_handle_date_filtering returns Filters for the chosen date range."""
         # Arrange
         with mock.patch.object(st, "date_input") as mock_date_input:
             mock_date_input.return_value = (
                 datetime.date(2024, 1, 1),
                 datetime.date(2024, 1, 31),
             )
-
-            filter_button_instance = filter_button.FilterButton("test_table")
-
             date_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="date_col",
                 column_config={},
@@ -207,29 +171,25 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button_instance._handle_date_filtering(date_col_config)
+            result = filter_button._handle_date_filtering(_config(), date_col_config)
 
-            # Assert
-            assert result == query.Filters(
-                gte=datetime.date(2024, 1, 1),
-                lte=datetime.date(2024, 1, 31),
-            )
+        # Assert
+        assert result == query.Filters(
+            gte=datetime.date(2024, 1, 1),
+            lte=datetime.date(2024, 1, 31),
+        )
 
-    def test_handle_numeric_filtering_no_filtering(
-        self,
-        filter_button_instance: filter_button.FilterButton,
-    ) -> None:
-        """Test _handle_numeric_filtering returns None when no filtering applied."""
+    def test_handle_numeric_filtering_no_filtering(self) -> None:
+        """_handle_numeric_filtering returns None when the slider is unchanged."""
         # Arrange
         with (
             mock.patch.object(
-                filter_button.FilterButton,
+                filter_button,
                 "_get_min_max_values",
-            ) as mock_get_min_max,
-            mock.patch.object(st, "slider") as mock_slider,
+                return_value=(0.0, 100.0),
+            ),
+            mock.patch.object(st, "slider", return_value=(0.0, 100.0)),
         ):
-            mock_get_min_max.return_value = (0.0, 100.0)
-            mock_slider.return_value = (0.0, 100.0)
             numeric_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="numeric_col",
                 column_config={},
@@ -238,28 +198,18 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button_instance._handle_numeric_filtering(
+            result = filter_button._handle_numeric_filtering(
+                _config(),
                 numeric_col_config,
             )
 
-            # Assert
-            assert result is None
+        # Assert
+        assert result is None
 
     def test_handle_numeric_filtering_with_filtering(self) -> None:
-        """Test _handle_numeric_filtering returns Filters when filtering is applied.
-
-        Have to mock streamlit slider because impossible to return config from app
-        tester.
-        """
+        """_handle_numeric_filtering returns Filters for the chosen range."""
         # Arrange
-        with mock.patch.object(st, "slider") as mock_slider:
-            mock_slider.return_value = (20.0, 80.0)
-
-            filter_button_instance = filter_button.FilterButton(
-                "test_table",
-                unique_values=lambda _column: {10.0, 90.0},
-            )
-
+        with mock.patch.object(st, "slider", return_value=(20.0, 80.0)):
             numeric_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="numeric_col",
                 column_config={},
@@ -268,18 +218,16 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button_instance._handle_numeric_filtering(
+            result = filter_button._handle_numeric_filtering(
+                _config({10.0, 90.0}),
                 numeric_col_config,
             )
 
-            # Assert
-            assert result == query.Filters(gte=20.0, lte=80.0)
+        # Assert
+        assert result == query.Filters(gte=20.0, lte=80.0)
 
-    def test_handle_multiselect_filtering_no_filtering(
-        self,
-        filter_button_instance: filter_button.FilterButton,
-    ) -> None:
-        """Test _handle_multiselect_filtering returns None when no filtering applied."""
+    def test_handle_multiselect_filtering_no_filtering(self) -> None:
+        """_handle_multiselect_filtering returns None when nothing is selected."""
         # Arrange
         select_col_config = frontend_models.DFEColumnConfigBase(
             column_name="select_col",
@@ -287,30 +235,21 @@ class TestFilterHandling:
             input_widget=st.multiselect,
             filters=None,
         )
-        unique_values = {"value1", "value2", "value3"}
 
         # Act
-        result = filter_button_instance._handle_multiselect_filtering(
-            col_config=select_col_config,
-            unique_values=unique_values,
+        result = filter_button._handle_multiselect_filtering(
+            _config(),
+            select_col_config,
+            {"value1", "value2", "value3"},
         )
 
         # Assert
         assert result is None
 
     def test_handle_multiselect_filtering_with_filtering(self) -> None:
-        """Test _handle_multiselect_filtering returns Filters when filtering is applied.
-
-        Have to mock streamlit multiselect because impossible to return config from app
-        tester.
-        """
+        """_handle_multiselect_filtering returns Filters for the selection."""
         # Arrange
-        with mock.patch.object(st, "multiselect") as mock_multiselect:
-            mock_multiselect.return_value = ["value1", "value3"]
-
-            filter_button_instance = filter_button.FilterButton("test_table")
-            unique_values = {"value1", "value2", "value3"}
-
+        with mock.patch.object(st, "multiselect", return_value=["value1", "value3"]):
             select_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="select_col",
                 column_config={},
@@ -319,19 +258,17 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button_instance._handle_multiselect_filtering(
-                col_config=select_col_config,
-                unique_values=unique_values,
+            result = filter_button._handle_multiselect_filtering(
+                _config(),
+                select_col_config,
+                {"value1", "value2", "value3"},
             )
 
-            # Assert
-            assert result == query.Filters(in_=["value1", "value3"])
+        # Assert
+        assert result == query.Filters(in_=["value1", "value3"])
 
-    def test_generic_filtering_no_filtering(
-        self,
-        filter_button_instance: filter_button.FilterButton,
-    ) -> None:
-        """Test _handle_generic_filtering returns None when no filtering applied."""
+    def test_handle_generic_filtering_no_filtering(self) -> None:
+        """_handle_generic_filtering returns None when the text box is empty."""
         # Arrange
         generic_col_config = frontend_models.DFEColumnConfigBase(
             column_name="generic_col",
@@ -341,23 +278,15 @@ class TestFilterHandling:
         )
 
         # Act
-        result = filter_button_instance._handle_generic_filtering(generic_col_config)
+        result = filter_button._handle_generic_filtering(_config(), generic_col_config)
 
         # Assert
         assert result is None
 
     def test_handle_generic_filtering_with_filtering(self) -> None:
-        """Test _handle_generic_filtering returns Filters when filtering is applied.
-
-        Have to mock streamlit text_input because impossible to return config from app
-        tester.
-        """
+        """_handle_generic_filtering returns a contains-Filter for the text."""
         # Arrange
-        with mock.patch.object(st, "text_input") as mock_text_input:
-            mock_text_input.return_value = "new_filter"
-
-            filter_button_instance = filter_button.FilterButton("test_table")
-
+        with mock.patch.object(st, "text_input", return_value="new_filter"):
             generic_col_config = frontend_models.DFEColumnConfigBase(
                 column_name="generic_col",
                 column_config={},
@@ -366,9 +295,10 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button_instance._handle_generic_filtering(
+            result = filter_button._handle_generic_filtering(
+                _config(),
                 generic_col_config,
             )
 
-            # Assert
-            assert result == query.Filters(contains="new_filter")
+        # Assert
+        assert result == query.Filters(contains="new_filter")

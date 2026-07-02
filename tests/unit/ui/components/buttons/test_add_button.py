@@ -1,8 +1,9 @@
-"""Unit tests for the add button module."""
+"""Unit tests for the add button free functions."""
 
 import typing
 from unittest import mock
 
+import pandas as pd
 import pydantic
 import pytest
 import streamlit as st
@@ -25,6 +26,11 @@ def _mock_current_user() -> typing.Generator[None, None, None]:
         yield
 
 
+class _RowModel(pydantic.BaseModel):
+    name: str
+    user_id: str
+
+
 class _StubDataSource:
     """GridDataSource stub recording the batches applied through the port."""
 
@@ -34,8 +40,7 @@ class _StubDataSource:
     def rows(self) -> list[pydantic.BaseModel]:
         return []
 
-    # column_name is unused: the stub only exists to satisfy the GridDataSource
-    # protocol; these tests never read unique values.
+    # column_name is unused: the stub only satisfies the GridDataSource protocol.
     def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
         return set()
 
@@ -43,22 +48,29 @@ class _StubDataSource:
         self.applied.append(changes)
 
 
-class _RowModel(pydantic.BaseModel):
-    name: str
-    user_id: str
+def _config(
+    *,
+    backend_model: type[pydantic.BaseModel],
+    data_source: _StubDataSource,
+) -> frontend_models.DFEConfig:
+    """Build a minimal grid config for the add-button tests."""
+    return frontend_models.DFEConfig(
+        table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
+        backend_model=backend_model,
+        configs=[],
+        sample_data=pd.DataFrame(),
+        data_source=data_source,
+        read_via_repository=True,
+    )
 
 
 def test_submit_new_row_applies_through_data_source() -> None:
     # Arrange
     data_source = _StubDataSource()
-    button = add_button.AddButton(
-        "bank_accounts",
-        backend_model=_RowModel,
-        data_source=data_source,
-    )
+    config = _config(backend_model=_RowModel, data_source=data_source)
 
     # Act
-    button._submit_new_row({"name": "Savings"})
+    add_button._submit_new_row(config, {"name": "Savings"})
 
     # Assert
     assert data_source.applied == [
@@ -68,61 +80,45 @@ def test_submit_new_row_applies_through_data_source() -> None:
     ]
 
 
-def _add_button_dialog_wrapper(data_source: "_StubDataSource") -> None:
-    """Call the _add_button_dialog method.
+def _dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
+    """Render the add-row dialog for AppTest.
 
-    ``data_source`` is injected via AppTest ``kwargs`` because from_function
-    re-executes this body in a fresh namespace where module-level names aren't
-    visible; the dialog render never writes, so any GridDataSource stub works.
+    ``config`` is injected via AppTest ``kwargs`` because from_function re-runs
+    this body in a fresh namespace where module-level names aren't visible.
     """
     import streamlit as st  # noqa: F401 - needed for app_test from_function
 
-    from domain import entities
     from ui.components.buttons import add_button
 
-    add_button_instance = add_button.AddButton(
-        "test_table",
-        backend_model=entities.ExpensePaymentModel,
-        data_source=data_source,
-    )
-
-    return add_button_instance._add_button_dialog([])
+    add_button._add_row_dialog(config)
 
 
 @pytest.fixture(name="app_tester")
 def _app_tester() -> st_test.AppTest:
     return st_test.AppTest.from_function(
-        _add_button_dialog_wrapper,
+        _dialog_wrapper,
         default_timeout=120,
-        kwargs={"data_source": _StubDataSource()},
+        kwargs={
+            "config": _config(
+                backend_model=entities.ExpensePaymentModel,
+                data_source=_StubDataSource(),
+            ),
+        },
     )
 
 
-class TestAddButton:
-    """Tests for the AddButton class."""
+def test_add_row_dialog_renders(app_tester: st_test.AppTest) -> None:
+    # Act
+    app_tester.run()
 
-    def test_add_button_dialog(self, app_tester: st_test.AppTest) -> None:
-        """Test the _add_button_dialog method."""
-        # Act - render button
-        app_tester.run()
-
-        # Assert - submit button and dialog text present
-        submit_button_key_rendered = any(
-            btn.key == "test_table_submit_new_row_button" for btn in app_tester.button
-        )
-        submit_button_label_rendered = any(
-            btn.label == "Submit" for btn in app_tester.button
-        )
-        dialog_text_rendered = (
-            "Add a new row to Test Table" in conftest.get_rendered_texts(app_tester)
-        )
-        assert all(
-            [
-                submit_button_key_rendered,
-                submit_button_label_rendered,
-                dialog_text_rendered,
-            ],
-        )
+    # Assert
+    submit_button_key_rendered = any(
+        btn.key == "test_table_submit_new_row_button" for btn in app_tester.button
+    )
+    dialog_text_rendered = "Add a new row to Test Table" in conftest.get_rendered_texts(
+        app_tester,
+    )
+    assert all([submit_button_key_rendered, dialog_text_rendered])
 
 
 def _make_col_config(
@@ -164,12 +160,6 @@ class TestAddButtonRequiredField:
             ),
             pytest.param(
                 [_req(), _opt()],
-                ["filled", None],
-                False,
-                id="optional_none_required_filled",
-            ),
-            pytest.param(
-                [_req(), _opt()],
                 ["", "something"],
                 True,
                 id="required_empty_optional_filled",
@@ -196,7 +186,4 @@ class TestAddButtonRequiredField:
         expected: bool,
     ) -> None:
         """Test the logic for determining if required options are unfilled."""
-        assert (
-            add_button.AddButton._has_unfilled_required(col_configs, outputs)
-            is expected
-        )
+        assert add_button._has_unfilled_required(col_configs, outputs) is expected

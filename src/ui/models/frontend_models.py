@@ -186,6 +186,21 @@ class DFEConfig(pydantic.BaseModel):
         ),
     )
 
+    @property
+    def key_prefix(self) -> str:
+        """The session-state / widget key prefix, defaulting to the write table."""
+        return self.table_names.key_prefix or self.table_names.write_table
+
+    @property
+    def write_table(self) -> str:
+        """The write table this grid targets."""
+        return self.table_names.write_table
+
+    @property
+    def writable_configs(self) -> list[DFEColumnConfig]:
+        """The visible, writable column configs (used by the add dialog)."""
+        return [c for c in self.configs if isinstance(c, DFEColumnConfig) and c.visible]
+
     @pydantic.model_validator(mode="after")
     def check_data_source_present_when_reading_via_repository(self) -> Self:
         """Validate that repository reads have a data source to read from."""
