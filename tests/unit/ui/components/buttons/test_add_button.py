@@ -34,6 +34,8 @@ class _StubDataSource:
     def rows(self) -> list[pydantic.BaseModel]:
         return []
 
+    # column_name is unused: the stub only exists to satisfy the GridDataSource
+    # protocol; these tests never read unique values.
     def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
         return set()
 
@@ -66,8 +68,13 @@ def test_submit_new_row_applies_through_data_source() -> None:
     ]
 
 
-def _add_button_dialog_wrapper() -> None:
-    """Call the _add_button_dialog method."""
+def _add_button_dialog_wrapper(data_source: "_StubDataSource") -> None:
+    """Call the _add_button_dialog method.
+
+    ``data_source`` is injected via AppTest ``kwargs`` because from_function
+    re-executes this body in a fresh namespace where module-level names aren't
+    visible; the dialog render never writes, so any GridDataSource stub works.
+    """
     import streamlit as st  # noqa: F401 - needed for app_test from_function
 
     from domain import entities
@@ -76,6 +83,7 @@ def _add_button_dialog_wrapper() -> None:
     add_button_instance = add_button.AddButton(
         "test_table",
         backend_model=entities.ExpensePaymentModel,
+        data_source=data_source,
     )
 
     return add_button_instance._add_button_dialog([])
@@ -86,6 +94,7 @@ def _app_tester() -> st_test.AppTest:
     return st_test.AppTest.from_function(
         _add_button_dialog_wrapper,
         default_timeout=120,
+        kwargs={"data_source": _StubDataSource()},
     )
 
 

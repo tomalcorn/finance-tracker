@@ -22,9 +22,9 @@ class AddButton(base_button.BaseButton):
         self,
         table_name: str,
         backend_model: type[pydantic.BaseModel],
+        data_source: "data_source_mod.GridDataSource",
         key_prefix: str | None = None,
         extra_row_values: dict[str, Any] | None = None,
-        data_source: "data_source_mod.GridDataSource | None" = None,
     ) -> None:
         """Initialize the AddButton instance."""
         self._table_name = table_name
@@ -56,12 +56,6 @@ class AddButton(base_button.BaseButton):
             msg = f"Invalid data for new row in {self._table_name}: {e}"
             raise ValueError(msg) from e
         else:
-            if self._data_source is None:
-                msg = (
-                    f"AddButton for {self._table_name} has no data source to "
-                    f"write the new row through."
-                )
-                raise ValueError(msg)
             self._data_source.apply(
                 entities.BackendUpdates(
                     added_rows=[

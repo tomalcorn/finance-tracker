@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from domain import entities
-from ui import data_client, ss_keys
+from ui import ss_keys
 from ui.components.buttons import add_button, constants, filter_button
 from ui.components.dfes import data_source as data_source_mod
 from ui.components.dfes import grid_sync
@@ -81,9 +81,17 @@ class DFE:
         key = f"{self._key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
         st.session_state[key] = updates
 
-    @property
-    def add_button(self) -> add_button.AddButton:
-        """Create a configured AddButton for this DFE."""
+    def _make_add_button(self) -> add_button.AddButton:
+        """Build the AddButton for this DFE.
+
+        Raises:
+            ValueError: If the DFE has no data source — an editable grid needs
+                one to write new rows through the port.
+
+        """
+        if self._data_source is None:
+            msg = "An editable DFE requires a data source to add rows."
+            raise ValueError(msg)
         return add_button.AddButton(
             table_name=self._write_table,
             key_prefix=self._key_prefix,
@@ -91,6 +99,11 @@ class DFE:
             extra_row_values=self._config.extra_row_values,
             data_source=self._data_source,
         )
+
+    @property
+    def add_button(self) -> add_button.AddButton:
+        """Create a configured AddButton for this DFE."""
+        return self._make_add_button()
 
     @property
     def filter_button(self) -> filter_button.FilterButton:
@@ -188,13 +201,7 @@ class DFE:
 
         data_added = False
         if self._num_rows != "fixed":
-            add_btn = add_button.AddButton(
-                table_name=self._write_table,
-                key_prefix=self._key_prefix,
-                backend_model=self._backend_model,
-                extra_row_values=getattr(self._config, "extra_row_values", None),
-                data_source=self._data_source,
-            )
+            add_btn = self._make_add_button()
             writable_configs = [
                 c
                 for c in self._configs
@@ -308,10 +315,9 @@ def commit_pending(
 ) -> None:
     """Apply and clear a grid's pending BackendUpdates through the port.
 
-    Pops the BackendUpdates that ``DFE.sync()`` wrote to session state under
-    ``key_prefix`` and hands them to the grid data source, which writes them
-    and invalidates the reads they affect. An empty batch is a no-op the port
-    skips.
+    Pops the pending BackendUpdates stored in session state under ``key_prefix``
+    and hands them to the grid data source, which writes them and invalidates
+    the reads they affect. An empty batch is a no-op the port skips.
     """
     key = f"{key_prefix}_{ss_keys.SSKeys.BACKEND_UPDATES}"
     updates = st.session_state.pop(key, entities.BackendUpdates())
