@@ -1,6 +1,6 @@
 """Factory functions for constructing use cases with live dependencies."""
 
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 from adapters.supabase import repository as supabase_repos
 from composition import cache, grid_data_source
@@ -15,15 +15,15 @@ if TYPE_CHECKING:
     import pydantic
     import st_supabase_connection
 
-_RepoT = TypeVar("_RepoT", bound=supabase_repos.SupabaseRepositoryBase)
-
 
 def _get_connection() -> "st_supabase_connection.SupabaseConnection":
     """Return the shared Supabase connection for this Streamlit session."""
     return ui_cache.get_connection()
 
 
-def _repository(repository_factory: "Callable[..., _RepoT]") -> "_RepoT":
+def _repository[RepoT: supabase_repos.SupabaseRepositoryBase](
+    repository_factory: "Callable[..., RepoT]",
+) -> "RepoT":
     """Build a repository wired to the session connection, cache, and user."""
     conn = _get_connection()
     user_id = auth.get_current_user()
