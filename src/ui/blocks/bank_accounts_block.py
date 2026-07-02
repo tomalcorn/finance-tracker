@@ -82,16 +82,13 @@ def commit() -> None:
 
 def _render_metrics_tab() -> None:
     """Render the metrics grid tab showing name and current balance per account."""
-    accounts = data_client.get_data(
-        table_name=_VIEW_NAME,
-        query_string="name, current_balance",
-    )
+    accounts = wiring.bank_account_views()
     cols = st.columns(3)
     for i, account in enumerate(accounts):
         with cols[i % 3]:
             st.metric(
-                label=str(account["name"]),
-                value=f"£{account['current_balance']:,.2f}",
+                label=str(account.name),
+                value=f"£{account.current_balance:,.2f}",
                 border=True,
             )
 

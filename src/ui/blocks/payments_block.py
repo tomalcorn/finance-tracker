@@ -311,15 +311,15 @@ def _render_expense_breakdown(
 
 def render() -> None:
     """Render the payments block."""
-    bank_account_map = lookups.get_id_name_map("bank_accounts")
+    bank_account_map = wiring.bank_account_id_name_map()
     bank_account_ids = list(bank_account_map.keys())
     bank_account_name_formatter = lookups.make_name_formatter(bank_account_map)
 
-    expense_source_map = lookups.get_id_name_map("expense_sources")
+    expense_source_map = wiring.expense_source_id_name_map()
     expense_source_ids = list(expense_source_map.keys())
     expense_source_name_formatter = lookups.make_name_formatter(expense_source_map)
 
-    income_source_map = lookups.get_id_name_map("income_sources")
+    income_source_map = wiring.income_source_id_name_map()
     income_source_ids = list(income_source_map.keys())
     income_source_name_formatter = lookups.make_name_formatter(income_source_map)
 
