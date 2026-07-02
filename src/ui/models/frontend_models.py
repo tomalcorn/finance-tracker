@@ -182,7 +182,7 @@ class DFEConfig(pydantic.BaseModel):
         default=False,
         description=(
             "When True, load_input_data reads display rows from data_source "
-            "(Path A) instead of the legacy data_client.get_data path."
+            "(Path A); when False it loads no rows and falls back to sample data."
         ),
     )
 

@@ -1,14 +1,13 @@
-"""Streamlit cache mechanism shared by the DFE facade and the repo gateway.
+"""Streamlit cache mechanism backing the repository cache gateway.
 
 This module is the single source of truth for cached reads in the app:
   - a versioned @st.cache_data layer keyed by (table, query, version, filter)
   - per-table version counters in session state used to bust the cache
   - invalidation helpers, including the views affected by a write
 
-Both ui.data_client (the DFE/CRUD facade) and composition.cache (the
-repository CacheGateway) sit on these primitives, so a write through either
-path invalidates reads served through the other. Nothing here is repo- or
-DFE-specific; it is pure Streamlit cache plumbing.
+The repository CacheGateway (composition.cache) sits on these primitives, so a
+repository write invalidates every cached read it affects. Nothing here is
+repo-specific; it is pure Streamlit cache plumbing.
 """
 
 import logging
@@ -30,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 JsonDict = dict[str, pydantic.JsonValue]
 
-_TABLE_VERSIONS_KEY = "_data_client_table_versions"
+_TABLE_VERSIONS_KEY = "_cache_table_versions"
 
 
 def get_connection() -> st_supabase_connection.SupabaseConnection:
