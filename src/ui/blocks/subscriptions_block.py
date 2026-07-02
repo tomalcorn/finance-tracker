@@ -8,7 +8,6 @@ import streamlit as st
 
 from composition import wiring
 from domain import entities
-from ui import data_client
 from ui.components.dfes import base_dfe
 from ui.models import frontend_models
 
