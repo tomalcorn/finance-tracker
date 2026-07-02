@@ -49,6 +49,7 @@ def _build_dfe(
                 read_table=_VIEW_NAME,
             ),
             data_source=wiring.subscription_data_source(),
+            read_via_repository=True,
             backend_model=entities.SubscriptionModel,
             configs=[
                 frontend_models.DFEColumnConfig(

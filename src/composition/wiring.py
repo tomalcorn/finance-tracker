@@ -83,8 +83,15 @@ def one_off_data_source() -> grid_data_source.RepositoryGridDataSource:
 
 
 def payment_data_source() -> grid_data_source.RepositoryGridDataSource:
-    """GridDataSource for the payments DFEs (no view model; rows() unavailable)."""
-    return _grid_data_source(supabase_repos.SupabasePaymentRepository)
+    """GridDataSource for the payments DFEs.
+
+    Payments have no SQL view, so ``PaymentView`` reads the raw table; it
+    carries no computed columns, only the flat payment fields.
+    """
+    return _grid_data_source(
+        supabase_repos.SupabasePaymentRepository,
+        read_models.PaymentView,
+    )
 
 
 def subscription_data_source() -> grid_data_source.RepositoryGridDataSource:
