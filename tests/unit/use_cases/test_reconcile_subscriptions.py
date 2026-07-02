@@ -118,7 +118,11 @@ class TestReconcileSubscription:
         mock_subscription_repo: mock.MagicMock,
         mock_payment_repo: mock.MagicMock,
     ) -> None:
-        self.use_case = _use_case(mock_subscription_repo, mock_payment_repo)
+        self.use_case = _use_case(
+            mock_subscription_repo,
+            mock_payment_repo,
+            today=self._TODAY,
+        )
 
     @pytest.mark.parametrize(
         ("cadence", "start_date", "expected_date"),
@@ -170,7 +174,6 @@ class TestReconcileSubscription:
             start_date=start_date,
         )
         updates = entities.BackendUpdates()
-        self.use_case._today = self._TODAY
 
         self.use_case._reconcile_subscription(sub, [], updates)
 
