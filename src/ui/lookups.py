@@ -1,20 +1,14 @@
-"""Shared id -> name lookups for reference data.
+"""Helpers for rendering id -> name reference data in the UI.
 
-Used to populate selectbox options and render labels.
+The id -> name maps themselves are per-aggregate reads built in
+``composition.wiring`` (e.g. ``wiring.bank_account_id_name_map``); this module
+only turns such a map into a Streamlit ``format_func``.
 """
 
 from typing import TYPE_CHECKING
 
-from ui import data_client
-
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-
-def get_id_name_map(table_name: str) -> dict[str, str]:
-    """Return a {id: name} map for every row in `table_name`."""
-    rows = data_client.get_data(table_name=table_name, query_string="*")
-    return {str(row["id"]): str(row["name"]) for row in rows}
 
 
 def make_name_formatter(

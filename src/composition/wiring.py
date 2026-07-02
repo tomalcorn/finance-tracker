@@ -21,6 +21,15 @@ def _get_connection() -> "st_supabase_connection.SupabaseConnection":
     return ui_cache.get_connection()
 
 
+def _repository[RepoT: supabase_repos.SupabaseRepositoryBase](
+    repository_factory: "Callable[..., RepoT]",
+) -> "RepoT":
+    """Build a repository wired to the session connection, cache, and user."""
+    conn = _get_connection()
+    user_id = auth.get_current_user()
+    return repository_factory(conn, user_id, cache=cache.make_cache_gateway(conn))
+
+
 def _grid_data_source(
     repository_factory: "Callable[..., supabase_repos.SupabaseRepositoryBase]",
     view_model: "type[pydantic.BaseModel] | None" = None,
@@ -100,6 +109,40 @@ def subscription_data_source() -> grid_data_source.RepositoryGridDataSource:
         supabase_repos.SupabaseSubscriptionRepository,
         read_models.SubscriptionView,
     )
+
+
+def bank_account_views() -> list[read_models.BankAccountView]:
+    """Return the current user's bank accounts as typed view rows.
+
+    Carries the computed ``current_balance`` column, so it is the read the
+    bank-accounts overview metrics use.
+    """
+    repo = _repository(supabase_repos.SupabaseBankAccountRepository)
+    return [read_models.BankAccountView.model_validate(row) for row in repo.get_rows()]
+
+
+def bank_account_id_name_map() -> dict[str, str]:
+    """Return an ``{id: name}`` map of the current user's bank accounts."""
+    repo = _repository(supabase_repos.SupabaseBankAccountRepository)
+    return {str(model.id): str(model.name) for model in repo.get_all()}
+
+
+def expense_source_id_name_map() -> dict[str, str]:
+    """Return an ``{id: name}`` map of the current user's expense sources."""
+    repo = _repository(supabase_repos.SupabaseExpenseSourceRepository)
+    return {str(model.id): str(model.name) for model in repo.get_all()}
+
+
+def income_source_id_name_map() -> dict[str, str]:
+    """Return an ``{id: name}`` map of the current user's income sources."""
+    repo = _repository(supabase_repos.SupabaseIncomeSourceRepository)
+    return {str(model.id): str(model.name) for model in repo.get_all()}
+
+
+def budget_tracker_id_name_map() -> dict[str, str]:
+    """Return an ``{id: name}`` map of the current user's budget tracker items."""
+    repo = _repository(supabase_repos.SupabaseBudgetTrackerRepository)
+    return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
 def reconcile_subscriptions_use_case() -> (

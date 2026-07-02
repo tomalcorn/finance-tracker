@@ -28,15 +28,12 @@ _SAMPLE_DATA = pd.DataFrame(
 
 def _build_dfe() -> base_dfe.DFE:
     """Build the DFE for the one-offs block."""
-    budget_tracker_data = data_client.get_data(
-        table_name="budget_tracker",
-        query_string="id,name",
-    )
+    budget_tracker_map = wiring.budget_tracker_id_name_map()
     one_offs_bt_id = next(
         (
-            str(bt["id"])
-            for bt in budget_tracker_data
-            if bt.get("name") == entities.BudgetTrackerName.ONE_OFFS
+            bt_id
+            for bt_id, name in budget_tracker_map.items()
+            if name == entities.BudgetTrackerName.ONE_OFFS
         ),
         None,
     )

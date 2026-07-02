@@ -6,6 +6,7 @@ import uuid
 
 import streamlit as st
 
+from composition import wiring
 from ui import lookups
 from ui.components.buttons import constants
 from use_cases import bank_one_offs, errors
@@ -87,5 +88,5 @@ class BankButton:
             icon=constants.ButtonIcons.BANK,
             key="bank_it_button",
         ):
-            bank_account_map = lookups.get_id_name_map("bank_accounts")
+            bank_account_map = wiring.bank_account_id_name_map()
             self._bank_it_dialog(bankable_items, bank_account_map)
