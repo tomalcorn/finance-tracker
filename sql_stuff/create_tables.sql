@@ -103,6 +103,7 @@ FROM subscriptions s;
 CREATE OR REPLACE VIEW one_offs_view WITH (security_invoker = on) AS
 SELECT
     fs.id,
+    fs.user_id,
     fs.name,
     fs.cost,
     fs.current_month,
@@ -132,6 +133,7 @@ LEFT JOIN LATERAL (
 CREATE OR REPLACE VIEW expense_sources_view WITH (security_invoker = on) AS
 SELECT
     es.id,
+    es.user_id,
     es.name,
     es.budget,
     COALESCE(SUM(p.expense - p.income), 0) AS current_month,
@@ -161,12 +163,13 @@ LEFT JOIN LATERAL (
     WHERE bt.id = ANY(es.budget_tracker_ids)
 ) bt_totals ON TRUE
 GROUP BY
-    es.id, es.name, es.budget, es.budget_tracker_ids, es._created_at, bt_totals.total_budget;
+    es.id, es.user_id, es.name, es.budget, es.budget_tracker_ids, es._created_at, bt_totals.total_budget;
 
 -- Create the income_sources_view view
 CREATE OR REPLACE VIEW income_sources_view WITH (security_invoker = on) AS
 SELECT
     "income_sources".id,
+    "income_sources".user_id,
     "income_sources".name,
     COALESCE(SUM(payments.income), 0) AS current_month,
     "income_sources".budget_tracker_ids
@@ -178,14 +181,16 @@ ON
     "income_sources".id = payments.income_source_id
     AND payments.payment_date <= CURRENT_DATE
 GROUP BY
-    "income_sources".id, 
-    "income_sources".name, 
+    "income_sources".id,
+    "income_sources".user_id,
+    "income_sources".name,
     "income_sources".budget_tracker_ids;
 
 -- Create the budget_tracker_view view
 CREATE OR REPLACE VIEW budget_tracker_view WITH (security_invoker = on) AS
 SELECT
     bt.id,
+    bt.user_id,
     bt.name,
     bt.total_budget,
     bt._created_at,
@@ -214,7 +219,7 @@ LEFT JOIN LATERAL (
     WHERE bt.id = ANY(inc.budget_tracker_ids)
 ) income_totals ON TRUE
 GROUP BY
-    bt.id, bt.name, bt.total_budget, bt._created_at, income_totals.total_income;
+    bt.id, bt.user_id, bt.name, bt.total_budget, bt._created_at, income_totals.total_income;
 
 -- Create the bank_accounts_view view
 CREATE OR REPLACE VIEW bank_accounts_view WITH (security_invoker = on) AS
