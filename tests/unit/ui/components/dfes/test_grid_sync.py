@@ -21,6 +21,65 @@ def _config(
     )
 
 
+def _sort_config(
+    column_name: str,
+    sorting: query.SortingValues,
+) -> frontend_models.DFEColumnConfigBase:
+    """Build a minimal column config carrying a sort direction."""
+    return frontend_models.DFEColumnConfigBase(
+        column_name=column_name,
+        column_config={},
+        input_widget=st.date_input,
+        sorting=sorting,
+    )
+
+
+class TestApplyActiveSorting:
+    """Tests for apply_active_sorting."""
+
+    def test_sorts_descending_by_configured_column(self) -> None:
+        """A DESC sort config orders the frame high-to-low."""
+        # Arrange
+        df = pd.DataFrame({"payment_date": ["2026-01-01", "2026-03-01", "2026-02-01"]})
+        configs = [_sort_config("payment_date", query.SortingValues.DESC)]
+
+        # Act
+        result = grid_sync.apply_active_sorting(df, configs)
+
+        # Assert
+        expected = pd.DataFrame(
+            {"payment_date": ["2026-03-01", "2026-02-01", "2026-01-01"]},
+        )
+        pd.testing.assert_frame_equal(result, expected)
+
+    def test_sorts_ascending_by_configured_column(self) -> None:
+        """An ASC sort config orders the frame low-to-high."""
+        # Arrange
+        df = pd.DataFrame({"payment_date": ["2026-03-01", "2026-01-01", "2026-02-01"]})
+        configs = [_sort_config("payment_date", query.SortingValues.ASC)]
+
+        # Act
+        result = grid_sync.apply_active_sorting(df, configs)
+
+        # Assert
+        expected = pd.DataFrame(
+            {"payment_date": ["2026-01-01", "2026-02-01", "2026-03-01"]},
+        )
+        pd.testing.assert_frame_equal(result, expected)
+
+    def test_returns_frame_unchanged_without_sort_config(self) -> None:
+        """A frame is left untouched when no column declares a sort direction."""
+        # Arrange
+        df = pd.DataFrame({"payment_date": ["2026-03-01", "2026-01-01"]})
+        configs = [_config("payment_date", query.Filters(eq="x"))]
+
+        # Act
+        result = grid_sync.apply_active_sorting(df, configs)
+
+        # Assert
+        pd.testing.assert_frame_equal(result, df)
+
+
 class TestApplyColumnFilter:
     """Tests for apply_column_filter."""
 

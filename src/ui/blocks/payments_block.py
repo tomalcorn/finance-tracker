@@ -44,6 +44,13 @@ _INCOME_ENTRIES_SAMPLE_DATA = pd.DataFrame(
 )
 
 
+def _current_month_filter() -> query.Filters:
+    """Return a payment_date filter covering the current calendar month."""
+    start = datetime.datetime.now(tz=datetime.UTC).date().replace(day=1)
+    next_month = (start + datetime.timedelta(days=31)).replace(day=1)
+    return query.Filters(gte=start, lte=next_month - datetime.timedelta(days=1))
+
+
 def _build_expense_config(
     bank_account_ids: list[str],
     get_bank_account_name: "Callable",
@@ -78,10 +85,7 @@ def _build_expense_config(
                 button_label="Payment Date",
                 input_widget=st.date_input,
                 sorting=query.SortingValues.DESC,
-                filters=query.Filters(
-                    gte=datetime.date(2026, 1, 1),
-                    lte=datetime.date(2026, 12, 31),
-                ),
+                filters=_current_month_filter(),
             ),
             frontend_models.DFEColumnConfig(
                 column_name="expense",
@@ -183,10 +187,7 @@ def _build_income_config(
                 button_label="Payment Date",
                 input_widget=st.date_input,
                 sorting=query.SortingValues.DESC,
-                filters=query.Filters(
-                    gte=datetime.date(2026, 1, 1),
-                    lte=datetime.date(2026, 12, 31),
-                ),
+                filters=_current_month_filter(),
             ),
             frontend_models.DFEColumnConfig(
                 column_name="income",

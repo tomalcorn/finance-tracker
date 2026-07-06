@@ -62,7 +62,8 @@ def build_working_df(config: frontend_models.DFEConfig) -> pd.DataFrame:
         working_df = pd.DataFrame()
     if working_df.empty:
         working_df = config.sample_data.copy()
-    return _convert_cols_to_datetime(working_df, list(config.configs))
+    working_df = _convert_cols_to_datetime(working_df, list(config.configs))
+    return grid_sync.apply_active_sorting(working_df, _active_configs(config))
 
 
 def render_editor(config: frontend_models.DFEConfig, working_df: pd.DataFrame) -> None:

@@ -85,6 +85,33 @@ def apply_active_filters(
     return modified_df
 
 
+def apply_active_sorting(
+    dataframe: pd.DataFrame,
+    active_configs: list["frontend_models.DFEColumnConfigBase"],
+) -> pd.DataFrame:
+    """Sort the frame by every column configured with a sort direction (Path A).
+
+    Path A reads unordered rows from the port, so the ``sorting`` a column
+    config declares is applied here in Python (it used to ride along on the
+    SQL query). Columns are sorted in config order; a stable sort keeps ties in
+    their existing order.
+    """
+    sort_configs = [
+        config
+        for config in active_configs
+        if config.sorting and config.column_name in dataframe.columns
+    ]
+    if not sort_configs:
+        return dataframe
+    return dataframe.sort_values(
+        by=[config.column_name for config in sort_configs],
+        ascending=[
+            config.sorting == query.SortingValues.ASC for config in sort_configs
+        ],
+        kind="stable",
+    ).reset_index(drop=True)
+
+
 def enforce_unique_cols(
     row: dict[str, typing.Any],
     unique_col_names: list[str],
