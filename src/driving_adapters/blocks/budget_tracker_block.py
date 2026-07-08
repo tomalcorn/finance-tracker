@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import streamlit as st
 
-from composition import wiring
 from domain import entities, query
 from driving_adapters.components.buttons import constants
 from driving_adapters.components.dfes import grid
@@ -13,6 +12,8 @@ from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from driving_adapters.components.dfes import data_source as data_source_mod
 
 _BUDGET_TRACKER_TABLE = "budget_tracker"
 _BUDGET_TRACKER_VIEW = "budget_tracker_view"
@@ -54,14 +55,16 @@ _INCOME_SOURCES_SAMPLE_DATA = pd.DataFrame(
 )
 
 
-def _build_budget_tracker_config() -> frontend_models.DFEConfig:
+def _build_budget_tracker_config(
+    data_source: "data_source_mod.GridDataSource",
+) -> frontend_models.DFEConfig:
     """Build the grid config for the budget tracker tab."""
     return frontend_models.DFEConfig(
         table_names=frontend_models.DFETableNameConfig(
             write_table=_BUDGET_TRACKER_TABLE,
             read_table=_BUDGET_TRACKER_VIEW,
         ),
-        data_source=wiring.budget_tracker_data_source(),
+        data_source=data_source,
         read_via_repository=True,
         backend_model=entities.BudgetTrackerItemModel,
         configs=[
@@ -144,6 +147,7 @@ def _build_budget_tracker_config() -> frontend_models.DFEConfig:
 
 
 def _build_expense_sources_config(
+    data_source: "data_source_mod.GridDataSource",
     expenses_bt_id: str | None,
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the expense sources tab."""
@@ -152,7 +156,7 @@ def _build_expense_sources_config(
             write_table=_EXPENSE_SOURCES_TABLE,
             read_table=_EXPENSE_SOURCES_VIEW,
         ),
-        data_source=wiring.expense_source_data_source(),
+        data_source=data_source,
         read_via_repository=True,
         backend_model=entities.ExpenseSourceModel,
         configs=[
@@ -246,6 +250,7 @@ def _build_expense_sources_config(
 
 
 def _build_income_sources_config(
+    data_source: "data_source_mod.GridDataSource",
     budget_tracker_ids: list[str],
     get_budget_tracker_name: "Callable[[str | float], str]",
 ) -> frontend_models.DFEConfig:
@@ -255,7 +260,7 @@ def _build_income_sources_config(
             write_table=_INCOME_SOURCES_TABLE,
             read_table=_INCOME_SOURCES_VIEW,
         ),
-        data_source=wiring.income_source_data_source(),
+        data_source=data_source,
         read_via_repository=True,
         backend_model=entities.IncomeSourceModel,
         configs=[
@@ -300,13 +305,17 @@ def _build_income_sources_config(
     )
 
 
-def _configs() -> tuple[
+def _configs(
+    budget_tracker_data_source: "data_source_mod.GridDataSource",
+    expense_source_data_source: "data_source_mod.GridDataSource",
+    income_source_data_source: "data_source_mod.GridDataSource",
+    budget_tracker_map: dict[str, str],
+) -> tuple[
     frontend_models.DFEConfig,
     frontend_models.DFEConfig,
     frontend_models.DFEConfig,
 ]:
     """Build the budget-tracker, expense-source, and income-source grid configs."""
-    budget_tracker_map = wiring.budget_tracker_id_name_map()
     budget_tracker_ids = list(budget_tracker_map.keys())
 
     expenses_bt_id = next(
@@ -322,23 +331,47 @@ def _configs() -> tuple[
         return budget_tracker_map.get(str(bt_id), "Unknown Budget Tracker")
 
     return (
-        _build_budget_tracker_config(),
-        _build_expense_sources_config(expenses_bt_id),
-        _build_income_sources_config(budget_tracker_ids, get_budget_tracker_name),
+        _build_budget_tracker_config(budget_tracker_data_source),
+        _build_expense_sources_config(expense_source_data_source, expenses_bt_id),
+        _build_income_sources_config(
+            income_source_data_source,
+            budget_tracker_ids,
+            get_budget_tracker_name,
+        ),
     )
 
 
-def commit() -> None:
+def commit(
+    budget_tracker_data_source: "data_source_mod.GridDataSource",
+    expense_source_data_source: "data_source_mod.GridDataSource",
+    income_source_data_source: "data_source_mod.GridDataSource",
+    budget_tracker_map: dict[str, str],
+) -> None:
     """Apply any pending backend updates for this block."""
-    bt_config, es_config, is_config = _configs()
+    bt_config, es_config, is_config = _configs(
+        budget_tracker_data_source,
+        expense_source_data_source,
+        income_source_data_source,
+        budget_tracker_map,
+    )
     grid.commit(bt_config)
     grid.commit(es_config)
     grid.commit(is_config)
 
 
-def render() -> None:
+def render(
+    budget_tracker_data_source: "data_source_mod.GridDataSource",
+    expense_source_data_source: "data_source_mod.GridDataSource",
+    income_source_data_source: "data_source_mod.GridDataSource",
+    budget_tracker_map: dict[str, str],
+) -> None:
     """Render the budget tracker block."""
-    bt_config, es_config, is_config = _configs()
+    bt_config, es_config, is_config = _configs(
+        budget_tracker_data_source,
+        expense_source_data_source,
+        income_source_data_source,
+        budget_tracker_map,
+    )
 
     budget_tracker_tab, expense_tab, income_tab = st.tabs(
         [

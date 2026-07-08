@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import streamlit as st
 
-from composition import wiring
 from domain import entities, query
 from driving_adapters import lookups
 from driving_adapters.components.buttons import constants
@@ -15,6 +14,8 @@ from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from driving_adapters.components.dfes import data_source as data_source_mod
 
 _TABLE_NAME = "payments"
 _INCOME_KEY_PREFIX = "income_entries"
@@ -52,6 +53,7 @@ def _current_month_filter() -> query.Filters:
 
 
 def _build_expense_config(
+    data_source: "data_source_mod.GridDataSource",
     bank_account_ids: list[str],
     get_bank_account_name: "Callable[[str | float], str]",
     expense_source_ids: list[str],
@@ -62,7 +64,7 @@ def _build_expense_config(
         table_names=frontend_models.DFETableNameConfig(
             write_table=_TABLE_NAME,
         ),
-        data_source=wiring.payment_data_source(),
+        data_source=data_source,
         read_via_repository=True,
         backend_model=entities.ExpensePaymentModel,
         configs=[

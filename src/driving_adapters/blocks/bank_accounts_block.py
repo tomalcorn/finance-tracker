@@ -1,13 +1,18 @@
 """Bank accounts block for the finance tracker app."""
 
+from typing import TYPE_CHECKING
+
 import pandas as pd
 import streamlit as st
 
-from composition import wiring
 from domain import entities
 from driving_adapters.components.buttons import constants
 from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
+
+if TYPE_CHECKING:
+    from domain import read_models
+    from driving_adapters.components.dfes import data_source as data_source_mod
 
 _TABLE_NAME = "bank_accounts"
 _VIEW_NAME = "bank_accounts_view"
@@ -21,14 +26,16 @@ _SAMPLE_DATA = pd.DataFrame(
 )
 
 
-def _build_config() -> frontend_models.DFEConfig:
+def _build_config(
+    data_source: "data_source_mod.GridDataSource",
+) -> frontend_models.DFEConfig:
     """Build the grid config for the bank accounts block."""
     return frontend_models.DFEConfig(
         table_names=frontend_models.DFETableNameConfig(
             write_table=_TABLE_NAME,
             read_table=_VIEW_NAME,
         ),
-        data_source=wiring.bank_account_data_source(),
+        data_source=data_source,
         read_via_repository=True,
         backend_model=entities.BankAccountModel,
         configs=[
@@ -69,14 +76,13 @@ def _build_config() -> frontend_models.DFEConfig:
     )
 
 
-def commit() -> None:
+def commit(data_source: "data_source_mod.GridDataSource") -> None:
     """Apply any pending backend updates for this block."""
-    grid.commit(_build_config())
+    grid.commit(_build_config(data_source))
 
 
-def _render_metrics_tab() -> None:
+def _render_metrics_tab(accounts: "list[read_models.BankAccountView]") -> None:
     """Render the metrics grid tab showing name and current balance per account."""
-    accounts = wiring.bank_account_views()
     cols = st.columns(3)
     for i, account in enumerate(accounts):
         with cols[i % 3]:
@@ -87,7 +93,10 @@ def _render_metrics_tab() -> None:
             )
 
 
-def render() -> None:
+def render(
+    data_source: "data_source_mod.GridDataSource",
+    accounts: "list[read_models.BankAccountView]",
+) -> None:
     """Render the bank accounts block."""
     metrics_tab, table_tab = st.tabs(
         [
@@ -97,7 +106,7 @@ def render() -> None:
     )
 
     with metrics_tab:
-        _render_metrics_tab()
+        _render_metrics_tab(accounts)
 
     with table_tab:
-        grid.render(_build_config())
+        grid.render(_build_config(data_source))
