@@ -2,11 +2,11 @@
 
 from typing import TYPE_CHECKING
 
-from adapters.supabase import repository as supabase_repos
-from composition import cache, grid_data_source
+from composition import cache
 from domain import read_models
-from ui import auth
-from ui import cache as ui_cache
+from driven_adapters.supabase import repository as supabase_repos
+from driving_adapters import auth, grid_data_source
+from driving_adapters import cache as ui_cache
 from use_cases import bank_one_offs, initialise_workspace, reconcile_subscriptions
 
 if TYPE_CHECKING:

@@ -11,7 +11,7 @@ import streamlit as st
 import streamlit.testing.v1 as st_test
 
 from domain import entities, query
-from ui.models import frontend_models
+from driving_adapters.models import frontend_models
 
 
 @pytest.fixture(autouse=True)
@@ -124,7 +124,7 @@ def _docs_pages_app(docs_dir, *, render_boom: bool = False) -> None:  # noqa: AN
 
     import streamlit as st
 
-    from ui.pages import docs_pages
+    from driving_adapters.pages import docs_pages
 
     registry = docs_pages.DocsRegistry(docs_dir)
     pages = docs_pages.DocsUI(registry).build_pages()
