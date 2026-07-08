@@ -3,11 +3,11 @@
 import pandas as pd
 import pydantic
 import streamlit as st
+
+from domain import entities
 from driving_adapters import ss_keys
 from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
-
-from domain import entities
 
 
 class _StubModel(pydantic.BaseModel):

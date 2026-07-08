@@ -5,10 +5,10 @@ from collections.abc import Callable
 import pandas as pd
 import pytest
 import streamlit as st
-from driving_adapters.components.dfes import grid_sync
-from driving_adapters.models import frontend_models
 
 from domain import query
+from driving_adapters.components.dfes import grid_sync
+from driving_adapters.models import frontend_models
 
 ColumnConfigFactory = Callable[..., frontend_models.DFEColumnConfigBase]
 

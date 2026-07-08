@@ -3,9 +3,9 @@
 import pandas as pd
 import pydantic
 import pytest
-from driving_adapters.models import frontend_models
 
 from domain import entities
+from driving_adapters.models import frontend_models
 
 
 class _StubModel(pydantic.BaseModel):

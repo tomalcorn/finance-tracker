@@ -8,11 +8,11 @@ import pydantic
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from driving_adapters.components.buttons import add_button
-from driving_adapters.models import frontend_models
 from tests import conftest
 
 from domain import entities
+from driving_adapters.components.buttons import add_button
+from driving_adapters.models import frontend_models
 
 
 @pytest.fixture(autouse=True)
@@ -87,6 +87,7 @@ def _dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
     this body in a fresh namespace where module-level names aren't visible.
     """
     import streamlit as st  # noqa: F401 - needed for app_test from_function
+
     from driving_adapters.components.buttons import add_button
 
     add_button._add_row_dialog(config)

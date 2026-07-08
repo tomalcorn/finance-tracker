@@ -3,9 +3,9 @@
 import uuid
 
 import pytest
-from driving_adapters import grid_data_source
 
 from domain import entities, read_models
+from driving_adapters import grid_data_source
 
 
 @pytest.fixture(name="budget_tracker_row")

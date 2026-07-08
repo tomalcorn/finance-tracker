@@ -8,11 +8,11 @@ import pydantic
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from driving_adapters.components.buttons import filter_button
-from driving_adapters.models import frontend_models
 from tests import conftest
 
 from domain import query
+from driving_adapters.components.buttons import filter_button
+from driving_adapters.models import frontend_models
 
 
 class _StubModel(pydantic.BaseModel):
@@ -75,6 +75,7 @@ def test_get_min_max_values(
 def _filter_dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
     """Render the filter dialog for AppTest (config injected via kwargs)."""
     import streamlit as st  # noqa: F401 - needed for app_test from_function
+
     from driving_adapters.components.buttons import filter_button
 
     filter_button._filter_dialog(config)

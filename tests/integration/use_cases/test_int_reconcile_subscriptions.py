@@ -6,10 +6,10 @@ import uuid
 
 import pytest
 import st_supabase_connection
-from driven_adapters.supabase import repository as supabase_repos
-from driving_adapters import cache
 
 from domain import entities
+from driven_adapters.supabase import repository as supabase_repos
+from driving_adapters import cache
 from use_cases.reconcile_subscriptions import ReconcileSubscriptionsUseCase
 
 _SUBSCRIPTIONS = "subscriptions"

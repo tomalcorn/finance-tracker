@@ -5,8 +5,9 @@ import pathlib
 from collections.abc import Callable
 
 import pytest
-from driving_adapters.pages import docs_pages, errors
 from streamlit.testing import v1 as st_test
+
+from driving_adapters.pages import docs_pages, errors
 
 # ===========================================================================
 # Fixtures

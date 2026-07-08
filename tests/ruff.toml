@@ -50,10 +50,10 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 known-first-party = [
     "domain",
     "ports",
-    "adapters",
+    "driven_adapters",
     "use_cases",
     "composition",
-    "ui"
+    "driving_adapters"
 ]
 
 [format]

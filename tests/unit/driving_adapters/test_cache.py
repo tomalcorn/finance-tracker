@@ -1,10 +1,10 @@
 """Unit tests for the shared Streamlit cache mechanism."""
 
 import streamlit as st
-from driving_adapters import cache
-from driving_adapters.models import frontend_models
 
 from domain import query
+from driving_adapters import cache
+from driving_adapters.models import frontend_models
 
 
 class TestGetTableVersions:

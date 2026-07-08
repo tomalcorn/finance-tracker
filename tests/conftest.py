@@ -9,9 +9,9 @@ import pytest
 import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from driving_adapters.models import frontend_models
 
 from domain import entities, query
+from driving_adapters.models import frontend_models
 
 
 @pytest.fixture(autouse=True)
@@ -123,6 +123,7 @@ def _docs_pages_app(docs_dir, *, render_boom: bool = False) -> None:  # noqa: AN
     from unittest import mock
 
     import streamlit as st
+
     from driving_adapters.pages import docs_pages
 
     registry = docs_pages.DocsRegistry(docs_dir)

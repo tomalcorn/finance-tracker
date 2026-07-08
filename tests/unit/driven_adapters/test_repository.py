@@ -6,10 +6,10 @@ from unittest import mock
 
 import pytest
 import st_supabase_connection
-from driven_adapters import errors
-from driven_adapters.supabase import repository, table_names
 
 from domain import entities
+from driven_adapters import errors
+from driven_adapters.supabase import repository, table_names
 
 _USER_ID = "auth0|test-user-123"
 _OTHER_USER_ID = "auth0|other-user-456"

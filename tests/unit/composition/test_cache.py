@@ -4,11 +4,11 @@ from unittest import mock
 
 import pytest
 import st_supabase_connection
-from driven_adapters.supabase import table_names
-from driving_adapters import cache as ui_cache
 
 from composition import cache as composition_cache
 from domain import entities
+from driven_adapters.supabase import table_names
+from driving_adapters import cache as ui_cache
 
 _PAYMENTS = str(table_names.TableNames.PAYMENTS)
 
