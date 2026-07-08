@@ -1,47 +1,50 @@
 """Unit tests for the pure grid_sync module (no Streamlit runtime needed)."""
 
+from collections.abc import Callable
+
 import pandas as pd
+import pytest
 import streamlit as st
 
 from domain import query
 from ui.components.dfes import grid_sync
 from ui.models import frontend_models
 
-
-def _config(
-    column_name: str,
-    filters: query.Filters,
-) -> frontend_models.DFEColumnConfigBase:
-    """Build a minimal column config carrying a filter."""
-    return frontend_models.DFEColumnConfigBase(
-        column_name=column_name,
-        column_config={},
-        input_widget=st.number_input,
-        filters=filters,
-    )
+ColumnConfigFactory = Callable[..., frontend_models.DFEColumnConfigBase]
 
 
-def _sort_config(
-    column_name: str,
-    sorting: query.SortingValues,
-) -> frontend_models.DFEColumnConfigBase:
-    """Build a minimal column config carrying a sort direction."""
-    return frontend_models.DFEColumnConfigBase(
-        column_name=column_name,
-        column_config={},
-        input_widget=st.date_input,
-        sorting=sorting,
-    )
+@pytest.fixture(name="make_column_config")
+def _make_column_config() -> ColumnConfigFactory:
+    """Return a factory for minimal column configs carrying a filter or sort."""
+
+    def _make(
+        column_name: str,
+        *,
+        filters: query.Filters | None = None,
+        sorting: query.SortingValues | None = None,
+    ) -> frontend_models.DFEColumnConfigBase:
+        return frontend_models.DFEColumnConfigBase(
+            column_name=column_name,
+            column_config={},
+            input_widget=st.number_input,
+            filters=filters,
+            sorting=sorting,
+        )
+
+    return _make
 
 
 class TestApplyActiveSorting:
     """Tests for apply_active_sorting."""
 
-    def test_sorts_descending_by_configured_column(self) -> None:
+    def test_sorts_descending_by_configured_column(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
         """A DESC sort config orders the frame high-to-low."""
         # Arrange
         df = pd.DataFrame({"payment_date": ["2026-01-01", "2026-03-01", "2026-02-01"]})
-        configs = [_sort_config("payment_date", query.SortingValues.DESC)]
+        configs = [make_column_config("payment_date", sorting=query.SortingValues.DESC)]
 
         # Act
         result = grid_sync.apply_active_sorting(df, configs)
@@ -52,11 +55,14 @@ class TestApplyActiveSorting:
         )
         pd.testing.assert_frame_equal(result, expected)
 
-    def test_sorts_ascending_by_configured_column(self) -> None:
+    def test_sorts_ascending_by_configured_column(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
         """An ASC sort config orders the frame low-to-high."""
         # Arrange
         df = pd.DataFrame({"payment_date": ["2026-03-01", "2026-01-01", "2026-02-01"]})
-        configs = [_sort_config("payment_date", query.SortingValues.ASC)]
+        configs = [make_column_config("payment_date", sorting=query.SortingValues.ASC)]
 
         # Act
         result = grid_sync.apply_active_sorting(df, configs)
@@ -67,11 +73,14 @@ class TestApplyActiveSorting:
         )
         pd.testing.assert_frame_equal(result, expected)
 
-    def test_returns_frame_unchanged_without_sort_config(self) -> None:
+    def test_returns_frame_unchanged_without_sort_config(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
         """A frame is left untouched when no column declares a sort direction."""
         # Arrange
         df = pd.DataFrame({"payment_date": ["2026-03-01", "2026-01-01"]})
-        configs = [_config("payment_date", query.Filters(eq="x"))]
+        configs = [make_column_config("payment_date", filters=query.Filters(eq="x"))]
 
         # Act
         result = grid_sync.apply_active_sorting(df, configs)
@@ -127,17 +136,23 @@ class TestPandasFilters:
 class TestApplyActiveFilters:
     """Tests for apply_active_filters."""
 
-    def test_applies_configured_filter(self) -> None:
+    def test_applies_configured_filter(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
         """A column config filter narrows the frame."""
         df = pd.DataFrame({"value": [10, 200, 30]})
-        configs = [_config("value", query.Filters(lte=100))]
+        configs = [make_column_config("value", filters=query.Filters(lte=100))]
         result = grid_sync.apply_active_filters(df, configs)
         assert list(result["value"]) == [10, 30]
 
-    def test_ignores_filter_for_absent_column(self) -> None:
+    def test_ignores_filter_for_absent_column(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
         """A filter on a missing column is a no-op."""
         df = pd.DataFrame({"value": [10, 20]})
-        configs = [_config("missing", query.Filters(lte=5))]
+        configs = [make_column_config("missing", filters=query.Filters(lte=5))]
         result = grid_sync.apply_active_filters(df, configs)
         assert list(result["value"]) == [10, 20]
 
@@ -252,10 +267,13 @@ class TestComputeBackendUpdates:
 class TestCheckForFiltersUpdates:
     """Tests for re-applying filters after edits."""
 
-    def test_edit_pushes_row_out_of_range(self) -> None:
+    def test_edit_pushes_row_out_of_range(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
         """An edit beyond the active filter drops the row and flags a change."""
         working_df = pd.DataFrame({"id": ["a", "b"], "value": [10, 20]})
-        configs = [_config("value", query.Filters(lte=100))]
+        configs = [make_column_config("value", filters=query.Filters(lte=100))]
         changed, modified = grid_sync.check_for_filters_updates(
             working_df=working_df,
             edited_rows={"0": {"value": 999}},
@@ -265,10 +283,13 @@ class TestCheckForFiltersUpdates:
         assert changed is True
         assert list(modified["value"]) == [20]
 
-    def test_no_change_when_edit_stays_in_range(self) -> None:
+    def test_no_change_when_edit_stays_in_range(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
         """An in-range edit keeps every row and flags no change."""
         working_df = pd.DataFrame({"id": ["a", "b"], "value": [10, 20]})
-        configs = [_config("value", query.Filters(lte=100))]
+        configs = [make_column_config("value", filters=query.Filters(lte=100))]
         changed, modified = grid_sync.check_for_filters_updates(
             working_df=working_df,
             edited_rows={"0": {"value": 50}},

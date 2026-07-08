@@ -247,7 +247,7 @@ def _build_expense_sources_config(
 
 def _build_income_sources_config(
     budget_tracker_ids: list[str],
-    get_budget_tracker_name: "Callable",
+    get_budget_tracker_name: "Callable[[str | float], str]",
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the income sources tab."""
     return frontend_models.DFEConfig(

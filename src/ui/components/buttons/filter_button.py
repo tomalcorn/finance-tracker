@@ -101,10 +101,10 @@ def _handle_numeric_filtering(
 def _handle_multiselect_filtering(
     config: "frontend_models.DFEConfig",
     col_config: "frontend_models.DFEColumnConfigBase",
-    unique_values: set[typing.Any],
+    unique_values: set[object],
 ) -> query.Filters | None:
     """Render a multiselect filter for a low-cardinality column."""
-    default_selected: set[typing.Any] = set()
+    default_selected: set[object] = set()
     if col_config.filters:
         if col_config.filters.in_:
             default_selected = set(col_config.filters.in_)
@@ -115,17 +115,29 @@ def _handle_multiselect_filtering(
             default_selected = {v for v in unique_values if substr in str(v).lower()}
         default_selected &= unique_values
 
-    multiselect_kwargs: dict[str, typing.Any] = {
-        "label": f"Filter by {col_config.button_label or col_config.column_name}",
-        "options": unique_values,
-        "default": list(default_selected) if default_selected else None,
-        "key": f"{config.key_prefix}_filter_selectbox_{col_config.column_name}",
-    }
+    label = f"Filter by {col_config.button_label or col_config.column_name}"
+    default = list(default_selected) if default_selected else None
+    key = f"{config.key_prefix}_filter_selectbox_{col_config.column_name}"
     if col_config.format_func:
-        multiselect_kwargs["format_func"] = col_config.format_func
-    selected_values = st.multiselect(**multiselect_kwargs)
+        selected_values = st.multiselect(
+            label,
+            options=unique_values,
+            default=default,
+            format_func=col_config.format_func,
+            key=key,
+        )
+    else:
+        selected_values = st.multiselect(
+            label,
+            options=unique_values,
+            default=default,
+            key=key,
+        )
 
-    return query.Filters(in_=selected_values) if selected_values else None
+    if not selected_values:
+        return None
+    # The selected column values are domain filter values at runtime.
+    return query.Filters(in_=typing.cast("list[query.FilterValue]", selected_values))
 
 
 def _handle_generic_filtering(

@@ -1,5 +1,6 @@
 """Add-row button: a dialog that writes a new row through the grid port."""
 
+import logging
 import typing
 
 import pydantic
@@ -11,6 +12,8 @@ from ui.components.buttons import constants
 
 if typing.TYPE_CHECKING:
     from ui.models import frontend_models
+
+logger = logging.getLogger(__name__)
 
 
 def _has_unfilled_required(
@@ -27,7 +30,7 @@ def _has_unfilled_required(
 
 def _submit_new_row(
     config: "frontend_models.DFEConfig",
-    new_row: dict[str, typing.Any],
+    new_row: dict[str, object],
 ) -> None:
     """Validate a new row and write it through the grid data source.
 
@@ -77,7 +80,12 @@ def _add_row_dialog(config: "frontend_models.DFEConfig") -> None:
             col.column_name: output
             for col, output in zip(col_configs, outputs, strict=False)
         }
-        _submit_new_row(config, new_row)
+        try:
+            _submit_new_row(config, new_row)
+        except ValueError:
+            logger.exception("Failed to add a new row to %s", config.write_table)
+            st.error("Could not add the row. Please check the values and try again.")
+            return
         st.rerun()
 
 

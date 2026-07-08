@@ -36,9 +36,9 @@ _SAMPLE_DATA = pd.DataFrame(
 
 def _build_config(
     bank_account_ids: list[str],
-    get_bank_account_name: "Callable",
+    get_bank_account_name: "Callable[[str | float], str]",
     expense_source_ids: list[str],
-    get_expense_source_name: "Callable",
+    get_expense_source_name: "Callable[[str | float], str]",
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the subscriptions block."""
     return frontend_models.DFEConfig(

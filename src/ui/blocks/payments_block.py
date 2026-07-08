@@ -53,9 +53,9 @@ def _current_month_filter() -> query.Filters:
 
 def _build_expense_config(
     bank_account_ids: list[str],
-    get_bank_account_name: "Callable",
+    get_bank_account_name: "Callable[[str | float], str]",
     expense_source_ids: list[str],
-    get_expense_source_name: "Callable",
+    get_expense_source_name: "Callable[[str | float], str]",
 ) -> frontend_models.DFEConfig:
     """Build the grid config for expense payments."""
     return frontend_models.DFEConfig(
@@ -154,9 +154,9 @@ def _build_expense_config(
 
 def _build_income_config(
     bank_account_ids: list[str],
-    get_bank_account_name: "Callable",
+    get_bank_account_name: "Callable[[str | float], str]",
     income_source_ids: list[str],
-    get_income_source_name: "Callable",
+    get_income_source_name: "Callable[[str | float], str]",
 ) -> frontend_models.DFEConfig:
     """Build the grid config for income payments."""
     return frontend_models.DFEConfig(
@@ -257,8 +257,8 @@ def _build_income_config(
 def _configs() -> tuple[
     frontend_models.DFEConfig,
     frontend_models.DFEConfig,
-    "Callable",
-    "Callable",
+    "Callable[[str | float], str]",
+    "Callable[[str | float], str]",
 ]:
     """Build both payment grid configs with their shared foreign-key lookups.
 
@@ -301,8 +301,8 @@ def commit() -> None:
 
 def _render_expense_breakdown(
     working_df: pd.DataFrame,
-    get_expense_source_name: "Callable",
-    get_bank_account_name: "Callable",
+    get_expense_source_name: "Callable[[str | float], str]",
+    get_bank_account_name: "Callable[[str | float], str]",
 ) -> None:
     """Render the expense breakdown tab with collapsible sections per source."""
     if working_df.empty:
