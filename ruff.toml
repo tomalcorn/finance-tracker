@@ -57,10 +57,10 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 known-first-party = [
     "domain",
     "ports",
-    "adapters",
+    "driven_adapters",
     "use_cases",
     "composition",
-    "ui"
+    "driving_adapters"
 ]
 
 [format]

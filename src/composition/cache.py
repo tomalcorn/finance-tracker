@@ -4,13 +4,14 @@ Lives in composition because it knows Streamlit caching specifics and the
 concrete Supabase client — neither of which the inner layers may depend on.
 Builds the CacheGateway that wiring injects into repositories, and exposes the
 session connection. Both the gateway and the DFE facade sit on the shared
-ui.cache primitives, so repository reads and DFE reads share one coherent cache.
+driving_adapters.cache primitives, so repository reads and DFE reads share one
+coherent cache.
 """
 
 from typing import TYPE_CHECKING
 
-from adapters.supabase import client
-from ui import cache as ui_cache
+from driven_adapters.supabase import client
+from driving_adapters import cache as ui_cache
 
 if TYPE_CHECKING:
     import st_supabase_connection
@@ -21,7 +22,7 @@ JsonDict = ui_cache.JsonDict
 
 
 class StreamlitCacheGateway:
-    """CacheGateway (see adapters.cache) backed by the shared ui.cache layer.
+    """CacheGateway (see driven_adapters.cache) backed by driving_adapters.cache.
 
     Reads go through the versioned @st.cache_data layer; writes hit Supabase
     and then bump the table version (plus dependent view versions), so a

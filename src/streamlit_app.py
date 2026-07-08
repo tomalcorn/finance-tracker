@@ -5,8 +5,8 @@ import logging
 import streamlit as st
 
 from composition import wiring
-from ui import auth, ss_keys
-from ui.pages import constants, docs_pages
+from driving_adapters import auth, ss_keys
+from driving_adapters.pages import constants, docs_pages
 from use_cases import errors as use_case_errors
 
 logging.basicConfig(level=logging.WARNING)
