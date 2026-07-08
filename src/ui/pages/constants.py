@@ -9,8 +9,8 @@ class Pages(enum.Enum):
     """File paths for each page in the application."""
 
     DASHBOARD = st.Page(
-        "apps/pages/dashboard.py",
+        "ui/pages/dashboard.py",
         title="Dashboard",
         icon=":material/dashboard:",
     )
-    LOGIN = st.Page("apps/pages/login.py", title="Login", icon=":material/lock:")
+    LOGIN = st.Page("ui/pages/login.py", title="Login", icon=":material/lock:")

@@ -82,16 +82,6 @@ class DFEColumnConfigBase(pydantic.BaseModel):
         pydantic.Field(description="The keyword arguments for the input widget."),
     ] = {}
 
-    @pydantic.field_validator("sorting", mode="after")
-    @classmethod
-    def validate_sorting(cls, value: str | None) -> str | None:
-        """Validate the sorting value."""
-        valid_sortings = {"asc", "desc", None}
-        if value not in valid_sortings:
-            msg = f"Invalid sorting value: {value}. Must be one of {valid_sortings}."
-            raise ValueError(msg)
-        return value
-
     @pydantic.field_serializer("input_widget", "format_func", mode="plain")
     @classmethod
     def serialize_callables(
@@ -185,6 +175,21 @@ class DFEConfig(pydantic.BaseModel):
             "(Path A); when False it loads no rows and falls back to sample data."
         ),
     )
+
+    @property
+    def key_prefix(self) -> str:
+        """The session-state / widget key prefix, defaulting to the write table."""
+        return self.table_names.key_prefix or self.table_names.write_table
+
+    @property
+    def write_table(self) -> str:
+        """The write table this grid targets."""
+        return self.table_names.write_table
+
+    @property
+    def writable_configs(self) -> list[DFEColumnConfig]:
+        """The visible, writable column configs (used by the add dialog)."""
+        return [c for c in self.configs if isinstance(c, DFEColumnConfig) and c.visible]
 
     @pydantic.model_validator(mode="after")
     def check_data_source_present_when_reading_via_repository(self) -> Self:

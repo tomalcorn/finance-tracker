@@ -5,15 +5,12 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-import pandas as pd
-import pydantic
 import pytest
 import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
 
 from domain import entities, query
-from ui.components.dfes import base_dfe
 from ui.models import frontend_models
 
 
@@ -161,30 +158,6 @@ def _app_tester_getter() -> Callable[..., st_test.AppTest]:
         )
 
     return _app_tester
-
-
-# == DFE fixtures ==
-
-
-class _StubModel(pydantic.BaseModel):
-    pass
-
-
-@pytest.fixture(name="dfe_instance")
-def _dfe_instance(
-    col_configs: list[frontend_models.DFEColumnConfigBase],
-) -> base_dfe.DFE:
-    """Fixture for a DFE instance with sample user data."""
-    return base_dfe.DFE(
-        config=frontend_models.DFEConfig(
-            table_names=frontend_models.DFETableNameConfig(
-                write_table="bank_accounts",
-            ),
-            backend_model=_StubModel,
-            configs=col_configs,
-            sample_data=pd.DataFrame(),
-        ),
-    )
 
 
 # == auth fixtures ==
