@@ -82,16 +82,6 @@ class DFEColumnConfigBase(pydantic.BaseModel):
         pydantic.Field(description="The keyword arguments for the input widget."),
     ] = {}
 
-    @pydantic.field_validator("sorting", mode="after")
-    @classmethod
-    def validate_sorting(cls, value: str | None) -> str | None:
-        """Validate the sorting value."""
-        valid_sortings = {"asc", "desc", None}
-        if value not in valid_sortings:
-            msg = f"Invalid sorting value: {value}. Must be one of {valid_sortings}."
-            raise ValueError(msg)
-        return value
-
     @pydantic.field_serializer("input_widget", "format_func", mode="plain")
     @classmethod
     def serialize_callables(
