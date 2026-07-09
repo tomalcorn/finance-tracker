@@ -155,6 +155,7 @@ def _build_expense_config(
 
 
 def _build_income_config(
+    data_source: "data_source_mod.GridDataSource",
     bank_account_ids: list[str],
     get_bank_account_name: "Callable[[str | float], str]",
     income_source_ids: list[str],
@@ -166,7 +167,7 @@ def _build_income_config(
             write_table=_TABLE_NAME,
             key_prefix=_INCOME_KEY_PREFIX,
         ),
-        data_source=wiring.payment_data_source(),
+        data_source=data_source,
         read_via_repository=True,
         backend_model=entities.IncomePaymentModel,
         configs=[
@@ -256,7 +257,12 @@ def _build_income_config(
     )
 
 
-def _configs() -> tuple[
+def _configs(
+    data_source: "data_source_mod.GridDataSource",
+    bank_account_map: dict[str, str],
+    expense_source_map: dict[str, str],
+    income_source_map: dict[str, str],
+) -> tuple[
     frontend_models.DFEConfig,
     frontend_models.DFEConfig,
     "Callable[[str | float], str]",
@@ -267,25 +273,24 @@ def _configs() -> tuple[
     Returns the expense config, income config, and the expense-source and
     bank-account name formatters the breakdown tab also needs.
     """
-    bank_account_map = wiring.bank_account_id_name_map()
     bank_account_ids = list(bank_account_map.keys())
     get_bank_account_name = lookups.make_name_formatter(bank_account_map)
 
-    expense_source_map = wiring.expense_source_id_name_map()
     expense_source_ids = list(expense_source_map.keys())
     get_expense_source_name = lookups.make_name_formatter(expense_source_map)
 
-    income_source_map = wiring.income_source_id_name_map()
     income_source_ids = list(income_source_map.keys())
     get_income_source_name = lookups.make_name_formatter(income_source_map)
 
     expense_config = _build_expense_config(
+        data_source,
         bank_account_ids,
         get_bank_account_name,
         expense_source_ids,
         get_expense_source_name,
     )
     income_config = _build_income_config(
+        data_source,
         bank_account_ids,
         get_bank_account_name,
         income_source_ids,
@@ -294,9 +299,19 @@ def _configs() -> tuple[
     return expense_config, income_config, get_expense_source_name, get_bank_account_name
 
 
-def commit() -> None:
+def commit(
+    data_source: "data_source_mod.GridDataSource",
+    bank_account_map: dict[str, str],
+    expense_source_map: dict[str, str],
+    income_source_map: dict[str, str],
+) -> None:
     """Apply any pending backend updates for this block."""
-    expense_config, income_config, _, _ = _configs()
+    expense_config, income_config, _, _ = _configs(
+        data_source,
+        bank_account_map,
+        expense_source_map,
+        income_source_map,
+    )
     grid.commit(expense_config)
     grid.commit(income_config)
 
@@ -340,10 +355,20 @@ def _render_expense_breakdown(
             )
 
 
-def render() -> None:
+def render(
+    data_source: "data_source_mod.GridDataSource",
+    bank_account_map: dict[str, str],
+    expense_source_map: dict[str, str],
+    income_source_map: dict[str, str],
+) -> None:
     """Render the payments block."""
     expense_config, income_config, get_expense_source_name, get_bank_account_name = (
-        _configs()
+        _configs(
+            data_source,
+            bank_account_map,
+            expense_source_map,
+            income_source_map,
+        )
     )
 
     expense_tab, income_tab, breakdown_tab = st.tabs(
