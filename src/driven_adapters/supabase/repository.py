@@ -8,19 +8,21 @@ repository straight to a grid.
 """
 
 import dataclasses
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pydantic
 
 from domain import entities, read_models
 from driven_adapters import cache as cache_mod
 from driven_adapters import errors
-from driven_adapters.supabase import table_names
+from driven_adapters.supabase import client, table_names
 from ports import repository
 
 if TYPE_CHECKING:
     import uuid
     from collections.abc import Callable
+
+    import st_supabase_connection
 
 _PaymentAdapter = pydantic.TypeAdapter(entities.AnyPaymentModel)
 
@@ -44,8 +46,9 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
 ):
     """Read and write one aggregate through the injected cache gateway.
 
-    Reads are re-scoped to ``user_id`` in Python because the cache is shared
-    across sessions and keyed by table only.
+    The cache is shared across sessions, so reads are keyed per user
+    (``{user_id}:{table}``); with row-level security scoping the DB read, each
+    user's cache entry holds only their own rows.
     """
 
     def __init__(
@@ -53,32 +56,62 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         user_id: str,
         spec: "RepoSpec[EntityT, ViewT]",
         cache: cache_mod.CacheGateway,
+        connection: "st_supabase_connection.SupabaseConnection",
     ) -> None:
-        """Bind the repository to a user, its aggregate spec, and the cache."""
+        """Bind the repository to a user, its spec, the cache, and a connection."""
         self._user_id = user_id
         self._spec = spec
         self._cache = cache
+        self._connection = connection
+
+    def _cache_key(
+        self,
+        table: "table_names.ViewNames | table_names.TableNames",
+    ) -> str:
+        """Return the user-scoped cache key for a table or view."""
+        return f"{self._user_id}:{table}"
+
+    def _load_rows(self) -> list[dict[str, object]]:
+        """Fetch every row of the read table from Supabase (a cache-miss loader)."""
+        rows = client.fetch_table(str(self._spec.read_table), "*", self._connection)
+        return cast("list[dict[str, object]]", rows)
 
     def _fetch_rows(self) -> list[dict[str, object]]:
         try:
-            rows = self._cache.fetch(self._spec.read_table)
+            return self._cache.get_or_load(
+                self._cache_key(self._spec.read_table),
+                self._load_rows,
+            )
         except Exception as e:
             msg = f"Failed to fetch rows from {self._spec.read_table}: {e}"
             raise errors.AdapterError(msg) from e
-        return [row for row in rows if row["user_id"] == self._user_id]
 
     def _fetch_by_ids(self, ids: list["uuid.UUID"]) -> list[dict[str, object]]:
         id_strs = {str(i) for i in ids}
         return [row for row in self._fetch_rows() if row["id"] in id_strs]
 
+    def _affected_keys(self) -> list[str]:
+        """Return the user-scoped cache keys a write to this aggregate busts.
+
+        The written table plus every view that depends on it — Supabase schema
+        knowledge that belongs on the driven side.
+        """
+        views = table_names.VIEWS_AFFECTED_BY.get(self._spec.write_table, [])
+        return [self._cache_key(t) for t in (self._spec.write_table, *views)]
+
     def _write(self, updates: entities.BackendUpdates, error_context: str) -> None:
-        """Send a write to the cache, translating any failure into AdapterError.
+        """Persist a write via the client, then invalidate affected cached reads.
 
         Keeps Supabase/cache exceptions from leaking past the adapter boundary:
         callers only ever see a domain-level ``AdapterError``.
         """
         try:
-            self._cache.write(self._spec.write_table, updates)
+            client.update_backend(
+                str(self._spec.write_table),
+                updates,
+                self._connection,
+            )
+            self._cache.invalidate(self._affected_keys())
         except Exception as e:
             msg = f"{error_context}: {e}"
             raise errors.AdapterError(msg) from e
@@ -120,6 +153,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
 def bank_account_repository(
     user_id: str,
     cache: cache_mod.CacheGateway,
+    connection: "st_supabase_connection.SupabaseConnection",
 ) -> SupabaseRepository[entities.BankAccountModel, read_models.BankAccountView]:
     """Build the bank-accounts repository."""
     return SupabaseRepository(
@@ -131,12 +165,14 @@ def bank_account_repository(
             write_table=table_names.TableNames.BANK_ACCOUNTS,
         ),
         cache,
+        connection,
     )
 
 
 def budget_tracker_repository(
     user_id: str,
     cache: cache_mod.CacheGateway,
+    connection: "st_supabase_connection.SupabaseConnection",
 ) -> SupabaseRepository[entities.BudgetTrackerItemModel, read_models.BudgetTrackerView]:
     """Build the budget-tracker repository."""
     return SupabaseRepository(
@@ -148,12 +184,14 @@ def budget_tracker_repository(
             write_table=table_names.TableNames.BUDGET_TRACKER,
         ),
         cache,
+        connection,
     )
 
 
 def expense_source_repository(
     user_id: str,
     cache: cache_mod.CacheGateway,
+    connection: "st_supabase_connection.SupabaseConnection",
 ) -> SupabaseRepository[entities.ExpenseSourceModel, read_models.ExpenseSourceView]:
     """Build the expense-sources repository."""
     return SupabaseRepository(
@@ -165,12 +203,14 @@ def expense_source_repository(
             write_table=table_names.TableNames.EXPENSE_SOURCES,
         ),
         cache,
+        connection,
     )
 
 
 def income_source_repository(
     user_id: str,
     cache: cache_mod.CacheGateway,
+    connection: "st_supabase_connection.SupabaseConnection",
 ) -> SupabaseRepository[entities.IncomeSourceModel, read_models.IncomeSourceView]:
     """Build the income-sources repository."""
     return SupabaseRepository(
@@ -182,12 +222,14 @@ def income_source_repository(
             write_table=table_names.TableNames.INCOME_SOURCES,
         ),
         cache,
+        connection,
     )
 
 
 def one_off_repository(
     user_id: str,
     cache: cache_mod.CacheGateway,
+    connection: "st_supabase_connection.SupabaseConnection",
 ) -> SupabaseRepository[entities.OneOffItemModel, read_models.OneOffView]:
     """Build the one-offs repository."""
     return SupabaseRepository(
@@ -199,12 +241,14 @@ def one_off_repository(
             write_table=table_names.TableNames.ONE_OFFS,
         ),
         cache,
+        connection,
     )
 
 
 def subscription_repository(
     user_id: str,
     cache: cache_mod.CacheGateway,
+    connection: "st_supabase_connection.SupabaseConnection",
 ) -> SupabaseRepository[entities.SubscriptionModel, read_models.SubscriptionView]:
     """Build the subscriptions repository."""
     return SupabaseRepository(
@@ -216,12 +260,14 @@ def subscription_repository(
             write_table=table_names.TableNames.SUBSCRIPTIONS,
         ),
         cache,
+        connection,
     )
 
 
 def payment_repository(
     user_id: str,
     cache: cache_mod.CacheGateway,
+    connection: "st_supabase_connection.SupabaseConnection",
 ) -> SupabaseRepository[entities.AnyPaymentModel, read_models.PaymentView]:
     """Build the payments repository.
 
@@ -238,4 +284,5 @@ def payment_repository(
             write_table=table_names.TableNames.PAYMENTS,
         ),
         cache,
+        connection,
     )
