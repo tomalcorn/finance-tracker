@@ -105,6 +105,6 @@ class TestFetch:
         ) as mock_fetch:
             result = gateway.fetch(_PAYMENTS)
 
-        # Assert - Path A read: full table, no filter configs
+        # Assert - full-table read through the versioned cache
         assert result == rows
-        mock_fetch.assert_called_once_with(_PAYMENTS, "*", None, mock_connection)
+        mock_fetch.assert_called_once_with(_PAYMENTS, "*", mock_connection)
