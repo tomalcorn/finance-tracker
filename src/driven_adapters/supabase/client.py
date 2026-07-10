@@ -27,9 +27,6 @@ def fetch_table(
 ) -> list[JsonDict]:
     """Fetch all rows from the specified table.
 
-    Filtering and sorting are applied in the UI layer (``grid_sync``) over the
-    cached rows, so reads here are always the unfiltered ``select``.
-
     Args:
         table_name: The name of the table to query.
         query_string: The select query string.
