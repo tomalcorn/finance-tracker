@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from driving_adapters.components.dfes import data_source as data_source_mod
 
 _TABLE_NAME = "bank_accounts"
-_VIEW_NAME = "bank_accounts_view"
 
 _SAMPLE_DATA = pd.DataFrame(
     {
@@ -33,10 +32,8 @@ def _build_config(
     return frontend_models.DFEConfig(
         table_names=frontend_models.DFETableNameConfig(
             write_table=_TABLE_NAME,
-            read_table=_VIEW_NAME,
         ),
         data_source=data_source,
-        read_via_repository=True,
         backend_model=entities.BankAccountModel,
         configs=[
             frontend_models.DFEColumnConfig(

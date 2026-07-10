@@ -22,15 +22,6 @@ class DFETableNameConfig(pydantic.BaseModel):
             description="The name of the table to write (and/or read) data to.",
         ),
     ]
-    read_table: Annotated[
-        str | None,
-        pydantic.Field(
-            description=(
-                "The name of the view to read data from. If not provided, data will be "
-                "read directly from the table."
-            ),
-        ),
-    ] = None
     key_prefix: Annotated[
         str | None,
         pydantic.Field(
@@ -163,16 +154,9 @@ class DFEConfig(pydantic.BaseModel):
     data_source: data_source_mod.GridDataSource | None = pydantic.Field(
         default=None,
         description=(
-            "Repository-backed reads for this DFE: column values for the "
-            "uniqueness rule and filter widgets, and (when read_via_repository "
-            "is set) the rows to display. Built in composition.wiring."
-        ),
-    )
-    read_via_repository: bool = pydantic.Field(
-        default=False,
-        description=(
-            "When True, load_input_data reads display rows from data_source "
-            "(Path A); when False it loads no rows and falls back to sample data."
+            "Repository-backed reads for this DFE: the rows to display, plus the "
+            "column values for the uniqueness rule and filter widgets. Built in "
+            "composition.wiring. When omitted, the grid falls back to sample data."
         ),
     )
 
@@ -190,11 +174,3 @@ class DFEConfig(pydantic.BaseModel):
     def writable_configs(self) -> list[DFEColumnConfig]:
         """The visible, writable column configs (used by the add dialog)."""
         return [c for c in self.configs if isinstance(c, DFEColumnConfig) and c.visible]
-
-    @pydantic.model_validator(mode="after")
-    def check_data_source_present_when_reading_via_repository(self) -> Self:
-        """Validate that repository reads have a data source to read from."""
-        if self.read_via_repository and self.data_source is None:
-            msg = "read_via_repository=True requires a data_source."
-            raise ValueError(msg)
-        return self

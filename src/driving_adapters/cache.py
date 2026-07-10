@@ -1,7 +1,7 @@
 """Streamlit cache mechanism backing the repository cache gateway.
 
 This module is the single source of truth for cached reads in the app:
-  - a versioned @st.cache_data layer keyed by (table, query, version, filter)
+  - a versioned @st.cache_data layer keyed by (table, query, version)
   - per-table version counters in session state used to bust the cache
   - invalidation helpers, including the views affected by a write
 
@@ -11,19 +11,13 @@ repo-specific; it is pure Streamlit cache plumbing.
 """
 
 import logging
-from typing import TYPE_CHECKING
 
 import pydantic
 import st_supabase_connection
 import streamlit as st
 
-from domain import query as query_mod
 from driven_adapters.supabase import client
 from driven_adapters.supabase import table_names as adapter_table_names
-from driving_adapters import ss_keys
-
-if TYPE_CHECKING:
-    from driving_adapters.models import frontend_models
 
 logger = logging.getLogger(__name__)
 
@@ -49,20 +43,15 @@ def _get_data_cached(
     table_name: str,
     query_string: str,
     table_version: int,
-    filter_key: str = "",  # noqa: ARG001 - used by @st.cache_data as a cache key
-    _configs: list["frontend_models.DFEColumnConfigBase"] | None = None,
     _connection: st_supabase_connection.SupabaseConnection | None = None,
 ) -> list[JsonDict]:
-    """Fetch data from the specified table with optional filters.
+    """Fetch all rows for a table from Supabase, memoised per (table, version).
 
     Args:
         table_name: The name of the table to query.
         query_string: The select query string.
         table_version: Monotonically increasing version used to bust the cache
             for all queries on a given table via `invalidate_table_cache`.
-        filter_key: Hashable string that differentiates queries with different
-            filter/sort configs on the same table.
-        _configs: Optional list of column configurations for filtering and sorting.
         _connection: The Supabase connection to use.
 
     Returns:
@@ -76,36 +65,12 @@ def _get_data_cached(
         table_version,
     )
     connection = _connection or get_connection()
-    column_queries = [
-        query_mod.ColumnQuery(
-            column_name=c.column_name,
-            filters=c.filters,
-            sorting_direction=c.sorting,
-        )
-        for c in (_configs or [])
-    ]
-    return client.fetch_table(table_name, query_string, column_queries, connection)
-
-
-def _build_filter_key(
-    configs: list["frontend_models.DFEColumnConfigBase"] | None,
-) -> str:
-    """Build a hashable cache key from filter/sort configs."""
-    if not configs:
-        return ""
-    parts: list[str] = []
-    for c in configs:
-        if c.filters:
-            parts.append(f"{c.column_name}:{c.filters.model_dump_json()}")
-        if c.sorting:
-            parts.append(f"{c.column_name}:sort={c.sorting}")
-    return "|".join(parts)
+    return client.fetch_table(table_name, query_string, connection)
 
 
 def fetch(
     table_name: str,
     query_string: str,
-    configs: list["frontend_models.DFEColumnConfigBase"] | None = None,
     connection: st_supabase_connection.SupabaseConnection | None = None,
 ) -> list[JsonDict]:
     """Fetch rows for a table through the versioned cache.
@@ -113,7 +78,6 @@ def fetch(
     Args:
         table_name: The table or view to read.
         query_string: The select query string (usually "*").
-        configs: Optional DFE column configs for filtered/sorted reads.
         connection: The Supabase connection; falls back to the session
             connection when omitted.
 
@@ -128,14 +92,7 @@ def fetch(
         query_string,
         version,
     )
-    return _get_data_cached(
-        table_name,
-        query_string,
-        version,
-        _build_filter_key(configs),
-        configs,
-        connection,
-    )
+    return _get_data_cached(table_name, query_string, version, connection)
 
 
 def invalidate_table_cache(table_name: str) -> None:
@@ -150,20 +107,12 @@ def invalidate_table_cache(table_name: str) -> None:
     )
 
 
-def _invalidate_cache_and_working_df(name: str) -> None:
-    """Invalidate the fetch cache and remove any cached working DataFrame."""
-    invalidate_table_cache(name)
-    working_df_key = f"{name}_{ss_keys.SSKeys.WORKING_DF}"
-    if working_df_key in st.session_state:
-        del st.session_state[working_df_key]
-
-
 def invalidate_with_affected_views(table_name: str) -> None:
     """Invalidate the written table and all views that depend on it."""
-    _invalidate_cache_and_working_df(table_name)
+    invalidate_table_cache(table_name)
     try:
         key = adapter_table_names.TableNames(table_name)
     except ValueError:
         return
     for view in adapter_table_names.VIEWS_AFFECTED_BY.get(key, []):
-        _invalidate_cache_and_working_df(str(view))
+        invalidate_table_cache(str(view))

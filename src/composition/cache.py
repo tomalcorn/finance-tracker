@@ -35,7 +35,7 @@ class StreamlitCacheGateway:
 
     def fetch(self, table: str) -> list[JsonDict]:
         """Return all rows for the table, served from the versioned cache."""
-        return ui_cache.fetch(table, "*", None, self._connection)
+        return ui_cache.fetch(table, "*", self._connection)
 
     def write(self, table: str, updates: "entities.BackendUpdates") -> None:
         """Apply updates to Supabase and invalidate affected cached reads."""

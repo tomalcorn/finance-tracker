@@ -4,11 +4,10 @@ from typing import TYPE_CHECKING, cast
 
 import pydantic
 
-from domain import entities
-from domain import query as query_mod
-
 if TYPE_CHECKING:
     import st_supabase_connection
+
+    from domain import entities
 
 JsonDict = dict[str, pydantic.JsonValue]
 
@@ -21,51 +20,19 @@ def _execute_query(
     return cast("list[JsonDict]", response.data or [])
 
 
-def _apply_filters_to_query(
-    query: "st_supabase_connection.SyncSelectRequestBuilder",
-    column_name: str,
-    filters: query_mod.Filters | None,
-) -> "st_supabase_connection.SyncSelectRequestBuilder":
-    """Apply filters from column configurations to the query."""
-    if filters is not None:
-        for operator, criteria in filters.model_dump(exclude_none=True).items():
-            if operator == "in":
-                query = query.in_(column_name, criteria)
-            elif operator == "cs":
-                query = query.filter(column_name, "cs", f"{{{criteria}}}")
-            elif operator == "contains":
-                query = query.ilike(column_name, f"%{criteria}%")
-            else:
-                query = query.filter(column_name, operator, criteria)
-    return query
-
-
-def _apply_sorting_to_query(
-    query: "st_supabase_connection.SyncSelectRequestBuilder",
-    column_name: str,
-    sorting: query_mod.SortingValues | None,
-) -> "st_supabase_connection.SyncSelectRequestBuilder":
-    """Apply sorting from column configurations to the query."""
-    if sorting is not None:
-        query = query.order(
-            column_name,
-            desc=sorting == query_mod.SortingValues.DESC,
-        )
-    return query
-
-
 def fetch_table(
     table_name: str,
     query_string: str,
-    column_queries: list[query_mod.ColumnQuery],
     connection: "st_supabase_connection.SupabaseConnection",
 ) -> list[JsonDict]:
-    """Fetch data from the specified table with optional filters.
+    """Fetch all rows from the specified table.
+
+    Filtering and sorting are applied in the UI layer (``grid_sync``) over the
+    cached rows, so reads here are always the unfiltered ``select``.
 
     Args:
         table_name: The name of the table to query.
         query_string: The select query string.
-        column_queries: configs to filter and sort the query.
         connection: connection object to query against.
 
     Returns:
@@ -73,26 +40,14 @@ def fetch_table(
 
     """
     query = connection.table(table_name).select(query_string)
-    if column_queries:
-        for column_query in column_queries:
-            query = _apply_filters_to_query(
-                query=query,
-                column_name=column_query.column_name,
-                filters=column_query.filters,
-            )
-            query = _apply_sorting_to_query(
-                query=query,
-                column_name=column_query.column_name,
-                sorting=column_query.sorting_direction,
-            )
     return _execute_query(query)
 
 
 def update_backend(
     table_name: str,
-    updates: entities.BackendUpdates,
+    updates: "entities.BackendUpdates",
     connection: "st_supabase_connection.SupabaseConnection",
-) -> entities.BackendUpdates:
+) -> "entities.BackendUpdates":
     """Update the backend with the provided changes.
 
     Args:

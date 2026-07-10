@@ -8,7 +8,6 @@ class SSKeys(enum.StrEnum):
 
     FIRST_PASS = enum.auto()
     COL_CONFIGS = enum.auto()
-    WORKING_DF = enum.auto()
     PREV_CONFIGS = enum.auto()
     ADDED_ROWS = enum.auto()
     DELETED_ROWS = enum.auto()
