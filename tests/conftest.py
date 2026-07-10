@@ -10,8 +10,7 @@ import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
 
-from domain import entities, query
-from driving_adapters.models import frontend_models
+from domain import entities
 
 
 @pytest.fixture(autouse=True)
@@ -100,19 +99,6 @@ def get_rendered_texts(app_tester: st_test.AppTest) -> list[str]:
     texts = [t.value for t in getattr(app_tester, "text", [])]
     markdowns = [m.value for m in getattr(app_tester, "markdown", [])]
     return texts + markdowns
-
-
-@pytest.fixture(name="col_configs")
-def _col_configs() -> list[frontend_models.DFEColumnConfigBase]:
-    return [
-        frontend_models.DFEColumnConfigBase(
-            column_name="col1",
-            column_config={},
-            input_widget=st.text_input,
-            sorting=query.SortingValues.ASC,
-            filters=query.Filters(lte="2023-01-01", gte="2022-01-01"),
-        ),
-    ]
 
 
 # == Pages fixtures ==

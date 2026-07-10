@@ -147,35 +147,6 @@ def enforce_unique_cols(
     return row
 
 
-def check_for_filters_updates(
-    working_df: pd.DataFrame,
-    edited_rows: dict[str, dict[str, typing.Any]],
-    deleted_rows: list[int],
-    active_configs: list["frontend_models.DFEColumnConfigBase"],
-) -> tuple[bool, pd.DataFrame]:
-    """Re-apply filters after edits to find rows that now fall out of range.
-
-    Returns:
-        A tuple of (changed, modified_df) where ``changed`` is True when the
-        edits pushed one or more rows outside the active filters.
-
-    """
-    modified_df = working_df.copy()
-
-    if deleted_rows:
-        modified_df = modified_df.drop(deleted_rows).reset_index(drop=True)
-
-    for row_idx, changes in edited_rows.items():
-        if int(row_idx) < len(modified_df):
-            for col, value in changes.items():
-                modified_df.at[int(row_idx), col] = value  # noqa: PD008
-
-    modified_df = apply_active_filters(modified_df, active_configs)
-
-    changed = len(modified_df) != len(working_df)
-    return changed, modified_df.reset_index(drop=True)
-
-
 def compute_backend_updates(
     working_df: pd.DataFrame,
     edited_rows: dict[str, dict[str, typing.Any]],

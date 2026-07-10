@@ -69,11 +69,3 @@ type OptionalSorting = Annotated[
     SortingValues | None,
     pydantic.Field(description="Optional direction in which to sort the column."),
 ]
-
-
-class ColumnQuery(pydantic.BaseModel):
-    """Model for querying a column."""
-
-    column_name: ColumnName
-    filters: OptionalFilters = None
-    sorting_direction: OptionalSorting = None

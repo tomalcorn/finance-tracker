@@ -54,7 +54,7 @@ def build_working_df(config: frontend_models.DFEConfig) -> pd.DataFrame:
     Python, falling back to the config's sample data when the read is empty.
     Rebuilt every run — there is no cached working frame in session state.
     """
-    if config.read_via_repository and config.data_source is not None:
+    if config.data_source is not None:
         rows = config.data_source.rows()
         working_df = pd.DataFrame([row.model_dump(mode="json") for row in rows])
         working_df = grid_sync.apply_active_filters(working_df, _active_configs(config))

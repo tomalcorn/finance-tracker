@@ -16,13 +16,10 @@ if TYPE_CHECKING:
     from driving_adapters.components.dfes import data_source as data_source_mod
 
 _BUDGET_TRACKER_TABLE = "budget_tracker"
-_BUDGET_TRACKER_VIEW = "budget_tracker_view"
 
 _EXPENSE_SOURCES_TABLE = "expense_sources"
-_EXPENSE_SOURCES_VIEW = "expense_sources_view"
 
 _INCOME_SOURCES_TABLE = "income_sources"
-_INCOME_SOURCES_VIEW = "income_sources_view"
 
 _BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
     {
@@ -62,10 +59,8 @@ def _build_budget_tracker_config(
     return frontend_models.DFEConfig(
         table_names=frontend_models.DFETableNameConfig(
             write_table=_BUDGET_TRACKER_TABLE,
-            read_table=_BUDGET_TRACKER_VIEW,
         ),
         data_source=data_source,
-        read_via_repository=True,
         backend_model=entities.BudgetTrackerItemModel,
         configs=[
             frontend_models.DFEReadOnlyColumnConfig(
@@ -154,10 +149,8 @@ def _build_expense_sources_config(
     return frontend_models.DFEConfig(
         table_names=frontend_models.DFETableNameConfig(
             write_table=_EXPENSE_SOURCES_TABLE,
-            read_table=_EXPENSE_SOURCES_VIEW,
         ),
         data_source=data_source,
-        read_via_repository=True,
         backend_model=entities.ExpenseSourceModel,
         configs=[
             frontend_models.DFEColumnConfig(
@@ -258,10 +251,8 @@ def _build_income_sources_config(
     return frontend_models.DFEConfig(
         table_names=frontend_models.DFETableNameConfig(
             write_table=_INCOME_SOURCES_TABLE,
-            read_table=_INCOME_SOURCES_VIEW,
         ),
         data_source=data_source,
-        read_via_repository=True,
         backend_model=entities.IncomeSourceModel,
         configs=[
             frontend_models.DFEColumnConfig(

@@ -53,7 +53,6 @@ def _config(
         configs=[],
         sample_data=pd.DataFrame() if sample_data is None else sample_data,
         data_source=data_source,
-        read_via_repository=data_source is not None,
     )
 
 

@@ -43,7 +43,6 @@ def _config(unique_values: set[object] | None = None) -> frontend_models.DFEConf
         configs=[],
         sample_data=pd.DataFrame(),
         data_source=_StubDataSource(unique_values),
-        read_via_repository=True,
     )
 
 
@@ -103,7 +102,6 @@ def _app_tester() -> st_test.AppTest:
         configs=dialog_configs,
         sample_data=pd.DataFrame(),
         data_source=_StubDataSource({0.88, 0.23, 0.1}),
-        read_via_repository=True,
     )
     return st_test.AppTest.from_function(
         _filter_dialog_wrapper,

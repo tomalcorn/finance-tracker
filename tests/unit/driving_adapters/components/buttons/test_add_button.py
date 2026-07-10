@@ -60,7 +60,6 @@ def _config(
         configs=[],
         sample_data=pd.DataFrame(),
         data_source=data_source,
-        read_via_repository=True,
     )
 
 

@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from use_cases import bank_one_offs
 
 _TABLE_NAME = "one_offs"
-_VIEW_NAME = "one_offs_view"
 
 _SAMPLE_DATA = pd.DataFrame(
     {
@@ -47,10 +46,8 @@ def _build_config(
     return frontend_models.DFEConfig(
         table_names=frontend_models.DFETableNameConfig(
             write_table=_TABLE_NAME,
-            read_table=_VIEW_NAME,
         ),
         data_source=data_source,
-        read_via_repository=True,
         backend_model=entities.OneOffItemModel,
         configs=[
             frontend_models.DFEColumnConfig(

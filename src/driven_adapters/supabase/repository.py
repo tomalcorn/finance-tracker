@@ -83,7 +83,7 @@ class SupabaseRepositoryBase:
             if self._cache is not None:
                 rows = self._cache.fetch(self._read_table)
             else:
-                rows = client.fetch_table(self._read_table, "*", [], self._conn)
+                rows = client.fetch_table(self._read_table, "*", self._conn)
             return [r for r in rows if r["user_id"] == self._user_id]
         except Exception as e:
             msg = f"Failed to fetch rows from {self._read_table}: {e}"
