@@ -31,7 +31,7 @@ class _StubDataSource:
     def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
         return self._column_values
 
-    def apply(self, changes: object) -> None:
+    def apply(self, updates: object) -> None:
         """No-op; filter tests never write."""
 
 

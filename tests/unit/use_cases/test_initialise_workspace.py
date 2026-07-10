@@ -9,88 +9,35 @@ from ports import repository
 from use_cases import errors, initialise_workspace
 
 # ---------------------------------------------------------------------------
-# Fakes
+# Fake
 # ---------------------------------------------------------------------------
 
 
-class FakeBudgetTrackerRepository(repository.BudgetTrackerRepository):
-    def __init__(
-        self,
-        items: list[entities.BudgetTrackerItemModel] | None = None,
-    ) -> None:
-        """Construct FakeBudgetTrackerRepository."""
-        self._items: dict[uuid.UUID, entities.BudgetTrackerItemModel] = {
-            item.id: item for item in (items or [])
-        }
+class FakeRepository[E: entities.FinanceTrackerBaseModel](repository.Repository[E]):
+    """In-memory Repository fake with a save-failure switch for error tests."""
+
+    def __init__(self, items: list[E] | None = None) -> None:
+        """Seed the fake with initial items."""
+        self._items: dict[uuid.UUID, E] = {item.id: item for item in (items or [])}
         self.raise_on_save = False
 
-    def get_all(self) -> list[entities.BudgetTrackerItemModel]:
+    def get_all(self) -> list[E]:
         return list(self._items.values())
 
-    def get_by_id(self, item_id: uuid.UUID) -> entities.BudgetTrackerItemModel | None:
+    def get_by_id(self, item_id: uuid.UUID) -> E | None:
         return self._items.get(item_id)
 
-    def get_by_ids(
-        self,
-        item_ids: list[uuid.UUID],
-    ) -> list[entities.BudgetTrackerItemModel]:
-        return [self._items[i] for i in item_ids if i in self._items]
+    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
+        return [self._items[i] for i in ids if i in self._items]
 
-    def save(self, item: entities.BudgetTrackerItemModel) -> None:
+    def save(self, item: E) -> None:
         if self.raise_on_save:
             msg = "Simulated save failure"
             raise RuntimeError(msg)
         self._items[item.id] = item
 
-    def save_many(self, items: list[entities.BudgetTrackerItemModel]) -> None:
-        for item in items:
-            self.save(item)
-
-    def delete(self, item_id: uuid.UUID) -> None:
-        self._items.pop(item_id, None)
-
-    def get_column_values(self, column_name: str) -> set[object]:
-        """Return unique values for a column."""
-        return {
-            value
-            for item in self._items.values()
-            if (value := getattr(item, column_name, None)) is not None
-        }
-
-
-class FakeExpenseSourceRepository(repository.ExpenseSourceRepository):
-    def __init__(
-        self,
-        sources: list[entities.ExpenseSourceModel] | None = None,
-    ) -> None:
-        """Construct FakeExpenseSourceRepository."""
-        self._sources: dict[uuid.UUID, entities.ExpenseSourceModel] = {
-            s.id: s for s in (sources or [])
-        }
-        self.raise_on_save = False
-
-    def get_all(self) -> list[entities.ExpenseSourceModel]:
-        return list(self._sources.values())
-
-    def get_by_id(self, source_id: uuid.UUID) -> entities.ExpenseSourceModel | None:
-        return self._sources.get(source_id)
-
-    def save(self, source: entities.ExpenseSourceModel) -> None:
-        if self.raise_on_save:
-            msg = "Simulated save failure"
-            raise RuntimeError(msg)
-        self._sources[source.id] = source
-
-    def delete(self, source_id: uuid.UUID) -> None:
-        self._sources.pop(source_id, None)
-
-    def get_column_values(self, column_name: str) -> set[object]:
-        """Return unique values for a column."""
-        return {
-            value
-            for source in self._sources.values()
-            if (value := getattr(source, column_name, None)) is not None
-        }
+    def apply(self, updates: entities.BackendUpdates) -> None:
+        """No-op; workspace initialisation saves one row at a time."""
 
 
 # ---------------------------------------------------------------------------
@@ -111,11 +58,15 @@ def make_use_case(
     existing_sources: list[entities.ExpenseSourceModel] | None = None,
 ) -> tuple[
     initialise_workspace.InitialiseUserWorkspaceUseCase,
-    FakeBudgetTrackerRepository,
-    FakeExpenseSourceRepository,
+    FakeRepository[entities.BudgetTrackerItemModel],
+    FakeRepository[entities.ExpenseSourceModel],
 ]:
-    bt_repo = FakeBudgetTrackerRepository(existing_trackers)
-    es_repo = FakeExpenseSourceRepository(existing_sources)
+    bt_repo: FakeRepository[entities.BudgetTrackerItemModel] = FakeRepository(
+        existing_trackers,
+    )
+    es_repo: FakeRepository[entities.ExpenseSourceModel] = FakeRepository(
+        existing_sources,
+    )
     use_case = initialise_workspace.InitialiseUserWorkspaceUseCase(
         user_id=USER_ID,
         budget_tracker_repo=bt_repo,

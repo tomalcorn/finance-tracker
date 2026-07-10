@@ -11,6 +11,8 @@ the UI decoupled from the repository port surface.
 import typing
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import pydantic
 
     from domain import entities
@@ -20,12 +22,13 @@ if typing.TYPE_CHECKING:
 class GridDataSource(typing.Protocol):
     """The reads and writes a DFE needs, scoped to the current user."""
 
-    def rows(self) -> "list[pydantic.BaseModel]":
-        """Return all rows to display, as typed view models (Path A: fetch-all).
+    def rows(self) -> "Sequence[pydantic.BaseModel]":
+        """Return all rows to display, as typed view models.
 
         Each row is a frozen ``domain.read_models`` view model carrying the
         SQL view's computed columns, so the grid receives typed values rather
-        than bare dicts.
+        than bare dicts. Covariant (``Sequence``) so an implementation may
+        return a concretely-typed ``list`` of one view model.
         """
         ...
 
@@ -33,7 +36,7 @@ class GridDataSource(typing.Protocol):
         """Return the set of existing values for a column."""
         ...
 
-    def apply(self, changes: "entities.BackendUpdates") -> None:
+    def apply(self, updates: "entities.BackendUpdates") -> None:
         """Persist a batch of added, edited, and deleted rows.
 
         The grid speaks display rows and DataFrame deltas; the concrete

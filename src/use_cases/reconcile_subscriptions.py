@@ -37,8 +37,8 @@ class ReconcileSubscriptionsUseCase:
 
     def __init__(
         self,
-        subscription_repo: "repository.SubscriptionRepository",
-        payment_repo: "repository.PaymentRepository",
+        subscription_repo: "repository.Repository[entities.SubscriptionModel]",
+        payment_repo: "repository.Repository[entities.AnyPaymentModel]",
         *,
         today: datetime.date | None = None,
     ) -> None:
@@ -79,7 +79,7 @@ class ReconcileSubscriptionsUseCase:
                 raise errors.InvalidCadenceError(e.cadence) from e
 
         if updates.added_rows or updates.deleted_rows:
-            self._payment_repo.apply_updates(updates)
+            self._payment_repo.apply(updates)
 
     def _reconcile_subscription(
         self,

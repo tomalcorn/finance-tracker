@@ -27,8 +27,8 @@ class InitialiseUserWorkspaceUseCase:
     def __init__(
         self,
         user_id: str,
-        budget_tracker_repo: "repository.BudgetTrackerRepository",
-        expense_source_repo: "repository.ExpenseSourceRepository",
+        budget_tracker_repo: "repository.Repository[entities.BudgetTrackerItemModel]",
+        expense_source_repo: "repository.Repository[entities.ExpenseSourceModel]",
     ) -> None:
         """Construct InitializeUserWorkspaceUseCase."""
         self._user_id = user_id
