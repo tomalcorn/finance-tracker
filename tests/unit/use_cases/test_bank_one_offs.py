@@ -11,156 +11,31 @@ from use_cases.bank_one_offs import BankOneOffsUseCase
 from use_cases.errors import AmountToBankLTEZeroError
 
 # ---------------------------------------------------------------------------
-# Fakes
+# Fake
 # ---------------------------------------------------------------------------
 
 
-class FakeOneOffRepository(repository.OneOffRepository):
-    def __init__(self, items: list[entities.OneOffItemModel]) -> None:
-        """Construct FakeOneOffRepository."""
-        self._items = {item.id: item for item in items}
+class FakeRepository[E: entities.FinanceTrackerBaseModel](repository.Repository[E]):
+    """In-memory Repository fake for use-case tests."""
 
-    def get_by_id(self, item_id: uuid.UUID) -> entities.OneOffItemModel | None:
-        """Return a single one-off item, or None if not found."""
+    def __init__(self, items: list[E] | None = None) -> None:
+        """Seed the fake with initial items."""
+        self._items: dict[uuid.UUID, E] = {item.id: item for item in (items or [])}
+        self.saved: list[E] = []
+        self.applied: list[entities.BackendUpdates] = []
 
-    def get_by_ids(self, item_ids: list[uuid.UUID]) -> list[entities.OneOffItemModel]:
-        return [self._items[i] for i in item_ids if i in self._items]
-
-    def get_all(self) -> list[entities.OneOffItemModel]:
+    def get_all(self) -> list[E]:
         return list(self._items.values())
 
-    def save(self, item: entities.OneOffItemModel) -> None:
+    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
+        return [self._items[i] for i in ids if i in self._items]
+
+    def save(self, item: E) -> None:
         self._items[item.id] = item
+        self.saved.append(item)
 
-    def delete(self, item_id: uuid.UUID) -> None:
-        """Delete a one-off item by ID."""
-
-    def get_column_values(
-        self,
-        column_name: str,  # noqa: ARG002 - not needed for stub
-    ) -> set[object]:
-        """Return unique values for a column."""
-        return set()
-
-
-class FakeBudgetTrackerRepository(repository.BudgetTrackerRepository):
-    def __init__(self, items: list[entities.BudgetTrackerItemModel]) -> None:
-        """Construct FakeBudgetTrackerRepository."""
-        self._items = items
-
-    def get_all(self) -> list[entities.BudgetTrackerItemModel]:
-        return self._items
-
-    def get_by_id(self, item_id: uuid.UUID) -> entities.BudgetTrackerItemModel | None:
-        """Return a single budget tracker item, or None if not found."""
-
-    def get_by_ids(
-        self,
-        item_ids: list[uuid.UUID],  # noqa: ARG002 - not needed for stub
-    ) -> list[entities.BudgetTrackerItemModel]:
-        """Return budget tracker items matching the given IDs."""
-        return []
-
-    def save(self, item: entities.BudgetTrackerItemModel) -> None:
-        """Insert or update a budget tracker item."""
-
-    def save_many(self, items: list[entities.BudgetTrackerItemModel]) -> None:
-        """Insert or update multiple budget tracker items in one operation.
-
-        Used by InitializeUserWorkspaceUseCase to seed default trackers.
-        """
-
-    def delete(self, item_id: uuid.UUID) -> None:
-        """Delete a budget tracker item by ID."""
-
-    def get_column_values(
-        self,
-        column_name: str,  # noqa: ARG002 - not needed for stub
-    ) -> set[object]:
-        """Return unique values for a column."""
-        return set()
-
-
-class FakeExpenseSourceRepository(repository.ExpenseSourceRepository):
-    def __init__(self, sources: list[entities.ExpenseSourceModel]) -> None:
-        """Construct FakeExpenseSourceRepository."""
-        self._sources = sources
-
-    def get_all(self) -> list[entities.ExpenseSourceModel]:
-        return self._sources
-
-    def get_by_id(self, source_id: uuid.UUID) -> entities.ExpenseSourceModel | None:
-        """Return a single expense source, or None if not found."""
-
-    def save(self, source: entities.ExpenseSourceModel) -> None:
-        """Insert or update an expense source."""
-
-    def delete(self, source_id: uuid.UUID) -> None:
-        """Delete an expense source by ID."""
-
-    def get_column_values(
-        self,
-        column_name: str,  # noqa: ARG002 - not needed for stub
-    ) -> set[object]:
-        """Return unique values for a column."""
-        return set()
-
-
-class FakePaymentRepository(repository.PaymentRepository):
-    def __init__(self) -> None:
-        """Construct FakePaymentRepository."""
-        self.saved: list[entities.AnyPaymentModel] = []
-
-    def get_all(self) -> list[entities.AnyPaymentModel]:
-        """Return all payments (expense and income) for the current user."""
-        return []
-
-    def get_by_bank_account(
-        self,
-        bank_account_id: uuid.UUID,  # noqa: ARG002 - not needed for test
-    ) -> list[entities.AnyPaymentModel]:
-        """Return all payments associated with a specific bank account.
-
-        Used when banking one-offs to find existing payments for the account.
-        """
-        return []
-
-    def get_by_subscription(
-        self,
-        subscription_id: uuid.UUID,  # noqa: ARG002 - not needed for test
-    ) -> list[entities.AnyPaymentModel]:
-        """Return all payments generated from a specific subscription.
-
-        Used by ReconcileSubscriptionsUseCase to determine whether future
-        payments already exist.
-        """
-        return []
-
-    def save(self, payment: entities.AnyPaymentModel) -> None:
-        self.saved.append(payment)
-
-    def save_many(self, payments: list[entities.AnyPaymentModel]) -> None:
-        """Insert or update multiple payments in one operation.
-
-        Used by ReconcileSubscriptionsUseCase to bulk-create future payments.
-        """
-
-    def apply_updates(self, updates: entities.BackendUpdates) -> None:
-        """Apply a batch of payment inserts and deletes in one operation.
-
-        Used by ReconcileSubscriptionsUseCase to persist reconciliation
-        changes atomically and invalidate dependent view caches.
-        """
-
-    def delete(self, payment_id: uuid.UUID) -> None:
-        """Delete a payment by ID."""
-
-    def get_column_values(
-        self,
-        column_name: str,  # noqa: ARG002 - not needed for stub
-    ) -> set[object]:
-        """Return unique values for a column."""
-        return set()
+    def apply(self, updates: entities.BackendUpdates) -> None:
+        self.applied.append(updates)
 
 
 # ---------------------------------------------------------------------------
@@ -207,12 +82,20 @@ def _make_use_case(
     items: list[entities.OneOffItemModel],
     budget_trackers: list[entities.BudgetTrackerItemModel] | None = None,
     expense_sources: list[entities.ExpenseSourceModel] | None = None,
-    payment_repo: FakePaymentRepository | None = None,
-) -> tuple[BankOneOffsUseCase, FakeOneOffRepository, FakePaymentRepository]:
-    one_off_repo = FakeOneOffRepository(items)
-    bt_repo = FakeBudgetTrackerRepository(budget_trackers or [])
-    es_repo = FakeExpenseSourceRepository(expense_sources or [])
-    p_repo = payment_repo or FakePaymentRepository()
+    payment_repo: FakeRepository[entities.AnyPaymentModel] | None = None,
+) -> tuple[
+    BankOneOffsUseCase,
+    FakeRepository[entities.OneOffItemModel],
+    FakeRepository[entities.AnyPaymentModel],
+]:
+    one_off_repo: FakeRepository[entities.OneOffItemModel] = FakeRepository(items)
+    bt_repo: FakeRepository[entities.BudgetTrackerItemModel] = FakeRepository(
+        budget_trackers or [],
+    )
+    es_repo: FakeRepository[entities.ExpenseSourceModel] = FakeRepository(
+        expense_sources or [],
+    )
+    p_repo = payment_repo or FakeRepository[entities.AnyPaymentModel]()
     use_case = BankOneOffsUseCase(
         one_off_repo=one_off_repo,
         budget_tracker_repo=bt_repo,
@@ -249,7 +132,7 @@ def test_banking_an_item_zeroes_current_month_and_accumulates_banked():
 def test_banking_an_item_creates_a_payment():
     # Arrange
     item = _make_one_off(current_month=50.0)
-    payment_repo = FakePaymentRepository()
+    payment_repo = FakeRepository[entities.AnyPaymentModel]()
     use_case, _, _ = _make_use_case([item], payment_repo=payment_repo)
 
     # Act
@@ -262,7 +145,7 @@ def test_banking_an_item_creates_a_payment():
 def test_payment_fields_reflect_the_banked_item():
     # Arrange
     item = _make_one_off(current_month=50.0, name="Holiday")
-    payment_repo = FakePaymentRepository()
+    payment_repo = FakeRepository[entities.AnyPaymentModel]()
     use_case, _, _ = _make_use_case([item], payment_repo=payment_repo)
 
     # Act
@@ -288,7 +171,7 @@ def test_banking_multiple_items_creates_one_payment_per_item():
         _make_one_off(current_month=50.0, name="Holiday"),
         _make_one_off(current_month=30.0, name="Car"),
     ]
-    payment_repo = FakePaymentRepository()
+    payment_repo = FakeRepository[entities.AnyPaymentModel]()
     use_case, _, _ = _make_use_case(items, payment_repo=payment_repo)
 
     # Act
@@ -303,7 +186,7 @@ def test_payment_uses_current_month_not_post_update_banked():
     """Ensures the payment amount is the monthly contribution, not the running total."""
     # Arrange
     item = _make_one_off(current_month=50.0, banked=200.0)
-    payment_repo = FakePaymentRepository()
+    payment_repo = FakeRepository[entities.AnyPaymentModel]()
     use_case, _, _ = _make_use_case([item], payment_repo=payment_repo)
 
     # Act
@@ -324,7 +207,7 @@ def test_payment_has_expense_source_id_when_one_offs_tracker_and_source_exist():
     tracker = _make_one_offs_tracker()
     source = _make_expense_source(budget_tracker_ids=[tracker.id])
     item = _make_one_off(current_month=50.0)
-    payment_repo = FakePaymentRepository()
+    payment_repo = FakeRepository[entities.AnyPaymentModel]()
     use_case, _, _ = _make_use_case(
         [item],
         budget_trackers=[tracker],
@@ -354,7 +237,7 @@ def test_payment_expense_source_id_is_none_when_lookup_cannot_resolve(
 ):
     # Arrange
     item = _make_one_off(current_month=50.0)
-    payment_repo = FakePaymentRepository()
+    payment_repo = FakeRepository[entities.AnyPaymentModel]()
     use_case, _, _ = _make_use_case(
         [item],
         budget_trackers=budget_trackers,

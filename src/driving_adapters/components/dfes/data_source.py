@@ -33,7 +33,7 @@ class GridDataSource(typing.Protocol):
         """Return the set of existing values for a column."""
         ...
 
-    def apply(self, changes: "entities.BackendUpdates") -> None:
+    def apply(self, updates: "entities.BackendUpdates") -> None:
         """Persist a batch of added, edited, and deleted rows.
 
         The grid speaks display rows and DataFrame deltas; the concrete

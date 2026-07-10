@@ -17,10 +17,10 @@ class BankOneOffsUseCase:
 
     def __init__(
         self,
-        one_off_repo: "repository.OneOffRepository",
-        budget_tracker_repo: "repository.BudgetTrackerRepository",
-        expense_source_repo: "repository.ExpenseSourceRepository",
-        payment_repo: "repository.PaymentRepository",
+        one_off_repo: "repository.Repository[entities.OneOffItemModel]",
+        budget_tracker_repo: "repository.Repository[entities.BudgetTrackerItemModel]",
+        expense_source_repo: "repository.Repository[entities.ExpenseSourceModel]",
+        payment_repo: "repository.Repository[entities.AnyPaymentModel]",
     ) -> None:
         """Construct HandleBankItUseCase."""
         self._one_off_repo = one_off_repo

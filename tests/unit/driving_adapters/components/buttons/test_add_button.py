@@ -44,8 +44,8 @@ class _StubDataSource:
     def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
         return set()
 
-    def apply(self, changes: entities.BackendUpdates) -> None:
-        self.applied.append(changes)
+    def apply(self, updates: entities.BackendUpdates) -> None:
+        self.applied.append(updates)
 
 
 def _config(
