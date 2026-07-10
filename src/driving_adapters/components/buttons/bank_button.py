@@ -6,7 +6,6 @@ import uuid
 
 import streamlit as st
 
-from composition import wiring
 from driving_adapters import lookups
 from driving_adapters.components.buttons import constants
 from use_cases import bank_one_offs, errors
@@ -20,9 +19,11 @@ class BankButton:
     def __init__(
         self,
         bank_one_offs_use_case: bank_one_offs.BankOneOffsUseCase,
+        bank_account_map: dict[str, str],
     ) -> None:
         """Initialize the BankButton instance."""
         self._bank_one_offs_use_case = bank_one_offs_use_case
+        self._bank_account_map = bank_account_map
 
     @staticmethod
     def _get_today_date() -> datetime.date:
@@ -88,5 +89,4 @@ class BankButton:
             icon=constants.ButtonIcons.BANK,
             key="bank_it_button",
         ):
-            bank_account_map = wiring.bank_account_id_name_map()
-            self._bank_it_dialog(bankable_items, bank_account_map)
+            self._bank_it_dialog(bankable_items, self._bank_account_map)

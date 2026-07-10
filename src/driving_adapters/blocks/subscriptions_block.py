@@ -6,13 +6,15 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import streamlit as st
 
-from composition import wiring
 from domain import entities
+from driving_adapters import lookups
 from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from driving_adapters.components.dfes import data_source as data_source_mod
 
 _TABLE_NAME = "subscriptions"
 _VIEW_NAME = "subscriptions_view"
@@ -35,6 +37,7 @@ _SAMPLE_DATA = pd.DataFrame(
 
 
 def _build_config(
+    data_source: "data_source_mod.GridDataSource",
     bank_account_ids: list[str],
     get_bank_account_name: "Callable[[str | float], str]",
     expense_source_ids: list[str],
@@ -46,7 +49,7 @@ def _build_config(
             write_table=_TABLE_NAME,
             read_table=_VIEW_NAME,
         ),
-        data_source=wiring.subscription_data_source(),
+        data_source=data_source,
         read_via_repository=True,
         backend_model=entities.SubscriptionModel,
         configs=[
@@ -160,33 +163,34 @@ def _build_config(
     )
 
 
-def _config() -> frontend_models.DFEConfig:
+def _config(
+    data_source: "data_source_mod.GridDataSource",
+    bank_account_map: dict[str, str],
+    expense_source_map: dict[str, str],
+) -> frontend_models.DFEConfig:
     """Build the subscriptions grid config with its foreign-key lookups."""
-    bank_account_map = wiring.bank_account_id_name_map()
-    bank_account_ids = list(bank_account_map.keys())
-
-    def get_bank_account_name(ba_id: str | float) -> str:
-        return bank_account_map.get(str(ba_id), "Unknown Bank Account")
-
-    expense_source_map = wiring.expense_source_id_name_map()
-    expense_source_ids = list(expense_source_map.keys())
-
-    def get_expense_source_name(es_id: str | float) -> str:
-        return expense_source_map.get(str(es_id), "Unknown Expense Source")
-
     return _build_config(
-        bank_account_ids,
-        get_bank_account_name,
-        expense_source_ids,
-        get_expense_source_name,
+        data_source,
+        list(bank_account_map.keys()),
+        lookups.make_name_formatter(bank_account_map, "Unknown Bank Account"),
+        list(expense_source_map.keys()),
+        lookups.make_name_formatter(expense_source_map, "Unknown Expense Source"),
     )
 
 
-def commit() -> None:
+def commit(
+    data_source: "data_source_mod.GridDataSource",
+    bank_account_map: dict[str, str],
+    expense_source_map: dict[str, str],
+) -> None:
     """Apply any pending backend updates for this block."""
-    grid.commit(_config())
+    grid.commit(_config(data_source, bank_account_map, expense_source_map))
 
 
-def render() -> None:
+def render(
+    data_source: "data_source_mod.GridDataSource",
+    bank_account_map: dict[str, str],
+    expense_source_map: dict[str, str],
+) -> None:
     """Render the subscriptions block."""
-    grid.render(_config())
+    grid.render(_config(data_source, bank_account_map, expense_source_map))

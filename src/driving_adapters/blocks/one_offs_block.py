@@ -1,13 +1,18 @@
 """One-offs block for tracking one-off savings goals."""
 
+from typing import TYPE_CHECKING
+
 import pandas as pd
 import streamlit as st
 
-from composition import wiring
 from domain import entities, query
 from driving_adapters.components.buttons import add_button, bank_button, filter_button
 from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
+
+if TYPE_CHECKING:
+    from driving_adapters.components.dfes import data_source as data_source_mod
+    from use_cases import bank_one_offs
 
 _TABLE_NAME = "one_offs"
 _VIEW_NAME = "one_offs_view"
@@ -25,9 +30,11 @@ _SAMPLE_DATA = pd.DataFrame(
 )
 
 
-def _build_config() -> frontend_models.DFEConfig:
+def _build_config(
+    data_source: "data_source_mod.GridDataSource",
+    budget_tracker_map: dict[str, str],
+) -> frontend_models.DFEConfig:
     """Build the grid config for the one-offs block."""
-    budget_tracker_map = wiring.budget_tracker_id_name_map()
     one_offs_bt_id = next(
         (
             bt_id
@@ -42,7 +49,7 @@ def _build_config() -> frontend_models.DFEConfig:
             write_table=_TABLE_NAME,
             read_table=_VIEW_NAME,
         ),
-        data_source=wiring.one_off_data_source(),
+        data_source=data_source,
         read_via_repository=True,
         backend_model=entities.OneOffItemModel,
         configs=[
@@ -149,14 +156,22 @@ def _build_config() -> frontend_models.DFEConfig:
     )
 
 
-def commit() -> None:
+def commit(
+    data_source: "data_source_mod.GridDataSource",
+    budget_tracker_map: dict[str, str],
+) -> None:
     """Apply any pending backend updates for this block."""
-    grid.commit(_build_config())
+    grid.commit(_build_config(data_source, budget_tracker_map))
 
 
-def render() -> None:
+def render(
+    data_source: "data_source_mod.GridDataSource",
+    budget_tracker_map: dict[str, str],
+    bank_account_map: dict[str, str],
+    bank_one_offs_use_case: "bank_one_offs.BankOneOffsUseCase",
+) -> None:
     """Render the one-offs block."""
-    config = _build_config()
+    config = _build_config(data_source, budget_tracker_map)
     working_df = grid.build_working_df(config)
 
     bankable_items = []
@@ -173,7 +188,10 @@ def render() -> None:
         filter_button.render_filter_button(config)
     with bank_col:
         if bankable_items:
-            bank_btn = bank_button.BankButton(wiring.bank_one_offs_use_case())
+            bank_btn = bank_button.BankButton(
+                bank_one_offs_use_case,
+                bank_account_map,
+            )
             bank_btn(bankable_items)
 
     grid.render_editor(config, working_df)
