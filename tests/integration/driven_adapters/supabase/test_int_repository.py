@@ -12,13 +12,16 @@ import pytest
 import st_supabase_connection
 
 from composition import cache as composition_cache
-from domain import entities
+from domain import entities, read_models
 from driven_adapters.supabase import repository as supabase_repos
 from driving_adapters import cache
 
 _USER_ID = "auth0|test-user-1"
 
-type BankRepo = supabase_repos.SupabaseRepository[entities.BankAccountModel]
+type BankRepo = supabase_repos.SupabaseRepository[
+    entities.BankAccountModel,
+    read_models.BankAccountView,
+]
 
 
 @pytest.fixture(name="bank_repo")
