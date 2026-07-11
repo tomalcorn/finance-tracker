@@ -77,7 +77,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
 
     def _fetch_rows(self) -> list[entities.JsonDict]:
         try:
-            return self._cache.get_or_load(
+            return self._cache.get_from_or_load_cache(
                 self._cache_key(self._spec.read_table),
                 self._load_rows,
             )

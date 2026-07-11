@@ -36,7 +36,7 @@ class FakeCache:
         self.invalidated: list[str] = []
         self._fail_fetch = fail_fetch
 
-    def get_or_load(
+    def get_from_or_load_cache(
         self,
         key: str,
         loader: Callable[[], list[dict[str, object]]],  # noqa: ARG002 - loader unused; the fake serves fixed rows without hitting a backend

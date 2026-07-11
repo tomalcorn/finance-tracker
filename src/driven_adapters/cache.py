@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class CacheGateway(Protocol):
     """Read-through cache keyed by opaque strings."""
 
-    def get_or_load[T](
+    def get_from_or_load_cache[T](
         self,
         key: str,
         loader: "Callable[[], T]",

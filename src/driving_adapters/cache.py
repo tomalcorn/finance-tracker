@@ -62,7 +62,7 @@ def _get_data_cached[T](
 class StreamlitCache:
     """``CacheGateway`` backed by ``st.cache_data`` + per-key session versions."""
 
-    def get_or_load[T](
+    def get_from_or_load_cache[T](
         self,
         key: str,
         loader: "Callable[[], T]",

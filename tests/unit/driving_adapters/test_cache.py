@@ -42,14 +42,17 @@ class TestGetKeyVersions:
 
 
 class TestGetOrLoad:
-    """Tests for StreamlitCache.get_or_load."""
+    """Tests for StreamlitCache.get_from_or_load_cache."""
 
     def test_runs_the_loader_on_a_cold_key(self) -> None:
         # Arrange
         rows: list[dict[str, object]] = [{"id": "1"}]
 
         # Act
-        result = cache.StreamlitCache().get_or_load("user|a:payments", lambda: rows)
+        result = cache.StreamlitCache().get_from_or_load_cache(
+            "user|a:payments",
+            lambda: rows,
+        )
 
         # Assert
         assert result == rows
@@ -58,7 +61,7 @@ class TestGetOrLoad:
         # Arrange - warm the cache for a key, then a loader that records calls
         key = "user|a:bank_accounts"
         warm: list[dict[str, object]] = [{"n": 1}]
-        cache.StreamlitCache().get_or_load(key, lambda: warm)
+        cache.StreamlitCache().get_from_or_load_cache(key, lambda: warm)
         calls: list[int] = []
 
         def _loader() -> list[dict[str, object]]:
@@ -66,7 +69,7 @@ class TestGetOrLoad:
             return [{"n": 2}]
 
         # Act - same (key, version) → cache hit
-        result = cache.StreamlitCache().get_or_load(key, _loader)
+        result = cache.StreamlitCache().get_from_or_load_cache(key, _loader)
 
         # Assert - first value served, loader never called
         assert all([result == warm, calls == []])
@@ -76,11 +79,11 @@ class TestGetOrLoad:
         key = "user|a:one_offs"
         old: list[dict[str, object]] = [{"v": "old"}]
         new: list[dict[str, object]] = [{"v": "new"}]
-        cache.StreamlitCache().get_or_load(key, lambda: old)
+        cache.StreamlitCache().get_from_or_load_cache(key, lambda: old)
 
         # Act - invalidate bumps the version, missing the cache
         cache.StreamlitCache().invalidate([key])
-        result = cache.StreamlitCache().get_or_load(key, lambda: new)
+        result = cache.StreamlitCache().get_from_or_load_cache(key, lambda: new)
 
         # Assert
         assert result == new
