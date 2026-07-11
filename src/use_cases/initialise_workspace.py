@@ -52,7 +52,7 @@ class InitialiseUserWorkspaceUseCase:
             self._ensure_hidden_expense_sources(bt_id_by_name)
 
         except Exception as e:
-            # Catch any repository (AdapterError) or unexpected error and wrap
+            # Catch any repository (RepositoryError) or unexpected error and wrap
             msg = f"Failed to initialise workspace for user {self._user_id}: {e}"
             raise errors.DataAccessError(msg) from e
 

@@ -14,8 +14,8 @@ import pytest
 import st_supabase_connection
 
 from domain import entities, read_models
-from driven_adapters import errors
 from driven_adapters.supabase import repository, table_names
+from ports import errors
 
 _USER_ID = "auth0|test-user-123"
 _CONN = mock.MagicMock(spec=st_supabase_connection.SupabaseConnection)
@@ -99,7 +99,7 @@ class TestGetAll:
             f"{_USER_ID}:{table_names.ViewNames.BANK_ACCOUNTS}",
         ]
 
-    def test_wraps_fetch_failure_in_adapter_error(self) -> None:
+    def test_wraps_fetch_failure_in_repository_error(self) -> None:
         # Arrange
         repo = repository.bank_account_repository(
             _USER_ID,
@@ -108,7 +108,7 @@ class TestGetAll:
         )
 
         # Act / Assert
-        with pytest.raises(errors.AdapterError, match="Failed to fetch rows"):
+        with pytest.raises(errors.RepositoryError, match="Failed to fetch rows"):
             repo.get_all()
 
 
@@ -154,7 +154,7 @@ class TestSave:
             ],
         )
 
-    def test_wraps_write_failure_in_adapter_error(self) -> None:
+    def test_wraps_write_failure_in_repository_error(self) -> None:
         # Arrange
         repo = repository.bank_account_repository(_USER_ID, FakeCache(), _CONN)
 
@@ -165,7 +165,7 @@ class TestSave:
                 "update_backend",
                 side_effect=RuntimeError("write boom"),
             ),
-            pytest.raises(errors.AdapterError, match="Failed to save row"),
+            pytest.raises(errors.RepositoryError, match="Failed to save row"),
         ):
             repo.save(entities.BankAccountModel(user_id=_USER_ID, name="New"))
 
@@ -198,7 +198,7 @@ class TestApply:
         # Assert
         mock_update.assert_not_called()
 
-    def test_wraps_write_failure_in_adapter_error(self) -> None:
+    def test_wraps_write_failure_in_repository_error(self) -> None:
         # Arrange
         repo = repository.bank_account_repository(_USER_ID, FakeCache(), _CONN)
         updates = entities.BackendUpdates(added_rows=[{"id": "x"}])
@@ -210,7 +210,7 @@ class TestApply:
                 "update_backend",
                 side_effect=RuntimeError("write boom"),
             ),
-            pytest.raises(errors.AdapterError, match="Failed to apply updates"),
+            pytest.raises(errors.RepositoryError, match="Failed to apply updates"),
         ):
             repo.apply(updates)
 
