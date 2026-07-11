@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING
 
 import pydantic
 
-from domain import entities, errors, read_models
+from domain import entities, read_models
 from driven_adapters.supabase import client, table_names
-from ports import repository
+from ports import errors, repository
 
 if TYPE_CHECKING:
     import uuid

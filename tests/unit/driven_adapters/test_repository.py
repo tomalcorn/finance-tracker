@@ -13,8 +13,9 @@ from unittest import mock
 import pytest
 import st_supabase_connection
 
-from domain import entities, errors, read_models
+from domain import entities, read_models
 from driven_adapters.supabase import repository, table_names
+from ports import errors
 
 _USER_ID = "auth0|test-user-123"
 _CONN = mock.MagicMock(spec=st_supabase_connection.SupabaseConnection)

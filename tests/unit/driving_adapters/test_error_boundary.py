@@ -8,8 +8,8 @@ real Streamlit raises to abort the run, so the stub models that with
 
 import pytest
 
-from domain import errors as domain_errors
 from driving_adapters import error_boundary
+from ports import errors as port_errors
 from use_cases import errors as use_case_errors
 
 
@@ -31,7 +31,7 @@ class _StubStreamlit:
 
 
 _BOUNDARY_ERRORS = [
-    domain_errors.RepositoryError("read failed"),
+    port_errors.RepositoryError("read failed"),
     use_case_errors.UseCaseError("use case failed"),
     use_case_errors.ReconciliationError("reconcile failed"),
     use_case_errors.DataAccessError("data access failed"),
@@ -60,7 +60,7 @@ def test_boundary_shows_the_section_in_the_error_message(
     monkeypatch.setattr(error_boundary, "st", stub)
 
     # Act
-    failure = domain_errors.RepositoryError("boom")
+    failure = port_errors.RepositoryError("boom")
     with pytest.raises(_HaltError), error_boundary.boundary("reconciling subs"):
         raise failure
 

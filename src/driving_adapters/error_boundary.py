@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 import streamlit as st
 
-from domain import errors as domain_errors
+from ports import errors as port_errors
 from use_cases import errors as use_case_errors
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_BOUNDARY_ERRORS = (domain_errors.RepositoryError, use_case_errors.UseCaseError)
+_BOUNDARY_ERRORS = (port_errors.RepositoryError, use_case_errors.UseCaseError)
 
 
 @contextlib.contextmanager
