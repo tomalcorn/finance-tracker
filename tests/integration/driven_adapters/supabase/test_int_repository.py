@@ -3,7 +3,7 @@
 Exercises the repository read (``get_all`` / ``get_by_ids``) and write
 (``apply`` — add / edit / delete) path against the live "testing" connection.
 Cache read-through and version invalidation are covered separately as unit
-tests in ``tests/unit/composition/test_cache.py``.
+tests in ``tests/unit/driving_adapters/test_cache.py``.
 """
 
 import uuid
@@ -11,7 +11,6 @@ import uuid
 import pytest
 import st_supabase_connection
 
-from composition import cache as composition_cache
 from domain import entities, read_models
 from driven_adapters.supabase import repository as supabase_repos
 from driving_adapters import cache
@@ -31,7 +30,8 @@ def _bank_repo(
     """Return a bank repository wired to the test connection and seed user."""
     return supabase_repos.bank_account_repository(
         _USER_ID,
-        composition_cache.make_cache_gateway(connection),
+        cache.StreamlitCache(),
+        connection,
     )
 
 

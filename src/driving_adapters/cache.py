@@ -1,29 +1,24 @@
-"""Streamlit cache mechanism backing the repository cache gateway.
+"""Streamlit cache implementation backing the repository ``CacheGateway``.
 
-This module is the single source of truth for cached reads in the app:
-  - a versioned @st.cache_data layer keyed by (table, query, version)
-  - per-table version counters in session state used to bust the cache
-  - invalidation helpers, including the views affected by a write
-
-The repository CacheGateway (composition.cache) sits on these primitives, so a
-repository write invalidates every cached read it affects. Nothing here is
-repo-specific; it is pure Streamlit cache plumbing.
+A versioned ``@st.cache_data`` layer keyed by ``(key, version)`` with per-key
+version counters in session state used to bust the cache. Keys are opaque
+strings supplied by the repository; nothing here knows about Supabase tables,
+views, or the client. Composition injects a ``StreamlitCache`` as the
+driven-side ``CacheGateway``.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
-import pydantic
 import st_supabase_connection
 import streamlit as st
 
-from driven_adapters.supabase import client
-from driven_adapters.supabase import table_names as adapter_table_names
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
 
 logger = logging.getLogger(__name__)
 
-JsonDict = dict[str, pydantic.JsonValue]
-
-_TABLE_VERSIONS_KEY = "_cache_table_versions"
+_KEY_VERSIONS_KEY = "_cache_key_versions"
 
 
 def get_connection() -> st_supabase_connection.SupabaseConnection:
@@ -31,88 +26,55 @@ def get_connection() -> st_supabase_connection.SupabaseConnection:
     return st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
 
-def _get_table_versions() -> dict[str, int]:
-    """Get the table versions dict from session state, creating if needed."""
-    if _TABLE_VERSIONS_KEY not in st.session_state:
-        st.session_state[_TABLE_VERSIONS_KEY] = {}
-    return st.session_state[_TABLE_VERSIONS_KEY]
+def _get_key_versions() -> dict[str, int]:
+    """Return the per-key version dict from session state, creating if needed."""
+    if _KEY_VERSIONS_KEY not in st.session_state:
+        st.session_state[_KEY_VERSIONS_KEY] = {}
+    return st.session_state[_KEY_VERSIONS_KEY]
 
 
 @st.cache_data(ttl=300)
-def _get_data_cached(
-    table_name: str,
-    query_string: str,
-    table_version: int,
-    _connection: st_supabase_connection.SupabaseConnection | None = None,
-) -> list[JsonDict]:
-    """Fetch all rows for a table from Supabase, memoised per (table, version).
+def _get_data_cached[T](
+    key: str,
+    version: int,
+    _loader: "Callable[[], T]",
+) -> T:
+    """Return the loader's value, memoised per ``(key, version)``.
+
+    ``_loader`` is underscore-prefixed so ``st.cache_data`` does not try to hash
+    it; the ``(key, version)`` pair is the whole cache identity. A bumped version
+    misses the cache and re-runs the loader.
 
     Args:
-        table_name: The name of the table to query.
-        query_string: The select query string.
-        table_version: Monotonically increasing version used to bust the cache
-            for all queries on a given table via `invalidate_table_cache`.
-        _connection: The Supabase connection to use.
+        key: The opaque cache key identifying this read.
+        version: Monotonically increasing version bumped by ``invalidate`` to
+            bust the cache for ``key``.
+        _loader: Callable that fetches the value on a cache miss.
 
     Returns:
-        A list of dictionaries representing the queried data.
+        The loader's value, served from cache when warm.
 
     """
-    logger.info(
-        "Cache miss — fetching from Supabase: table=%r query=%r version=%d",
-        table_name,
-        query_string,
-        table_version,
-    )
-    connection = _connection or get_connection()
-    return client.fetch_table(table_name, query_string, connection)
+    logger.info("Cache miss — loading: key=%r version=%d", key, version)
+    return _loader()
 
 
-def fetch(
-    table_name: str,
-    query_string: str,
-    connection: st_supabase_connection.SupabaseConnection | None = None,
-) -> list[JsonDict]:
-    """Fetch rows for a table through the versioned cache.
+class StreamlitCache:
+    """``CacheGateway`` backed by ``st.cache_data`` + per-key session versions."""
 
-    Args:
-        table_name: The table or view to read.
-        query_string: The select query string (usually "*").
-        connection: The Supabase connection; falls back to the session
-            connection when omitted.
+    def get_from_or_load_cache[T](
+        self,
+        key: str,
+        loader: "Callable[[], T]",
+    ) -> T:
+        """Return cached value for ``key``, running ``loader`` on a miss."""
+        version = _get_key_versions().get(key, 0)
+        logger.info("Cache lookup: key=%r version=%d", key, version)
+        return _get_data_cached(key, version, loader)
 
-    Returns:
-        A list of row dicts, served from cache when warm.
-
-    """
-    version = _get_table_versions().get(table_name, 0)
-    logger.info(
-        "Cache lookup: table=%r query=%r version=%d",
-        table_name,
-        query_string,
-        version,
-    )
-    return _get_data_cached(table_name, query_string, version, connection)
-
-
-def invalidate_table_cache(table_name: str) -> None:
-    """Invalidate all cached reads for the given table by bumping its version."""
-    table_versions = _get_table_versions()
-    new_version = table_versions.get(table_name, 0) + 1
-    table_versions[table_name] = new_version
-    logger.info(
-        "Cache invalidated: table=%r new version=%d",
-        table_name,
-        new_version,
-    )
-
-
-def invalidate_with_affected_views(table_name: str) -> None:
-    """Invalidate the written table and all views that depend on it."""
-    invalidate_table_cache(table_name)
-    try:
-        key = adapter_table_names.TableNames(table_name)
-    except ValueError:
-        return
-    for view in adapter_table_names.VIEWS_AFFECTED_BY.get(key, []):
-        invalidate_table_cache(str(view))
+    def invalidate(self, keys: "Iterable[str]") -> None:
+        """Bump each key's version, busting its cached rows."""
+        versions = _get_key_versions()
+        for key in keys:
+            versions[key] = versions.get(key, 0) + 1
+            logger.info("Cache invalidated: key=%r new version=%d", key, versions[key])

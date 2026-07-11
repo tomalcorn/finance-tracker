@@ -1,34 +1,33 @@
-"""Cache gateway abstraction for repository reads and writes.
+"""Cache gateway abstraction for repository reads.
 
 The Supabase repositories depend on this Protocol, not on Streamlit. The
-concrete implementation lives in the ui layer (a driving adapter) and is
-injected at composition time. This keeps st.cache_data and session-state
-versioning out of adapters/ while still letting repository reads and writes
-participate in one coherent cache.
+concrete implementation lives in the driving-adapters (UI) layer and is injected
+at composition time, keeping ``st.cache_data`` and session-state versioning out
+of ``driven_adapters/``.
 
-Reads and writes are two halves of one component: every write must invalidate
-the reads it affects, so they live behind a single port rather than two
-unrelated callables.
+The gateway caches opaque string keys against loader callables. The repository
+owns key construction (user-scoped ``{user_id}:{table}``) and the
+invalidation fan-out (a written table plus the views that depend on it), so the
+gateway carries no Supabase schema knowledge and no write path.
 """
 
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from domain import entities
+    from collections.abc import Callable, Iterable
 
 
 class CacheGateway(Protocol):
-    """Read-through cache plus write-with-invalidation for one backend.
+    """Read-through cache keyed by opaque strings."""
 
-    Implementations bind a connection at construction time, so callers pass
-    only table names and updates. A write is responsible for invalidating
-    every cached read it affects.
-    """
-
-    def fetch(self, table: str) -> list[dict]:
-        """Return all rows for the table, served from cache when warm."""
+    def get_from_or_load_cache[T](
+        self,
+        key: str,
+        loader: "Callable[[], T]",
+    ) -> T:
+        """Return the cached value for ``key``, calling ``loader`` on a miss."""
         ...
 
-    def write(self, table: str, updates: "entities.BackendUpdates") -> None:
-        """Apply updates to the backend and invalidate affected cached reads."""
+    def invalidate(self, keys: "Iterable[str]") -> None:
+        """Bust the cache for each of the given keys."""
         ...

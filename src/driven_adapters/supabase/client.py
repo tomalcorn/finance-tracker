@@ -2,29 +2,27 @@
 
 from typing import TYPE_CHECKING, cast
 
-import pydantic
+from driven_adapters import errors
 
 if TYPE_CHECKING:
     import st_supabase_connection
 
     from domain import entities
 
-JsonDict = dict[str, pydantic.JsonValue]
-
 
 def _execute_query(
     query: "st_supabase_connection.SyncSelectRequestBuilder",
-) -> list[JsonDict]:
+) -> "entities.JSON":
     """Execute the given query and return the data."""
     response = query.execute()
-    return cast("list[JsonDict]", response.data or [])
+    return response.data
 
 
 def fetch_table(
     table_name: str,
     query_string: str,
     connection: "st_supabase_connection.SupabaseConnection",
-) -> list[JsonDict]:
+) -> list["entities.JsonDict"]:
     """Fetch all rows from the specified table.
 
     Args:
@@ -35,9 +33,16 @@ def fetch_table(
     Returns:
         A list of dictionaries representing the queried data.
 
+    Raises:
+        errors.AdapterError: If the backend does not return a list of rows.
+
     """
     query = connection.table(table_name).select(query_string)
-    return _execute_query(query)
+    rows = _execute_query(query)
+    if not isinstance(rows, list):
+        msg = f"Expected a list of rows from {table_name}, got {type(rows).__name__}"
+        raise errors.AdapterError(msg)
+    return cast("list[entities.JsonDict]", rows)
 
 
 def update_backend(

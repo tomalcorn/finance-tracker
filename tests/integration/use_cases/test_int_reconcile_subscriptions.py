@@ -7,7 +7,6 @@ import uuid
 import pytest
 import st_supabase_connection
 
-from composition import cache as composition_cache
 from domain import entities
 from driven_adapters.supabase import repository as supabase_repos
 from driving_adapters import cache
@@ -75,10 +74,14 @@ def _run_reconcile(
 ) -> None:
     """Run the use case with the test connection injected."""
     cache._get_data_cached.clear()
-    gateway = composition_cache.make_cache_gateway(connection)
+    cache_impl = cache.StreamlitCache()
     use_case = ReconcileSubscriptionsUseCase(
-        subscription_repo=supabase_repos.subscription_repository(user_id, gateway),
-        payment_repo=supabase_repos.payment_repository(user_id, gateway),
+        subscription_repo=supabase_repos.subscription_repository(
+            user_id,
+            cache_impl,
+            connection,
+        ),
+        payment_repo=supabase_repos.payment_repository(user_id, cache_impl, connection),
     )
     use_case.execute()
     cache._get_data_cached.clear()
