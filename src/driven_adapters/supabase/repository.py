@@ -8,7 +8,7 @@ repository straight to a grid.
 """
 
 import dataclasses
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import pydantic
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 _PaymentAdapter = pydantic.TypeAdapter(entities.AnyPaymentModel)
 
 
-def _parse_payment(row: dict[str, object]) -> entities.AnyPaymentModel:
+def _parse_payment(row: entities.JsonDict) -> entities.AnyPaymentModel:
     return _PaymentAdapter.validate_python(row)
 
 
@@ -35,7 +35,7 @@ def _parse_payment(row: dict[str, object]) -> entities.AnyPaymentModel:
 class RepoSpec[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]:
     """The per-aggregate configuration a ``SupabaseRepository`` needs."""
 
-    parse: "Callable[[dict[str, object]], EntityT]"
+    parse: "Callable[[entities.JsonDict], EntityT]"
     view_model: type[ViewT]
     read_table: table_names.ViewNames | table_names.TableNames
     write_table: table_names.TableNames
@@ -71,12 +71,11 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         """Return the user-scoped cache key for a table or view."""
         return f"{self._user_id}:{table}"
 
-    def _load_rows(self) -> list[dict[str, object]]:
+    def _load_rows(self) -> list[entities.JsonDict]:
         """Fetch every row of the read table from Supabase (a cache-miss loader)."""
-        rows = client.fetch_table(str(self._spec.read_table), "*", self._connection)
-        return cast("list[dict[str, object]]", rows)
+        return client.fetch_table(str(self._spec.read_table), "*", self._connection)
 
-    def _fetch_rows(self) -> list[dict[str, object]]:
+    def _fetch_rows(self) -> list[entities.JsonDict]:
         try:
             return self._cache.get_or_load(
                 self._cache_key(self._spec.read_table),
@@ -86,7 +85,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
             msg = f"Failed to fetch rows from {self._spec.read_table}: {e}"
             raise errors.AdapterError(msg) from e
 
-    def _fetch_by_ids(self, ids: list["uuid.UUID"]) -> list[dict[str, object]]:
+    def _fetch_by_ids(self, ids: list["uuid.UUID"]) -> list[entities.JsonDict]:
         id_strs = {str(i) for i in ids}
         return [row for row in self._fetch_rows() if row["id"] in id_strs]
 

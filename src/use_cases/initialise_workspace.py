@@ -3,7 +3,7 @@
 Seeds default budget trackers and hidden expense sources for a user.
 """
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from domain import entities
 from use_cases import errors
@@ -79,7 +79,7 @@ class InitialiseUserWorkspaceUseCase:
         es_by_name = {es.name: es for es in existing_es}
 
         for bt_name in _HIDDEN_EXPENSE_SOURCE_BT_NAMES:
-            bt_id = cast("uuid.UUID", bt_id_by_name.get(bt_name))
+            bt_id = bt_id_by_name[bt_name]
 
             expense_source_name = bt_name.value
             existing = es_by_name.get(expense_source_name)

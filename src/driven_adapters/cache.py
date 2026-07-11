@@ -20,12 +20,12 @@ if TYPE_CHECKING:
 class CacheGateway(Protocol):
     """Read-through cache keyed by opaque strings."""
 
-    def get_or_load(
+    def get_or_load[T](
         self,
         key: str,
-        loader: "Callable[[], list[dict[str, object]]]",
-    ) -> list[dict[str, object]]:
-        """Return the cached rows for ``key``, calling ``loader`` on a miss."""
+        loader: "Callable[[], T]",
+    ) -> T:
+        """Return the cached value for ``key``, calling ``loader`` on a miss."""
         ...
 
     def invalidate(self, keys: "Iterable[str]") -> None:

@@ -3,11 +3,13 @@
 import datetime
 import enum
 import uuid
+from collections.abc import Mapping, Sequence
 from typing import Annotated, Literal
 
 import pydantic
 
-type JsonDict = dict[str, pydantic.JsonValue]
+type JSON = None | bool | str | int | float | Sequence[JSON] | Mapping[str, JSON]
+type JsonDict = dict[str, JSON]
 
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):

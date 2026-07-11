@@ -34,12 +34,12 @@ def _get_key_versions() -> dict[str, int]:
 
 
 @st.cache_data(ttl=300)
-def _get_data_cached(
+def _get_data_cached[T](
     key: str,
     version: int,
-    _loader: "Callable[[], list[dict[str, object]]]",
-) -> list[dict[str, object]]:
-    """Return the loader's rows, memoised per ``(key, version)``.
+    _loader: "Callable[[], T]",
+) -> T:
+    """Return the loader's value, memoised per ``(key, version)``.
 
     ``_loader`` is underscore-prefixed so ``st.cache_data`` does not try to hash
     it; the ``(key, version)`` pair is the whole cache identity. A bumped version
@@ -49,10 +49,10 @@ def _get_data_cached(
         key: The opaque cache key identifying this read.
         version: Monotonically increasing version bumped by ``invalidate`` to
             bust the cache for ``key``.
-        _loader: Callable that fetches the rows on a cache miss.
+        _loader: Callable that fetches the value on a cache miss.
 
     Returns:
-        The loader's rows, served from cache when warm.
+        The loader's value, served from cache when warm.
 
     """
     logger.info("Cache miss — loading: key=%r version=%d", key, version)
@@ -62,12 +62,12 @@ def _get_data_cached(
 class StreamlitCache:
     """``CacheGateway`` backed by ``st.cache_data`` + per-key session versions."""
 
-    def get_or_load(
+    def get_or_load[T](
         self,
         key: str,
-        loader: "Callable[[], list[dict[str, object]]]",
-    ) -> list[dict[str, object]]:
-        """Return cached rows for ``key``, running ``loader`` on a miss."""
+        loader: "Callable[[], T]",
+    ) -> T:
+        """Return cached value for ``key``, running ``loader`` on a miss."""
         version = _get_key_versions().get(key, 0)
         logger.info("Cache lookup: key=%r version=%d", key, version)
         return _get_data_cached(key, version, loader)
