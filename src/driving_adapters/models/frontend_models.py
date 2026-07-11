@@ -1,17 +1,10 @@
 """Pydantic configs for the grid (DataFrame-editor) frontend.
 
-The grid config is split into two ontologically distinct halves so a function
-can ask for the slice it needs instead of the whole god-object:
-
 - ``GridSource`` — how a grid persists and is identified: the data port, the
   write table (and widget-key prefix), the add-dialog backend model, and any
   extra row values. The *source* half.
 - ``GridDisplay`` — what a grid shows: its columns, row-edit mode, and the
   empty-state sample frame. The *display* half.
-
-``DFEConfig`` composes the two for the top-level orchestrators (``render`` /
-``commit`` / ``build_working_df``) that legitimately need both; leaf functions
-take only ``GridSource`` or ``GridDisplay``.
 
 Column roles are flags on one ``DFEColumnConfig``, not a subclass hierarchy:
 ``editable=False`` marks a read-only view column; ``enforce_unique`` / ``required``
@@ -32,13 +25,7 @@ type StreamlitColumnConfig = Any
 
 
 class DFEColumnConfig(pydantic.BaseModel):
-    """Configuration for a single column in the DataFrame editor.
-
-    The column's role is expressed by flags rather than a subclass: an
-    ``editable=False`` column is read-only (and must carry ``disabled=True`` in
-    its Streamlit ``column_config``); ``enforce_unique`` and ``required`` govern
-    an editable column's behaviour in the add dialog.
-    """
+    """Configuration for a single column in the DataFrame editor."""
 
     column_name: query.ColumnName
     column_config: Annotated[

@@ -156,14 +156,14 @@ def _handle_generic_filtering(
 @st.dialog("Filter Columns")
 def _filter_dialog(
     grid_source: "frontend_models.GridSource",
-    display: "frontend_models.GridDisplay",
+    grid_display: "frontend_models.GridDisplay",
 ) -> None:
     """Render the per-column filter dialog and store the result on apply.
 
     Streamlit struggles to return values from dialogs, so the chosen configs are
     written to session state under the grid's key prefix.
     """
-    col_configs = list(display.columns)
+    col_configs = list(grid_display.columns)
     key_prefix = grid_source.key_prefix
     display_name = key_prefix.replace("_", " ").title()
     st.write(f"Filter **{display_name}** by:")
@@ -194,13 +194,13 @@ def _filter_dialog(
 
 def render_filter_button(
     grid_source: "frontend_models.GridSource",
-    display: "frontend_models.GridDisplay",
+    grid_display: "frontend_models.GridDisplay",
 ) -> None:
     """Render the filter button; opens the filter dialog when clicked.
 
     The button is highlighted while any column carries a filter.
     """
-    active = any(col.filters is not None for col in display.columns)
+    active = any(col.filters is not None for col in grid_display.columns)
     css = _CSS_ACTIVE if active else ""
 
     key_prefix = grid_source.key_prefix
@@ -211,7 +211,7 @@ def render_filter_button(
             icon=constants.ButtonIcons.FILTER,
             key=f"{key_prefix}_filter_button",
         ):
-            _filter_dialog(grid_source, display)
+            _filter_dialog(grid_source, grid_display)
     st.markdown(
         f"<style>.st-key-{container_key} {css}</style>",
         unsafe_allow_html=True,

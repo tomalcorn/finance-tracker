@@ -7,10 +7,6 @@ store. ``grid_sync`` stays the pure delta-translation layer.
 
 The flow is commit-at-top: the dashboard applies each grid's pending edits
 (``commit``) before rendering, then ``render`` rebuilds the frame from the port.
-
-Orchestrators (``render`` / ``render_buttons`` / ``build_working_df`` /
-``commit``) take the whole ``DFEConfig``; leaves take only the ``GridDisplay``
-slice (plus a ``key_prefix``) they actually use.
 """
 
 import contextlib
@@ -28,12 +24,12 @@ if TYPE_CHECKING:
 
 
 def _active_columns(
-    display: "frontend_models.GridDisplay",
+    grid_display: "frontend_models.GridDisplay",
     key_prefix: str,
 ) -> list["frontend_models.DFEColumnConfig"]:
     """Return the display columns with the current filter state from session."""
     key = f"{key_prefix}_{ss_keys.SSKeys.COL_CONFIGS}"
-    return st.session_state.get(key, list(display.columns))
+    return st.session_state.get(key, list(grid_display.columns))
 
 
 def _convert_cols_to_datetime(
@@ -77,7 +73,7 @@ def build_working_df(config: "frontend_models.DFEConfig") -> pd.DataFrame:
 
 
 def render_editor(
-    display: "frontend_models.GridDisplay",
+    grid_display: "frontend_models.GridDisplay",
     key_prefix: str,
     working_df: pd.DataFrame,
 ) -> None:
@@ -90,9 +86,11 @@ def render_editor(
     st.data_editor(
         working_df,
         key=key_prefix,
-        column_config={col.column_name: col.column_config for col in display.columns},
-        column_order=[col.column_name for col in display.columns if col.visible],
-        num_rows=display.num_rows,
+        column_config={
+            col.column_name: col.column_config for col in grid_display.columns
+        },
+        column_order=[col.column_name for col in grid_display.columns if col.visible],
+        num_rows=grid_display.num_rows,
         hide_index=True,
     )
 
@@ -104,17 +102,17 @@ def render_buttons(config: "frontend_models.DFEConfig") -> None:
     ``build_working_df`` already reflects any add or filter — there is no
     working frame to refresh in place.
     """
-    source, display = config.source, config.display
-    if display.num_rows != "fixed":
+    source, grid_display = config.source, config.display
+    if grid_display.num_rows != "fixed":
         add_col, filter_col, _ = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
         with add_col:
-            add_button.render_add_button(source, display)
+            add_button.render_add_button(source, grid_display)
         with filter_col:
-            filter_button.render_filter_button(source, display)
+            filter_button.render_filter_button(source, grid_display)
     else:
         filter_col, _ = st.columns([1, 5])
         with filter_col:
-            filter_button.render_filter_button(source, display)
+            filter_button.render_filter_button(source, grid_display)
 
 
 def render(config: "frontend_models.DFEConfig") -> None:
