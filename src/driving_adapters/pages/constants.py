@@ -14,5 +14,7 @@ class Pages(enum.Enum):
         icon=":material/dashboard:",
     )
     LOGIN = st.Page(
-        "driving_adapters/pages/login.py", title="Login", icon=":material/lock:"
+        "driving_adapters/pages/login.py",
+        title="Login",
+        icon=":material/lock:",
     )

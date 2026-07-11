@@ -2,9 +2,6 @@
 
 The applied filters live in session state under ``{key_prefix}_col_configs`` and
 are read back by ``grid.build_working_df`` via ``grid_sync.apply_active_filters``.
-
-Handlers take only what they use: the ``key_prefix`` scalar for widget keys, and
-``GridSource`` when they must read existing column values from the data port.
 """
 
 import datetime
@@ -28,22 +25,22 @@ _CSS_ACTIVE = """
 
 
 def _column_values(
-    source: "frontend_models.GridSource",
+    grid_source: "frontend_models.GridSource",
     column_name: str,
 ) -> set[object]:
-    """Return the existing values for a column via the grid data source."""
-    if source.data_source is None:
-        msg = "Filtering requires a data source to read column values."
+    """Return the existing values for a column via the grid data grid_source."""
+    if grid_source.data_source is None:
+        msg = "Filtering requires a data grid_source to read column values."
         raise ValueError(msg)
-    return source.data_source.unique_values(column_name)
+    return grid_source.data_source.unique_values(column_name)
 
 
 def _get_min_max_values(
-    source: "frontend_models.GridSource",
+    grid_source: "frontend_models.GridSource",
     column_name: str,
 ) -> tuple[float, float]:
     """Return the min and max of a numeric column's existing values."""
-    col_vals = [v for v in _column_values(source, column_name) if v is not None]
+    col_vals = [v for v in _column_values(grid_source, column_name) if v is not None]
     min_value = float(min(col_vals)) if col_vals else 0.0
     max_value = float(max(col_vals)) if col_vals else 1.0
     return (min_value, max_value)
@@ -79,11 +76,11 @@ def _handle_date_filtering(
 
 
 def _handle_numeric_filtering(
-    source: "frontend_models.GridSource",
+    grid_source: "frontend_models.GridSource",
     col_config: "frontend_models.DFEColumnConfig",
 ) -> query.Filters | None:
     """Render a numeric-range slider filter and return the chosen filter."""
-    default_min, default_max = _get_min_max_values(source, col_config.column_name)
+    default_min, default_max = _get_min_max_values(grid_source, col_config.column_name)
     if default_min == default_max:
         return None
 
@@ -94,7 +91,7 @@ def _handle_numeric_filtering(
         max_value=default_max,
         value=(default_min, default_max),
         step=step,
-        key=f"{source.key_prefix}_filter_numeric_{col_config.column_name}",
+        key=f"{grid_source.key_prefix}_filter_numeric_{col_config.column_name}",
     )
     if selected_values == (default_min, default_max):
         return None
@@ -158,7 +155,7 @@ def _handle_generic_filtering(
 
 @st.dialog("Filter Columns")
 def _filter_dialog(
-    source: "frontend_models.GridSource",
+    grid_source: "frontend_models.GridSource",
     display: "frontend_models.GridDisplay",
 ) -> None:
     """Render the per-column filter dialog and store the result on apply.
@@ -167,7 +164,7 @@ def _filter_dialog(
     written to session state under the grid's key prefix.
     """
     col_configs = list(display.columns)
-    key_prefix = source.key_prefix
+    key_prefix = grid_source.key_prefix
     display_name = key_prefix.replace("_", " ").title()
     st.write(f"Filter **{display_name}** by:")
     for col_config in col_configs:
@@ -176,8 +173,10 @@ def _filter_dialog(
         if col_config.input_widget == st.date_input:
             col_config.filters = _handle_date_filtering(key_prefix, col_config)
         elif col_config.input_widget == st.number_input:
-            col_config.filters = _handle_numeric_filtering(source, col_config)
-        elif (unique_vals := _column_values(source, col_config.column_name)) and len(
+            col_config.filters = _handle_numeric_filtering(grid_source, col_config)
+        elif (
+            unique_vals := _column_values(grid_source, col_config.column_name)
+        ) and len(
             unique_vals,
         ) < constants.MAX_UNIQUE_VALUES:
             col_config.filters = _handle_multiselect_filtering(
@@ -194,7 +193,7 @@ def _filter_dialog(
 
 
 def render_filter_button(
-    source: "frontend_models.GridSource",
+    grid_source: "frontend_models.GridSource",
     display: "frontend_models.GridDisplay",
 ) -> None:
     """Render the filter button; opens the filter dialog when clicked.
@@ -204,7 +203,7 @@ def render_filter_button(
     active = any(col.filters is not None for col in display.columns)
     css = _CSS_ACTIVE if active else ""
 
-    key_prefix = source.key_prefix
+    key_prefix = grid_source.key_prefix
     container_key = f"{key_prefix}_filter_button_container"
     with st.container(key=container_key):
         if st.button(
@@ -212,7 +211,7 @@ def render_filter_button(
             icon=constants.ButtonIcons.FILTER,
             key=f"{key_prefix}_filter_button",
         ):
-            _filter_dialog(source, display)
+            _filter_dialog(grid_source, display)
     st.markdown(
         f"<style>.st-key-{container_key} {css}</style>",
         unsafe_allow_html=True,

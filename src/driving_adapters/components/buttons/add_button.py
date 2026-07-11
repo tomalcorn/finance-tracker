@@ -29,7 +29,7 @@ def _has_unfilled_required(
 
 
 def _submit_new_row(
-    source: "frontend_models.GridSource",
+    grid_source: "frontend_models.GridSource",
     new_row: dict[str, object],
 ) -> None:
     """Validate a new row and write it through the grid data source.
@@ -41,15 +41,15 @@ def _submit_new_row(
     """
     try:
         new_row["user_id"] = auth.get_current_user()
-        new_row.update(source.extra_row_values or {})
-        model_instance = source.backend_model.model_validate(new_row)
+        new_row.update(grid_source.extra_row_values or {})
+        model_instance = grid_source.backend_model.model_validate(new_row)
     except pydantic.ValidationError as e:
-        msg = f"Invalid data for new row in {source.write_table}: {e}"
+        msg = f"Invalid data for new row in {grid_source.write_table}: {e}"
         raise ValueError(msg) from e
-    if source.data_source is None:
+    if grid_source.data_source is None:
         msg = "An editable grid requires a data source to add rows."
         raise ValueError(msg)
-    source.data_source.apply(
+    grid_source.data_source.apply(
         entities.BackendUpdates(
             added_rows=[model_instance.model_dump(mode="json", exclude_none=True)],
         ),
@@ -58,12 +58,12 @@ def _submit_new_row(
 
 @st.dialog("Add Row")
 def _add_row_dialog(
-    source: "frontend_models.GridSource",
-    display: "frontend_models.GridDisplay",
+    grid_source: "frontend_models.GridSource",
+    grid_display: "frontend_models.GridDisplay",
 ) -> None:
     """Render the add-row dialog and submit the row on confirm."""
-    col_configs = display.writable_columns
-    key_prefix = source.key_prefix
+    col_configs = grid_display.writable_columns
+    key_prefix = grid_source.key_prefix
     display_name = key_prefix.replace("_", " ").title()
     st.write(f"Add a new row to {display_name}")
     outputs = [
@@ -85,17 +85,17 @@ def _add_row_dialog(
             for col, output in zip(col_configs, outputs, strict=False)
         }
         try:
-            _submit_new_row(source, new_row)
+            _submit_new_row(grid_source, new_row)
         except ValueError:
-            logger.exception("Failed to add a new row to %s", source.write_table)
+            logger.exception("Failed to add a new row to %s", grid_source.write_table)
             st.error("Could not add the row. Please check the values and try again.")
             return
         st.rerun()
 
 
 def render_add_button(
-    source: "frontend_models.GridSource",
-    display: "frontend_models.GridDisplay",
+    grid_source: "frontend_models.GridSource",
+    grid_display: "frontend_models.GridDisplay",
 ) -> None:
     """Render the add-row button; opens the add dialog when clicked.
 
@@ -105,6 +105,6 @@ def render_add_button(
     if st.button(
         label="",
         icon=constants.ButtonIcons.ADD,
-        key=f"{source.key_prefix}_add_row_button",
+        key=f"{grid_source.key_prefix}_add_row_button",
     ):
-        _add_row_dialog(source, display)
+        _add_row_dialog(grid_source, grid_display)
