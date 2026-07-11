@@ -181,22 +181,23 @@ class DocsRegistry:
             errors.DuplicateSlugError: two files resolved to the same slug.
 
         """
-        loaded = [load_markdown_doc(p) for p in self._docs_dir.glob("*.md")]
+        loaded = [(p, load_markdown_doc(p)) for p in self._docs_dir.glob("*.md")]
 
         if not loaded:
             raise errors.EmptyDocsDirectoryError(self._docs_dir)
 
-        # Detect duplicate slugs before handing pages to the router.
+        # Detect duplicate slugs before handing pages to the router; report the
+        # real source files that collided, not the slug they resolved to.
         slug_index: dict[str, list[pathlib.Path]] = collections.defaultdict(list)
-        for page in loaded:
-            slug_index[page.slug].append(self._docs_dir / f"{page.slug}.md")
+        for path, page in loaded:
+            slug_index[page.slug].append(path)
 
         dupes = {slug: paths for slug, paths in slug_index.items() if len(paths) > 1}
         if dupes:
             slug, paths = next(iter(dupes.items()))
             raise errors.DuplicateSlugError(slug, paths)
 
-        return sorted(loaded, key=lambda p: p.order)
+        return sorted((page for _, page in loaded), key=lambda p: p.order)
 
 
 # == Streamlit adapter layer ==
@@ -209,13 +210,22 @@ class DocsUI:
         """Construct the DocsUI."""
         self.registry = registry
 
+    def _render_page(self, doc: MarkdownPage) -> None:
+        """Render a doc's body, translating any render-time failure.
+
+        Raises:
+            errors.PageRenderError: rendering the markdown body failed; carries
+                the doc's slug and the original exception as the cause.
+
+        """
+        try:
+            st.markdown(doc.content)
+        except Exception as exc:
+            raise errors.PageRenderError(doc.slug, exc) from exc
+
     def _to_streamlit_page(self, doc: MarkdownPage) -> "st_page.StreamlitPage":
         def _render() -> None:
-            # Translate unexpected render-time exceptions into adapter errors.
-            try:
-                st.markdown(doc.content)
-            except Exception as exc:
-                raise errors.PageRenderError(doc.slug, exc) from exc
+            self._render_page(doc)
 
         return st.Page(
             _render,
