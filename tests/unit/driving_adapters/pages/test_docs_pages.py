@@ -3,6 +3,7 @@
 import json
 import pathlib
 from collections.abc import Callable
+from unittest import mock
 
 import pytest
 from streamlit.testing import v1 as st_test
@@ -231,7 +232,7 @@ class TestLoadMarkdownDocErrors:
         with pytest.raises(errors.InvalidFrontmatterError) as exc_info:
             docs_pages.load_markdown_doc(path)
 
-        assert all([exc_info.value.field == "icon"])
+        assert all([exc_info.value.field == "icon", exc_info.value.path == path])
 
     def test_non_integer_order_error_type_and_field(
         self,
@@ -275,7 +276,7 @@ class TestLoadMarkdownDocErrors:
         with pytest.raises(errors.InvalidFrontmatterError) as exc_info:
             docs_pages.load_markdown_doc(path)
 
-        assert exc_info.value.field == "slug"
+        assert all([exc_info.value.field == "slug", exc_info.value.path == path])
 
     def test_invalid_frontmatter_error_is_subclass_of_docs_error(
         self,
@@ -360,7 +361,10 @@ class TestDocsRegistryPages:
             _ = reg.pages
         assert all([exc_info.value.docs_dir == tmp_docs_dir])
 
-    def test_duplicate_slug_error_type_and_slug(self, tmp_docs_dir: pathlib.Path):
+    def test_duplicate_slug_error_carries_slug_and_colliding_paths(
+        self,
+        tmp_docs_dir: pathlib.Path,
+    ):
         # Arrange — two different files that resolve to the same slug
         for filename, title in [("doc_a.md", "My Topic"), ("doc_b.md", "My Topic")]:
             content = f"---\norder: 1\nicon: :book:\n---\n# {title}\n"
@@ -371,7 +375,13 @@ class TestDocsRegistryPages:
         # Act / Assert
         with pytest.raises(errors.DuplicateSlugError) as exc_info:
             _ = reg.pages
-        assert all([exc_info.value.slug == "my_topic"])
+        assert all(
+            [
+                exc_info.value.slug == "my_topic",
+                set(exc_info.value.paths)
+                == {tmp_docs_dir / "doc_a.md", tmp_docs_dir / "doc_b.md"},
+            ],
+        )
 
     def test_pages_result_is_cached(self, registry: docs_pages.DocsRegistry):
         # Arrange / Act
@@ -429,5 +439,29 @@ class TestDocsUIBuildPages:
                     "Failed to render page 'getting_started': render boom"
                     in at.exception[0].message
                 ),
+            ],
+        )
+
+    def test_render_failure_translation_carries_slug_and_chained_cause(
+        self,
+        registry: docs_pages.DocsRegistry,
+    ):
+        # Arrange
+        doc = registry.pages[0]
+        ui = docs_pages.DocsUI(registry)
+        boom = RuntimeError("render boom")
+
+        # Act / Assert
+        with (
+            mock.patch.object(docs_pages.st, "markdown", side_effect=boom),
+            pytest.raises(errors.PageRenderError) as exc_info,
+        ):
+            ui._render_page(doc)
+
+        assert all(
+            [
+                exc_info.value.slug == doc.slug,
+                exc_info.value.cause is boom,
+                exc_info.value.__cause__ is boom,
             ],
         )
