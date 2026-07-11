@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import pydantic
 
 from domain import entities, read_models
+from driven_adapters import errors as adapter_errors
 from driven_adapters.supabase import client, table_names
 from ports import errors, repository
 
@@ -81,7 +82,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
                 self._cache_key(self._spec.read_table),
                 self._load_rows,
             )
-        except Exception as e:
+        except adapter_errors.AdapterError as e:
             msg = f"Failed to fetch rows from {self._spec.read_table}: {e}"
             raise errors.RepositoryError(msg) from e
 
@@ -101,8 +102,9 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
     def _write(self, updates: entities.BackendUpdates, error_context: str) -> None:
         """Persist a write via the client, then invalidate affected cached reads.
 
-        Keeps Supabase/cache exceptions from leaking past the port boundary:
-        callers only ever see a domain-level ``RepositoryError``.
+        Translates the adapter's own ``AdapterError`` into a domain-level
+        ``RepositoryError`` at the port boundary. A genuine programming error is
+        left to propagate untouched rather than being masked as a write failure.
         """
         try:
             client.update_backend(
@@ -111,7 +113,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
                 self._connection,
             )
             self._cache.invalidate(self._affected_keys())
-        except Exception as e:
+        except adapter_errors.AdapterError as e:
             msg = f"{error_context}: {e}"
             raise errors.RepositoryError(msg) from e
 

@@ -13,8 +13,17 @@ if TYPE_CHECKING:
 def _execute_query(
     query: "st_supabase_connection.SyncSelectRequestBuilder",
 ) -> "entities.JSON":
-    """Execute the given query and return the data."""
-    response = query.execute()
+    """Execute the given query, translating any transport or API failure.
+
+    Raises:
+        errors.SupabaseAdapterError: the Supabase request did not complete.
+
+    """
+    try:
+        response = query.execute()
+    except Exception as e:
+        msg = f"Supabase query failed: {e}"
+        raise errors.SupabaseAdapterError(msg) from e
     return response.data
 
 
@@ -60,18 +69,26 @@ def update_backend(
     Returns:
         The updated BackendUpdates object reflecting all changes made.
 
-    """
-    if updates.added_rows:
-        connection.table(table_name).insert(updates.added_rows).execute()
+    Raises:
+        errors.SupabaseAdapterError: a Supabase write did not complete.
 
-    if updates.edited_rows:
-        for row_id, changes in updates.edited_rows.items():
-            connection.table(table_name).update(changes).eq("id", row_id).execute()
-    if updates.deleted_rows:
-        connection.table(table_name).delete().in_(
-            "id",
-            updates.deleted_rows,
-        ).execute()
-        updates.deleted_rows.clear()
+    """
+    try:
+        if updates.added_rows:
+            connection.table(table_name).insert(updates.added_rows).execute()
+
+        if updates.edited_rows:
+            for row_id, changes in updates.edited_rows.items():
+                connection.table(table_name).update(changes).eq("id", row_id).execute()
+
+        if updates.deleted_rows:
+            connection.table(table_name).delete().in_(
+                "id",
+                updates.deleted_rows,
+            ).execute()
+            updates.deleted_rows.clear()
+    except Exception as e:
+        msg = f"Supabase write to '{table_name}' failed: {e}"
+        raise errors.SupabaseAdapterError(msg) from e
 
     return updates
