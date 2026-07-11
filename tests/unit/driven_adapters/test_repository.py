@@ -14,6 +14,7 @@ import pytest
 import st_supabase_connection
 
 from domain import entities, read_models
+from driven_adapters import errors as adapter_errors
 from driven_adapters.supabase import repository, table_names
 from ports import errors
 
@@ -28,13 +29,13 @@ class FakeCache:
         self,
         rows: list[dict] | None = None,
         *,
-        fail_fetch: bool = False,
+        fetch_error: Exception | None = None,
     ) -> None:
-        """Seed the fake with the rows a read should return."""
+        """Seed the fake with the rows a read should return, or an error to raise."""
         self._rows = rows if rows is not None else []
         self.requested_keys: list[str] = []
         self.invalidated: list[str] = []
-        self._fail_fetch = fail_fetch
+        self._fetch_error = fetch_error
 
     def get_from_or_load_cache(
         self,
@@ -42,9 +43,8 @@ class FakeCache:
         loader: Callable[[], list[dict[str, object]]],  # noqa: ARG002 - loader unused; the fake serves fixed rows without hitting a backend
     ) -> list[dict[str, object]]:
         self.requested_keys.append(key)
-        if self._fail_fetch:
-            msg = "fetch boom"
-            raise RuntimeError(msg)
+        if self._fetch_error is not None:
+            raise self._fetch_error
         return list(self._rows)
 
     def invalidate(self, keys: Iterable[str]) -> None:
@@ -99,11 +99,12 @@ class TestGetAll:
             f"{_USER_ID}:{table_names.ViewNames.BANK_ACCOUNTS}",
         ]
 
-    def test_wraps_fetch_failure_in_repository_error(self) -> None:
-        # Arrange
+    def test_wraps_adapter_fetch_failure_in_repository_error(self) -> None:
+        # Arrange - the client/loader surfaces backend failures as AdapterError
+        boom = adapter_errors.SupabaseAdapterError("fetch boom")
         repo = repository.bank_account_repository(
             _USER_ID,
-            FakeCache(fail_fetch=True),
+            FakeCache(fetch_error=boom),
             _CONN,
         )
 
@@ -111,14 +112,26 @@ class TestGetAll:
         with pytest.raises(errors.RepositoryError) as exc_info:
             repo.get_all()
 
-        # Assert - names the read, and the original failure is chained via `from`
+        # Assert - names the read, and the original failure is the chained cause
         assert all(
             [
                 "Failed to fetch rows" in str(exc_info.value),
-                isinstance(exc_info.value.__cause__, RuntimeError),
-                "fetch boom" in str(exc_info.value.__cause__),
+                exc_info.value.__cause__ is boom,
             ],
         )
+
+    def test_programming_error_on_fetch_is_not_translated(self) -> None:
+        # Arrange - a genuine bug in the read path must not be masked as a
+        # RepositoryError; it should propagate untouched so it stays diagnosable.
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache(fetch_error=KeyError("id")),
+            _CONN,
+        )
+
+        # Act / Assert
+        with pytest.raises(KeyError):
+            repo.get_all()
 
 
 class TestGetByIds:
@@ -163,10 +176,10 @@ class TestSave:
             ],
         )
 
-    def test_wraps_write_failure_in_repository_error(self) -> None:
+    def test_wraps_adapter_write_failure_in_repository_error(self) -> None:
         # Arrange
         repo = repository.bank_account_repository(_USER_ID, FakeCache(), _CONN)
-        boom = RuntimeError("write boom")
+        boom = adapter_errors.SupabaseAdapterError("write boom")
 
         # Act
         with (
@@ -182,6 +195,21 @@ class TestSave:
                 exc_info.value.__cause__ is boom,
             ],
         )
+
+    def test_programming_error_on_write_is_not_translated(self) -> None:
+        # Arrange - a genuine bug must propagate, not be masked as a write failure
+        repo = repository.bank_account_repository(_USER_ID, FakeCache(), _CONN)
+
+        # Act / Assert
+        with (
+            mock.patch.object(
+                repository.client,
+                "update_backend",
+                side_effect=KeyError("id"),
+            ),
+            pytest.raises(KeyError),
+        ):
+            repo.save(entities.BankAccountModel(user_id=_USER_ID, name="New"))
 
 
 class TestApply:
@@ -212,11 +240,11 @@ class TestApply:
         # Assert
         mock_update.assert_not_called()
 
-    def test_wraps_write_failure_in_repository_error(self) -> None:
+    def test_wraps_adapter_write_failure_in_repository_error(self) -> None:
         # Arrange
         repo = repository.bank_account_repository(_USER_ID, FakeCache(), _CONN)
         updates = entities.BackendUpdates(added_rows=[{"id": "x"}])
-        boom = RuntimeError("write boom")
+        boom = adapter_errors.SupabaseAdapterError("write boom")
 
         # Act
         with (

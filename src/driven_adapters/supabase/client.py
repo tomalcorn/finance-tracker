@@ -5,16 +5,36 @@ from typing import TYPE_CHECKING, cast
 from driven_adapters import errors
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import st_supabase_connection
 
     from domain import entities
+
+
+def _execute[T](request: "Callable[[], T]") -> T:
+    """Run a Supabase request, translating any transport or API failure.
+
+    Wraps only the request call itself — where the sole thing that can fail is
+    the network or the backend — so a genuine bug in surrounding logic is never
+    mislabelled as an adapter failure.
+
+    Raises:
+        errors.SupabaseAdapterError: the Supabase request did not complete.
+
+    """
+    try:
+        return request()
+    except Exception as e:
+        msg = f"Supabase request failed: {e}"
+        raise errors.SupabaseAdapterError(msg) from e
 
 
 def _execute_query(
     query: "st_supabase_connection.SyncSelectRequestBuilder",
 ) -> "entities.JSON":
     """Execute the given query and return the data."""
-    response = query.execute()
+    response = _execute(query.execute)
     return response.data
 
 
@@ -62,16 +82,17 @@ def update_backend(
 
     """
     if updates.added_rows:
-        connection.table(table_name).insert(updates.added_rows).execute()
+        insert = connection.table(table_name).insert(updates.added_rows)
+        _execute(insert.execute)
 
     if updates.edited_rows:
         for row_id, changes in updates.edited_rows.items():
-            connection.table(table_name).update(changes).eq("id", row_id).execute()
+            update = connection.table(table_name).update(changes).eq("id", row_id)
+            _execute(update.execute)
+
     if updates.deleted_rows:
-        connection.table(table_name).delete().in_(
-            "id",
-            updates.deleted_rows,
-        ).execute()
+        delete = connection.table(table_name).delete().in_("id", updates.deleted_rows)
+        _execute(delete.execute)
         updates.deleted_rows.clear()
 
     return updates
