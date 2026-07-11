@@ -1,11 +1,10 @@
 """Page-boundary error handling for the Streamlit UI.
 
-Wraps the risky calls a page makes into repositories and use cases so a
-``RepositoryError`` or ``UseCaseError`` surfaces as a friendly ``st.error``
-instead of a raw Streamlit traceback. Both error types live in inward layers the
-UI already depends on, so the boundary needs no import from ``driven_adapters``.
-Anything outside those two hierarchies (a genuine programming bug) is left to
-propagate untouched.
+Wraps the risky calls a page makes into repositories and use cases so an
+expected failure surfaces as a friendly ``st.error`` instead of a raw Streamlit
+traceback. The caught error types are declared in inward layers the UI already
+depends on, so the boundary needs no import from the driven side. Anything else
+(a genuine programming bug) is left to propagate untouched.
 """
 
 import contextlib
@@ -29,9 +28,9 @@ _BOUNDARY_ERRORS = (port_errors.RepositoryError, use_case_errors.UseCaseError)
 def boundary(section: str) -> "Iterator[None]":
     """Show a friendly error and halt the run if ``section`` fails.
 
-    Catches the domain and use-case errors a page can provoke, logs the full
-    traceback for diagnosis, renders a user-facing message, and stops the script
-    run. Any other exception propagates unchanged so real bugs still surface.
+    Catches the expected errors a page can provoke, logs the full traceback for
+    diagnosis, renders a user-facing message, and stops the script run. Any other
+    exception propagates unchanged so real bugs still surface.
 
     Args:
         section: Human-readable name of what was being done, e.g.
