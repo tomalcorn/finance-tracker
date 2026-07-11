@@ -7,9 +7,14 @@ store. ``grid_sync`` stays the pure delta-translation layer.
 
 The flow is commit-at-top: the dashboard applies each grid's pending edits
 (``commit``) before rendering, then ``render`` rebuilds the frame from the port.
+
+Orchestrators (``render`` / ``render_buttons`` / ``build_working_df`` /
+``commit``) take the whole ``DFEConfig``; leaves take only the ``GridDisplay``
+slice (plus a ``key_prefix``) they actually use.
 """
 
 import contextlib
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import streamlit as st
@@ -17,27 +22,30 @@ import streamlit as st
 from driving_adapters import ss_keys
 from driving_adapters.components.buttons import add_button, constants, filter_button
 from driving_adapters.components.dfes import grid_sync
-from driving_adapters.models import frontend_models
+
+if TYPE_CHECKING:
+    from driving_adapters.models import frontend_models
 
 
-def _active_configs(
-    config: frontend_models.DFEConfig,
-) -> list[frontend_models.DFEColumnConfigBase]:
-    """Return the column configs with the current filter state from session."""
-    key = f"{config.key_prefix}_{ss_keys.SSKeys.COL_CONFIGS}"
-    return st.session_state.get(key, list(config.configs))
+def _active_columns(
+    display: "frontend_models.GridDisplay",
+    key_prefix: str,
+) -> list["frontend_models.DFEColumnConfig"]:
+    """Return the display columns with the current filter state from session."""
+    key = f"{key_prefix}_{ss_keys.SSKeys.COL_CONFIGS}"
+    return st.session_state.get(key, list(display.columns))
 
 
 def _convert_cols_to_datetime(
     dataframe: pd.DataFrame,
-    configs: list[frontend_models.DFEColumnConfigBase],
+    columns: list["frontend_models.DFEColumnConfig"],
 ) -> pd.DataFrame:
     """Convert columns to date/datetime based on their column config type."""
-    for config in configs:
-        col = config.column_name
-        if col not in dataframe.columns or not isinstance(config.column_config, dict):
+    for column in columns:
+        col = column.column_name
+        if col not in dataframe.columns or not isinstance(column.column_config, dict):
             continue
-        col_type = config.column_config.get("type_config", {}).get("type")
+        col_type = column.column_config.get("type_config", {}).get("type")
         if col_type == "date":
             with contextlib.suppress(Exception):
                 dataframe[col] = pd.to_datetime(dataframe[col]).dt.date
@@ -47,26 +55,32 @@ def _convert_cols_to_datetime(
     return dataframe
 
 
-def build_working_df(config: frontend_models.DFEConfig) -> pd.DataFrame:
+def build_working_df(config: "frontend_models.DFEConfig") -> pd.DataFrame:
     """Build the display frame from the port, applying the active filters.
 
-    Reads display rows from ``data_source.rows()`` (Path A) and filters them in
-    Python, falling back to the config's sample data when the read is empty.
-    Rebuilt every run — there is no cached working frame in session state.
+    Reads display rows from ``source.data_source.rows()`` (Path A) and filters
+    them in Python, falling back to the display's sample data when the read is
+    empty. Rebuilt every run — there is no cached working frame in session state.
     """
-    if config.data_source is not None:
-        rows = config.data_source.rows()
+    display, key_prefix = config.display, config.key_prefix
+    active_columns = _active_columns(display, key_prefix)
+    if config.source.data_source is not None:
+        rows = config.source.data_source.rows()
         working_df = pd.DataFrame([row.model_dump(mode="json") for row in rows])
-        working_df = grid_sync.apply_active_filters(working_df, _active_configs(config))
+        working_df = grid_sync.apply_active_filters(working_df, active_columns)
     else:
         working_df = pd.DataFrame()
     if working_df.empty:
-        working_df = config.sample_data.copy()
-    working_df = _convert_cols_to_datetime(working_df, list(config.configs))
-    return grid_sync.apply_active_sorting(working_df, _active_configs(config))
+        working_df = display.sample_data.copy()
+    working_df = _convert_cols_to_datetime(working_df, list(display.columns))
+    return grid_sync.apply_active_sorting(working_df, active_columns)
 
 
-def render_editor(config: frontend_models.DFEConfig, working_df: pd.DataFrame) -> None:
+def render_editor(
+    display: "frontend_models.GridDisplay",
+    key_prefix: str,
+    working_df: pd.DataFrame,
+) -> None:
     """Render the ``st.data_editor`` widget for a grid.
 
     No ``on_change`` callback: the widget records its edits in
@@ -75,34 +89,35 @@ def render_editor(config: frontend_models.DFEConfig, working_df: pd.DataFrame) -
     """
     st.data_editor(
         working_df,
-        key=config.key_prefix,
-        column_config={cfg.column_name: cfg.column_config for cfg in config.configs},
-        column_order=[col.column_name for col in config.configs if col.visible],
-        num_rows=config.num_rows,
+        key=key_prefix,
+        column_config={col.column_name: col.column_config for col in display.columns},
+        column_order=[col.column_name for col in display.columns if col.visible],
+        num_rows=display.num_rows,
         hide_index=True,
     )
 
 
-def render_buttons(config: frontend_models.DFEConfig) -> None:
+def render_buttons(config: "frontend_models.DFEConfig") -> None:
     """Render the add and filter buttons above a grid.
 
     Both buttons open dialogs that ``st.rerun`` on change, so the next run's
     ``build_working_df`` already reflects any add or filter — there is no
     working frame to refresh in place.
     """
-    if config.num_rows != "fixed":
+    source, display = config.source, config.display
+    if display.num_rows != "fixed":
         add_col, filter_col, _ = st.columns(constants.ADD_FILTER_BUTTON_WIDTHS)
         with add_col:
-            add_button.render_add_button(config)
+            add_button.render_add_button(source, display)
         with filter_col:
-            filter_button.render_filter_button(config)
+            filter_button.render_filter_button(source, display)
     else:
         filter_col, _ = st.columns([1, 5])
         with filter_col:
-            filter_button.render_filter_button(config)
+            filter_button.render_filter_button(source, display)
 
 
-def render(config: frontend_models.DFEConfig) -> None:
+def render(config: "frontend_models.DFEConfig") -> None:
     """Render a full grid: buttons, then the editor over the current frame.
 
     The default block flow. Blocks that need a custom button row (e.g. the
@@ -110,10 +125,10 @@ def render(config: frontend_models.DFEConfig) -> None:
     and the button functions directly instead.
     """
     render_buttons(config)
-    render_editor(config, build_working_df(config))
+    render_editor(config.display, config.key_prefix, build_working_df(config))
 
 
-def commit(config: frontend_models.DFEConfig) -> None:
+def commit(config: "frontend_models.DFEConfig") -> None:
     """Apply the grid's pending editor deltas through the port, then clear them.
 
     Reads the ``st.data_editor`` widget's own edited/deleted-row deltas from
@@ -125,8 +140,9 @@ def commit(config: frontend_models.DFEConfig) -> None:
     A no-op when there are no pending deltas or no data source.
     """
     key = config.key_prefix
+    data_source = config.source.data_source
     editor_state = st.session_state.get(key)
-    if not editor_state or config.data_source is None:
+    if not editor_state or data_source is None:
         return
 
     edited_rows = editor_state.get(ss_keys.SSKeys.EDITED_ROWS, {})
@@ -136,15 +152,15 @@ def commit(config: frontend_models.DFEConfig) -> None:
 
     unique_col_names = [
         col.column_name
-        for col in config.configs
-        if isinstance(col, frontend_models.DFEColumnConfig) and col.enforce_unique
+        for col in config.display.columns
+        if col.editable and col.enforce_unique
     ]
     updates = grid_sync.compute_backend_updates(
         working_df=build_working_df(config),
         edited_rows=edited_rows,
         deleted_rows=deleted_rows,
         unique_col_names=unique_col_names,
-        unique_checker=config.data_source.unique_values,
+        unique_checker=data_source.unique_values,
     )
-    config.data_source.apply(updates)
+    data_source.apply(updates)
     del st.session_state[key]

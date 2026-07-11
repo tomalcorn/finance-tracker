@@ -29,7 +29,7 @@ def _has_unfilled_required(
 
 
 def _submit_new_row(
-    config: "frontend_models.DFEConfig",
+    source: "frontend_models.GridSource",
     new_row: dict[str, object],
 ) -> None:
     """Validate a new row and write it through the grid data source.
@@ -41,15 +41,15 @@ def _submit_new_row(
     """
     try:
         new_row["user_id"] = auth.get_current_user()
-        new_row.update(config.extra_row_values or {})
-        model_instance = config.backend_model.model_validate(new_row)
+        new_row.update(source.extra_row_values or {})
+        model_instance = source.backend_model.model_validate(new_row)
     except pydantic.ValidationError as e:
-        msg = f"Invalid data for new row in {config.write_table}: {e}"
+        msg = f"Invalid data for new row in {source.write_table}: {e}"
         raise ValueError(msg) from e
-    if config.data_source is None:
+    if source.data_source is None:
         msg = "An editable grid requires a data source to add rows."
         raise ValueError(msg)
-    config.data_source.apply(
+    source.data_source.apply(
         entities.BackendUpdates(
             added_rows=[model_instance.model_dump(mode="json", exclude_none=True)],
         ),
@@ -57,22 +57,26 @@ def _submit_new_row(
 
 
 @st.dialog("Add Row")
-def _add_row_dialog(config: "frontend_models.DFEConfig") -> None:
+def _add_row_dialog(
+    source: "frontend_models.GridSource",
+    display: "frontend_models.GridDisplay",
+) -> None:
     """Render the add-row dialog and submit the row on confirm."""
-    col_configs = config.writable_configs
-    display_name = config.key_prefix.replace("_", " ").title()
+    col_configs = display.writable_columns
+    key_prefix = source.key_prefix
+    display_name = key_prefix.replace("_", " ").title()
     st.write(f"Add a new row to {display_name}")
     outputs = [
         col.input_widget(
             label=col.button_label or col.column_name,
-            key=f"{config.key_prefix}_new_row_{col.column_name}",
+            key=f"{key_prefix}_new_row_{col.column_name}",
             **col.input_kwargs,
         )
         for col in col_configs
     ]
     submit_button = st.button(
         label="Submit",
-        key=f"{config.key_prefix}_submit_new_row_button",
+        key=f"{key_prefix}_submit_new_row_button",
         disabled=_has_unfilled_required(col_configs, outputs),
     )
     if submit_button:
@@ -81,15 +85,18 @@ def _add_row_dialog(config: "frontend_models.DFEConfig") -> None:
             for col, output in zip(col_configs, outputs, strict=False)
         }
         try:
-            _submit_new_row(config, new_row)
+            _submit_new_row(source, new_row)
         except ValueError:
-            logger.exception("Failed to add a new row to %s", config.write_table)
+            logger.exception("Failed to add a new row to %s", source.write_table)
             st.error("Could not add the row. Please check the values and try again.")
             return
         st.rerun()
 
 
-def render_add_button(config: "frontend_models.DFEConfig") -> None:
+def render_add_button(
+    source: "frontend_models.GridSource",
+    display: "frontend_models.GridDisplay",
+) -> None:
     """Render the add-row button; opens the add dialog when clicked.
 
     A submitted row is applied immediately through the port, so the rerun the
@@ -98,6 +105,6 @@ def render_add_button(config: "frontend_models.DFEConfig") -> None:
     if st.button(
         label="",
         icon=constants.ButtonIcons.ADD,
-        key=f"{config.key_prefix}_add_row_button",
+        key=f"{source.key_prefix}_add_row_button",
     ):
-        _add_row_dialog(config)
+        _add_row_dialog(source, display)

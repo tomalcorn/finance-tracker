@@ -61,95 +61,97 @@ def _build_expense_config(
 ) -> frontend_models.DFEConfig:
     """Build the grid config for expense payments."""
     return frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(
+        source=frontend_models.GridSource(
             write_table=_TABLE_NAME,
+            data_source=data_source,
+            backend_model=entities.ExpensePaymentModel,
         ),
-        data_source=data_source,
-        backend_model=entities.ExpensePaymentModel,
-        configs=[
-            frontend_models.DFEColumnConfig(
-                column_name="name",
-                column_config=st.column_config.TextColumn(
-                    "Name",
-                    required=True,
+        display=frontend_models.GridDisplay(
+            columns=[
+                frontend_models.DFEColumnConfig(
+                    column_name="name",
+                    column_config=st.column_config.TextColumn(
+                        "Name",
+                        required=True,
+                    ),
+                    button_label="Name",
+                    input_widget=st.text_input,
+                    input_kwargs={"value": None},
                 ),
-                button_label="Name",
-                input_widget=st.text_input,
-                input_kwargs={"value": None},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="payment_date",
-                column_config=st.column_config.DateColumn(
-                    "Date",
-                    format="localized",
+                frontend_models.DFEColumnConfig(
+                    column_name="payment_date",
+                    column_config=st.column_config.DateColumn(
+                        "Date",
+                        format="localized",
+                    ),
+                    button_label="Payment Date",
+                    input_widget=st.date_input,
+                    sorting=query.SortingValues.DESC,
+                    filters=_current_month_filter(),
                 ),
-                button_label="Payment Date",
-                input_widget=st.date_input,
-                sorting=query.SortingValues.DESC,
-                filters=_current_month_filter(),
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="expense",
-                column_config=st.column_config.NumberColumn(
-                    "Expense",
-                    format="£%.2f",
+                frontend_models.DFEColumnConfig(
+                    column_name="expense",
+                    column_config=st.column_config.NumberColumn(
+                        "Expense",
+                        format="£%.2f",
+                    ),
+                    button_label="Expense",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
-                button_label="Expense",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="checked",
-                column_config=st.column_config.CheckboxColumn(
-                    "Checked",
+                frontend_models.DFEColumnConfig(
+                    column_name="checked",
+                    column_config=st.column_config.CheckboxColumn(
+                        "Checked",
+                    ),
+                    button_label="Checked",
+                    input_widget=st.checkbox,
+                    input_kwargs={"value": False},
                 ),
-                button_label="Checked",
-                input_widget=st.checkbox,
-                input_kwargs={"value": False},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="bank_account_id",
-                column_config=st.column_config.SelectboxColumn(
-                    "Bank Account",
-                    help="Select a bank account",
-                    options=bank_account_ids,
+                frontend_models.DFEColumnConfig(
+                    column_name="bank_account_id",
+                    column_config=st.column_config.SelectboxColumn(
+                        "Bank Account",
+                        help="Select a bank account",
+                        options=bank_account_ids,
+                        format_func=get_bank_account_name,
+                    ),
+                    button_label="Bank Account",
+                    input_widget=st.selectbox,
+                    input_kwargs={
+                        "options": bank_account_ids,
+                        "index": None,
+                        "format_func": get_bank_account_name,
+                    },
                     format_func=get_bank_account_name,
                 ),
-                button_label="Bank Account",
-                input_widget=st.selectbox,
-                input_kwargs={
-                    "options": bank_account_ids,
-                    "index": None,
-                    "format_func": get_bank_account_name,
-                },
-                format_func=get_bank_account_name,
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="expense_source_id",
-                column_config=st.column_config.SelectboxColumn(
-                    "Expense Source",
-                    help="Select an expense source",
-                    options=expense_source_ids,
+                frontend_models.DFEColumnConfig(
+                    column_name="expense_source_id",
+                    column_config=st.column_config.SelectboxColumn(
+                        "Expense Source",
+                        help="Select an expense source",
+                        options=expense_source_ids,
+                        format_func=get_expense_source_name,
+                    ),
+                    button_label="Expense Source",
+                    input_widget=st.selectbox,
+                    input_kwargs={
+                        "options": expense_source_ids,
+                        "index": None,
+                        "format_func": get_expense_source_name,
+                    },
                     format_func=get_expense_source_name,
                 ),
-                button_label="Expense Source",
-                input_widget=st.selectbox,
-                input_kwargs={
-                    "options": expense_source_ids,
-                    "index": None,
-                    "format_func": get_expense_source_name,
-                },
-                format_func=get_expense_source_name,
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="payment_type",
-                column_config=st.column_config.TextColumn("Type"),
-                input_widget=st.text_input,
-                visible=False,
-                filters=query.Filters(eq="expense"),
-            ),
-        ],
-        sample_data=_EXPENSE_PAYMENTS_SAMPLE_DATA,
+                frontend_models.DFEColumnConfig(
+                    column_name="payment_type",
+                    column_config=st.column_config.TextColumn("Type"),
+                    input_widget=st.text_input,
+                    visible=False,
+                    filters=query.Filters(eq="expense"),
+                ),
+            ],
+            sample_data=_EXPENSE_PAYMENTS_SAMPLE_DATA,
+        ),
     )
 
 
@@ -162,96 +164,98 @@ def _build_income_config(
 ) -> frontend_models.DFEConfig:
     """Build the grid config for income payments."""
     return frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(
+        source=frontend_models.GridSource(
             write_table=_TABLE_NAME,
-            key_prefix=_INCOME_KEY_PREFIX,
+            key_prefix_override=_INCOME_KEY_PREFIX,
+            data_source=data_source,
+            backend_model=entities.IncomePaymentModel,
         ),
-        data_source=data_source,
-        backend_model=entities.IncomePaymentModel,
-        configs=[
-            frontend_models.DFEColumnConfig(
-                column_name="name",
-                column_config=st.column_config.TextColumn(
-                    "Name",
-                    required=True,
+        display=frontend_models.GridDisplay(
+            columns=[
+                frontend_models.DFEColumnConfig(
+                    column_name="name",
+                    column_config=st.column_config.TextColumn(
+                        "Name",
+                        required=True,
+                    ),
+                    button_label="Name",
+                    input_widget=st.text_input,
+                    input_kwargs={"value": None},
                 ),
-                button_label="Name",
-                input_widget=st.text_input,
-                input_kwargs={"value": None},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="payment_date",
-                column_config=st.column_config.DateColumn(
-                    "Date",
-                    format="localized",
+                frontend_models.DFEColumnConfig(
+                    column_name="payment_date",
+                    column_config=st.column_config.DateColumn(
+                        "Date",
+                        format="localized",
+                    ),
+                    button_label="Payment Date",
+                    input_widget=st.date_input,
+                    sorting=query.SortingValues.DESC,
+                    filters=_current_month_filter(),
                 ),
-                button_label="Payment Date",
-                input_widget=st.date_input,
-                sorting=query.SortingValues.DESC,
-                filters=_current_month_filter(),
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="income",
-                column_config=st.column_config.NumberColumn(
-                    "Income",
-                    format="£%.2f",
+                frontend_models.DFEColumnConfig(
+                    column_name="income",
+                    column_config=st.column_config.NumberColumn(
+                        "Income",
+                        format="£%.2f",
+                    ),
+                    button_label="Income",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
-                button_label="Income",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="checked",
-                column_config=st.column_config.CheckboxColumn(
-                    "Checked",
+                frontend_models.DFEColumnConfig(
+                    column_name="checked",
+                    column_config=st.column_config.CheckboxColumn(
+                        "Checked",
+                    ),
+                    button_label="Checked",
+                    input_widget=st.checkbox,
+                    input_kwargs={"value": False},
                 ),
-                button_label="Checked",
-                input_widget=st.checkbox,
-                input_kwargs={"value": False},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="bank_account_id",
-                column_config=st.column_config.SelectboxColumn(
-                    "Bank Account",
-                    help="Select a bank account",
-                    options=bank_account_ids,
+                frontend_models.DFEColumnConfig(
+                    column_name="bank_account_id",
+                    column_config=st.column_config.SelectboxColumn(
+                        "Bank Account",
+                        help="Select a bank account",
+                        options=bank_account_ids,
+                        format_func=get_bank_account_name,
+                    ),
+                    button_label="Bank Account",
+                    input_widget=st.selectbox,
+                    input_kwargs={
+                        "options": bank_account_ids,
+                        "index": None,
+                        "format_func": get_bank_account_name,
+                    },
                     format_func=get_bank_account_name,
                 ),
-                button_label="Bank Account",
-                input_widget=st.selectbox,
-                input_kwargs={
-                    "options": bank_account_ids,
-                    "index": None,
-                    "format_func": get_bank_account_name,
-                },
-                format_func=get_bank_account_name,
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="income_source_id",
-                column_config=st.column_config.SelectboxColumn(
-                    "Income Source",
-                    help="Select an income source",
-                    options=income_source_ids,
+                frontend_models.DFEColumnConfig(
+                    column_name="income_source_id",
+                    column_config=st.column_config.SelectboxColumn(
+                        "Income Source",
+                        help="Select an income source",
+                        options=income_source_ids,
+                        format_func=get_income_source_name,
+                    ),
+                    button_label="Income Source",
+                    input_widget=st.selectbox,
+                    input_kwargs={
+                        "options": income_source_ids,
+                        "index": None,
+                        "format_func": get_income_source_name,
+                    },
                     format_func=get_income_source_name,
                 ),
-                button_label="Income Source",
-                input_widget=st.selectbox,
-                input_kwargs={
-                    "options": income_source_ids,
-                    "index": None,
-                    "format_func": get_income_source_name,
-                },
-                format_func=get_income_source_name,
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="payment_type",
-                column_config=st.column_config.TextColumn("Type"),
-                input_widget=st.text_input,
-                visible=False,
-                filters=query.Filters(eq="income"),
-            ),
-        ],
-        sample_data=_INCOME_ENTRIES_SAMPLE_DATA,
+                frontend_models.DFEColumnConfig(
+                    column_name="payment_type",
+                    column_config=st.column_config.TextColumn("Type"),
+                    input_widget=st.text_input,
+                    visible=False,
+                    filters=query.Filters(eq="income"),
+                ),
+            ],
+            sample_data=_INCOME_ENTRIES_SAMPLE_DATA,
+        ),
     )
 
 
@@ -381,7 +385,11 @@ def render(
         # Build the expense frame explicitly so the breakdown tab can reuse it.
         expense_working_df = grid.build_working_df(expense_config)
         grid.render_buttons(expense_config)
-        grid.render_editor(expense_config, expense_working_df)
+        grid.render_editor(
+            expense_config.display,
+            expense_config.key_prefix,
+            expense_working_df,
+        )
 
     with income_tab:
         grid.render(income_config)

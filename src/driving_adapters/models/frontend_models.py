@@ -1,4 +1,22 @@
-"""Module for pydantic configs for the frontend models."""
+"""Pydantic configs for the grid (DataFrame-editor) frontend.
+
+The grid config is split into two ontologically distinct halves so a function
+can ask for the slice it needs instead of the whole god-object:
+
+- ``GridSource`` — how a grid persists and is identified: the data port, the
+  write table (and widget-key prefix), the add-dialog backend model, and any
+  extra row values. The *source* half.
+- ``GridDisplay`` — what a grid shows: its columns, row-edit mode, and the
+  empty-state sample frame. The *display* half.
+
+``DFEConfig`` composes the two for the top-level orchestrators (``render`` /
+``commit`` / ``build_working_df``) that legitimately need both; leaf functions
+take only ``GridSource`` or ``GridDisplay``.
+
+Column roles are flags on one ``DFEColumnConfig``, not a subclass hierarchy:
+``editable=False`` marks a read-only view column; ``enforce_unique`` / ``required``
+apply to editable columns in the add dialog.
+"""
 
 import typing
 from collections.abc import Callable
@@ -13,29 +31,14 @@ from driving_adapters.components.dfes import data_source as data_source_mod
 type StreamlitColumnConfig = Any
 
 
-class DFETableNameConfig(pydantic.BaseModel):
-    """Configuration for a DFE table name."""
+class DFEColumnConfig(pydantic.BaseModel):
+    """Configuration for a single column in the DataFrame editor.
 
-    write_table: Annotated[
-        str,
-        pydantic.Field(
-            description="The name of the table to write (and/or read) data to.",
-        ),
-    ]
-    key_prefix: Annotated[
-        str | None,
-        pydantic.Field(
-            description=(
-                "Prefix for Streamlit widget keys. If not provided, defaults to "
-                "write_table. Use to avoid key collisions when multiple DFEs share "
-                "the same underlying table."
-            ),
-        ),
-    ] = None
-
-
-class DFEColumnConfigBase(pydantic.BaseModel):
-    """Base configuration for a DataFrame Editor column."""
+    The column's role is expressed by flags rather than a subclass: an
+    ``editable=False`` column is read-only (and must carry ``disabled=True`` in
+    its Streamlit ``column_config``); ``enforce_unique`` and ``required`` govern
+    an editable column's behaviour in the add dialog.
+    """
 
     column_name: query.ColumnName
     column_config: Annotated[
@@ -72,6 +75,26 @@ class DFEColumnConfigBase(pydantic.BaseModel):
         dict[str, Any],
         pydantic.Field(description="The keyword arguments for the input widget."),
     ] = {}
+    editable: Annotated[
+        bool,
+        pydantic.Field(
+            description=(
+                "Whether the column can be edited. A read-only (editable=False) "
+                "column is a computed/view column and must set disabled=True in its "
+                "column_config; it is skipped by the add dialog and uniqueness rules."
+            ),
+        ),
+    ] = True
+    enforce_unique: Annotated[
+        bool,
+        pydantic.Field(description="Whether to enforce unique values in the column."),
+    ] = False
+    required: Annotated[
+        bool,
+        pydantic.Field(
+            description="Whether this field must be filled in the add dialog.",
+        ),
+    ] = True
 
     @pydantic.field_serializer("input_widget", "format_func", mode="plain")
     @classmethod
@@ -97,13 +120,11 @@ class DFEColumnConfigBase(pydantic.BaseModel):
                 serialised_kwargs[key] = value
         return serialised_kwargs
 
-
-class DFEReadOnlyColumnConfig(DFEColumnConfigBase):
-    """Read-only configuration for a DataFrame Editor column."""
-
     @pydantic.model_validator(mode="after")
-    def check_disabled_is_true(self) -> Self:
-        """Validate that the column_config has disabled=True."""
+    def check_read_only_is_disabled(self) -> Self:
+        """Validate that a read-only column's column_config has disabled=True."""
+        if self.editable:
+            return self
         # column_config is repr as a dict
         if not isinstance(self.column_config, dict):
             msg = (
@@ -125,36 +146,45 @@ class DFEReadOnlyColumnConfig(DFEColumnConfigBase):
         return self
 
 
-class DFEColumnConfig(DFEColumnConfigBase):
-    """Configuration for a single column in the DataFrame Editor."""
+class GridSource(pydantic.BaseModel):
+    """How a grid persists and is identified (the *source* half of a grid).
 
-    enforce_unique: Annotated[
-        bool,
-        pydantic.Field(description="Whether to enforce unique values in the column."),
-    ] = False
-    required: Annotated[
-        bool,
-        pydantic.Field(
-            description="Whether this field must be filled in the add dialog.",
-        ),
-    ] = True
-
-
-class DFEConfig(pydantic.BaseModel):
-    """Full configuration for a DFE component."""
+    Bundles the read/write data port with the write target and add-dialog
+    wiring, so reads, writes, and filters can each ask for this one coherent
+    slice instead of the whole config.
+    """
 
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
-    table_names: DFETableNameConfig
-    backend_model: type[pydantic.BaseModel]
-    configs: list[DFEColumnConfigBase]
-    sample_data: pd.DataFrame
-    num_rows: Literal["fixed", "dynamic", "add", "delete"] = "delete"
-    extra_row_values: dict[str, Any] | None = None
+    write_table: Annotated[
+        str,
+        pydantic.Field(
+            description="The name of the table to write (and/or read) data to.",
+        ),
+    ]
+    key_prefix_override: Annotated[
+        str | None,
+        pydantic.Field(
+            description=(
+                "Prefix for Streamlit widget keys. Defaults to write_table. Set to "
+                "avoid key collisions when multiple grids share one table."
+            ),
+        ),
+    ] = None
+    backend_model: Annotated[
+        type[pydantic.BaseModel],
+        pydantic.Field(description="The write model rows are validated against."),
+    ]
+    extra_row_values: Annotated[
+        dict[str, Any] | None,
+        pydantic.Field(
+            description="Fixed values merged into every row added via the dialog.",
+        ),
+    ] = None
     data_source: data_source_mod.GridDataSource | None = pydantic.Field(
         default=None,
         description=(
-            "Repository-backed reads for this DFE: the rows to display, plus the "
+            "Repository-backed reads for this grid: the rows to display, plus the "
             "column values for the uniqueness rule and filter widgets. Built in "
             "composition.wiring. When omitted, the grid falls back to sample data."
         ),
@@ -163,14 +193,42 @@ class DFEConfig(pydantic.BaseModel):
     @property
     def key_prefix(self) -> str:
         """The session-state / widget key prefix, defaulting to the write table."""
-        return self.table_names.key_prefix or self.table_names.write_table
+        return self.key_prefix_override or self.write_table
+
+
+class GridDisplay(pydantic.BaseModel):
+    """What a grid shows (the *display* half of a grid)."""
+
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    columns: Annotated[
+        list[DFEColumnConfig],
+        pydantic.Field(description="The ordered column configs for the editor."),
+    ]
+    num_rows: Literal["fixed", "dynamic", "add", "delete"] = "delete"
+    sample_data: Annotated[
+        pd.DataFrame,
+        pydantic.Field(description="Frame shown when the data source read is empty."),
+    ]
 
     @property
-    def write_table(self) -> str:
-        """The write table this grid targets."""
-        return self.table_names.write_table
+    def writable_columns(self) -> list[DFEColumnConfig]:
+        """The visible, editable columns (used by the add dialog)."""
+        return [c for c in self.columns if c.editable and c.visible]
+
+
+class DFEConfig(pydantic.BaseModel):
+    """A full grid config: its source and display halves.
+
+    Held by the top-level orchestrators (``render`` / ``commit`` /
+    ``build_working_df``) that need both halves; leaf functions take
+    ``source`` or ``display`` directly.
+    """
+
+    source: GridSource
+    display: GridDisplay
 
     @property
-    def writable_configs(self) -> list[DFEColumnConfig]:
-        """The visible, writable column configs (used by the add dialog)."""
-        return [c for c in self.configs if isinstance(c, DFEColumnConfig) and c.visible]
+    def key_prefix(self) -> str:
+        """The grid's widget-key prefix (delegated to the source)."""
+        return self.source.key_prefix

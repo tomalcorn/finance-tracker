@@ -55,11 +55,12 @@ def _config(
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config for the add-button tests."""
     return frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
-        backend_model=backend_model,
-        configs=[],
-        sample_data=pd.DataFrame(),
-        data_source=data_source,
+        source=frontend_models.GridSource(
+            write_table="test_table",
+            backend_model=backend_model,
+            data_source=data_source,
+        ),
+        display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
     )
 
 
@@ -69,7 +70,7 @@ def test_submit_new_row_applies_through_data_source() -> None:
     config = _config(backend_model=_RowModel, data_source=data_source)
 
     # Act
-    add_button._submit_new_row(config, {"name": "Savings"})
+    add_button._submit_new_row(config.source, {"name": "Savings"})
 
     # Assert
     assert data_source.applied == [
@@ -89,7 +90,7 @@ def _dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
 
     from driving_adapters.components.buttons import add_button
 
-    add_button._add_row_dialog(config)
+    add_button._add_row_dialog(config.source, config.display)
 
 
 @pytest.fixture(name="app_tester")
