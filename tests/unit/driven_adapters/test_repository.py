@@ -107,9 +107,18 @@ class TestGetAll:
             _CONN,
         )
 
-        # Act / Assert
-        with pytest.raises(errors.RepositoryError, match="Failed to fetch rows"):
+        # Act
+        with pytest.raises(errors.RepositoryError) as exc_info:
             repo.get_all()
+
+        # Assert - names the read, and the original failure is chained via `from`
+        assert all(
+            [
+                "Failed to fetch rows" in str(exc_info.value),
+                isinstance(exc_info.value.__cause__, RuntimeError),
+                "fetch boom" in str(exc_info.value.__cause__),
+            ],
+        )
 
 
 class TestGetByIds:
@@ -157,17 +166,22 @@ class TestSave:
     def test_wraps_write_failure_in_repository_error(self) -> None:
         # Arrange
         repo = repository.bank_account_repository(_USER_ID, FakeCache(), _CONN)
+        boom = RuntimeError("write boom")
 
-        # Act / Assert
+        # Act
         with (
-            mock.patch.object(
-                repository.client,
-                "update_backend",
-                side_effect=RuntimeError("write boom"),
-            ),
-            pytest.raises(errors.RepositoryError, match="Failed to save row"),
+            mock.patch.object(repository.client, "update_backend", side_effect=boom),
+            pytest.raises(errors.RepositoryError) as exc_info,
         ):
             repo.save(entities.BankAccountModel(user_id=_USER_ID, name="New"))
+
+        # Assert - names the write, and the original failure is the chained cause
+        assert all(
+            [
+                "Failed to save row" in str(exc_info.value),
+                exc_info.value.__cause__ is boom,
+            ],
+        )
 
 
 class TestApply:
@@ -202,17 +216,22 @@ class TestApply:
         # Arrange
         repo = repository.bank_account_repository(_USER_ID, FakeCache(), _CONN)
         updates = entities.BackendUpdates(added_rows=[{"id": "x"}])
+        boom = RuntimeError("write boom")
 
-        # Act / Assert
+        # Act
         with (
-            mock.patch.object(
-                repository.client,
-                "update_backend",
-                side_effect=RuntimeError("write boom"),
-            ),
-            pytest.raises(errors.RepositoryError, match="Failed to apply updates"),
+            mock.patch.object(repository.client, "update_backend", side_effect=boom),
+            pytest.raises(errors.RepositoryError) as exc_info,
         ):
             repo.apply(updates)
+
+        # Assert - names the write, and the original failure is the chained cause
+        assert all(
+            [
+                "Failed to apply updates" in str(exc_info.value),
+                exc_info.value.__cause__ is boom,
+            ],
+        )
 
 
 class TestInvalidation:

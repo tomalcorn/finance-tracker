@@ -262,6 +262,14 @@ def test_repository_failure_raises_data_access_error():
     use_case, bt_repo, _ = make_use_case()
     bt_repo.raise_on_save = True
 
-    # Act / Assert
-    with pytest.raises(errors.DataAccessError, match=USER_ID):
+    # Act
+    with pytest.raises(errors.DataAccessError) as exc_info:
         use_case.execute()
+
+    # Assert - the user id is in the message and the underlying failure is chained
+    assert all(
+        [
+            USER_ID in str(exc_info.value),
+            isinstance(exc_info.value.__cause__, RuntimeError),
+        ],
+    )
