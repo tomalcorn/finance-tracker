@@ -48,11 +48,15 @@ def _config(
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config for the tests."""
     return frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
-        backend_model=_StubModel,
-        configs=[],
-        sample_data=pd.DataFrame() if sample_data is None else sample_data,
-        data_source=data_source,
+        source=frontend_models.GridSource(
+            write_table="test_table",
+            backend_model=_StubModel,
+            data_source=data_source,
+        ),
+        display=frontend_models.GridDisplay(
+            columns=[],
+            sample_data=pd.DataFrame() if sample_data is None else sample_data,
+        ),
     )
 
 

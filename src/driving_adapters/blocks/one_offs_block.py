@@ -44,111 +44,117 @@ def _build_config(
     )
 
     return frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(
+        source=frontend_models.GridSource(
             write_table=_TABLE_NAME,
+            data_source=data_source,
+            backend_model=entities.OneOffItemModel,
+            extra_row_values=(
+                {"budget_tracker_id": one_offs_bt_id} if one_offs_bt_id else None
+            ),
         ),
-        data_source=data_source,
-        backend_model=entities.OneOffItemModel,
-        configs=[
-            frontend_models.DFEColumnConfig(
-                column_name="name",
-                column_config=st.column_config.TextColumn(
-                    "Name",
-                    required=True,
-                ),
-                button_label="Name",
-                input_widget=st.text_input,
-                input_kwargs={"value": None},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="cost",
-                column_config=st.column_config.NumberColumn(
-                    "Cost",
-                    format="£%.2f",
-                    required=True,
-                ),
-                button_label="Cost",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="current_month",
-                column_config=st.column_config.NumberColumn(
-                    "Current Month",
-                    format="£%.2f",
-                    required=True,
-                ),
-                button_label="Current Month",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="banked",
-                column_config=st.column_config.NumberColumn(
-                    "Banked",
-                    format="£%.2f",
-                    required=True,
-                ),
-                button_label="Banked",
-                input_widget=st.number_input,
-                input_kwargs={"value": 0.0, "format": "%.2f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="remaining",
-                column_config=st.column_config.NumberColumn(
-                    "Remaining",
-                    format="£%.2f",
-                    disabled=True,
-                ),
-                button_label="Remaining",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="progress",
-                column_config=st.column_config.ProgressColumn(
-                    "Progress",
-                    format="%.1f%%",
-                    min_value=0,
-                    max_value=100,
-                    width="small",
-                    color="blue",
-                ),
-                button_label="Progress",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.1f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="split",
-                column_config=st.column_config.ProgressColumn(
-                    "Split",
-                    format="%.1f%%",
-                    min_value=0,
-                    max_value=100,
-                    width="small",
-                    color="blue",
-                ),
-                button_label="Split",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.1f"},
-            ),
-            *(
-                [
-                    frontend_models.DFEReadOnlyColumnConfig(
-                        column_name="budget_tracker_id",
-                        column_config={"disabled": True},
-                        visible=False,
-                        filters=query.Filters(eq=one_offs_bt_id),
-                        input_widget=st.text_input,
+        display=frontend_models.GridDisplay(
+            columns=[
+                frontend_models.DFEColumnConfig(
+                    column_name="name",
+                    column_config=st.column_config.TextColumn(
+                        "Name",
+                        required=True,
                     ),
-                ]
-                if one_offs_bt_id
-                else []
-            ),
-        ],
-        sample_data=_SAMPLE_DATA,
-        extra_row_values=(
-            {"budget_tracker_id": one_offs_bt_id} if one_offs_bt_id else None
+                    button_label="Name",
+                    input_widget=st.text_input,
+                    input_kwargs={"value": None},
+                ),
+                frontend_models.DFEColumnConfig(
+                    column_name="cost",
+                    column_config=st.column_config.NumberColumn(
+                        "Cost",
+                        format="£%.2f",
+                        required=True,
+                    ),
+                    button_label="Cost",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    column_name="current_month",
+                    column_config=st.column_config.NumberColumn(
+                        "Current Month",
+                        format="£%.2f",
+                        required=True,
+                    ),
+                    button_label="Current Month",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    column_name="banked",
+                    column_config=st.column_config.NumberColumn(
+                        "Banked",
+                        format="£%.2f",
+                        required=True,
+                    ),
+                    button_label="Banked",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": 0.0, "format": "%.2f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="remaining",
+                    column_config=st.column_config.NumberColumn(
+                        "Remaining",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Remaining",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="progress",
+                    column_config=st.column_config.ProgressColumn(
+                        "Progress",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                        color="blue",
+                    ),
+                    button_label="Progress",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="split",
+                    column_config=st.column_config.ProgressColumn(
+                        "Split",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                        color="blue",
+                    ),
+                    button_label="Split",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                ),
+                *(
+                    [
+                        frontend_models.DFEColumnConfig(
+                            editable=False,
+                            column_name="budget_tracker_id",
+                            column_config={"disabled": True},
+                            visible=False,
+                            filters=query.Filters(eq=one_offs_bt_id),
+                            input_widget=st.text_input,
+                        ),
+                    ]
+                    if one_offs_bt_id
+                    else []
+                ),
+            ],
+            sample_data=_SAMPLE_DATA,
         ),
     )
 
@@ -180,9 +186,9 @@ def render(
     # Compose buttons: add, filter, and bank-it in one row
     add_col, filter_col, bank_col, _ = st.columns([0.05, 0.05, 0.05, 0.85])
     with add_col:
-        add_button.render_add_button(config)
+        add_button.render_add_button(config.source, config.display)
     with filter_col:
-        filter_button.render_filter_button(config)
+        filter_button.render_filter_button(config.source, config.display)
     with bank_col:
         if bankable_items:
             bank_btn = bank_button.BankButton(
@@ -191,4 +197,4 @@ def render(
             )
             bank_btn(bankable_items)
 
-    grid.render_editor(config, working_df)
+    grid.render_editor(config.display, config.key_prefix, working_df)

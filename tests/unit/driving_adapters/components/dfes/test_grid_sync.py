@@ -10,7 +10,7 @@ from domain import query
 from driving_adapters.components.dfes import grid_sync
 from driving_adapters.models import frontend_models
 
-ColumnConfigFactory = Callable[..., frontend_models.DFEColumnConfigBase]
+ColumnConfigFactory = Callable[..., frontend_models.DFEColumnConfig]
 
 
 @pytest.fixture(name="make_column_config")
@@ -22,8 +22,8 @@ def _make_column_config() -> ColumnConfigFactory:
         *,
         filters: query.Filters | None = None,
         sorting: query.SortingValues | None = None,
-    ) -> frontend_models.DFEColumnConfigBase:
-        return frontend_models.DFEColumnConfigBase(
+    ) -> frontend_models.DFEColumnConfig:
+        return frontend_models.DFEColumnConfig(
             column_name=column_name,
             column_config={},
             input_widget=st.number_input,

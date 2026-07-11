@@ -30,46 +30,49 @@ def _build_config(
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the bank accounts block."""
     return frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(
+        source=frontend_models.GridSource(
             write_table=_TABLE_NAME,
+            data_source=data_source,
+            backend_model=entities.BankAccountModel,
         ),
-        data_source=data_source,
-        backend_model=entities.BankAccountModel,
-        configs=[
-            frontend_models.DFEColumnConfig(
-                column_name="name",
-                column_config=st.column_config.TextColumn(
-                    "Name",
-                    required=True,
+        display=frontend_models.GridDisplay(
+            columns=[
+                frontend_models.DFEColumnConfig(
+                    column_name="name",
+                    column_config=st.column_config.TextColumn(
+                        "Name",
+                        required=True,
+                    ),
+                    button_label="Name",
+                    input_widget=st.text_input,
+                    input_kwargs={"value": None},
                 ),
-                button_label="Name",
-                input_widget=st.text_input,
-                input_kwargs={"value": None},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="starting_balance",
-                column_config=st.column_config.NumberColumn(
-                    "Starting Balance",
-                    format="£%.2f",
-                    required=True,
+                frontend_models.DFEColumnConfig(
+                    column_name="starting_balance",
+                    column_config=st.column_config.NumberColumn(
+                        "Starting Balance",
+                        format="£%.2f",
+                        required=True,
+                    ),
+                    button_label="Starting Balance",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
-                button_label="Starting Balance",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="current_balance",
-                column_config=st.column_config.NumberColumn(
-                    "Current Balance",
-                    format="£%.2f",
-                    disabled=True,
+                frontend_models.DFEColumnConfig(
+                    column_name="current_balance",
+                    editable=False,
+                    column_config=st.column_config.NumberColumn(
+                        "Current Balance",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Current Balance",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
-                button_label="Current Balance",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-        ],
-        sample_data=_SAMPLE_DATA,
+            ],
+            sample_data=_SAMPLE_DATA,
+        ),
     )
 
 

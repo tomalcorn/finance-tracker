@@ -57,87 +57,94 @@ def _build_budget_tracker_config(
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the budget tracker tab."""
     return frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(
+        source=frontend_models.GridSource(
             write_table=_BUDGET_TRACKER_TABLE,
+            data_source=data_source,
+            backend_model=entities.BudgetTrackerItemModel,
         ),
-        data_source=data_source,
-        backend_model=entities.BudgetTrackerItemModel,
-        configs=[
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="name",
-                column_config=st.column_config.TextColumn(
-                    "Name",
-                    required=True,
-                    disabled=True,
+        display=frontend_models.GridDisplay(
+            columns=[
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="name",
+                    column_config=st.column_config.TextColumn(
+                        "Name",
+                        required=True,
+                        disabled=True,
+                    ),
+                    button_label="Name",
+                    input_widget=st.text_input,
+                    input_kwargs={"value": None},
                 ),
-                button_label="Name",
-                input_widget=st.text_input,
-                input_kwargs={"value": None},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="split",
-                column_config=st.column_config.ProgressColumn(
-                    "Split",
-                    format="%.1f%%",
-                    min_value=0,
-                    max_value=100,
-                    width="small",
-                    color="blue",
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="split",
+                    column_config=st.column_config.ProgressColumn(
+                        "Split",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                        color="blue",
+                    ),
+                    button_label="Split",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
                 ),
-                button_label="Split",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.1f"},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="total_budget",
-                column_config=st.column_config.NumberColumn(
-                    "Budget",
-                    format="£%.2f",
-                    required=True,
+                frontend_models.DFEColumnConfig(
+                    column_name="total_budget",
+                    column_config=st.column_config.NumberColumn(
+                        "Budget",
+                        format="£%.2f",
+                        required=True,
+                    ),
+                    button_label="Budget",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
-                button_label="Budget",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="current_month",
-                column_config=st.column_config.NumberColumn(
-                    "Current Month",
-                    format="£%.2f",
-                    disabled=True,
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="current_month",
+                    column_config=st.column_config.NumberColumn(
+                        "Current Month",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Current Month",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
-                button_label="Current Month",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="progress",
-                column_config=st.column_config.ProgressColumn(
-                    "Progress",
-                    format="%.1f%%",
-                    min_value=0,
-                    max_value=100,
-                    width="small",
-                    color="auto-inverse",
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="progress",
+                    column_config=st.column_config.ProgressColumn(
+                        "Progress",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                        color="auto-inverse",
+                    ),
+                    button_label="Progress",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
                 ),
-                button_label="Progress",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.1f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="remaining",
-                column_config=st.column_config.NumberColumn(
-                    "Remaining",
-                    format="£%.2f",
-                    disabled=True,
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="remaining",
+                    column_config=st.column_config.NumberColumn(
+                        "Remaining",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Remaining",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
-                button_label="Remaining",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-        ],
-        sample_data=_BUDGET_TRACKER_SAMPLE_DATA,
-        num_rows="fixed",
+            ],
+            sample_data=_BUDGET_TRACKER_SAMPLE_DATA,
+            num_rows="fixed",
+        ),
     )
 
 
@@ -147,98 +154,105 @@ def _build_expense_sources_config(
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the expense sources tab."""
     return frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(
+        source=frontend_models.GridSource(
             write_table=_EXPENSE_SOURCES_TABLE,
+            data_source=data_source,
+            backend_model=entities.ExpenseSourceModel,
         ),
-        data_source=data_source,
-        backend_model=entities.ExpenseSourceModel,
-        configs=[
-            frontend_models.DFEColumnConfig(
-                column_name="name",
-                column_config=st.column_config.TextColumn(
-                    "Name",
-                    required=True,
-                ),
-                button_label="Name",
-                input_widget=st.text_input,
-                input_kwargs={"value": None},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="budget",
-                column_config=st.column_config.NumberColumn(
-                    "Budget",
-                    format="£%.2f",
-                    required=True,
-                ),
-                button_label="Budget",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="split",
-                column_config=st.column_config.ProgressColumn(
-                    "Split",
-                    format="%.1f%%",
-                    min_value=0,
-                    max_value=100,
-                    width="small",
-                    color="blue",
-                ),
-                button_label="Split",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.1f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="current_month",
-                column_config=st.column_config.NumberColumn(
-                    "Current Month",
-                    format="£%.2f",
-                    disabled=True,
-                ),
-                button_label="Current Month",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="progress",
-                column_config=st.column_config.ProgressColumn(
-                    "Progress",
-                    format="%.1f%%",
-                    min_value=0,
-                    max_value=100,
-                    width="small",
-                    color="auto-inverse",
-                ),
-                button_label="Progress",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.1f"},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="remaining",
-                column_config=st.column_config.NumberColumn(
-                    "Remaining",
-                    format="£%.2f",
-                    disabled=True,
-                ),
-                button_label="Remaining",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            *(
-                [
-                    frontend_models.DFEReadOnlyColumnConfig(
-                        column_name="budget_tracker_ids",
-                        column_config={"disabled": True},
-                        visible=False,
-                        filters=query.Filters(cs=expenses_bt_id),
-                        input_widget=st.text_input,
+        display=frontend_models.GridDisplay(
+            columns=[
+                frontend_models.DFEColumnConfig(
+                    column_name="name",
+                    column_config=st.column_config.TextColumn(
+                        "Name",
+                        required=True,
                     ),
-                ]
-                if expenses_bt_id
-                else []
-            ),
-        ],
-        sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
+                    button_label="Name",
+                    input_widget=st.text_input,
+                    input_kwargs={"value": None},
+                ),
+                frontend_models.DFEColumnConfig(
+                    column_name="budget",
+                    column_config=st.column_config.NumberColumn(
+                        "Budget",
+                        format="£%.2f",
+                        required=True,
+                    ),
+                    button_label="Budget",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="split",
+                    column_config=st.column_config.ProgressColumn(
+                        "Split",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                        color="blue",
+                    ),
+                    button_label="Split",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="current_month",
+                    column_config=st.column_config.NumberColumn(
+                        "Current Month",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Current Month",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="progress",
+                    column_config=st.column_config.ProgressColumn(
+                        "Progress",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                        color="auto-inverse",
+                    ),
+                    button_label="Progress",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="remaining",
+                    column_config=st.column_config.NumberColumn(
+                        "Remaining",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Remaining",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                ),
+                *(
+                    [
+                        frontend_models.DFEColumnConfig(
+                            editable=False,
+                            column_name="budget_tracker_ids",
+                            column_config={"disabled": True},
+                            visible=False,
+                            filters=query.Filters(cs=expenses_bt_id),
+                            input_widget=st.text_input,
+                        ),
+                    ]
+                    if expenses_bt_id
+                    else []
+                ),
+            ],
+            sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
+        ),
     )
 
 
@@ -249,50 +263,53 @@ def _build_income_sources_config(
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the income sources tab."""
     return frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(
+        source=frontend_models.GridSource(
             write_table=_INCOME_SOURCES_TABLE,
+            data_source=data_source,
+            backend_model=entities.IncomeSourceModel,
         ),
-        data_source=data_source,
-        backend_model=entities.IncomeSourceModel,
-        configs=[
-            frontend_models.DFEColumnConfig(
-                column_name="name",
-                column_config=st.column_config.TextColumn(
-                    "Name",
-                    required=True,
+        display=frontend_models.GridDisplay(
+            columns=[
+                frontend_models.DFEColumnConfig(
+                    column_name="name",
+                    column_config=st.column_config.TextColumn(
+                        "Name",
+                        required=True,
+                    ),
+                    button_label="Name",
+                    input_widget=st.text_input,
+                    input_kwargs={"value": None},
                 ),
-                button_label="Name",
-                input_widget=st.text_input,
-                input_kwargs={"value": None},
-            ),
-            frontend_models.DFEReadOnlyColumnConfig(
-                column_name="current_month",
-                column_config=st.column_config.NumberColumn(
-                    "Current Month",
-                    format="£%.2f",
-                    disabled=True,
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="current_month",
+                    column_config=st.column_config.NumberColumn(
+                        "Current Month",
+                        format="£%.2f",
+                        disabled=True,
+                    ),
+                    button_label="Current Month",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
-                button_label="Current Month",
-                input_widget=st.number_input,
-                input_kwargs={"value": None, "format": "%.2f"},
-            ),
-            frontend_models.DFEColumnConfig(
-                column_name="budget_tracker_ids",
-                column_config=st.column_config.MultiselectColumn(
-                    "Budget Trackers",
-                    options=budget_tracker_ids,
+                frontend_models.DFEColumnConfig(
+                    column_name="budget_tracker_ids",
+                    column_config=st.column_config.MultiselectColumn(
+                        "Budget Trackers",
+                        options=budget_tracker_ids,
+                        format_func=get_budget_tracker_name,
+                    ),
+                    button_label="Budget Trackers",
+                    input_widget=st.multiselect,
+                    input_kwargs={
+                        "options": budget_tracker_ids,
+                        "format_func": get_budget_tracker_name,
+                    },
                     format_func=get_budget_tracker_name,
                 ),
-                button_label="Budget Trackers",
-                input_widget=st.multiselect,
-                input_kwargs={
-                    "options": budget_tracker_ids,
-                    "format_func": get_budget_tracker_name,
-                },
-                format_func=get_budget_tracker_name,
-            ),
-        ],
-        sample_data=_INCOME_SOURCES_SAMPLE_DATA,
+            ],
+            sample_data=_INCOME_SOURCES_SAMPLE_DATA,
+        ),
     )
 
 

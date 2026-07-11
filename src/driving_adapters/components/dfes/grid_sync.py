@@ -69,7 +69,7 @@ def apply_column_filter(
 
 def apply_active_filters(
     dataframe: pd.DataFrame,
-    active_configs: list["frontend_models.DFEColumnConfigBase"],
+    active_configs: list["frontend_models.DFEColumnConfig"],
 ) -> pd.DataFrame:
     """Apply every configured column filter to the frame, in Python (Path A)."""
     modified_df = dataframe
@@ -87,7 +87,7 @@ def apply_active_filters(
 
 def apply_active_sorting(
     dataframe: pd.DataFrame,
-    active_configs: list["frontend_models.DFEColumnConfigBase"],
+    active_configs: list["frontend_models.DFEColumnConfig"],
 ) -> pd.DataFrame:
     """Sort the frame by every column configured with a sort direction (Path A).
 

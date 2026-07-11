@@ -38,11 +38,12 @@ class _StubDataSource:
 def _config(unique_values: set[object] | None = None) -> frontend_models.DFEConfig:
     """Build a minimal grid config whose data source yields ``unique_values``."""
     return frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
-        backend_model=_StubModel,
-        configs=[],
-        sample_data=pd.DataFrame(),
-        data_source=_StubDataSource(unique_values),
+        source=frontend_models.GridSource(
+            write_table="test_table",
+            backend_model=_StubModel,
+            data_source=_StubDataSource(unique_values),
+        ),
+        display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
     )
 
 
@@ -63,7 +64,7 @@ def test_get_min_max_values(
     """Test _get_min_max_values returns correct min and max values."""
     # Act
     min_value, max_value = filter_button._get_min_max_values(
-        _config(column_values),
+        _config(column_values).source,
         "test_numeric_column",
     )
 
@@ -77,19 +78,19 @@ def _filter_dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
 
     from driving_adapters.components.buttons import filter_button
 
-    filter_button._filter_dialog(config)
+    filter_button._filter_dialog(config.source, config.display)
 
 
 @pytest.fixture(name="app_tester")
 def _app_tester() -> st_test.AppTest:
     dialog_configs = [
-        frontend_models.DFEColumnConfigBase(
+        frontend_models.DFEColumnConfig(
             column_name="col1",
             column_config={},
             input_widget=st.text_input,
             filters=query.Filters(contains="test"),
         ),
-        frontend_models.DFEColumnConfigBase(
+        frontend_models.DFEColumnConfig(
             column_name="col2",
             column_config={},
             input_widget=st.number_input,
@@ -97,11 +98,15 @@ def _app_tester() -> st_test.AppTest:
         ),
     ]
     config = frontend_models.DFEConfig(
-        table_names=frontend_models.DFETableNameConfig(write_table="test_table"),
-        backend_model=_StubModel,
-        configs=dialog_configs,
-        sample_data=pd.DataFrame(),
-        data_source=_StubDataSource({0.88, 0.23, 0.1}),
+        source=frontend_models.GridSource(
+            write_table="test_table",
+            backend_model=_StubModel,
+            data_source=_StubDataSource({0.88, 0.23, 0.1}),
+        ),
+        display=frontend_models.GridDisplay(
+            columns=dialog_configs,
+            sample_data=pd.DataFrame(),
+        ),
     )
     return st_test.AppTest.from_function(
         _filter_dialog_wrapper,
@@ -137,7 +142,7 @@ class TestFilterHandling:
     def test_handle_date_filtering_no_filtering(self) -> None:
         """_handle_date_filtering returns None when no range is chosen."""
         # Arrange
-        date_col_config = frontend_models.DFEColumnConfigBase(
+        date_col_config = frontend_models.DFEColumnConfig(
             column_name="date_col",
             column_config={},
             input_widget=st.date_input,
@@ -145,7 +150,7 @@ class TestFilterHandling:
         )
 
         # Act
-        result = filter_button._handle_date_filtering(_config(), date_col_config)
+        result = filter_button._handle_date_filtering("test_table", date_col_config)
 
         # Assert
         assert result is None
@@ -158,7 +163,7 @@ class TestFilterHandling:
                 datetime.date(2024, 1, 1),
                 datetime.date(2024, 1, 31),
             )
-            date_col_config = frontend_models.DFEColumnConfigBase(
+            date_col_config = frontend_models.DFEColumnConfig(
                 column_name="date_col",
                 column_config={},
                 input_widget=st.date_input,
@@ -169,7 +174,7 @@ class TestFilterHandling:
             )
 
             # Act
-            result = filter_button._handle_date_filtering(_config(), date_col_config)
+            result = filter_button._handle_date_filtering("test_table", date_col_config)
 
         # Assert
         assert result == query.Filters(
@@ -188,7 +193,7 @@ class TestFilterHandling:
             ),
             mock.patch.object(st, "slider", return_value=(0.0, 100.0)),
         ):
-            numeric_col_config = frontend_models.DFEColumnConfigBase(
+            numeric_col_config = frontend_models.DFEColumnConfig(
                 column_name="numeric_col",
                 column_config={},
                 input_widget=st.number_input,
@@ -197,7 +202,7 @@ class TestFilterHandling:
 
             # Act
             result = filter_button._handle_numeric_filtering(
-                _config(),
+                _config().source,
                 numeric_col_config,
             )
 
@@ -208,7 +213,7 @@ class TestFilterHandling:
         """_handle_numeric_filtering returns Filters for the chosen range."""
         # Arrange
         with mock.patch.object(st, "slider", return_value=(20.0, 80.0)):
-            numeric_col_config = frontend_models.DFEColumnConfigBase(
+            numeric_col_config = frontend_models.DFEColumnConfig(
                 column_name="numeric_col",
                 column_config={},
                 input_widget=st.number_input,
@@ -217,7 +222,7 @@ class TestFilterHandling:
 
             # Act
             result = filter_button._handle_numeric_filtering(
-                _config({10.0, 90.0}),
+                _config({10.0, 90.0}).source,
                 numeric_col_config,
             )
 
@@ -227,7 +232,7 @@ class TestFilterHandling:
     def test_handle_multiselect_filtering_no_filtering(self) -> None:
         """_handle_multiselect_filtering returns None when nothing is selected."""
         # Arrange
-        select_col_config = frontend_models.DFEColumnConfigBase(
+        select_col_config = frontend_models.DFEColumnConfig(
             column_name="select_col",
             column_config={},
             input_widget=st.multiselect,
@@ -236,7 +241,7 @@ class TestFilterHandling:
 
         # Act
         result = filter_button._handle_multiselect_filtering(
-            _config(),
+            "test_table",
             select_col_config,
             {"value1", "value2", "value3"},
         )
@@ -248,7 +253,7 @@ class TestFilterHandling:
         """_handle_multiselect_filtering returns Filters for the selection."""
         # Arrange
         with mock.patch.object(st, "multiselect", return_value=["value1", "value3"]):
-            select_col_config = frontend_models.DFEColumnConfigBase(
+            select_col_config = frontend_models.DFEColumnConfig(
                 column_name="select_col",
                 column_config={},
                 input_widget=st.multiselect,
@@ -257,7 +262,7 @@ class TestFilterHandling:
 
             # Act
             result = filter_button._handle_multiselect_filtering(
-                _config(),
+                "test_table",
                 select_col_config,
                 {"value1", "value2", "value3"},
             )
@@ -268,7 +273,7 @@ class TestFilterHandling:
     def test_handle_generic_filtering_no_filtering(self) -> None:
         """_handle_generic_filtering returns None when the text box is empty."""
         # Arrange
-        generic_col_config = frontend_models.DFEColumnConfigBase(
+        generic_col_config = frontend_models.DFEColumnConfig(
             column_name="generic_col",
             column_config={},
             input_widget=st.text_input,
@@ -276,7 +281,10 @@ class TestFilterHandling:
         )
 
         # Act
-        result = filter_button._handle_generic_filtering(_config(), generic_col_config)
+        result = filter_button._handle_generic_filtering(
+            "test_table",
+            generic_col_config,
+        )
 
         # Assert
         assert result is None
@@ -285,7 +293,7 @@ class TestFilterHandling:
         """_handle_generic_filtering returns a contains-Filter for the text."""
         # Arrange
         with mock.patch.object(st, "text_input", return_value="new_filter"):
-            generic_col_config = frontend_models.DFEColumnConfigBase(
+            generic_col_config = frontend_models.DFEColumnConfig(
                 column_name="generic_col",
                 column_config={},
                 input_widget=st.text_input,
@@ -294,7 +302,7 @@ class TestFilterHandling:
 
             # Act
             result = filter_button._handle_generic_filtering(
-                _config(),
+                "test_table",
                 generic_col_config,
             )
 
