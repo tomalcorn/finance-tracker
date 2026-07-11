@@ -5,36 +5,25 @@ from typing import TYPE_CHECKING, cast
 from driven_adapters import errors
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     import st_supabase_connection
 
     from domain import entities
 
 
-def _execute[T](request: "Callable[[], T]") -> T:
-    """Run a Supabase request, translating any transport or API failure.
-
-    Wraps only the request call itself — where the sole thing that can fail is
-    the network or the backend — so a genuine bug in surrounding logic is never
-    mislabelled as an adapter failure.
+def _execute_query(
+    query: "st_supabase_connection.SyncSelectRequestBuilder",
+) -> "entities.JSON":
+    """Execute the given query, translating any transport or API failure.
 
     Raises:
         errors.SupabaseAdapterError: the Supabase request did not complete.
 
     """
     try:
-        return request()
+        response = query.execute()
     except Exception as e:
-        msg = f"Supabase request failed: {e}"
+        msg = f"Supabase query failed: {e}"
         raise errors.SupabaseAdapterError(msg) from e
-
-
-def _execute_query(
-    query: "st_supabase_connection.SyncSelectRequestBuilder",
-) -> "entities.JSON":
-    """Execute the given query and return the data."""
-    response = _execute(query.execute)
     return response.data
 
 
@@ -80,19 +69,26 @@ def update_backend(
     Returns:
         The updated BackendUpdates object reflecting all changes made.
 
+    Raises:
+        errors.SupabaseAdapterError: a Supabase write did not complete.
+
     """
-    if updates.added_rows:
-        insert = connection.table(table_name).insert(updates.added_rows)
-        _execute(insert.execute)
+    try:
+        if updates.added_rows:
+            connection.table(table_name).insert(updates.added_rows).execute()
 
-    if updates.edited_rows:
-        for row_id, changes in updates.edited_rows.items():
-            update = connection.table(table_name).update(changes).eq("id", row_id)
-            _execute(update.execute)
+        if updates.edited_rows:
+            for row_id, changes in updates.edited_rows.items():
+                connection.table(table_name).update(changes).eq("id", row_id).execute()
 
-    if updates.deleted_rows:
-        delete = connection.table(table_name).delete().in_("id", updates.deleted_rows)
-        _execute(delete.execute)
-        updates.deleted_rows.clear()
+        if updates.deleted_rows:
+            connection.table(table_name).delete().in_(
+                "id",
+                updates.deleted_rows,
+            ).execute()
+            updates.deleted_rows.clear()
+    except Exception as e:
+        msg = f"Supabase write to '{table_name}' failed: {e}"
+        raise errors.SupabaseAdapterError(msg) from e
 
     return updates
