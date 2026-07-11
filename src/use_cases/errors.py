@@ -48,4 +48,5 @@ class AmountToBankLTEZeroError(BankOneOffsError):
 
     def __init__(self, item_name: str) -> None:
         """Construct AmountToBankLTEZeroError."""
+        self.item_name = item_name
         super().__init__(f"{item_name} has nothing to bank.")

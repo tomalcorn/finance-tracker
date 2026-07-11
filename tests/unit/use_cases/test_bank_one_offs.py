@@ -274,9 +274,17 @@ def test_banking_item_with_non_positive_amount_raises(
     item = _make_one_off(current_month=current_month, name=expected_match)
     use_case, _, _ = _make_use_case([item])
 
-    # Act / Assert
-    with pytest.raises(AmountToBankLTEZeroError, match=expected_match):
+    # Act
+    with pytest.raises(AmountToBankLTEZeroError) as exc_info:
         use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
+
+    # Assert - the offending item name is carried as metadata and in the message
+    assert all(
+        [
+            exc_info.value.item_name == expected_match,
+            expected_match in str(exc_info.value),
+        ],
+    )
 
 
 def test_no_items_are_saved_if_any_item_has_non_positive_amount():

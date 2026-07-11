@@ -9,6 +9,8 @@ from unittest import mock
 import pytest
 
 from domain import entities
+from domain.errors import InvalidSubscriptionCadenceError
+from use_cases.errors import InvalidCadenceError
 from use_cases.reconcile_subscriptions import ReconcileSubscriptionsUseCase
 
 type Cadence = typing.Literal[
@@ -457,3 +459,39 @@ class TestGroupPaymentsBySubscription:
         )
 
         assert len(result) == 0
+
+
+class TestCadenceTranslation:
+    """The use case translates an unknown cadence across layers."""
+
+    def test_unknown_cadence_becomes_invalid_cadence_error_with_metadata(
+        self,
+        mock_subscription_repo: mock.MagicMock,
+        mock_payment_repo: mock.MagicMock,
+        user_id: str,
+        bank_account_id: uuid.UUID,
+    ) -> None:
+        # Arrange - model_copy bypasses validation to drive a bad cadence into
+        # the reconcile logic (the field itself is a validated Literal).
+        sub = _make_subscription(user_id, bank_account_id).model_copy(
+            update={"cadence": "fortnightly"},
+        )
+        mock_subscription_repo.get_all.return_value = [sub]
+        mock_payment_repo.get_all.return_value = []
+        use_case = _use_case(
+            mock_subscription_repo,
+            mock_payment_repo,
+            today=datetime.date(2026, 5, 4),
+        )
+
+        # Act
+        with pytest.raises(InvalidCadenceError) as exc_info:
+            use_case.execute()
+
+        # Assert - the cadence is carried and the domain error is the chained cause
+        assert all(
+            [
+                exc_info.value.cadence == "FORTNIGHTLY",
+                isinstance(exc_info.value.__cause__, InvalidSubscriptionCadenceError),
+            ],
+        )
