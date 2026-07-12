@@ -156,7 +156,8 @@ LEFT JOIN
     payments p
 ON
     es.id = p.expense_source_id
-    AND p.payment_date <= CURRENT_DATE
+    AND p.payment_date >= date_trunc('month', CURRENT_DATE)
+    AND p.payment_date < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
 LEFT JOIN LATERAL (
     SELECT SUM(bt.total_budget) AS total_budget
     FROM budget_tracker bt
@@ -179,7 +180,8 @@ LEFT JOIN
     payments
 ON
     "income_sources".id = payments.income_source_id
-    AND payments.payment_date <= CURRENT_DATE
+    AND payments.payment_date >= date_trunc('month', CURRENT_DATE)
+    AND payments.payment_date < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
 GROUP BY
     "income_sources".id,
     "income_sources".user_id,
