@@ -8,29 +8,20 @@ from driving_adapters import cache
 
 @pytest.fixture(autouse=True)
 def _clear_data_cache() -> None:
-    """Reset the module-global st.cache_data store between tests."""
+    """Reset the module-global cache stores between tests."""
     cache._get_data_cached.clear()
+    cache._key_versions.clear()
 
 
 class TestGetKeyVersions:
     """Tests for the _get_key_versions function."""
 
-    def test_creates_dict_in_session_state_if_missing(self) -> None:
+    def test_starts_empty(self) -> None:
         # Act
         result = cache._get_key_versions()
 
         # Assert
-        assert all([result == {}, cache._KEY_VERSIONS_KEY in st.session_state])
-
-    def test_returns_existing_dict_from_session_state(self) -> None:
-        # Arrange
-        st.session_state[cache._KEY_VERSIONS_KEY] = {"users": 3}
-
-        # Act
-        result = cache._get_key_versions()
-
-        # Assert
-        assert result == {"users": 3}
+        assert result == {}
 
     def test_returns_same_reference(self) -> None:
         # Arrange
@@ -39,6 +30,18 @@ class TestGetKeyVersions:
 
         # Act / Assert - a later lookup sees the mutation
         assert cache._get_key_versions()["test_key"] == expected_version
+
+    def test_versions_are_not_stored_in_session_state(self) -> None:
+        # Arrange - a fresh session starts with empty session state; the
+        # version map must live outside it so invalidations survive a reload.
+        key = "auth0|user:budget_tracker_view"
+        cache.StreamlitCache().invalidate([key])
+
+        # Act - simulate a brand-new session by wiping session state
+        st.session_state.clear()
+
+        # Assert - the bump is still visible (it never lived in session state)
+        assert cache._get_key_versions().get(key) == 1
 
 
 class TestGetOrLoad:
