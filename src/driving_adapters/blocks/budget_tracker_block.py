@@ -158,6 +158,13 @@ def _build_expense_sources_config(
             write_table=_EXPENSE_SOURCES_TABLE,
             data_source=data_source,
             backend_model=entities.ExpenseSourceModel,
+            # The tab only shows sources linked to the expenses budget tracker
+            # (via the array_contains filter below), so a source added through
+            # the dialog must be linked too — otherwise it saves but is filtered
+            # out of view, appearing not to persist.
+            extra_row_values=(
+                {"budget_tracker_ids": [expenses_bt_id]} if expenses_bt_id else None
+            ),
         ),
         display=frontend_models.GridDisplay(
             columns=[
