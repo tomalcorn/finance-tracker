@@ -94,6 +94,7 @@ class InitialiseUserWorkspaceUseCase:
             # Ensure the budget_tracker_ids list contains bt_id
             elif existing.budget_tracker_ids is None:
                 existing.budget_tracker_ids = [bt_id]
+                self._es_repo.save(existing)
             elif bt_id not in existing.budget_tracker_ids:
                 existing.budget_tracker_ids.append(bt_id)
                 self._es_repo.save(existing)

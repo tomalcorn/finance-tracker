@@ -99,24 +99,6 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         views = table_names.VIEWS_AFFECTED_BY.get(self._spec.write_table, [])
         return [self._cache_key(t) for t in (self._spec.write_table, *views)]
 
-    def _write(self, updates: entities.BackendUpdates, error_context: str) -> None:
-        """Persist a write via the client, then invalidate affected cached reads.
-
-        Translates the adapter's own ``AdapterError`` into a domain-level
-        ``RepositoryError`` at the port boundary. A genuine programming error is
-        left to propagate untouched rather than being masked as a write failure.
-        """
-        try:
-            client.update_backend(
-                str(self._spec.write_table),
-                updates,
-                self._connection,
-            )
-            self._cache.invalidate(self._affected_keys())
-        except adapter_errors.AdapterError as e:
-            msg = f"{error_context}: {e}"
-            raise errors.RepositoryError(msg) from e
-
     def get_all(self) -> list[EntityT]:
         """Return all records for the current user."""
         return [self._spec.parse(row) for row in self._fetch_rows()]
@@ -126,17 +108,42 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         return [self._spec.parse(row) for row in self._fetch_by_ids(ids)]
 
     def save(self, item: EntityT) -> None:
-        """Insert or update a single record."""
-        self._write(
-            entities.BackendUpdates(added_rows=[item.model_dump(mode="json")]),
-            f"Failed to save row to {self._spec.write_table}",
-        )
+        """Insert or update a single record.
+
+        Translates the adapter's own ``AdapterError`` into a domain-level
+        ``RepositoryError`` at the port boundary; a genuine programming error is
+        left to propagate untouched rather than being masked as a write failure.
+        """
+        try:
+            client.upsert_row(
+                str(self._spec.write_table),
+                item.model_dump(mode="json"),
+                self._connection,
+            )
+            self._cache.invalidate(self._affected_keys())
+        except adapter_errors.AdapterError as e:
+            msg = f"Failed to save row to {self._spec.write_table}: {e}"
+            raise errors.RepositoryError(msg) from e
 
     def apply(self, updates: entities.BackendUpdates) -> None:
-        """Apply a batch of inserts, edits, and deletes; a no-op batch is skipped."""
+        """Apply a batch of inserts, edits, and deletes; a no-op batch is skipped.
+
+        Translates the adapter's own ``AdapterError`` into a domain-level
+        ``RepositoryError`` at the port boundary; a genuine programming error is
+        left to propagate untouched rather than being masked as a write failure.
+        """
         if not (updates.added_rows or updates.edited_rows or updates.deleted_rows):
             return
-        self._write(updates, f"Failed to apply updates to {self._spec.write_table}")
+        try:
+            client.update_backend(
+                str(self._spec.write_table),
+                updates,
+                self._connection,
+            )
+            self._cache.invalidate(self._affected_keys())
+        except adapter_errors.AdapterError as e:
+            msg = f"Failed to apply updates to {self._spec.write_table}: {e}"
+            raise errors.RepositoryError(msg) from e
 
     def rows(self) -> list[ViewT]:
         """Return all display rows as typed view models."""

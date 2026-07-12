@@ -129,6 +129,19 @@ def test_banking_an_item_zeroes_current_month_and_accumulates_banked():
     )
 
 
+def test_banked_one_off_is_persisted():
+    # Arrange - the one-off is fetched, mutated, then saved back; saving an
+    # existing row must reach the repository (issue #146).
+    item = _make_one_off(current_month=50.0)
+    use_case, one_off_repo, _ = _make_use_case([item])
+
+    # Act
+    use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
+
+    # Assert - the existing row is written back through save
+    assert item in one_off_repo.saved
+
+
 def test_banking_an_item_creates_a_payment():
     # Arrange
     item = _make_one_off(current_month=50.0)

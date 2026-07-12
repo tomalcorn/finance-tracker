@@ -92,3 +92,29 @@ def update_backend(
         raise errors.SupabaseAdapterError(msg) from e
 
     return updates
+
+
+def upsert_row(
+    table_name: str,
+    row: "entities.JsonDict",
+    connection: "st_supabase_connection.SupabaseConnection",
+) -> None:
+    """Insert a single row, or update it in place when its primary key exists.
+
+    Backs ``Repository.save``'s insert-or-update contract, so a fetched row that
+    is mutated and saved does not collide with a plain insert's duplicate key.
+
+    Args:
+        table_name: The name of the table to write to.
+        row: The full row payload to upsert.
+        connection: The Supabase connection to use.
+
+    Raises:
+        errors.SupabaseAdapterError: the Supabase write did not complete.
+
+    """
+    try:
+        connection.table(table_name).upsert(row).execute()
+    except Exception as e:
+        msg = f"Supabase write to '{table_name}' failed: {e}"
+        raise errors.SupabaseAdapterError(msg) from e

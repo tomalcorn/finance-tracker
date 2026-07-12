@@ -98,6 +98,28 @@ class TestBankAccountRepositoryWrites:
         added_as_expected = added is not None and added.name == "Added Account"
         assert added_as_expected
 
+    def test_save_updates_an_existing_row(
+        self,
+        bank_repo: BankRepo,
+        yield_sample_bank_account: entities.BankAccountModel,
+    ) -> None:
+        """Saving a fetched-and-mutated row upserts it, not a duplicate insert."""
+        # Arrange - the fixture already seeded this id into the table
+        mutated = yield_sample_bank_account.model_copy(
+            update={"name": "SavedName"},
+            deep=True,
+        )
+
+        # Act - a plain insert here would raise a duplicate-key error (#146)
+        cache._get_data_cached.clear()
+        bank_repo.save(mutated)
+        cache._get_data_cached.clear()
+        saved = _get_by_id(bank_repo, yield_sample_bank_account.id)
+
+        # Assert
+        saved_as_expected = saved is not None and saved.name == "SavedName"
+        assert saved_as_expected
+
     def test_apply_edits_row(
         self,
         bank_repo: BankRepo,
