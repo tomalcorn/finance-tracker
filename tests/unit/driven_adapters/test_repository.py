@@ -188,6 +188,20 @@ class TestUniqueValues:
             ],
         )
 
+    def test_flattens_list_valued_columns_into_their_elements(self) -> None:
+        # Arrange - a list column (e.g. budget_tracker_ids) is unhashable as-is
+        rows = [
+            {"user_id": _USER_ID, "budget_tracker_ids": ["a", "b"]},
+            {"user_id": _USER_ID, "budget_tracker_ids": ["b", "c"]},
+        ]
+        repo = repository.income_source_repository(_USER_ID, FakeCache(rows), _CONN)
+
+        # Act
+        result = repo.unique_values("budget_tracker_ids")
+
+        # Assert
+        assert result == {"a", "b", "c"}
+
 
 # ---------------------------------------------------------------------------
 # Payments: discriminated-union parsing

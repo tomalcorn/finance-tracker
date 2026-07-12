@@ -150,12 +150,22 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         return [self._spec.view_model.model_validate(row) for row in self._fetch_rows()]
 
     def unique_values(self, column_name: str) -> set[object]:
-        """Return the set of unique non-null values for a column."""
-        return {
-            row[column_name]
-            for row in self._fetch_rows()
-            if row.get(column_name) is not None
-        }
+        """Return the set of unique non-null values for a column.
+
+        List-valued columns (e.g. ``budget_tracker_ids``) are flattened into
+        their individual elements so the result stays a set of hashable scalars
+        rather than trying — and failing — to hash the list itself.
+        """
+        values: set[object] = set()
+        for row in self._fetch_rows():
+            value = row.get(column_name)
+            if value is None:
+                continue
+            if isinstance(value, list):
+                values.update(value)
+            else:
+                values.add(value)
+        return values
 
 
 def bank_account_repository(

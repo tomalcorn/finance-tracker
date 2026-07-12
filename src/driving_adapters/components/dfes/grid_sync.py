@@ -57,6 +57,14 @@ def apply_column_filter(
             lambda x, c=criteria: c in x if isinstance(x, list) else False,
         )
         return modified_df[mask]
+    if operator == "in":
+        selected = set(criteria) if isinstance(criteria, (list, set)) else {criteria}
+        mask = modified_df[col].apply(
+            lambda x, s=selected: (
+                bool(s.intersection(x)) if isinstance(x, list) else x in s
+            ),
+        )
+        return modified_df[mask]
     if isinstance(criteria, datetime.date):
         converted_col = pd.to_datetime(modified_df[col])
         criteria_ts = pd.Timestamp(criteria)
