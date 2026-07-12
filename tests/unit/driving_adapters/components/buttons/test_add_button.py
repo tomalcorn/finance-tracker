@@ -80,6 +80,43 @@ def test_submit_new_row_applies_through_data_source() -> None:
     ]
 
 
+class _LinkedRowModel(pydantic.BaseModel):
+    name: str
+    user_id: str
+    budget_tracker_ids: list[str] | None = None
+
+
+def test_submit_new_row_merges_extra_row_values() -> None:
+    # Arrange - the expense-sources grid links new rows to its budget tracker
+    # via extra_row_values so they survive the tab's array_contains filter.
+    data_source = _StubDataSource()
+    config = frontend_models.DFEConfig(
+        source=frontend_models.GridSource(
+            write_table="expense_sources",
+            backend_model=_LinkedRowModel,
+            data_source=data_source,
+            extra_row_values={"budget_tracker_ids": ["bt-expenses"]},
+        ),
+        display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
+    )
+
+    # Act
+    add_button._submit_new_row(config.source, {"name": "Rent"})
+
+    # Assert
+    assert data_source.applied == [
+        entities.BackendUpdates(
+            added_rows=[
+                {
+                    "name": "Rent",
+                    "user_id": "auth0|test-user-1",
+                    "budget_tracker_ids": ["bt-expenses"],
+                },
+            ],
+        ),
+    ]
+
+
 def _dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
     """Render the add-row dialog for AppTest.
 
