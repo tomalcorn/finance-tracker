@@ -9,11 +9,16 @@ concurrency:
   cancel-in-progress: false
 jobs:
   release:
+    # Skip the run triggered by our own bump commit's push back to main.
+    if: ${{ !startsWith(github.event.head_commit.message, 'bump:') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # PAT that can push the bump commit + tag past branch protection
+          # (the default GITHUB_TOKEN cannot bypass required status checks).
+          token: ${{ secrets.RELEASE_TOKEN }}
       - uses: ./.github/actions/setup
       - name: Configure git identity
         run: |
