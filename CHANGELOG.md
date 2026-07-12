@@ -1,3 +1,9 @@
+## v0.2.4 (2026-07-12)
+
+### Fix
+
+- make cache invalidation cross-session to stop workspace re-init (#160) (#164)
+
 ## v0.2.3 (2026-07-12)
 
 ### Fix
