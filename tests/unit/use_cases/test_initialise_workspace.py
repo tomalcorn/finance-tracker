@@ -255,8 +255,7 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set():
 
 
 def test_existing_expense_source_with_none_bt_ids_is_persisted():
-    # Arrange - the None-branch mutates the source, so it must also save it back;
-    # otherwise the link is only set in memory and dropped (issue #146).
+    # Arrange
     trackers = make_all_trackers()
     target_bt_name = entities.BudgetTrackerName.SAVINGS
     existing_source = entities.ExpenseSourceModel(
