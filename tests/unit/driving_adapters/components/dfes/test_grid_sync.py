@@ -118,6 +118,23 @@ class TestApplyColumnFilter:
         result = grid_sync.apply_column_filter(result, "value", "<=", 40)
         assert list(result["value"]) == [20, 30, 40]
 
+    def test_in_filter_on_scalar_column(self) -> None:
+        """``in`` keeps rows whose scalar value is one of the selected values."""
+        df = pd.DataFrame({"name": ["a", "b", "c"]})
+        result = grid_sync.apply_column_filter(df, "name", "in", ["a", "c"])
+        assert list(result["name"]) == ["a", "c"]
+
+    def test_in_filter_on_list_column_matches_any_element(self) -> None:
+        """``in`` keeps list-valued rows sharing any element with the selection."""
+        df = pd.DataFrame({"budget_tracker_ids": [["a", "b"], ["c"], ["d", "e"]]})
+        result = grid_sync.apply_column_filter(
+            df,
+            "budget_tracker_ids",
+            "in",
+            ["b", "d"],
+        )
+        assert list(result["budget_tracker_ids"]) == [["a", "b"], ["d", "e"]]
+
 
 class TestPandasFilters:
     """Tests for pandas_filters operator translation."""
