@@ -21,3 +21,24 @@ Supabase tables and views
    +--> computed metrics
    +--> add/filter dialogs
 ```
+
+## Versioning & releases
+
+Versioning is driven by [Conventional Commits](https://www.conventionalcommits.org/)
+at the merge-to-`main` boundary, using [commitizen](https://commitizen-tools.github.io/commitizen/).
+
+- **Pull request titles must be conventional commits** (`type(scope): summary`,
+  e.g. `feat(grid): add column filters`; append `!` or a `BREAKING CHANGE:`
+  footer for a breaking change). The `PR Title` check enforces this, and because
+  PRs are **squash-merged**, the title becomes the single commit on `main`.
+- **On merge to `main`**, the `Release` workflow runs commitizen to bump
+  `[project].version`, update `CHANGELOG.md`, tag `vX.Y.Z`, and cut a GitHub
+  Release. `fix:` bumps the patch, `feat:` the minor, and a breaking change the
+  minor while the project is pre-1.0 (`major_version_zero`). Titles like
+  `chore:`/`docs:` produce no release.
+
+Preview the next bump locally without writing anything:
+
+```bash
+uv run cz bump --dry-run
+```
