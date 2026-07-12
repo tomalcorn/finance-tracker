@@ -55,9 +55,12 @@ class Filters(pydantic.BaseModel):
         str | None,
         pydantic.Field(description="Contains filter value for string matching."),
     ] = None
-    cs: Annotated[
+    array_contains: Annotated[
         str | None,
-        pydantic.Field(description="Array contains filter value."),
+        pydantic.Field(
+            description="Array contains filter value.",
+            serialization_alias="cs",
+        ),
     ] = None
 
 

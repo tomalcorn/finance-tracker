@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import pathlib
 
-# == Domain errors ==
-
 
 class DocsError(Exception):
     """Base for all docs-subsystem errors."""
@@ -40,7 +38,14 @@ class EmptyDocBodyError(DocsError):
         super().__init__(f"{path.name}: file has no body content")
 
 
-# == Use case errors ==
+class DocReadError(DocsError):
+    """A markdown file could not be read from disk."""
+
+    def __init__(self, path: "pathlib.Path", cause: Exception) -> None:
+        """Construct DocReadError."""
+        self.path = path
+        self.cause = cause
+        super().__init__(f"{path.name}: could not read file — {cause}")
 
 
 class DocsDirectoryError(DocsError):
@@ -70,9 +75,6 @@ class DuplicateSlugError(DocsError):
         self.paths = paths
         names = ", ".join(p.name for p in paths)
         super().__init__(f"Duplicate slug '{slug}' produced by: {names}")
-
-
-# == Adapter Errors
 
 
 class PageRenderError(DocsError):

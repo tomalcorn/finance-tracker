@@ -24,7 +24,7 @@ _EXPENSE_PAYMENTS_SAMPLE_DATA = pd.DataFrame(
     {
         "name": ["Example Data"],
         "expense": [0],
-        "payment_date": ["2025-06-01"],
+        "payment_date": [datetime.datetime.now(tz=datetime.UTC).date().isoformat()],
         "checked": [False],
         "bank_account_id": ["example bank account"],
         "expense_source_id": ["example expense source"],
@@ -36,7 +36,7 @@ _INCOME_ENTRIES_SAMPLE_DATA = pd.DataFrame(
     {
         "name": ["Example Income"],
         "income": [0],
-        "payment_date": ["2025-06-01"],
+        "payment_date": [datetime.datetime.now(tz=datetime.UTC).date().isoformat()],
         "checked": [False],
         "bank_account_id": ["example bank account"],
         "income_source_id": ["example income source"],
@@ -349,7 +349,7 @@ def _render_expense_breakdown(
             display_df.columns = ["Name", "Amount", "Bank Account"]
             st.dataframe(
                 display_df,
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 column_config={
                     "Amount": st.column_config.NumberColumn(format="£%.2f"),

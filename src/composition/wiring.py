@@ -122,7 +122,7 @@ def reconcile_subscriptions_use_case() -> (
 
 
 def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUseCase:
-    """Build InitializeUserWorkspaceUseCase wired to Supabase repositories."""
+    """Build InitialiseUserWorkspaceUseCase wired to Supabase repositories."""
     user_id, cache, connection = _repo_deps()
     return initialise_workspace.InitialiseUserWorkspaceUseCase(
         user_id=user_id,

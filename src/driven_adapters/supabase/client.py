@@ -58,16 +58,13 @@ def update_backend(
     table_name: str,
     updates: "entities.BackendUpdates",
     connection: "st_supabase_connection.SupabaseConnection",
-) -> "entities.BackendUpdates":
-    """Update the backend with the provided changes.
+) -> None:
+    """Apply a batch of added, edited, and deleted rows to the backend.
 
     Args:
         table_name: The name of the table to update.
         updates: The BackendUpdates object containing added, edited, and deleted rows.
         connection: The Supabase connection to use.
-
-    Returns:
-        The updated BackendUpdates object reflecting all changes made.
 
     Raises:
         errors.SupabaseAdapterError: a Supabase write did not complete.
@@ -86,12 +83,9 @@ def update_backend(
                 "id",
                 updates.deleted_rows,
             ).execute()
-            updates.deleted_rows.clear()
     except Exception as e:
         msg = f"Supabase write to '{table_name}' failed: {e}"
         raise errors.SupabaseAdapterError(msg) from e
-
-    return updates
 
 
 def upsert_row(

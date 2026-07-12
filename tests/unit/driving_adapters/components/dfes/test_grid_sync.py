@@ -170,6 +170,16 @@ class TestEnforceUniqueCols:
         )
         assert result == {"name": "New Item", "value": 100}
 
+    def test_prefix_match_is_not_a_duplicate(self) -> None:
+        """A prefix like Car must not collide with Carpet — only exact/suffixed."""
+        row = {"name": "Car", "value": 100}
+        result = grid_sync.enforce_unique_cols(
+            row,
+            ["name"],
+            lambda _col: {"Carpet", "Cargo"},
+        )
+        assert result == {"name": "Car", "value": 100}
+
     def test_duplicate_without_suffix(self) -> None:
         """A bare duplicate gets a (1) suffix."""
         row = {"name": "Item", "value": 100}

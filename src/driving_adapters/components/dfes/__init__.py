@@ -1,1 +1,1 @@
-"""Initialization for the dfes library."""
+"""Initialisation for the dfes package."""

@@ -1,1 +1,1 @@
-"""Initialization for buttons app."""
+"""Initialisation for the buttons package."""

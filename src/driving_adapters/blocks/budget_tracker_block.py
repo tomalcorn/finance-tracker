@@ -243,7 +243,7 @@ def _build_expense_sources_config(
                             column_name="budget_tracker_ids",
                             column_config={"disabled": True},
                             visible=False,
-                            filters=query.Filters(cs=expenses_bt_id),
+                            filters=query.Filters(array_contains=expenses_bt_id),
                             input_widget=st.text_input,
                         ),
                     ]

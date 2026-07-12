@@ -1,7 +1,7 @@
 """Supabase table and view name constants.
 
 These are an implementation detail of the Supabase adapter.
-Nothing outside adapters/supabase/ should import from here.
+Nothing outside driven_adapters/supabase/ should import from here.
 """
 
 import enum
