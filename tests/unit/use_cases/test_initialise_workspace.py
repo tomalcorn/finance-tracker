@@ -1,10 +1,11 @@
-"""Tests for InitializeUserWorkspaceUseCase."""
+"""Tests for InitialiseUserWorkspaceUseCase."""
 
 import uuid
 
 import pytest
 
 from domain import entities
+from ports import errors as port_errors
 from ports import repository
 from use_cases import errors, initialise_workspace
 
@@ -21,6 +22,7 @@ class FakeRepository[E: entities.FinanceTrackerBaseModel](repository.Repository[
         self._items: dict[uuid.UUID, E] = {item.id: item for item in (items or [])}
         self.saved: list[E] = []
         self.raise_on_save = False
+        self.unexpected_error: Exception | None = None
 
     def get_all(self) -> list[E]:
         return list(self._items.values())
@@ -32,9 +34,11 @@ class FakeRepository[E: entities.FinanceTrackerBaseModel](repository.Repository[
         return [self._items[i] for i in ids if i in self._items]
 
     def save(self, item: E) -> None:
+        if self.unexpected_error is not None:
+            raise self.unexpected_error
         if self.raise_on_save:
             msg = "Simulated save failure"
-            raise RuntimeError(msg)
+            raise port_errors.RepositoryError(msg)
         self._items[item.id] = item
         self.saved.append(item)
 
@@ -289,10 +293,24 @@ def test_repository_failure_raises_data_access_error():
     with pytest.raises(errors.DataAccessError) as exc_info:
         use_case.execute()
 
-    # Assert - the user id is in the message and the underlying failure is chained
+    # Assert - the user id is in the message and the repository failure is chained
     assert all(
         [
             USER_ID in str(exc_info.value),
-            isinstance(exc_info.value.__cause__, RuntimeError),
+            isinstance(exc_info.value.__cause__, port_errors.RepositoryError),
         ],
     )
+
+
+def test_unexpected_error_is_not_wrapped_as_data_access_error():
+    # Arrange - a genuine bug (not a RepositoryError) must propagate untouched
+    # rather than being masked as a workspace-init failure.
+    use_case, bt_repo, _ = make_use_case()
+    boom = ValueError("genuine bug")
+    bt_repo.unexpected_error = boom
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="genuine bug") as exc_info:
+        use_case.execute()
+
+    assert exc_info.value is boom

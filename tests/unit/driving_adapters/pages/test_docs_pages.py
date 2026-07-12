@@ -207,6 +207,31 @@ class TestLoadMarkdownDocHappy:
 
 
 class TestLoadMarkdownDocErrors:
+    def test_unreadable_file_raises_doc_read_error(self, tmp_docs_dir: pathlib.Path):
+        # Arrange - a path that cannot be read (does not exist)
+        missing = tmp_docs_dir / "nope.md"
+
+        # Act / Assert - the OSError is translated, not leaked
+        with pytest.raises(errors.DocReadError) as exc_info:
+            docs_pages.load_markdown_doc(missing)
+
+        assert exc_info.value.path == missing
+
+    def test_malformed_frontmatter_raises_invalid_frontmatter_error(
+        self,
+        tmp_docs_dir: pathlib.Path,
+    ):
+        # Arrange - a frontmatter line with no key/value separator
+        content = "---\nnot valid frontmatter\n---\n# Title\n"
+        path = tmp_docs_dir / "bad_frontmatter.md"
+        path.write_text(content, encoding="utf-8")
+
+        # Act / Assert - the yaml error is translated, not leaked
+        with pytest.raises(errors.InvalidFrontmatterError) as exc_info:
+            docs_pages.load_markdown_doc(path)
+
+        assert exc_info.value.path == path
+
     def test_missing_icon_error_type_and_path(self, tmp_docs_dir: pathlib.Path):
         # Arrange
         content = "---\nslug: no_icon\norder: 1\n---\n# No Icon\n"

@@ -141,6 +141,26 @@ def test_commit_clears_the_widget_deltas() -> None:
     assert "test_table" not in st.session_state
 
 
+def test_commit_skips_sample_data_without_crashing() -> None:
+    # Arrange - the port returns no rows, so the grid shows sample data (no id
+    # column); editing it must not crash on the missing id when committing.
+    sample = pd.DataFrame({"name": ["Example"]})
+    data_source = _StubDataSource(rows=[])
+    config = _config(data_source=data_source, sample_data=sample)
+    st.session_state["test_table"] = {
+        ss_keys.SSKeys.EDITED_ROWS: {"0": {"name": "Renamed"}},
+        ss_keys.SSKeys.DELETED_ROWS: [],
+    }
+
+    # Act
+    grid.commit(config)
+
+    # Assert - nothing applied and the unpersistable deltas are cleared
+    assert all(
+        [data_source.applied == [], "test_table" not in st.session_state],
+    )
+
+
 def test_commit_is_a_noop_without_deltas() -> None:
     # Arrange
     data_source = _StubDataSource(rows=[_RowModel(id="uuid-0", name="Alice")])

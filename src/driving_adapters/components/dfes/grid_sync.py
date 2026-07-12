@@ -7,7 +7,6 @@ no ``st.*`` access and no session state — so they can be unit-tested
 without a Streamlit runtime.
 """
 
-import contextlib
 import datetime
 import re
 import typing
@@ -134,14 +133,12 @@ def enforce_unique_cols(
 
         unique_values = unique_checker(col)
         base_value = re.sub(r" \(\d+\)$", "", str(row[col]))
-        duplicates = [str(v) for v in unique_values if str(v).startswith(base_value)]
-        if duplicates:
-            suffixes: list[int] = []
-            for val in duplicates:
-                match = re.search(r" \((\d+)\)$", val)
-                if match:
-                    with contextlib.suppress(ValueError):
-                        suffixes.append(int(match.group(1)))
+        # Match only the base itself or the base with a numeric suffix, so
+        # "Car" collides with "Car"/"Car (1)" but never with "Carpet".
+        clash = re.compile(rf"^{re.escape(base_value)}(?: \((\d+)\))?$")
+        matches = [m for v in unique_values if (m := clash.match(str(v)))]
+        if matches:
+            suffixes = [int(m.group(1)) for m in matches if m.group(1) is not None]
             max_suffix = max(suffixes) if suffixes else 0
             row[col] = f"{base_value} ({max_suffix + 1})"
     return row

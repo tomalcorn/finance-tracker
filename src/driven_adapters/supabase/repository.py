@@ -110,7 +110,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
     def save(self, item: EntityT) -> None:
         """Insert or update a single record.
 
-        Translates the adapter's own ``AdapterError`` into a domain-level
+        Translates the adapter's own ``AdapterError`` into the port-level
         ``RepositoryError`` at the port boundary; a genuine programming error is
         left to propagate untouched rather than being masked as a write failure.
         """
@@ -128,7 +128,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
     def apply(self, updates: entities.BackendUpdates) -> None:
         """Apply a batch of inserts, edits, and deletes; a no-op batch is skipped.
 
-        Translates the adapter's own ``AdapterError`` into a domain-level
+        Translates the adapter's own ``AdapterError`` into the port-level
         ``RepositoryError`` at the port boundary; a genuine programming error is
         left to propagate untouched rather than being masked as a write failure.
         """

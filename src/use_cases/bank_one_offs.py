@@ -22,7 +22,7 @@ class BankOneOffsUseCase:
         expense_source_repo: "repository.Repository[entities.ExpenseSourceModel]",
         payment_repo: "repository.Repository[entities.AnyPaymentModel]",
     ) -> None:
-        """Construct HandleBankItUseCase."""
+        """Construct BankOneOffsUseCase."""
         self._one_off_repo = one_off_repo
         self._budget_tracker_repo = budget_tracker_repo
         self._expense_source_repo = expense_source_repo
@@ -58,7 +58,7 @@ class BankOneOffsUseCase:
         bank_account_id: "uuid.UUID",
         payment_date: "datetime.date",
     ) -> None:
-        """Execute the HandleBankItUseCase.
+        """Execute the BankOneOffsUseCase.
 
         Raises:
             AmountToBankLTEZeroError: when the item requested to be banked has an amount

@@ -28,9 +28,9 @@ def _column_values(
     grid_source: "frontend_models.GridSource",
     column_name: str,
 ) -> set[object]:
-    """Return the existing values for a column via the grid data grid_source."""
+    """Return the existing values for a column via the grid data source."""
     if grid_source.data_source is None:
-        msg = "Filtering requires a data grid_source to read column values."
+        msg = "Filtering requires a data source to read column values."
         raise ValueError(msg)
     return grid_source.data_source.unique_values(column_name)
 
@@ -200,10 +200,17 @@ def render_filter_button(
 
     The button is highlighted while any column carries a filter.
     """
-    active = any(col.filters is not None for col in grid_display.columns)
+    key_prefix = grid_source.key_prefix
+    # Read the applied filters from session (what the dialog stored), not the
+    # freshly rebuilt default columns — otherwise a grid with default filters is
+    # always highlighted and clearing them never turns it off.
+    active_configs = st.session_state.get(
+        f"{key_prefix}_{ss_keys.SSKeys.COL_CONFIGS}",
+        grid_display.columns,
+    )
+    active = any(col.filters is not None for col in active_configs)
     css = _CSS_ACTIVE if active else ""
 
-    key_prefix = grid_source.key_prefix
     container_key = f"{key_prefix}_filter_button_container"
     with st.container(key=container_key):
         if st.button(

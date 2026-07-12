@@ -148,13 +148,21 @@ def commit(config: "frontend_models.DFEConfig") -> None:
     if not edited_rows and not deleted_rows:
         return
 
+    working_df = build_working_df(config)
+    if "id" not in working_df.columns:
+        # The port returned no rows, so the grid is showing sample data, which
+        # has no backend id to map deltas onto. Nothing to persist — drop the
+        # deltas so they don't wedge every subsequent commit.
+        del st.session_state[key]
+        return
+
     unique_col_names = [
         col.column_name
         for col in config.display.columns
         if col.editable and col.enforce_unique
     ]
     updates = grid_sync.compute_backend_updates(
-        working_df=build_working_df(config),
+        working_df=working_df,
         edited_rows=edited_rows,
         deleted_rows=deleted_rows,
         unique_col_names=unique_col_names,

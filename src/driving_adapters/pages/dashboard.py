@@ -19,7 +19,6 @@ from driving_adapters.blocks import (
     subscriptions_block,
 )
 
-# --- Dependencies -----------------------------------------------------------
 with error_boundary.boundary("loading your dashboard"):
     # Grid data sources, one per aggregate grid.
     bank_account_data_source = wiring.bank_account_data_source()

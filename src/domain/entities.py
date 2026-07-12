@@ -201,18 +201,18 @@ class IncomePaymentModel(_PaymentBaseModel):
 class BackendUpdates(pydantic.BaseModel):
     """Model for tracking pending creates, edits and deletes before committing."""
 
-    added_rows: Annotated[
-        list[JsonDict],
-        pydantic.Field(description="List of new row data entries."),
-    ] = []
-    edited_rows: Annotated[
-        dict[str, JsonDict],
-        pydantic.Field(description="Dictionary of IDs to updated row data."),
-    ] = {}
-    deleted_rows: Annotated[
-        list[str],
-        pydantic.Field(description="List of row ids to be deleted."),
-    ] = []
+    added_rows: list[JsonDict] = pydantic.Field(
+        default_factory=list,
+        description="List of new row data entries.",
+    )
+    edited_rows: dict[str, JsonDict] = pydantic.Field(
+        default_factory=dict,
+        description="Dictionary of IDs to updated row data.",
+    )
+    deleted_rows: list[str] = pydantic.Field(
+        default_factory=list,
+        description="List of row ids to be deleted.",
+    )
 
 
 # Union type used wherever a payment row could be either kind.

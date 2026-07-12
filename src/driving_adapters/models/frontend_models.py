@@ -1,8 +1,8 @@
 """Pydantic configs for the grid (DataFrame-editor) frontend.
 
 - ``GridSource`` — how a grid persists and is identified: the data port, the
-  write table (and widget-key prefix), the add-dialog backend model, and any
-  extra row values. The *source* half.
+  grid's identifier (``write_table``, which seeds the widget-key prefix), the
+  add-dialog backend model, and any extra row values. The *source* half.
 - ``GridDisplay`` — what a grid shows: its columns, row-edit mode, and the
   empty-state sample frame. The *display* half.
 
@@ -58,10 +58,10 @@ class DFEColumnConfig(pydantic.BaseModel):
         Callable[..., Any],
         pydantic.Field(description="The input widget callable from Streamlit."),
     ]
-    input_kwargs: Annotated[
-        dict[str, Any],
-        pydantic.Field(description="The keyword arguments for the input widget."),
-    ] = {}
+    input_kwargs: dict[str, Any] = pydantic.Field(
+        default_factory=dict,
+        description="The keyword arguments for the input widget.",
+    )
     editable: Annotated[
         bool,
         pydantic.Field(
@@ -146,7 +146,12 @@ class GridSource(pydantic.BaseModel):
     write_table: Annotated[
         str,
         pydantic.Field(
-            description="The name of the table to write (and/or read) data to.",
+            description=(
+                "The grid's identifier, matching its backend table name. Nothing "
+                "writes through this — the write target lives on the data_source "
+                "(repository). It seeds the widget-key prefix (see key_prefix) and "
+                "labels the grid in add-dialog error messages."
+            ),
         ),
     ]
     key_prefix_override: Annotated[

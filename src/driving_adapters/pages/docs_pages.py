@@ -18,9 +18,6 @@ if TYPE_CHECKING:
 DOCS_DIR = pathlib.Path(__file__).resolve().parents[2] / "docs"
 
 
-# == Domain ==
-
-
 def _convert_string_to_slug(value: str) -> str:
     return value.lower().replace(" ", "_").replace("-", "_")
 
@@ -82,20 +79,29 @@ class MarkdownPage(pydantic.BaseModel):
     content: Annotated[str, pydantic.Field(description="Body content", min_length=0)]
 
 
-# == Use Case ==
-
-
 def load_markdown_doc(path: pathlib.Path) -> MarkdownPage:
     """Load a MarkdownPage from a markdown file.
 
     Raises:
+        errors.DocReadError: the file could not be read from disk.
         errors.EmptyDocBodyError: file has frontmatter but no body.
         errors.InvalidFrontmatterError: a frontmatter field has an unusable value.
         errors.MissingIconError: icon field is absent or not a string.
 
     """
-    raw = path.read_text(encoding="utf-8")
-    metadata, body = _parse_frontmatter(raw)
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise errors.DocReadError(path, exc) from exc
+
+    try:
+        metadata, body = _parse_frontmatter(raw)
+    except yaml.YAMLError as exc:
+        raise errors.InvalidFrontmatterError(
+            path,
+            field="(frontmatter)",
+            reason=str(exc),
+        ) from exc
 
     # Title: prefer explicit frontmatter, else first heading from body.
     if (front_matter_title := metadata.get("front_matter_title")) and isinstance(
@@ -198,9 +204,6 @@ class DocsRegistry:
             raise errors.DuplicateSlugError(slug, paths)
 
         return sorted((page for _, page in loaded), key=lambda p: p.order)
-
-
-# == Streamlit adapter layer ==
 
 
 class DocsUI:

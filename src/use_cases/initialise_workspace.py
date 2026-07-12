@@ -6,6 +6,7 @@ Seeds default budget trackers and hidden expense sources for a user.
 from typing import TYPE_CHECKING
 
 from domain import entities
+from ports import errors as port_errors
 from use_cases import errors
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ class InitialiseUserWorkspaceUseCase:
         budget_tracker_repo: "repository.Repository[entities.BudgetTrackerItemModel]",
         expense_source_repo: "repository.Repository[entities.ExpenseSourceModel]",
     ) -> None:
-        """Construct InitializeUserWorkspaceUseCase."""
+        """Construct InitialiseUserWorkspaceUseCase."""
         self._user_id = user_id
         self._bt_repo = budget_tracker_repo
         self._es_repo = expense_source_repo
@@ -51,8 +52,8 @@ class InitialiseUserWorkspaceUseCase:
 
             self._ensure_hidden_expense_sources(bt_id_by_name)
 
-        except Exception as e:
-            # Catch any repository (RepositoryError) or unexpected error and wrap
+        except port_errors.RepositoryError as e:
+            # Wrap a persistence failure; a genuine bug propagates untouched.
             msg = f"Failed to initialise workspace for user {self._user_id}: {e}"
             raise errors.DataAccessError(msg) from e
 
