@@ -25,7 +25,14 @@ logger = logging.getLogger(__name__)
 
 @st.cache_resource
 def _key_versions() -> dict[str, int]:
-    """Return the process-global per-key version map, shared across sessions."""
+    """Return the process-global per-key version map, shared across sessions.
+
+    ``@st.cache_resource`` memoises the return value, so every call hands back
+    the *same* dict — the ``return {}`` body runs only on the first call. That
+    one shared dict is then mutated in place by ``StreamlitCache.invalidate``
+    (``versions[key] = ...``); nothing rebinds it. Sharing one object across
+    sessions is exactly what makes an invalidation visible to every session.
+    """
     return {}
 
 
@@ -61,7 +68,7 @@ def _get_data_cached[T](
 
 
 class StreamlitCache:
-    """``CacheGateway`` backed by ``st.cache_data`` + per-key session versions."""
+    """``CacheGateway`` backed by ``st.cache_data`` + cross-session key versions."""
 
     def get_from_or_load_cache[T](
         self,
