@@ -2,25 +2,39 @@
 
 from typing import TYPE_CHECKING
 
+import st_supabase_connection
+import streamlit as st
+
+from driven_adapters.supabase import authenticator as supabase_auth
 from driven_adapters.supabase import repository as supabase_repos
 from driving_adapters import auth
 from driving_adapters import cache as ui_cache
 from use_cases import bank_one_offs, initialise_workspace, reconcile_subscriptions
 
 if TYPE_CHECKING:
-    import st_supabase_connection
-
     from domain import read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
+    from ports import authentication
+
+
+def _connection() -> st_supabase_connection.SupabaseConnection:
+    """Return the shared Supabase connection for this session."""
+    return st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
+
+
+def authenticator() -> "authentication.Authenticator":
+    """Build the Supabase authenticator with the shared connection and secret."""
+    jwt_secret = str(st.secrets["supabase_admin"]["jwt_secret"])
+    return supabase_auth.SupabaseAuthenticator(_connection(), jwt_secret)
 
 
 def _repo_deps() -> tuple[
     str,
     ui_cache.StreamlitCache,
-    "st_supabase_connection.SupabaseConnection",
+    st_supabase_connection.SupabaseConnection,
 ]:
     """Return the (user_id, cache, connection) triple every repo factory needs."""
-    return auth.get_current_user(), ui_cache.StreamlitCache(), ui_cache.get_connection()
+    return auth.get_current_user(), ui_cache.StreamlitCache(), _connection()
 
 
 def bank_account_data_source() -> "data_source_mod.GridDataSource":

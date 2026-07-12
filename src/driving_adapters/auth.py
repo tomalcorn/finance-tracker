@@ -1,65 +1,58 @@
-"""Authentication helpers for the finance tracker application.
+"""Auth for the Streamlit UI.
 
-Bridges Auth0 identity (via st.login / st.user) to Supabase RLS
-by minting a custom JWT containing the Auth0 user ID.
+Owns the user-facing side of identity: Auth0 login via ``st.user`` and keeping
+the session's backend credentials fresh. How the backend actually proves
+identity lives behind the ``ports.authentication.Authenticator`` port, so
+swapping the persistence backend does not touch this module.
 """
 
-import time
+import datetime
+from typing import TYPE_CHECKING
 
-import jwt
-import st_supabase_connection
 import streamlit as st
 
-from domain import entities
+from driving_adapters import ss_keys
 
-# Budget tracker names that need a corresponding hidden expense source.
-_HIDDEN_EXPENSE_SOURCE_BT_NAMES = (
-    entities.BudgetTrackerName.JOINT,
-    entities.BudgetTrackerName.ONE_OFFS,
-    entities.BudgetTrackerName.SAVINGS,
-)
+if TYPE_CHECKING:
+    from ports import authentication
 
-
-def _mint_supabase_jwt(auth0_sub: str) -> str:
-    """Mint a JWT that Supabase PostgREST will accept for RLS.
-
-    The ``userId`` claim is read by the custom ``auth.user_id()``
-    Postgres function used in RLS policies.
-    """
-    secret = str(st.secrets["supabase_admin"]["jwt_secret"])
-    now = int(time.time())
-    payload = {
-        "userId": auth0_sub,
-        "role": "authenticated",
-        "aud": "authenticated",
-        "iat": now,
-        "exp": now + 3600,
-    }
-    return jwt.encode(payload, secret, algorithm="HS256")
+# Re-authenticate once credentials are within this margin of expiry, so a live
+# session never carries a credential the backend is about to reject.
+_REFRESH_MARGIN = datetime.timedelta(minutes=5)
 
 
-def authenticate_supabase(
-    auth0_sub: str,
-    connection: st_supabase_connection.SupabaseConnection | None = None,
-) -> st_supabase_connection.SupabaseConnection:
-    """Mint a Supabase JWT for the Auth0 user and apply it to the connection.
+def ensure_authenticated(
+    authenticator: "authentication.Authenticator",
+    user_id: str,
+) -> None:
+    """Guarantee the session holds valid backend credentials.
+
+    Safe to call on every script rerun: re-authenticates only when the session
+    has no credentials yet or the tracked expiry is within ``_REFRESH_MARGIN``.
 
     Args:
-        auth0_sub: The Auth0 user ID (``sub`` claim).
-        connection: The Supabase connection to authenticate. Defaults to the
-            shared Supabase connection for this session.
-
-    Returns:
-        The authenticated Supabase connection.
+        authenticator: The port that authenticates the backend for a user.
+        user_id: The identity to authenticate as.
 
     """
-    connection = connection or st.connection(
-        "supabase",
-        type=st_supabase_connection.SupabaseConnection,
+    if ss_keys.SSKeys.AUTH_CREDENTIALS_EXP not in st.session_state:
+        _authenticate(authenticator, user_id)
+        return
+
+    expires_at = st.session_state[ss_keys.SSKeys.AUTH_CREDENTIALS_EXP]
+    now = datetime.datetime.now(tz=datetime.UTC)
+    if expires_at is not None and expires_at - now <= _REFRESH_MARGIN:
+        _authenticate(authenticator, user_id)
+
+
+def _authenticate(
+    authenticator: "authentication.Authenticator",
+    user_id: str,
+) -> None:
+    """Authenticate and record the returned expiry in session state."""
+    st.session_state[ss_keys.SSKeys.AUTH_CREDENTIALS_EXP] = authenticator.authenticate(
+        user_id,
     )
-    token = _mint_supabase_jwt(auth0_sub)
-    connection.client.postgrest.auth(token)
-    return connection
 
 
 def get_current_user() -> str:

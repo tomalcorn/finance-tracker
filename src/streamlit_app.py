@@ -5,7 +5,7 @@ import logging
 import streamlit as st
 
 from composition import wiring
-from driving_adapters import auth, ss_keys
+from driving_adapters import auth, session, ss_keys
 from driving_adapters.pages import constants, docs_pages
 from use_cases import errors as use_case_errors
 
@@ -19,19 +19,23 @@ if not st.user.is_logged_in:
     st.login("auth0")
     st.stop()
 
-if not st.session_state.get(ss_keys.SSKeys.FIRST_PASS):
-    st.session_state[ss_keys.SSKeys.FIRST_PASS] = True
+current_user = auth.get_current_user()
+auth.ensure_authenticated(wiring.authenticator(), current_user)
 
-if st.session_state[ss_keys.SSKeys.FIRST_PASS]:
-    current_user = auth.get_current_user()
-    auth.authenticate_supabase(current_user)
+
+def _initialise_workspace() -> None:
     try:
         wiring.workspace_init_use_case().execute()
     except use_case_errors.WorkspaceInitializationError:
         st.error("Could not set up your workspace. Please contact support.")
         logger.exception("Workspace initialization failed")
         st.stop()
-    st.session_state[ss_keys.SSKeys.FIRST_PASS] = False
+
+
+session.run_once_per_session(
+    ss_keys.SSKeys.WORKSPACE_INITIALISED,
+    _initialise_workspace,
+)
 
 docs_registry = docs_pages.DocsRegistry(docs_pages.DOCS_DIR)
 docs_ui = docs_pages.DocsUI(docs_registry)

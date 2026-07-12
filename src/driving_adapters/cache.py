@@ -10,7 +10,6 @@ driven-side ``CacheGateway``.
 import logging
 from typing import TYPE_CHECKING
 
-import st_supabase_connection
 import streamlit as st
 
 if TYPE_CHECKING:
@@ -19,11 +18,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _KEY_VERSIONS_KEY = "_cache_key_versions"
-
-
-def get_connection() -> st_supabase_connection.SupabaseConnection:
-    """Return the shared Supabase connection for this Streamlit session."""
-    return st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
 
 
 def _get_key_versions() -> dict[str, int]:
