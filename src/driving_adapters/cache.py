@@ -1,10 +1,15 @@
 """Streamlit cache implementation backing the repository ``CacheGateway``.
 
 A versioned ``@st.cache_data`` layer keyed by ``(key, version)`` with per-key
-version counters in session state used to bust the cache. Keys are opaque
-strings supplied by the repository; nothing here knows about Supabase tables,
-views, or the client. Composition injects a ``StreamlitCache`` as the
-driven-side ``CacheGateway``.
+version counters used to bust the cache. Keys are opaque strings supplied by
+the repository; nothing here knows about Supabase tables, views, or the client.
+Composition injects a ``StreamlitCache`` as the driven-side ``CacheGateway``.
+
+The ``@st.cache_data`` store is global across sessions, so the version counters
+must be global too — they live in an ``@st.cache_resource`` dict shared by every
+session, not in per-session ``st.session_state``. Otherwise a write in one
+session bumps only that session's counter, and a fresh session (counter 0) would
+serve the entry cached before the write — stale data across a reload.
 """
 
 import logging
@@ -17,14 +22,16 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_KEY_VERSIONS_KEY = "_cache_key_versions"
+
+@st.cache_resource
+def _key_versions() -> dict[str, int]:
+    """Return the process-global per-key version map, shared across sessions."""
+    return {}
 
 
 def _get_key_versions() -> dict[str, int]:
-    """Return the per-key version dict from session state, creating if needed."""
-    if _KEY_VERSIONS_KEY not in st.session_state:
-        st.session_state[_KEY_VERSIONS_KEY] = {}
-    return st.session_state[_KEY_VERSIONS_KEY]
+    """Return the cross-session per-key version dict."""
+    return _key_versions()
 
 
 @st.cache_data(ttl=300)
