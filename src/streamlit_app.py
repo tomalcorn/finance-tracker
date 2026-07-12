@@ -20,7 +20,7 @@ if not st.user.is_logged_in:
     st.stop()
 
 current_user = auth.get_current_user()
-auth.ensure_supabase_authenticated(current_user)
+auth.ensure_authenticated(wiring.authenticator(), current_user)
 
 
 def _initialise_workspace() -> None:

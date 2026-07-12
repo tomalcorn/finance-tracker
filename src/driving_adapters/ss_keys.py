@@ -7,7 +7,7 @@ class SSKeys(enum.StrEnum):
     """Keys for session state management."""
 
     WORKSPACE_INITIALISED = enum.auto()
-    SUPABASE_TOKEN_EXP = enum.auto()
+    AUTH_CREDENTIALS_EXP = enum.auto()
     COL_CONFIGS = enum.auto()
     PREV_CONFIGS = enum.auto()
     ADDED_ROWS = enum.auto()

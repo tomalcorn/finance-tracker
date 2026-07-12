@@ -18,3 +18,11 @@ class RepositoryError(PortError):
     type at the port boundary, so callers can catch it without depending on the
     adapter that raised it.
     """
+
+
+class AuthenticationError(PortError):
+    """Raised when the backend cannot be authenticated for a user.
+
+    The concrete authenticator translates its own low-level failures (JWT
+    minting, backend auth calls) into this type at the port boundary.
+    """
