@@ -19,6 +19,7 @@ class FakeRepository[E: entities.FinanceTrackerBaseModel](repository.Repository[
     def __init__(self, items: list[E] | None = None) -> None:
         """Seed the fake with initial items."""
         self._items: dict[uuid.UUID, E] = {item.id: item for item in (items or [])}
+        self.saved: list[E] = []
         self.raise_on_save = False
 
     def get_all(self) -> list[E]:
@@ -35,6 +36,7 @@ class FakeRepository[E: entities.FinanceTrackerBaseModel](repository.Repository[
             msg = "Simulated save failure"
             raise RuntimeError(msg)
         self._items[item.id] = item
+        self.saved.append(item)
 
     def apply(self, updates: entities.BackendUpdates) -> None:
         """No-op; workspace initialisation saves one row at a time."""
@@ -250,6 +252,28 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set():
     updated = es_repo.get_by_id(existing_source.id)
     assert updated is not None
     assert bt_id in (updated.budget_tracker_ids or [])
+
+
+def test_existing_expense_source_with_none_bt_ids_is_persisted():
+    # Arrange - the None-branch mutates the source, so it must also save it back;
+    # otherwise the link is only set in memory and dropped (issue #146).
+    trackers = make_all_trackers()
+    target_bt_name = entities.BudgetTrackerName.SAVINGS
+    existing_source = entities.ExpenseSourceModel(
+        user_id=USER_ID,
+        name=target_bt_name.value,
+        budget_tracker_ids=None,
+    )
+    use_case, _, es_repo = make_use_case(
+        existing_trackers=trackers,
+        existing_sources=[existing_source],
+    )
+
+    # Act
+    use_case.execute()
+
+    # Assert - the mutated source is written back, not just changed in memory
+    assert existing_source in es_repo.saved
 
 
 # ---------------------------------------------------------------------------

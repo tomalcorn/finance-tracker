@@ -157,24 +157,37 @@ class TestGetByIds:
 
 
 class TestSave:
-    def test_persists_the_row_to_the_write_table(self) -> None:
+    def test_persists_the_row_via_upsert(self) -> None:
         # Arrange
         repo = repository.bank_account_repository(_USER_ID, FakeCache(), _CONN)
         account = entities.BankAccountModel(user_id=_USER_ID, name="New")
 
         # Act
-        with mock.patch.object(repository.client, "update_backend") as mock_update:
+        with mock.patch.object(repository.client, "upsert_row") as mock_upsert:
             repo.save(account)
 
-        # Assert
-        table, updates, conn = mock_update.call_args.args
+        # Assert - insert-or-update semantics: a fetched-then-saved row must not
+        # collide with a plain insert on its existing primary key
+        table, row, conn = mock_upsert.call_args.args
         assert all(
             [
                 table == str(table_names.TableNames.BANK_ACCOUNTS),
-                updates.added_rows == [account.model_dump(mode="json")],
+                row == account.model_dump(mode="json"),
                 conn is _CONN,
             ],
         )
+
+    def test_save_busts_the_cached_read(self) -> None:
+        # Arrange
+        cache = FakeCache()
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN)
+
+        # Act
+        with mock.patch.object(repository.client, "upsert_row"):
+            repo.save(entities.BankAccountModel(user_id=_USER_ID, name="New"))
+
+        # Assert - the written table's user-scoped key is invalidated
+        assert f"{_USER_ID}:{table_names.TableNames.BANK_ACCOUNTS}" in cache.invalidated
 
     def test_wraps_adapter_write_failure_in_repository_error(self) -> None:
         # Arrange
@@ -183,7 +196,7 @@ class TestSave:
 
         # Act
         with (
-            mock.patch.object(repository.client, "update_backend", side_effect=boom),
+            mock.patch.object(repository.client, "upsert_row", side_effect=boom),
             pytest.raises(errors.RepositoryError) as exc_info,
         ):
             repo.save(entities.BankAccountModel(user_id=_USER_ID, name="New"))
@@ -204,7 +217,7 @@ class TestSave:
         with (
             mock.patch.object(
                 repository.client,
-                "update_backend",
+                "upsert_row",
                 side_effect=KeyError("id"),
             ),
             pytest.raises(KeyError),
