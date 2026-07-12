@@ -1,3 +1,9 @@
+## v0.2.3 (2026-07-12)
+
+### Fix
+
+- link dialog-added expense sources to the expenses tracker (#161) (#163)
+
 ## v0.2.2 (2026-07-12)
 
 ### Fix
