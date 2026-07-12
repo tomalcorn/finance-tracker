@@ -1,0 +1,54 @@
+name: Release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    # Skip the run triggered by our own bump commit's push back to main.
+    if: ${{ !startsWith(github.event.head_commit.message, 'bump:') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # PAT that can push the bump commit + tag past branch protection
+          # (the default GITHUB_TOKEN cannot bypass required status checks).
+          token: ${{ secrets.RELEASE_TOKEN }}
+      - uses: ./.github/actions/setup
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Bump version and changelog
+        id: bump
+        run: |
+          set +e
+          uv run cz bump --yes --changelog
+          code=$?
+          set -e
+          if [ "$code" -eq 21 ]; then
+            echo "No bump-worthy commits since the last release; skipping."
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$code" -ne 0 ]; then
+            exit "$code"
+          fi
+          echo "bumped=true" >> "$GITHUB_OUTPUT"
+          echo "version=$(uv run cz version --project)" >> "$GITHUB_OUTPUT"
+      - name: Push bump commit and tag
+        if: steps.bump.outputs.bumped == 'true'
+        run: git push origin HEAD:main --follow-tags
+      - name: Create GitHub Release
+        if: steps.bump.outputs.bumped == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ steps.bump.outputs.version }}"
+          uv run cz changelog "$version" --dry-run > release_notes.md
+          gh release create "v$version" --title "v$version" --notes-file release_notes.md

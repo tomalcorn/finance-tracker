@@ -16,6 +16,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "commitizen",
     "poethepoet",
     "pytest",
     "python-dotenv",
@@ -37,4 +38,13 @@ exclude = ["src/libs/dataframe_handling.py"]
 [tool.poe.tasks]
 lint = {shell = "uv run ruff check && uv run ty check"}
 app = "uv run streamlit run src/streamlit_app.py"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "pep621"
+tag_format = "v$version"
+major_version_zero = true
+annotated_tag = true
+update_changelog_on_bump = true
+changelog_start_rev = "v0.1.0"
 
