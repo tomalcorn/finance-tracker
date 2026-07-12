@@ -1,3 +1,9 @@
+## v0.2.2 (2026-07-12)
+
+### Fix
+
+- handle list-valued columns in grid filters (#159) (#162)
+
 ## v0.2.1 (2026-07-12)
 
 ### Fix
