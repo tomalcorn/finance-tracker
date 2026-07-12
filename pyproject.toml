@@ -47,4 +47,8 @@ major_version_zero = true
 annotated_tag = true
 update_changelog_on_bump = true
 changelog_start_rev = "v0.1.0"
+# Keep uv.lock (which records this package's own version) in sync with the
+# bump. Runs after the version is written, before cz's `git commit -a`, so the
+# regenerated lock is folded into the bump commit.
+pre_bump_hooks = ["uv lock"]
 
