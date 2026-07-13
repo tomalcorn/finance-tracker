@@ -12,6 +12,7 @@ dependencies = [
     "st-supabase-connection",
     "streamlit[auth]",
     "streamlit-extras",
+    "psycopg[binary]>=3.3.4",
 ]
 
 [dependency-groups]
@@ -38,6 +39,10 @@ exclude = ["src/libs/dataframe_handling.py"]
 [tool.poe.tasks]
 lint = {shell = "uv run ruff check && uv run ty check"}
 app = "uv run streamlit run src/streamlit_app.py"
+# Apply pending SQL migrations. Extra args pass through, e.g.
+#   uv run poe migrate --status
+#   uv run poe migrate --env prod
+migrate = {cmd = "python -m driven_adapters.migrations", env = {PYTHONPATH = "src"}}
 
 [tool.commitizen]
 name = "cz_conventional_commits"
