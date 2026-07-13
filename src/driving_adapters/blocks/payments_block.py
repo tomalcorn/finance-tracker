@@ -52,6 +52,19 @@ def _current_month_filter() -> query.Filters:
     return query.Filters(gte=start, lte=next_month - datetime.timedelta(days=1))
 
 
+def _current_year_filter() -> query.Filters:
+    """Return a payment_date filter covering the current calendar year.
+
+    Income entries are typically logged only once or twice a month, so a
+    current-month default (as used for expenses) leaves the tab looking almost
+    empty. Defaulting to the current year gives a more useful starting view.
+    """
+    today = datetime.datetime.now(tz=datetime.UTC).date()
+    start = today.replace(month=1, day=1)
+    end = today.replace(month=12, day=31)
+    return query.Filters(gte=start, lte=end)
+
+
 def _build_expense_config(
     data_source: "data_source_mod.GridDataSource",
     bank_account_ids: list[str],
@@ -191,7 +204,7 @@ def _build_income_config(
                     button_label="Payment Date",
                     input_widget=st.date_input,
                     sorting=query.SortingValues.DESC,
-                    filters=_current_month_filter(),
+                    filters=_current_year_filter(),
                 ),
                 frontend_models.DFEColumnConfig(
                     column_name="income",
