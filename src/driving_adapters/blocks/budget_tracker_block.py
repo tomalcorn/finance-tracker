@@ -101,6 +101,7 @@ def _build_budget_tracker_config(
                     button_label="Budget",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                    sorting=query.SortingValues.DESC,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -188,6 +189,7 @@ def _build_expense_sources_config(
                     button_label="Budget",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                    sorting=query.SortingValues.DESC,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
