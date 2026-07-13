@@ -7,20 +7,23 @@ through one settings class with built-in precedence.
 
 from __future__ import annotations
 
+import pathlib
 import sys
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import psycopg
 import pydantic
 import pydantic_settings
 
-from migrations import config, discovery, runner
+from migrations import discovery, runner
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+VERSIONS_DIR = pathlib.Path(__file__).resolve().parent / "versions"
 
-class MigrateCli(config.MigrationSettings):
+
+class MigrateCli(pydantic_settings.BaseSettings):
     """Apply versioned SQL migrations to the finance-tracker database.
 
     With no options, applies every pending migration. Use --status to inspect
@@ -37,16 +40,28 @@ class MigrateCli(config.MigrationSettings):
         cli_kebab_case=True,
         cli_implicit_flags=True,
     )
+    env: Annotated[
+        Literal["testing", "prod"],
+        pydantic.Field(description="Environment to target."),
+    ] = "testing"
+    database_url: Annotated[
+        str,
+        pydantic.Field(description="Url pointing to the SQL database for migration."),
+    ]
     status: Annotated[
         pydantic_settings.CliImplicitFlag[bool],
         pydantic.Field(
-            description="Show applied and pending migrations without changing anything.",
+            description=(
+                "Show applied and pending migrations without changing anything."
+            ),
         ),
     ] = False
     baseline: Annotated[
         pydantic_settings.CliImplicitFlag[bool],
         pydantic.Field(
-            description="Record all present migrations as applied without running them.",
+            description=(
+                "Record all present migrations as applied without running them."
+            ),
         ),
     ] = False
 
@@ -56,7 +71,7 @@ class MigrateCli(config.MigrationSettings):
             print("error: pass at most one of --status / --baseline", file=sys.stderr)
             raise SystemExit(2)
         try:
-            migrations = discovery.discover_migrations(config.VERSIONS_DIR)
+            migrations = discovery.discover_migrations(VERSIONS_DIR)
             with psycopg.connect(self.database_url) as conn:
                 self._dispatch(conn, migrations)
         except psycopg.Error as exc:
