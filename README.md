@@ -22,6 +22,12 @@ Supabase tables and views
    +--> add/filter dialogs
 ```
 
+## Database migrations
+
+Versioned SQL schema/view changes live in the [`migrations/`](./migrations/README.md)
+package (ops tooling, outside `src/`), applied with `uv run poe migrate`. See the
+[migrations README](./migrations/README.md) for the workflow.
+
 ## Versioning & releases
 
 Versioning is driven by [Conventional Commits](https://www.conventionalcommits.org/)

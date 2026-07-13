@@ -46,6 +46,10 @@ unfixable = []
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
+[lint.per-file-ignores]
+# The migration runner's CLI intentionally writes progress to stdout/stderr.
+"migrations/cli.py" = ["T201"]
+
 [lint.flake8-type-checking]
 quote-annotations = true
 # Pydantic resolves annotations at runtime to build the model schema, so
@@ -60,7 +64,8 @@ known-first-party = [
     "driven_adapters",
     "use_cases",
     "composition",
-    "driving_adapters"
+    "driving_adapters",
+    "migrations"
 ]
 
 [format]
