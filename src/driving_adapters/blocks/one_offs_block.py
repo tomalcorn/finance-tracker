@@ -87,15 +87,19 @@ def _build_config(
                     input_kwargs={"value": None, "format": "%.2f"},
                 ),
                 frontend_models.DFEColumnConfig(
-                    column_name="banked",
-                    column_config=st.column_config.NumberColumn(
-                        "Banked",
-                        format="£%.2f",
-                        required=True,
+                    editable=False,
+                    column_name="split",
+                    column_config=st.column_config.ProgressColumn(
+                        "Split",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="small",
+                        color="blue",
                     ),
-                    button_label="Banked",
+                    button_label="Split",
                     input_widget=st.number_input,
-                    input_kwargs={"value": 0.0, "format": "%.2f"},
+                    input_kwargs={"value": None, "format": "%.1f"},
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -110,6 +114,17 @@ def _build_config(
                     input_kwargs={"value": None, "format": "%.2f"},
                 ),
                 frontend_models.DFEColumnConfig(
+                    column_name="banked",
+                    column_config=st.column_config.NumberColumn(
+                        "Banked",
+                        format="£%.2f",
+                        required=True,
+                    ),
+                    button_label="Banked",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": 0.0, "format": "%.2f"},
+                ),
+                frontend_models.DFEColumnConfig(
                     editable=False,
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
@@ -121,21 +136,6 @@ def _build_config(
                         color="blue",
                     ),
                     button_label="Progress",
-                    input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.1f"},
-                ),
-                frontend_models.DFEColumnConfig(
-                    editable=False,
-                    column_name="split",
-                    column_config=st.column_config.ProgressColumn(
-                        "Split",
-                        format="%.1f%%",
-                        min_value=0,
-                        max_value=100,
-                        width="small",
-                        color="blue",
-                    ),
-                    button_label="Split",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
                 ),
