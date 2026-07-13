@@ -10,11 +10,11 @@ import dataclasses
 import re
 from typing import TYPE_CHECKING
 
-from driven_adapters.migrations import errors
+from migrations import errors
 
 if TYPE_CHECKING:
+    import pathlib
     from collections.abc import Iterable
-    from pathlib import Path
 
 # NNNN_lower_snake_name.sql — a 4-digit version prefix and a snake_case name.
 _FILENAME_PATTERN = re.compile(r"^(?P<version>\d{4})_(?P<name>[a-z0-9_]+)\.sql$")
@@ -26,14 +26,14 @@ class Migration:
 
     version: str
     name: str
-    path: Path
+    path: pathlib.Path
 
     def read_sql(self) -> str:
         """Return the SQL text contained in this migration file."""
         return self.path.read_text(encoding="utf-8")
 
 
-def discover_migrations(migrations_dir: Path) -> list[Migration]:
+def discover_migrations(migrations_dir: pathlib.Path) -> list[Migration]:
     """Return every migration under a directory, ordered by version.
 
     Files are matched against ``NNNN_description.sql``; anything else raises,
@@ -45,7 +45,7 @@ def discover_migrations(migrations_dir: Path) -> list[Migration]:
 
     """
     migrations: list[Migration] = []
-    seen: dict[str, Path] = {}
+    seen: dict[str, pathlib.Path] = {}
     for path in sorted(migrations_dir.glob("*.sql")):
         match = _FILENAME_PATTERN.match(path.name)
         if match is None:

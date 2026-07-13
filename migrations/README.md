@@ -1,0 +1,92 @@
+# Database migrations
+
+Standalone, versioned SQL migrations for the finance-tracker Postgres database
+(Supabase). This package lives outside `src/` because it is ops tooling, not
+part of the app.
+
+The runner applies each `versions/NNNN_description.sql` file in order and
+records what it has applied in a `schema_migrations` table, so re-running only
+applies files that have not yet run. Each file runs inside its own transaction,
+so a failed file rolls back cleanly and records nothing.
+
+```text
+migrations/
+  cli.py         # pydantic-settings CLI app (python -m migrations)
+  config.py      # MigrationSettings — connection config
+  discovery.py   # pure ordering / filename rules
+  runner.py      # applies files, maintains schema_migrations
+  versions/      # the ordered .sql files
+```
+
+The runner and its dependencies (`psycopg`, `pydantic-settings`) are **dev
+dependencies** — install them with `uv sync` (the default dev groups).
+
+## Commands
+
+Run from the repo root:
+
+```bash
+uv run poe migrate            # apply all pending migrations
+uv run poe migrate --status   # list applied / pending, change nothing
+uv run poe migrate --baseline # record present files as applied, run none
+uv run poe migrate --help     # full flag list
+```
+
+## Connecting to the database
+
+The runner needs a **direct Postgres connection string** — the app itself only
+talks to Supabase over PostgREST, which cannot run DDL. The connection string is
+read by `MigrationSettings` (pydantic-settings) with this precedence, highest
+first:
+
+1. `--database-url` CLI flag.
+2. `DATABASE_URL` environment variable.
+3. `DATABASE_URL` in a `.env` file at the repo root.
+
+```bash
+export DATABASE_URL="postgresql://postgres:<pw>@<host>:5432/postgres"
+uv run poe migrate --status
+# or, one-off:
+uv run poe migrate --database-url "postgresql://..." --status
+```
+
+Find the connection string in the Supabase dashboard under **Project Settings →
+Database → Connection string**. The optional `--env testing|prod` flag is a
+label used in the runner's output — point `DATABASE_URL` at whichever database
+you mean (a per-environment `.env`, or an exported var, keeps them separate).
+
+## Adding a migration
+
+1. Create the next file: `versions/NNNN_short_description.sql` (4-digit version,
+   one higher than the latest; `lower_snake_case` name). For example, changing a
+   view — the case that motivated this runner (#156) — becomes a new file with a
+   `CREATE OR REPLACE VIEW ...` statement.
+2. Write plain SQL. Prefer idempotent statements (`CREATE OR REPLACE VIEW`,
+   `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`) where practical.
+3. Apply it with `uv run poe migrate` (point `DATABASE_URL` at testing first,
+   then prod).
+
+## Adopting on an existing database
+
+The tables and views in `versions/0001_initial_schema.sql` already exist on the
+live databases, so running `0001` there would fail. On each existing database,
+run once:
+
+```bash
+uv run poe migrate --baseline
+```
+
+This records every present migration as applied **without executing it**. New
+migrations added afterwards apply normally.
+
+## What is and isn't a migration
+
+`versions/0001_initial_schema.sql` is the structural baseline: tables, foreign
+keys, and views. Two things are intentionally **not** migrations, because they
+differ per environment and are applied as one-off setup:
+
+- `../sql_stuff/enable_rls.sql` — production row-level security policies.
+- `../sql_stuff/grant_test_permissions.sql` — role grants for the RLS-free test
+  database.
+
+`../sql_stuff/drop_tables.sql` remains a manual teardown helper.

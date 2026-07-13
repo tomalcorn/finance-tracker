@@ -24,25 +24,9 @@ Supabase tables and views
 
 ## Database migrations
 
-SQL schema and view changes are versioned as ordered `NNNN_description.sql`
-files under [`sql_stuff/migrations/`](./sql_stuff/migrations/README.md) and
-applied by a small runner (`src/driven_adapters/migrations/`) that records what
-it has applied in a `schema_migrations` table, so re-runs only apply pending
-files.
-
-```bash
-uv run poe migrate            # apply pending migrations to the testing DB
-uv run poe migrate --env prod # apply pending migrations to prod
-uv run poe migrate --status   # list applied / pending, change nothing
-uv run poe migrate --baseline # record present migrations as applied, run none
-```
-
-The app talks to Supabase over PostgREST (which can't run DDL), so the runner
-needs a **direct Postgres connection string**, resolved from `DATABASE_URL`,
-`[migrations].<env>_db_url`, or `[supabase_admin].db_url`. See the
-[migrations README](./sql_stuff/migrations/README.md) for the full workflow,
-including how to add a migration and how to adopt the runner on an existing
-database.
+Versioned SQL schema/view changes live in the [`migrations/`](./migrations/README.md)
+package (ops tooling, outside `src/`), applied with `uv run poe migrate`. See the
+[migrations README](./migrations/README.md) for the workflow.
 
 ## Versioning & releases
 

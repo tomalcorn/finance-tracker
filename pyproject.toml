@@ -12,13 +12,15 @@ dependencies = [
     "st-supabase-connection",
     "streamlit[auth]",
     "streamlit-extras",
-    "psycopg[binary]>=3.3.4",
 ]
 
 [dependency-groups]
 dev = [
     "commitizen",
     "poethepoet",
+    # Migration runner tooling (not part of the app itself, see migrations/).
+    "psycopg[binary]",
+    "pydantic-settings",
     "pytest",
     "python-dotenv",
     "ruff",
@@ -27,7 +29,7 @@ dev = [
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 
 [tool.uv]
 link-mode = "copy"
@@ -42,7 +44,7 @@ app = "uv run streamlit run src/streamlit_app.py"
 # Apply pending SQL migrations. Extra args pass through, e.g.
 #   uv run poe migrate --status
 #   uv run poe migrate --env prod
-migrate = {cmd = "python -m driven_adapters.migrations", env = {PYTHONPATH = "src"}}
+migrate = {cmd = "python -m migrations"}
 
 [tool.commitizen]
 name = "cz_conventional_commits"

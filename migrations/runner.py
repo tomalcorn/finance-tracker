@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import psycopg
 
-    from driven_adapters.migrations.discovery import Migration
+    from migrations.discovery import Migration
 
 _CREATE_TRACKING_TABLE = """
 CREATE TABLE IF NOT EXISTS schema_migrations (

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from driven_adapters.migrations import discovery, errors
+from migrations import discovery, errors
 
 
 def _write(migrations_dir: Path, name: str, sql: str = "SELECT 1;") -> Path:

@@ -48,7 +48,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [lint.per-file-ignores]
 # The migration runner's CLI intentionally writes progress to stdout/stderr.
-"src/driven_adapters/migrations/__main__.py" = ["T201"]
+"migrations/cli.py" = ["T201"]
 
 [lint.flake8-type-checking]
 quote-annotations = true
@@ -64,7 +64,8 @@ known-first-party = [
     "driven_adapters",
     "use_cases",
     "composition",
-    "driving_adapters"
+    "driving_adapters",
+    "migrations"
 ]
 
 [format]
