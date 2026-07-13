@@ -1,3 +1,9 @@
+## v0.3.0 (2026-07-13)
+
+### Feat
+
+- high-priority backlog UX tweaks (one-offs order, budget sort, income filter) (#170)
+
 ## v0.2.4 (2026-07-12)
 
 ### Fix
