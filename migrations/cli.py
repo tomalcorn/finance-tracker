@@ -8,13 +8,13 @@ through one settings class with built-in precedence.
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import psycopg
 import pydantic
 import pydantic_settings
 
-from migrations import config, discovery, errors, runner
+from migrations import config, discovery, runner
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -37,15 +37,18 @@ class MigrateCli(config.MigrationSettings):
         cli_kebab_case=True,
         cli_implicit_flags=True,
     )
-
-    status: bool = pydantic.Field(
-        default=False,
-        description="Show applied and pending migrations without changing anything.",
-    )
-    baseline: bool = pydantic.Field(
-        default=False,
-        description="Record all present migrations as applied without running them.",
-    )
+    status: Annotated[
+        pydantic_settings.CliImplicitFlag[bool],
+        pydantic.Field(
+            description="Show applied and pending migrations without changing anything.",
+        ),
+    ] = False
+    baseline: Annotated[
+        pydantic_settings.CliImplicitFlag[bool],
+        pydantic.Field(
+            description="Record all present migrations as applied without running them.",
+        ),
+    ] = False
 
     def cli_cmd(self) -> None:
         """Entry point invoked by pydantic-settings' ``CliApp``."""
@@ -53,11 +56,10 @@ class MigrateCli(config.MigrationSettings):
             print("error: pass at most one of --status / --baseline", file=sys.stderr)
             raise SystemExit(2)
         try:
-            database_url = self.require_database_url()
             migrations = discovery.discover_migrations(config.VERSIONS_DIR)
-            with psycopg.connect(database_url) as conn:
+            with psycopg.connect(self.database_url) as conn:
                 self._dispatch(conn, migrations)
-        except (errors.MigrationError, psycopg.Error) as exc:
+        except psycopg.Error as exc:
             print(f"error: {exc}", file=sys.stderr)
             raise SystemExit(1) from exc
 
