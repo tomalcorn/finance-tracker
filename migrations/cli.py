@@ -15,7 +15,7 @@ import psycopg
 import pydantic
 import pydantic_settings
 
-from migrations import discovery, runner
+from migrations import discovery, errors, runner
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -23,12 +23,40 @@ if TYPE_CHECKING:
 VERSIONS_DIR = pathlib.Path(__file__).resolve().parent / "versions"
 
 
+def select_database_url(
+    env: str,
+    database_url: str | None,
+    test_database_url: str | None,
+) -> str:
+    """Return the connection URL for the target environment.
+
+    Args:
+        env: The environment to target (``"testing"`` or ``"prod"``).
+        database_url: The prod database URL, if configured.
+        test_database_url: The testing database URL, if configured.
+
+    Returns:
+        The URL for the selected environment.
+
+    Raises:
+        MissingDatabaseUrlError: When the selected environment has no URL.
+
+    """
+    url = test_database_url if env == "testing" else database_url
+    if not url:
+        variable = "TEST_DATABASE_URL" if env == "testing" else "DATABASE_URL"
+        raise errors.MissingDatabaseUrlError(env, variable)
+    return url
+
+
 class MigrateCli(pydantic_settings.BaseSettings):
     """Apply versioned SQL migrations to the finance-tracker database.
 
-    With no options, applies every pending migration. Use --status to inspect
-    without changing anything, or --baseline to record all present migrations
-    as applied (without running them) when adopting an existing database.
+    With no options, applies every pending migration. Use --dry-run to list the
+    migrations that would be applied without running them, --status to inspect
+    applied and pending migrations, or --baseline to record all present
+    migrations as applied (without running them) when adopting an existing
+    database.
     """
 
     model_config = pydantic_settings.SettingsConfigDict(
@@ -42,12 +70,22 @@ class MigrateCli(pydantic_settings.BaseSettings):
     )
     env: Annotated[
         Literal["testing", "prod"],
-        pydantic.Field(description="Environment to target."),
+        pydantic.Field(description="Environment to target; selects which URL is used."),
     ] = "testing"
     database_url: Annotated[
-        str,
-        pydantic.Field(description="Url pointing to the SQL database for migration."),
-    ]
+        pydantic_settings.CliSuppress[str | None],
+        pydantic.Field(
+            description="Prod database URL (env DATABASE_URL); used when --env prod.",
+        ),
+    ] = None
+    test_database_url: Annotated[
+        pydantic_settings.CliSuppress[str | None],
+        pydantic.Field(
+            description=(
+                "Testing database URL (env TEST_DATABASE_URL); used when --env testing."
+            ),
+        ),
+    ] = None
     status: Annotated[
         pydantic_settings.CliImplicitFlag[bool],
         pydantic.Field(
@@ -64,15 +102,33 @@ class MigrateCli(pydantic_settings.BaseSettings):
             ),
         ),
     ] = False
+    dry_run: Annotated[
+        pydantic_settings.CliImplicitFlag[bool],
+        pydantic.Field(
+            description="List the migrations that would be applied, applying none.",
+        ),
+    ] = False
 
     def cli_cmd(self) -> None:
         """Entry point invoked by pydantic-settings' ``CliApp``."""
-        if self.status and self.baseline:
-            print("error: pass at most one of --status / --baseline", file=sys.stderr)
+        if sum([self.status, self.baseline, self.dry_run]) > 1:
+            print(
+                "error: pass at most one of --status / --baseline / --dry-run",
+                file=sys.stderr,
+            )
             raise SystemExit(2)
         try:
+            database_url = select_database_url(
+                self.env,
+                self.database_url,
+                self.test_database_url,
+            )
+        except errors.MissingDatabaseUrlError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            raise SystemExit(2) from exc
+        try:
             migrations = discovery.discover_migrations(VERSIONS_DIR)
-            with psycopg.connect(self.database_url) as conn:
+            with psycopg.connect(database_url) as conn:
                 self._dispatch(conn, migrations)
         except psycopg.Error as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -92,6 +148,10 @@ class MigrateCli(pydantic_settings.BaseSettings):
             _print_status(applied, pending)
             return
 
+        if self.dry_run:
+            _print_dry_run(self.env, pending)
+            return
+
         if self.baseline:
             for migration in migrations:
                 runner.record_migration(conn, migration)
@@ -106,6 +166,16 @@ class MigrateCli(pydantic_settings.BaseSettings):
             print(f"Applying {migration.version}_{migration.name} ...")
             runner.apply_migration(conn, migration)
         print(f"Applied {len(pending)} migration(s) to {self.env!r}.")
+
+
+def _print_dry_run(env: str, pending: Sequence[discovery.Migration]) -> None:
+    """Print the migrations a real run would apply, applying none."""
+    if not pending:
+        print(f"No pending migrations for {env!r}.")
+        return
+    print(f"Would apply {len(pending)} migration(s) to {env!r}:")
+    for migration in pending:
+        print(f"  {migration.version}_{migration.name}")
 
 
 def _print_status(
