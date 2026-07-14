@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 
 import pydantic
 
-from domain.entities import BudgetTrackerName
+from domain.entities import BudgetTrackerName, OwnershipType
 
 
 class _ViewBase(pydantic.BaseModel):
@@ -23,6 +23,18 @@ class _ViewBase(pydantic.BaseModel):
     id: Annotated[uuid.UUID, pydantic.Field(description="Unique row identifier.")]
     user_id: Annotated[str, pydantic.Field(description="Owning user's Auth0 ID.")]
     name: Annotated[str, pydantic.Field(description="Display name.")]
+    ownership_type: Annotated[
+        OwnershipType,
+        pydantic.Field(
+            description="Whether the row is personal or shared via a joint account.",
+        ),
+    ] = OwnershipType.PERSONAL
+    joint_account_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(
+            description="The joint account this row belongs to when it is joint.",
+        ),
+    ] = None
 
 
 class BankAccountView(_ViewBase):
@@ -223,4 +235,40 @@ class OneOffView(_ViewBase):
     split: Annotated[
         float,
         pydantic.Field(description="Share of total one-off spend (0-100)."),
+    ]
+
+
+class JointAccountView(pydantic.BaseModel):
+    """Read model for joint_accounts rows.
+
+    Does not extend ``_ViewBase``: a joint account has no owning ``user_id``
+    and no ownership dimension of its own.
+    """
+
+    model_config = pydantic.ConfigDict(frozen=True, populate_by_name=True)
+
+    id: Annotated[uuid.UUID, pydantic.Field(description="Unique account identifier.")]
+    name: Annotated[str, pydantic.Field(description="The name of the joint account.")]
+    created_at: Annotated[
+        datetime.datetime,
+        pydantic.Field(
+            alias="_created_at",
+            description="When the account was created (database-generated).",
+        ),
+    ]
+
+
+class JointAccountMemberView(pydantic.BaseModel):
+    """Read model for joint_account_members rows."""
+
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    id: Annotated[uuid.UUID, pydantic.Field(description="Unique membership row ID.")]
+    joint_account_id: Annotated[
+        uuid.UUID,
+        pydantic.Field(description="The joint account the user is a member of."),
+    ]
+    user_id: Annotated[
+        str,
+        pydantic.Field(description="The Auth0 user ID of the member."),
     ]

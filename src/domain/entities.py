@@ -12,6 +12,13 @@ type JSON = None | bool | str | int | float | Sequence[JSON] | Mapping[str, JSON
 type JsonDict = dict[str, JSON]
 
 
+class OwnershipType(enum.StrEnum):
+    """Whether an aggregate belongs to one user or a shared joint account."""
+
+    PERSONAL = "personal"
+    JOINT = "joint"
+
+
 class FinanceTrackerBaseModel(pydantic.BaseModel):
     """Base model for finance tracker entities."""
 
@@ -26,6 +33,18 @@ class FinanceTrackerBaseModel(pydantic.BaseModel):
         ),
     ]
     name: Annotated[str, pydantic.Field(description="The name of the item.")] = ""
+    ownership_type: Annotated[
+        OwnershipType,
+        pydantic.Field(
+            description="Whether the item is personal or shared via a joint account.",
+        ),
+    ] = OwnershipType.PERSONAL
+    joint_account_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(
+            description="The joint account this item belongs to when it is joint.",
+        ),
+    ] = None
 
 
 class BankAccountModel(FinanceTrackerBaseModel):
@@ -196,6 +215,51 @@ class IncomePaymentModel(_PaymentBaseModel):
         uuid.UUID | None,
         pydantic.Field(description="The associated income source ID."),
     ] = None
+
+
+class JointAccountModel(pydantic.BaseModel):
+    """Model representing a joint (shared) account.
+
+    Not a ``FinanceTrackerBaseModel``: a joint account has no single owning
+    user and is itself the target of ``joint_account_id``, so it carries
+    neither ``user_id`` nor the ownership dimension.
+    """
+
+    model_config = pydantic.ConfigDict(populate_by_name=True)
+
+    id: uuid.UUID = pydantic.Field(
+        description="The unique identifier for the joint account.",
+        default_factory=uuid.uuid4,
+    )
+    name: Annotated[
+        str,
+        pydantic.Field(description="The name of the joint account."),
+    ] = ""
+    created_at: Annotated[
+        datetime.datetime | None,
+        pydantic.Field(
+            alias="_created_at",
+            exclude=True,
+            description="When the account was created (database-generated, read-only).",
+        ),
+    ] = None
+
+
+class JointAccountMemberModel(pydantic.BaseModel):
+    """Model linking an Auth0 user to a joint account they belong to."""
+
+    id: uuid.UUID = pydantic.Field(
+        description="The unique identifier for the membership row.",
+        default_factory=uuid.uuid4,
+    )
+    joint_account_id: Annotated[
+        uuid.UUID,
+        pydantic.Field(description="The joint account the user is a member of."),
+    ]
+    user_id: Annotated[
+        str,
+        pydantic.Field(description="The Auth0 user ID of the member."),
+    ]
 
 
 class BackendUpdates(pydantic.BaseModel):
