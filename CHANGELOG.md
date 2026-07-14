@@ -1,3 +1,9 @@
+## v0.5.0 (2026-07-14)
+
+### Feat
+
+- ownership dimension + joint-account entities/read models (#172) (#183)
+
 ## v0.4.0 (2026-07-13)
 
 ### Feat
