@@ -8,11 +8,11 @@ have no view) and therefore carries no computed columns.
 
 import datetime
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 import pydantic
 
-from domain.entities import BudgetTrackerName
+from domain import entities
 
 
 class _ViewBase(pydantic.BaseModel):
@@ -21,8 +21,26 @@ class _ViewBase(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(frozen=True)
 
     id: Annotated[uuid.UUID, pydantic.Field(description="Unique row identifier.")]
-    user_id: Annotated[str, pydantic.Field(description="Owning user's Auth0 ID.")]
+    user_id: Annotated[str, pydantic.Field(description="Owning user's ID.")]
     name: Annotated[str, pydantic.Field(description="Display name.")]
+    ownership_type: Annotated[
+        entities.OwnershipType,
+        pydantic.Field(
+            description="Whether the row is personal or shared via a joint account.",
+        ),
+    ] = entities.OwnershipType.PERSONAL
+    joint_account_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(
+            description="The joint account this row belongs to when it is joint.",
+        ),
+    ] = None
+
+    @pydantic.model_validator(mode="after")
+    def _check_joint_account_id(self) -> Self:
+        """Ensure a joint-owned row carries a joint account reference."""
+        entities.require_joint_account_id(self.ownership_type, self.joint_account_id)
+        return self
 
 
 class BankAccountView(_ViewBase):
@@ -42,7 +60,7 @@ class BudgetTrackerView(_ViewBase):
     """Read model for budget_tracker_view."""
 
     name: Annotated[
-        BudgetTrackerName,
+        entities.BudgetTrackerName,
         pydantic.Field(description="The budget tracker category name."),
     ]
     total_budget: Annotated[
@@ -223,4 +241,33 @@ class OneOffView(_ViewBase):
     split: Annotated[
         float,
         pydantic.Field(description="Share of total one-off spend (0-100)."),
+    ]
+
+
+class JointAccountView(pydantic.BaseModel):
+    """Read model for joint_accounts rows.
+
+    Does not extend ``_ViewBase``: a joint account has no owning ``user_id``
+    and no ownership dimension of its own.
+    """
+
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    id: Annotated[uuid.UUID, pydantic.Field(description="Unique account identifier.")]
+    name: Annotated[str, pydantic.Field(description="The name of the joint account.")]
+
+
+class JointAccountMemberView(pydantic.BaseModel):
+    """Read model for joint_account_members rows."""
+
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    id: Annotated[uuid.UUID, pydantic.Field(description="Unique membership row ID.")]
+    joint_account_id: Annotated[
+        uuid.UUID,
+        pydantic.Field(description="The joint account the user is a member of."),
+    ]
+    user_id: Annotated[
+        str,
+        pydantic.Field(description="The ID of the member."),
     ]

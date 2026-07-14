@@ -4,12 +4,40 @@ import datetime
 import enum
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 import pydantic
 
+from domain import errors
+
 type JSON = None | bool | str | int | float | Sequence[JSON] | Mapping[str, JSON]
 type JsonDict = dict[str, JSON]
+
+
+class OwnershipType(enum.StrEnum):
+    """Whether an aggregate belongs to one user or a shared joint account."""
+
+    PERSONAL = enum.auto()
+    JOINT = enum.auto()
+
+
+def require_joint_account_id(
+    ownership_type: OwnershipType,
+    joint_account_id: uuid.UUID | None,
+) -> None:
+    """Raise if a joint-owned item is missing its joint account reference.
+
+    Args:
+        ownership_type: How the item is owned.
+        joint_account_id: The joint account reference, if any.
+
+    Raises:
+        MissingJointAccountError: When ``ownership_type`` is joint but no
+            account is set.
+
+    """
+    if ownership_type is OwnershipType.JOINT and joint_account_id is None:
+        raise errors.MissingJointAccountError
 
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):
@@ -22,10 +50,33 @@ class FinanceTrackerBaseModel(pydantic.BaseModel):
     user_id: Annotated[
         str,
         pydantic.Field(
-            description="The Auth0 user ID who owns the item.",
+            description="The ID of the user who owns the item.",
         ),
     ]
     name: Annotated[str, pydantic.Field(description="The name of the item.")] = ""
+    # Excluded from serialisation until the migration adds these columns to the
+    # tables; the write path dumps every field, so sending them now would fail
+    # against the un-migrated schema. The migration ticket drops the exclusion.
+    ownership_type: Annotated[
+        OwnershipType,
+        pydantic.Field(
+            exclude=True,
+            description="Whether the item is personal or shared via a joint account.",
+        ),
+    ] = OwnershipType.PERSONAL
+    joint_account_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(
+            exclude=True,
+            description="The joint account this item belongs to when it is joint.",
+        ),
+    ] = None
+
+    @pydantic.model_validator(mode="after")
+    def _check_joint_account_id(self) -> Self:
+        """Ensure a joint-owned item carries a joint account reference."""
+        require_joint_account_id(self.ownership_type, self.joint_account_id)
+        return self
 
 
 class BankAccountModel(FinanceTrackerBaseModel):
@@ -196,6 +247,41 @@ class IncomePaymentModel(_PaymentBaseModel):
         uuid.UUID | None,
         pydantic.Field(description="The associated income source ID."),
     ] = None
+
+
+class JointAccountModel(pydantic.BaseModel):
+    """Model representing a joint (shared) account.
+
+    Not a ``FinanceTrackerBaseModel``: a joint account has no single owning
+    user and is itself the target of ``joint_account_id``, so it carries
+    neither ``user_id`` nor the ownership dimension.
+    """
+
+    id: uuid.UUID = pydantic.Field(
+        description="The unique identifier for the joint account.",
+        default_factory=uuid.uuid4,
+    )
+    name: Annotated[
+        str,
+        pydantic.Field(description="The name of the joint account."),
+    ] = ""
+
+
+class JointAccountMemberModel(pydantic.BaseModel):
+    """Model linking a user to a joint account they belong to."""
+
+    id: uuid.UUID = pydantic.Field(
+        description="The unique identifier for the membership row.",
+        default_factory=uuid.uuid4,
+    )
+    joint_account_id: Annotated[
+        uuid.UUID,
+        pydantic.Field(description="The joint account the user is a member of."),
+    ]
+    user_id: Annotated[
+        str,
+        pydantic.Field(description="The ID of the member."),
+    ]
 
 
 class BackendUpdates(pydantic.BaseModel):
