@@ -56,18 +56,21 @@ ALTER TABLE payments ADD COLUMN IF NOT EXISTS linked_payment_id UUID REFERENCES 
 -- Replace the views so the ownership columns reach the read models. The
 -- aggregation semantics are unchanged: each view groups by the aggregate's own
 -- primary key, so ownership_type / joint_account_id are functionally determined
--- by the group and add no new grouping granularity.
+-- by the group and add no new grouping granularity. The two columns are
+-- appended at the END of each SELECT: CREATE OR REPLACE VIEW can only add
+-- trailing columns, not reorder existing ones. The read models match by column
+-- name, so position is irrelevant to them.
 
 CREATE OR REPLACE VIEW bank_accounts_view WITH (security_invoker = on) AS
 SELECT
     ba.id,
     ba.user_id,
     ba.name,
-    ba.ownership_type,
-    ba.joint_account_id,
     ba.starting_balance,
     ba._created_at,
-    ba.starting_balance + COALESCE(SUM(p.income - p.expense), 0) AS current_balance
+    ba.starting_balance + COALESCE(SUM(p.income - p.expense), 0) AS current_balance,
+    ba.ownership_type,
+    ba.joint_account_id
 FROM
     bank_accounts ba
 LEFT JOIN
@@ -89,8 +92,6 @@ SELECT
     es.id,
     es.user_id,
     es.name,
-    es.ownership_type,
-    es.joint_account_id,
     es.budget,
     COALESCE(SUM(p.expense - p.income), 0) AS current_month,
     es.budget_tracker_ids,
@@ -105,7 +106,9 @@ SELECT
         WHEN COALESCE(bt_totals.total_budget, 0) > 0
         THEN es.budget / bt_totals.total_budget * 100
         ELSE 0
-    END AS split
+    END AS split,
+    es.ownership_type,
+    es.joint_account_id
 FROM
     expense_sources es
 LEFT JOIN
@@ -128,10 +131,10 @@ SELECT
     "income_sources".id,
     "income_sources".user_id,
     "income_sources".name,
-    "income_sources".ownership_type,
-    "income_sources".joint_account_id,
     COALESCE(SUM(payments.income), 0) AS current_month,
-    "income_sources".budget_tracker_ids
+    "income_sources".budget_tracker_ids,
+    "income_sources".ownership_type,
+    "income_sources".joint_account_id
 FROM
     "income_sources"
 LEFT JOIN
@@ -153,8 +156,6 @@ SELECT
     bt.id,
     bt.user_id,
     bt.name,
-    bt.ownership_type,
-    bt.joint_account_id,
     bt.total_budget,
     bt._created_at,
     COALESCE(SUM(esv.current_month), 0) AS current_month,
@@ -168,7 +169,9 @@ SELECT
         WHEN COALESCE(income_totals.total_income, 0) > 0
         THEN bt.total_budget / income_totals.total_income * 100
         ELSE 0
-    END AS split
+    END AS split,
+    bt.ownership_type,
+    bt.joint_account_id
 FROM
     budget_tracker bt
 LEFT JOIN
@@ -190,8 +193,6 @@ SELECT
     fs.id,
     fs.user_id,
     fs.name,
-    fs.ownership_type,
-    fs.joint_account_id,
     fs.cost,
     fs.current_month,
     fs.banked,
@@ -207,7 +208,9 @@ SELECT
         WHEN COALESCE(bt_totals.total_budget, 0) > 0
         THEN fs.current_month / bt_totals.total_budget * 100
         ELSE 0
-    END AS split
+    END AS split,
+    fs.ownership_type,
+    fs.joint_account_id
 FROM
     one_offs fs
 LEFT JOIN LATERAL (
