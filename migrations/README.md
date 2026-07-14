@@ -11,8 +11,7 @@ so a failed file rolls back cleanly and records nothing.
 
 ```text
 migrations/
-  cli.py         # pydantic-settings CLI app (python -m migrations)
-  config.py      # MigrationSettings — connection config
+  cli.py         # pydantic-settings CLI app + per-env URL selection
   discovery.py   # pure ordering / filename rules
   runner.py      # applies files, maintains schema_migrations
   versions/      # the ordered .sql files
@@ -26,34 +25,47 @@ dependencies** — install them with `uv sync` (the default dev groups).
 Run from the repo root:
 
 ```bash
-uv run poe migrate            # apply all pending migrations
-uv run poe migrate --status   # list applied / pending, change nothing
-uv run poe migrate --baseline # record present files as applied, run none
-uv run poe migrate --help     # full flag list
+uv run poe migrate                   # apply all pending migrations
+uv run poe migrate --dry-run         # list what apply would do, change nothing
+uv run poe migrate --baseline --dry-run  # list what baseline would record
+uv run poe migrate --status          # list applied / pending, change nothing
+uv run poe migrate --baseline        # record present files as applied, run none
+uv run poe migrate --help            # full flag list
 ```
+
+`--dry-run` is a preview modifier: on its own it previews `apply`, and combined
+with `--baseline` it previews baselining. `--status` is standalone and cannot be
+combined with `--baseline` or `--dry-run`.
 
 ## Connecting to the database
 
 The runner needs a **direct Postgres connection string** — the app itself only
-talks to Supabase over PostgREST, which cannot run DDL. The connection string is
-read by `MigrationSettings` (pydantic-settings) with this precedence, highest
-first:
+talks to Supabase over PostgREST, which cannot run DDL. Testing and prod are
+**separate databases** with different connection strings, so the CLI keeps one
+URL per environment and `--env` selects between them:
 
-1. `--database-url` CLI flag.
-2. `DATABASE_URL` environment variable.
-3. `DATABASE_URL` in a `.env` file at the repo root.
+| `--env`   | URL read from       |
+| --------- | ------------------- |
+| `testing` | `TEST_DATABASE_URL` |
+| `prod`    | `DATABASE_URL`      |
+
+`--env` defaults to `testing`. Each URL is read from the environment, or from a
+`.env` file at the repo root (the environment wins). The URLs are deliberately
+**not** exposed as CLI flags, to keep connection strings off the command line.
+If the selected environment has no URL configured, the CLI exits with a clear
+error rather than connecting to the wrong place.
 
 ```bash
-export DATABASE_URL="postgresql://postgres:<pw>@<host>:5432/postgres"
-uv run poe migrate --status
-# or, one-off:
-uv run poe migrate --database-url "postgresql://..." --status
+# .env at the repo root:
+#   DATABASE_URL=postgresql://postgres:<pw>@<prod-host>:5432/postgres
+#   TEST_DATABASE_URL=postgresql://postgres:<pw>@<test-host>:5432/postgres
+
+uv run poe migrate --status                 # targets testing (the default)
+uv run poe migrate --env prod --status      # targets prod
 ```
 
-Find the connection string in the Supabase dashboard under **Project Settings →
-Database → Connection string**. The optional `--env testing|prod` flag is a
-label used in the runner's output — point `DATABASE_URL` at whichever database
-you mean (a per-environment `.env`, or an exported var, keeps them separate).
+Find each connection string in that project's Supabase dashboard under
+**Project Settings → Database → Connection string**.
 
 ## Adding a migration
 
@@ -63,8 +75,8 @@ you mean (a per-environment `.env`, or an exported var, keeps them separate).
    `CREATE OR REPLACE VIEW ...` statement.
 2. Write plain SQL. Prefer idempotent statements (`CREATE OR REPLACE VIEW`,
    `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`) where practical.
-3. Apply it with `uv run poe migrate` (point `DATABASE_URL` at testing first,
-   then prod).
+3. Apply it with `uv run poe migrate` against testing (the default), then
+   `uv run poe migrate --env prod`.
 
 ## Adopting on an existing database
 
