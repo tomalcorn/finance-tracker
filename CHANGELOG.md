@@ -1,3 +1,9 @@
+## v0.7.0 (2026-07-14)
+
+### Feat
+
+- **migrations**: 0002 joint tables, ownership columns, view review (#185)
+
 ## v0.6.0 (2026-07-14)
 
 ### Feat
