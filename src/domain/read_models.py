@@ -12,11 +12,7 @@ from typing import Annotated, Literal, Self
 
 import pydantic
 
-from domain.entities import (
-    BudgetTrackerName,
-    OwnershipType,
-    require_joint_account_id,
-)
+from domain import entities
 
 
 class _ViewBase(pydantic.BaseModel):
@@ -28,11 +24,11 @@ class _ViewBase(pydantic.BaseModel):
     user_id: Annotated[str, pydantic.Field(description="Owning user's ID.")]
     name: Annotated[str, pydantic.Field(description="Display name.")]
     ownership_type: Annotated[
-        OwnershipType,
+        entities.OwnershipType,
         pydantic.Field(
             description="Whether the row is personal or shared via a joint account.",
         ),
-    ] = OwnershipType.PERSONAL
+    ] = entities.OwnershipType.PERSONAL
     joint_account_id: Annotated[
         uuid.UUID | None,
         pydantic.Field(
@@ -43,7 +39,7 @@ class _ViewBase(pydantic.BaseModel):
     @pydantic.model_validator(mode="after")
     def _check_joint_account_id(self) -> Self:
         """Ensure a joint-owned row carries a joint account reference."""
-        require_joint_account_id(self.ownership_type, self.joint_account_id)
+        entities.require_joint_account_id(self.ownership_type, self.joint_account_id)
         return self
 
 
@@ -64,7 +60,7 @@ class BudgetTrackerView(_ViewBase):
     """Read model for budget_tracker_view."""
 
     name: Annotated[
-        BudgetTrackerName,
+        entities.BudgetTrackerName,
         pydantic.Field(description="The budget tracker category name."),
     ]
     total_budget: Annotated[

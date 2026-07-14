@@ -8,6 +8,8 @@ from typing import Annotated, Literal, Self
 
 import pydantic
 
+from domain import errors
+
 type JSON = None | bool | str | int | float | Sequence[JSON] | Mapping[str, JSON]
 type JsonDict = dict[str, JSON]
 
@@ -30,12 +32,12 @@ def require_joint_account_id(
         joint_account_id: The joint account reference, if any.
 
     Raises:
-        ValueError: When ``ownership_type`` is joint but no account is set.
+        MissingJointAccountError: When ``ownership_type`` is joint but no
+            account is set.
 
     """
     if ownership_type is OwnershipType.JOINT and joint_account_id is None:
-        msg = "joint_account_id is required when ownership_type is joint"
-        raise ValueError(msg)
+        raise errors.MissingJointAccountError
 
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):

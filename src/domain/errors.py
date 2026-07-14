@@ -12,3 +12,11 @@ class InvalidSubscriptionCadenceError(DomainError):
         """Construct InvalidSubscriptionCadenceError."""
         self.cadence = cadence
         super().__init__(f"Unknown cadence: {cadence}")
+
+
+class MissingJointAccountError(DomainError):
+    """Error when a joint-owned item has no joint account reference."""
+
+    def __init__(self) -> None:
+        """Construct MissingJointAccountError."""
+        super().__init__("joint_account_id is required when ownership_type is joint")
