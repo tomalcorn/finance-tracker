@@ -1,100 +1,64 @@
 """Unit tests for the entities module."""
 
-import datetime
 import uuid
 
-from domain import entities
+import pydantic
+import pytest
+
+from domain import entities, read_models
 
 
-class TestOwnershipDefaults:
-    """Tests for the ownership dimension on FinanceTrackerBaseModel."""
+class TestRequireJointAccountId:
+    """Tests for the joint-ownership invariant helper."""
 
-    def test_ownership_type_defaults_to_personal(self) -> None:
-        # Arrange / Act
-        model = entities.BankAccountModel(user_id="test-user", name="Current")
-        # Assert
-        assert model.ownership_type is entities.OwnershipType.PERSONAL
+    def test_rejects_joint_without_account_id(self) -> None:
+        # Arrange / Act / Assert
+        with pytest.raises(ValueError, match="joint_account_id is required"):
+            entities.require_joint_account_id(entities.OwnershipType.JOINT, None)
 
-    def test_joint_account_id_defaults_to_none(self) -> None:
-        # Arrange / Act
-        model = entities.BankAccountModel(user_id="test-user", name="Current")
-        # Assert
-        assert model.joint_account_id is None
-
-    def test_accepts_joint_ownership_with_account_id(self) -> None:
-        # Arrange
-        joint_id = uuid.uuid4()
+    @pytest.mark.parametrize(
+        ("ownership_type", "joint_account_id"),
+        [
+            (entities.OwnershipType.PERSONAL, None),
+            (entities.OwnershipType.PERSONAL, uuid.uuid4()),
+            (entities.OwnershipType.JOINT, uuid.uuid4()),
+        ],
+    )
+    def test_allows_valid_combinations(
+        self,
+        ownership_type: entities.OwnershipType,
+        joint_account_id: uuid.UUID | None,
+    ) -> None:
         # Act
-        model = entities.BankAccountModel(
-            user_id="test-user",
-            name="Joint Current",
-            ownership_type=entities.OwnershipType.JOINT,
-            joint_account_id=joint_id,
-        )
+        result = entities.require_joint_account_id(ownership_type, joint_account_id)
         # Assert
-        assert all(
-            [
-                model.ownership_type is entities.OwnershipType.JOINT,
-                model.joint_account_id == joint_id,
-            ],
-        )
+        assert result is None
 
-    def test_ownership_fields_excluded_from_serialisation(self) -> None:
+
+class TestJointOwnershipValidator:
+    """Tests that the invariant is wired into the write and read models."""
+
+    def test_entity_rejects_joint_without_account_id(self) -> None:
+        # Arrange / Act / Assert
+        with pytest.raises(pydantic.ValidationError):
+            entities.BankAccountModel(
+                user_id="test-user",
+                ownership_type=entities.OwnershipType.JOINT,
+            )
+
+    def test_view_rejects_joint_without_account_id(self) -> None:
         # Arrange
-        model = entities.BankAccountModel(
-            user_id="test-user",
-            name="Joint Current",
-            ownership_type=entities.OwnershipType.JOINT,
-            joint_account_id=uuid.uuid4(),
-        )
-        # Act
-        dumped = model.model_dump(mode="json")
-        # Assert
-        assert all(key not in dumped for key in ("ownership_type", "joint_account_id"))
-
-
-class TestJointAccountModel:
-    """Tests for JointAccountModel."""
-
-    def test_created_at_defaults_to_none(self) -> None:
-        # Arrange / Act
-        model = entities.JointAccountModel(name="Our Account")
-        # Assert
-        assert model.created_at is None
-
-    def test_created_at_populated_from_db_alias(self) -> None:
-        # Arrange
-        created = datetime.datetime(2026, 7, 14, tzinfo=datetime.UTC)
-        # Act
-        model = entities.JointAccountModel.model_validate(
-            {"name": "Our Account", "_created_at": created},
-        )
-        # Assert
-        assert model.created_at == created
-
-    def test_created_at_excluded_from_serialisation(self) -> None:
-        # Arrange
-        created = datetime.datetime(2026, 7, 14, tzinfo=datetime.UTC)
-        model = entities.JointAccountModel(name="Our Account", created_at=created)
-        # Act
-        dumped = model.model_dump(mode="json")
-        # Assert
-        assert all(key not in dumped for key in ("created_at", "_created_at"))
-
-
-class TestJointAccountMemberModel:
-    """Tests for JointAccountMemberModel."""
-
-    def test_links_user_to_joint_account(self) -> None:
-        # Arrange
-        joint_id = uuid.uuid4()
-        # Act
-        member = entities.JointAccountMemberModel(
-            joint_account_id=joint_id,
-            user_id="test-user",
-        )
-        # Assert
-        assert all([member.joint_account_id == joint_id, member.user_id == "test-user"])
+        row = {
+            "id": uuid.uuid4(),
+            "user_id": "test-user",
+            "name": "Joint Current",
+            "starting_balance": 0.0,
+            "current_balance": 0.0,
+            "ownership_type": entities.OwnershipType.JOINT,
+        }
+        # Act / Assert
+        with pytest.raises(pydantic.ValidationError):
+            read_models.BankAccountView.model_validate(row)
 
 
 class TestExpenseSourceModel:

@@ -4,7 +4,7 @@ import datetime
 import enum
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 import pydantic
 
@@ -15,8 +15,27 @@ type JsonDict = dict[str, JSON]
 class OwnershipType(enum.StrEnum):
     """Whether an aggregate belongs to one user or a shared joint account."""
 
-    PERSONAL = "personal"
-    JOINT = "joint"
+    PERSONAL = enum.auto()
+    JOINT = enum.auto()
+
+
+def require_joint_account_id(
+    ownership_type: OwnershipType,
+    joint_account_id: uuid.UUID | None,
+) -> None:
+    """Raise if a joint-owned item is missing its joint account reference.
+
+    Args:
+        ownership_type: How the item is owned.
+        joint_account_id: The joint account reference, if any.
+
+    Raises:
+        ValueError: When ``ownership_type`` is joint but no account is set.
+
+    """
+    if ownership_type is OwnershipType.JOINT and joint_account_id is None:
+        msg = "joint_account_id is required when ownership_type is joint"
+        raise ValueError(msg)
 
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):
@@ -29,7 +48,7 @@ class FinanceTrackerBaseModel(pydantic.BaseModel):
     user_id: Annotated[
         str,
         pydantic.Field(
-            description="The Auth0 user ID who owns the item.",
+            description="The ID of the user who owns the item.",
         ),
     ]
     name: Annotated[str, pydantic.Field(description="The name of the item.")] = ""
@@ -50,6 +69,12 @@ class FinanceTrackerBaseModel(pydantic.BaseModel):
             description="The joint account this item belongs to when it is joint.",
         ),
     ] = None
+
+    @pydantic.model_validator(mode="after")
+    def _check_joint_account_id(self) -> Self:
+        """Ensure a joint-owned item carries a joint account reference."""
+        require_joint_account_id(self.ownership_type, self.joint_account_id)
+        return self
 
 
 class BankAccountModel(FinanceTrackerBaseModel):
@@ -230,8 +255,6 @@ class JointAccountModel(pydantic.BaseModel):
     neither ``user_id`` nor the ownership dimension.
     """
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
-
     id: uuid.UUID = pydantic.Field(
         description="The unique identifier for the joint account.",
         default_factory=uuid.uuid4,
@@ -240,18 +263,10 @@ class JointAccountModel(pydantic.BaseModel):
         str,
         pydantic.Field(description="The name of the joint account."),
     ] = ""
-    created_at: Annotated[
-        datetime.datetime | None,
-        pydantic.Field(
-            alias="_created_at",
-            exclude=True,
-            description="When the account was created (database-generated, read-only).",
-        ),
-    ] = None
 
 
 class JointAccountMemberModel(pydantic.BaseModel):
-    """Model linking an Auth0 user to a joint account they belong to."""
+    """Model linking a user to a joint account they belong to."""
 
     id: uuid.UUID = pydantic.Field(
         description="The unique identifier for the membership row.",
@@ -263,7 +278,7 @@ class JointAccountMemberModel(pydantic.BaseModel):
     ]
     user_id: Annotated[
         str,
-        pydantic.Field(description="The Auth0 user ID of the member."),
+        pydantic.Field(description="The ID of the member."),
     ]
 
 

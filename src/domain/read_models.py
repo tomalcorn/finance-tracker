@@ -8,11 +8,15 @@ have no view) and therefore carries no computed columns.
 
 import datetime
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 import pydantic
 
-from domain.entities import BudgetTrackerName, OwnershipType
+from domain.entities import (
+    BudgetTrackerName,
+    OwnershipType,
+    require_joint_account_id,
+)
 
 
 class _ViewBase(pydantic.BaseModel):
@@ -21,7 +25,7 @@ class _ViewBase(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(frozen=True)
 
     id: Annotated[uuid.UUID, pydantic.Field(description="Unique row identifier.")]
-    user_id: Annotated[str, pydantic.Field(description="Owning user's Auth0 ID.")]
+    user_id: Annotated[str, pydantic.Field(description="Owning user's ID.")]
     name: Annotated[str, pydantic.Field(description="Display name.")]
     ownership_type: Annotated[
         OwnershipType,
@@ -35,6 +39,12 @@ class _ViewBase(pydantic.BaseModel):
             description="The joint account this row belongs to when it is joint.",
         ),
     ] = None
+
+    @pydantic.model_validator(mode="after")
+    def _check_joint_account_id(self) -> Self:
+        """Ensure a joint-owned row carries a joint account reference."""
+        require_joint_account_id(self.ownership_type, self.joint_account_id)
+        return self
 
 
 class BankAccountView(_ViewBase):
@@ -245,17 +255,10 @@ class JointAccountView(pydantic.BaseModel):
     and no ownership dimension of its own.
     """
 
-    model_config = pydantic.ConfigDict(frozen=True, populate_by_name=True)
+    model_config = pydantic.ConfigDict(frozen=True)
 
     id: Annotated[uuid.UUID, pydantic.Field(description="Unique account identifier.")]
     name: Annotated[str, pydantic.Field(description="The name of the joint account.")]
-    created_at: Annotated[
-        datetime.datetime,
-        pydantic.Field(
-            alias="_created_at",
-            description="When the account was created (database-generated).",
-        ),
-    ]
 
 
 class JointAccountMemberView(pydantic.BaseModel):
@@ -270,5 +273,5 @@ class JointAccountMemberView(pydantic.BaseModel):
     ]
     user_id: Annotated[
         str,
-        pydantic.Field(description="The Auth0 user ID of the member."),
+        pydantic.Field(description="The ID of the member."),
     ]
