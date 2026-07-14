@@ -58,3 +58,15 @@ class TestJointOwnershipValidator:
         # Act / Assert
         with pytest.raises(errors.MissingJointAccountError):
             read_models.BankAccountView.model_validate(row)
+
+
+class TestOwnershipSerialisation:
+    """The ownership columns must reach the write path (migration 0002)."""
+
+    def test_ownership_fields_are_serialised(self) -> None:
+        # Arrange
+        account = entities.BankAccountModel(user_id="test-user")
+        # Act
+        dumped = account.model_dump(mode="json")
+        # Assert
+        assert {"ownership_type", "joint_account_id"} <= dumped.keys()
