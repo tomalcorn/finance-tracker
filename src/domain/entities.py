@@ -33,15 +33,20 @@ class FinanceTrackerBaseModel(pydantic.BaseModel):
         ),
     ]
     name: Annotated[str, pydantic.Field(description="The name of the item.")] = ""
+    # Excluded from serialisation until the migration adds these columns to the
+    # tables; the write path dumps every field, so sending them now would fail
+    # against the un-migrated schema. The migration ticket drops the exclusion.
     ownership_type: Annotated[
         OwnershipType,
         pydantic.Field(
+            exclude=True,
             description="Whether the item is personal or shared via a joint account.",
         ),
     ] = OwnershipType.PERSONAL
     joint_account_id: Annotated[
         uuid.UUID | None,
         pydantic.Field(
+            exclude=True,
             description="The joint account this item belongs to when it is joint.",
         ),
     ] = None

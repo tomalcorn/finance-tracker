@@ -39,6 +39,19 @@ class TestOwnershipDefaults:
             ],
         )
 
+    def test_ownership_fields_excluded_from_serialisation(self) -> None:
+        # Arrange
+        model = entities.BankAccountModel(
+            user_id="test-user",
+            name="Joint Current",
+            ownership_type=entities.OwnershipType.JOINT,
+            joint_account_id=uuid.uuid4(),
+        )
+        # Act
+        dumped = model.model_dump(mode="json")
+        # Assert
+        assert all(key not in dumped for key in ("ownership_type", "joint_account_id"))
+
 
 class TestJointAccountModel:
     """Tests for JointAccountModel."""
