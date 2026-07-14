@@ -1,3 +1,9 @@
+## v0.6.0 (2026-07-14)
+
+### Feat
+
+- **migrations**: per-env database URLs + dry-run mode (#184)
+
 ## v0.5.0 (2026-07-14)
 
 ### Feat
