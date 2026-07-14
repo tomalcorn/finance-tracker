@@ -25,14 +25,17 @@ dependencies** — install them with `uv sync` (the default dev groups).
 Run from the repo root:
 
 ```bash
-uv run poe migrate            # apply all pending migrations
-uv run poe migrate --dry-run  # list what would be applied, run none
-uv run poe migrate --status   # list applied / pending, change nothing
-uv run poe migrate --baseline # record present files as applied, run none
-uv run poe migrate --help     # full flag list
+uv run poe migrate                   # apply all pending migrations
+uv run poe migrate --dry-run         # list what apply would do, change nothing
+uv run poe migrate --baseline --dry-run  # list what baseline would record
+uv run poe migrate --status          # list applied / pending, change nothing
+uv run poe migrate --baseline        # record present files as applied, run none
+uv run poe migrate --help            # full flag list
 ```
 
-`--dry-run`, `--status`, and `--baseline` are mutually exclusive.
+`--dry-run` is a preview modifier: on its own it previews `apply`, and combined
+with `--baseline` it previews baselining. `--status` is standalone and cannot be
+combined with `--baseline` or `--dry-run`.
 
 ## Connecting to the database
 

@@ -46,23 +46,41 @@ class TestSelectDatabaseUrl:
 class TestPrintDryRun:
     """Tests for the dry-run listing."""
 
-    def test_lists_each_pending_migration(
+    def test_lists_each_migration(
         self,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         # Arrange
         pending = [_migration("0002", "joint_workflow"), _migration("0003", "indexes")]
         # Act
-        cli._print_dry_run("testing", pending)
+        cli._print_dry_run("testing", "apply", pending)
         # Assert
         output = capsys.readouterr().out
         assert all(f"{m.version}_{m.name}" in output for m in pending)
 
-    def test_reports_nothing_to_apply_when_empty(
+    def test_apply_action_reads_as_would_apply(
         self,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         # Act
-        cli._print_dry_run("testing", [])
+        cli._print_dry_run("testing", "apply", [_migration("0002", "joint_workflow")])
         # Assert
-        assert "No pending migrations" in capsys.readouterr().out
+        assert "Would apply" in capsys.readouterr().out
+
+    def test_baseline_action_reads_as_would_baseline(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        # Act
+        cli._print_dry_run("prod", "baseline", [_migration("0001", "initial_schema")])
+        # Assert
+        assert "Would baseline" in capsys.readouterr().out
+
+    def test_reports_nothing_to_do_when_empty(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        # Act
+        cli._print_dry_run("testing", "apply", [])
+        # Assert
+        assert "No migrations to apply" in capsys.readouterr().out

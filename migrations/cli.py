@@ -52,11 +52,11 @@ def select_database_url(
 class MigrateCli(pydantic_settings.BaseSettings):
     """Apply versioned SQL migrations to the finance-tracker database.
 
-    With no options, applies every pending migration. Use --dry-run to list the
-    migrations that would be applied without running them, --status to inspect
+    With no options, applies every pending migration. Use --status to inspect
     applied and pending migrations, or --baseline to record all present
     migrations as applied (without running them) when adopting an existing
-    database.
+    database. Add --dry-run to list what apply (or --baseline) would do without
+    changing anything.
     """
 
     model_config = pydantic_settings.SettingsConfigDict(
@@ -105,15 +105,18 @@ class MigrateCli(pydantic_settings.BaseSettings):
     dry_run: Annotated[
         pydantic_settings.CliImplicitFlag[bool],
         pydantic.Field(
-            description="List the migrations that would be applied, applying none.",
+            description=(
+                "List what would be applied without applying it; combine with "
+                "--baseline to list what would be baselined."
+            ),
         ),
     ] = False
 
     def cli_cmd(self) -> None:
         """Entry point invoked by pydantic-settings' ``CliApp``."""
-        if sum([self.status, self.baseline, self.dry_run]) > 1:
+        if self.status and (self.baseline or self.dry_run):
             print(
-                "error: pass at most one of --status / --baseline / --dry-run",
+                "error: --status cannot be combined with --baseline / --dry-run",
                 file=sys.stderr,
             )
             raise SystemExit(2)
@@ -148,14 +151,17 @@ class MigrateCli(pydantic_settings.BaseSettings):
             _print_status(applied, pending)
             return
 
-        if self.dry_run:
-            _print_dry_run(self.env, pending)
-            return
-
         if self.baseline:
+            if self.dry_run:
+                _print_dry_run(self.env, "baseline", migrations)
+                return
             for migration in migrations:
                 runner.record_migration(conn, migration)
             print(f"Baselined {len(migrations)} migration(s) for {self.env!r}.")
+            return
+
+        if self.dry_run:
+            _print_dry_run(self.env, "apply", pending)
             return
 
         if not pending:
@@ -168,13 +174,18 @@ class MigrateCli(pydantic_settings.BaseSettings):
         print(f"Applied {len(pending)} migration(s) to {self.env!r}.")
 
 
-def _print_dry_run(env: str, pending: Sequence[discovery.Migration]) -> None:
-    """Print the migrations a real run would apply, applying none."""
-    if not pending:
-        print(f"No pending migrations for {env!r}.")
+def _print_dry_run(
+    env: str,
+    action: Literal["apply", "baseline"],
+    migrations: Sequence[discovery.Migration],
+) -> None:
+    """Print the migrations a real ``action`` run would touch, touching none."""
+    if not migrations:
+        print(f"No migrations to {action} for {env!r}.")
         return
-    print(f"Would apply {len(pending)} migration(s) to {env!r}:")
-    for migration in pending:
+    verb, preposition = ("baseline", "for") if action == "baseline" else ("apply", "to")
+    print(f"Would {verb} {len(migrations)} migration(s) {preposition} {env!r}:")
+    for migration in migrations:
         print(f"  {migration.version}_{migration.name}")
 
 
