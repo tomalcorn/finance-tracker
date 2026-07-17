@@ -43,6 +43,95 @@ class TestSelectDatabaseUrl:
         assert exc_info.value.variable == "DATABASE_URL"
 
 
+class TestFlagConflict:
+    """Tests for the mutually-exclusive flag rules, especially the reset guard."""
+
+    def test_valid_combination_returns_none(self) -> None:
+        # Act
+        conflict = cli.flag_conflict(
+            status=False,
+            baseline=False,
+            dry_run=True,
+            reset=False,
+            yes=False,
+        )
+        # Assert
+        assert conflict is None
+
+    def test_status_with_reset_conflicts(self) -> None:
+        # Act
+        conflict = cli.flag_conflict(
+            status=True,
+            baseline=False,
+            dry_run=False,
+            reset=True,
+            yes=False,
+        )
+        # Assert
+        assert conflict is not None
+
+    def test_reset_with_baseline_conflicts(self) -> None:
+        # Act
+        conflict = cli.flag_conflict(
+            status=False,
+            baseline=True,
+            dry_run=False,
+            reset=True,
+            yes=True,
+        )
+        # Assert
+        assert conflict is not None
+
+    def test_reset_without_confirmation_is_rejected(self) -> None:
+        # Act
+        conflict = cli.flag_conflict(
+            status=False,
+            baseline=False,
+            dry_run=False,
+            reset=True,
+            yes=False,
+        )
+        # Assert
+        assert conflict is not None
+
+    def test_reset_with_yes_is_allowed(self) -> None:
+        # Act
+        conflict = cli.flag_conflict(
+            status=False,
+            baseline=False,
+            dry_run=False,
+            reset=True,
+            yes=True,
+        )
+        # Assert
+        assert conflict is None
+
+
+class TestPrintReset:
+    """Tests for the reset dry-run listing."""
+
+    def test_lists_views_and_tables(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        # Act
+        cli._print_reset("prod", ["payments_view"], ["payments", "bank_accounts"])
+        # Assert
+        output = capsys.readouterr().out
+        assert all(
+            name in output for name in ("payments_view", "payments", "bank_accounts")
+        )
+
+    def test_reports_nothing_to_reset_when_empty(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        # Act
+        cli._print_reset("testing", [], [])
+        # Assert
+        assert "Nothing to reset" in capsys.readouterr().out
+
+
 class TestPrintDryRun:
     """Tests for the dry-run listing."""
 

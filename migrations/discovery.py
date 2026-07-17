@@ -34,10 +34,14 @@ class Migration:
 
 
 def discover_migrations(migrations_dir: pathlib.Path) -> list[Migration]:
-    """Return every migration under a directory, ordered by version.
+    """Return every migration directly under a directory, ordered by version.
 
-    Files are matched against ``NNNN_description.sql``; anything else raises,
-    so a mis-named file fails loudly rather than being silently skipped.
+    Only ``.sql`` files sitting directly in ``migrations_dir`` are considered;
+    the glob does not recurse, so per-environment overlay subdirectories
+    (``versions/prod``, ``versions/testing``) are ignored here and gathered by
+    :func:`discover_for_env` instead. Files are matched against
+    ``NNNN_description.sql``; anything else raises, so a mis-named file fails
+    loudly rather than being silently skipped.
 
     Raises:
         MigrationDiscoveryError: If a ``.sql`` filename is malformed or two
@@ -66,6 +70,45 @@ def discover_migrations(migrations_dir: pathlib.Path) -> list[Migration]:
             Migration(version=version, name=match.group("name"), path=path),
         )
     return migrations
+
+
+def discover_for_env(versions_dir: pathlib.Path, env: str) -> list[Migration]:
+    """Return the shared migrations plus one environment's overlay, ordered.
+
+    Shared migrations live directly in ``versions_dir`` and apply to every
+    environment. Environment-specific ones live in a ``versions_dir/<env>``
+    subdirectory and apply only when targeting that environment (RLS policies
+    for ``prod``, role grants for ``testing``). The shared set and the overlay
+    share a single version sequence, so a version reused across them raises
+    rather than one silently shadowing the other.
+
+    Args:
+        versions_dir: The directory holding the shared migrations and the
+            per-environment overlay subdirectories.
+        env: The environment being targeted (``"testing"`` or ``"prod"``).
+
+    Raises:
+        MigrationDiscoveryError: If a filename is malformed, or a version is
+            reused between the shared set and the overlay.
+
+    """
+    shared = discover_migrations(versions_dir)
+    overlay_dir = versions_dir / env
+    if not overlay_dir.is_dir():
+        return shared
+    overlay = discover_migrations(overlay_dir)
+
+    seen: dict[str, Migration] = {}
+    for migration in (*shared, *overlay):
+        existing = seen.get(migration.version)
+        if existing is not None:
+            msg = (
+                f"Duplicate migration version {migration.version!r}: "
+                f"{existing.path.name} and {migration.path.name}."
+            )
+            raise errors.MigrationDiscoveryError(msg)
+        seen[migration.version] = migration
+    return sorted(seen.values(), key=lambda migration: migration.version)
 
 
 def pending_migrations(

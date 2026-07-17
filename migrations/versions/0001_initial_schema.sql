@@ -1,13 +1,14 @@
 -- 0001_initial_schema
 --
 -- Baseline schema for the finance-tracker database: tables, foreign keys, and
--- computed views. This captures the state previously applied by hand from
--- sql_stuff/create_tables.sql.
+-- computed views. This captures the state originally applied by hand when the
+-- databases were first created.
 --
--- Row-level security and role grants are environment-specific and are NOT part
--- of this migration:
---   * production RLS lives in sql_stuff/enable_rls.sql
---   * the test database's role grants live in sql_stuff/grant_test_permissions.sql
+-- Row-level security and role grants are environment-specific and live in the
+-- per-environment overlays, not in this shared baseline:
+--   * production RLS lives in versions/prod/0005_enable_rls.sql
+--   * the test database's role grants live in
+--     versions/testing/0004_grant_test_permissions.sql
 -- Both remain one-off setup scripts (see sql_stuff/migrations/README.md).
 --
 -- For a database that ALREADY has this schema, run `uv run poe migrate --baseline`

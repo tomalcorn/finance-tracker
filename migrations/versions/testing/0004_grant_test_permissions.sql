@@ -1,7 +1,10 @@
 -- Grant table privileges to the API roles for the TEST database.
--- Needed because the integration tests connect with the anon key, and freshly
--- recreated tables have no privileges for the anon/authenticated roles.
--- Run this after create_tables.sql (RLS is left disabled for the test DB).
+--
+-- Testing-only migration (versions/testing/): the integration tests connect
+-- with the anon key against an RLS-free test database, and freshly created
+-- tables have no privileges for the anon/authenticated roles. The runner applies
+-- this only for --env testing; prod relies on RLS policies instead (see
+-- versions/prod/). Statements are idempotent, so a repeated apply is safe.
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 

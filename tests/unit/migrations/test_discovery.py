@@ -51,6 +51,67 @@ class TestDiscoverMigrations:
             discovery.discover_migrations(tmp_path)
 
 
+class TestDiscoverForEnv:
+    """Tests for discover_for_env (shared migrations plus one env overlay)."""
+
+    def test_merges_overlay_with_shared_in_version_order(self, tmp_path: Path) -> None:
+        # Arrange
+        _write(tmp_path, "0001_initial_schema.sql")
+        _write(tmp_path, "0003_shared_later.sql")
+        overlay = tmp_path / "prod"
+        overlay.mkdir()
+        _write(overlay, "0002_enable_rls.sql")
+
+        # Act
+        migrations = discovery.discover_for_env(tmp_path, "prod")
+
+        # Assert
+        assert [m.version for m in migrations] == ["0001", "0002", "0003"]
+
+    def test_excludes_other_environments_overlay(self, tmp_path: Path) -> None:
+        # Arrange
+        _write(tmp_path, "0001_initial_schema.sql")
+        prod = tmp_path / "prod"
+        prod.mkdir()
+        _write(prod, "0002_enable_rls.sql")
+        testing = tmp_path / "testing"
+        testing.mkdir()
+        _write(testing, "0003_grant_test_permissions.sql")
+
+        # Act
+        migrations = discovery.discover_for_env(tmp_path, "testing")
+
+        # Assert
+        assert [m.name for m in migrations] == [
+            "initial_schema",
+            "grant_test_permissions",
+        ]
+
+    def test_returns_shared_only_when_overlay_dir_absent(self, tmp_path: Path) -> None:
+        # Arrange
+        _write(tmp_path, "0001_initial_schema.sql")
+
+        # Act
+        migrations = discovery.discover_for_env(tmp_path, "prod")
+
+        # Assert
+        assert [m.version for m in migrations] == ["0001"]
+
+    def test_version_reused_across_shared_and_overlay_raises(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        # Arrange
+        _write(tmp_path, "0002_shared.sql")
+        overlay = tmp_path / "prod"
+        overlay.mkdir()
+        _write(overlay, "0002_enable_rls.sql")
+
+        # Act / Assert
+        with pytest.raises(errors.MigrationDiscoveryError, match="Duplicate"):
+            discovery.discover_for_env(tmp_path, "prod")
+
+
 class TestPendingMigrations:
     """Tests for pending_migrations."""
 

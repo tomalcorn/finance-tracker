@@ -49,6 +49,29 @@ def select_database_url(
     return url
 
 
+def flag_conflict(
+    *,
+    status: bool,
+    baseline: bool,
+    dry_run: bool,
+    reset: bool,
+    yes: bool,
+) -> str | None:
+    """Return an error message if the flag combination is invalid, else None.
+
+    Kept pure and separate from ``cli_cmd`` so the mutually-exclusive rules —
+    especially the guard that stops ``--reset`` running without confirmation —
+    can be unit-tested without a database.
+    """
+    if status and (baseline or dry_run or reset):
+        return "--status cannot be combined with --baseline / --dry-run / --reset"
+    if reset and baseline:
+        return "--reset cannot be combined with --baseline"
+    if reset and not (dry_run or yes):
+        return "--reset is destructive; pass --dry-run to preview or --yes to confirm"
+    return None
+
+
 class MigrateCli(pydantic_settings.BaseSettings):
     """Apply versioned SQL migrations to the finance-tracker database.
 
@@ -107,18 +130,38 @@ class MigrateCli(pydantic_settings.BaseSettings):
         pydantic.Field(
             description=(
                 "List what would be applied without applying it; combine with "
-                "--baseline to list what would be baselined."
+                "--baseline to list what would be baselined, or --reset to list "
+                "what would be dropped."
             ),
+        ),
+    ] = False
+    reset: Annotated[
+        pydantic_settings.CliImplicitFlag[bool],
+        pydantic.Field(
+            description=(
+                "Drop every table and view in the public schema so the runner "
+                "can rebuild from scratch. Destructive: needs --yes (or --dry-run)."
+            ),
+        ),
+    ] = False
+    yes: Annotated[
+        pydantic_settings.CliImplicitFlag[bool],
+        pydantic.Field(
+            description="Confirm a destructive --reset without an interactive prompt.",
         ),
     ] = False
 
     def cli_cmd(self) -> None:
         """Entry point invoked by pydantic-settings' ``CliApp``."""
-        if self.status and (self.baseline or self.dry_run):
-            print(
-                "error: --status cannot be combined with --baseline / --dry-run",
-                file=sys.stderr,
-            )
+        conflict = flag_conflict(
+            status=self.status,
+            baseline=self.baseline,
+            dry_run=self.dry_run,
+            reset=self.reset,
+            yes=self.yes,
+        )
+        if conflict is not None:
+            print(f"error: {conflict}", file=sys.stderr)
             raise SystemExit(2)
         try:
             database_url = select_database_url(
@@ -130,7 +173,7 @@ class MigrateCli(pydantic_settings.BaseSettings):
             print(f"error: {exc}", file=sys.stderr)
             raise SystemExit(2) from exc
         try:
-            migrations = discovery.discover_migrations(VERSIONS_DIR)
+            migrations = discovery.discover_for_env(VERSIONS_DIR, self.env)
             with psycopg.connect(database_url) as conn:
                 self._dispatch(conn, migrations)
         except psycopg.Error as exc:
@@ -143,6 +186,10 @@ class MigrateCli(pydantic_settings.BaseSettings):
         migrations: list[discovery.Migration],
     ) -> None:
         """Inspect or mutate the database according to the parsed options."""
+        if self.reset:
+            self._reset(conn)
+            return
+
         runner.ensure_tracking_table(conn)
         applied = runner.applied_versions(conn)
         pending = discovery.pending_migrations(migrations, applied)
@@ -173,6 +220,18 @@ class MigrateCli(pydantic_settings.BaseSettings):
             runner.apply_migration(conn, migration)
         print(f"Applied {len(pending)} migration(s) to {self.env!r}.")
 
+    def _reset(self, conn: psycopg.Connection) -> None:
+        """Drop every table and view in the target database's public schema."""
+        if self.dry_run:
+            views, tables = runner.public_object_names(conn)
+            _print_reset(self.env, views, tables)
+            return
+        views, tables = runner.reset_public_schema(conn)
+        print(
+            f"Reset {self.env!r}: dropped {len(views)} view(s) "
+            f"and {len(tables)} table(s).",
+        )
+
 
 def _print_dry_run(
     env: str,
@@ -187,6 +246,25 @@ def _print_dry_run(
     print(f"Would {verb} {len(migrations)} migration(s) {preposition} {env!r}:")
     for migration in migrations:
         print(f"  {migration.version}_{migration.name}")
+
+
+def _print_reset(
+    env: str,
+    views: Sequence[str],
+    tables: Sequence[str],
+) -> None:
+    """Print the objects a real ``--reset`` would drop, dropping none."""
+    if not views and not tables:
+        print(f"Nothing to reset for {env!r}: public schema has no tables or views.")
+        return
+    print(
+        f"Would reset {env!r}, dropping {len(views)} view(s) "
+        f"and {len(tables)} table(s):",
+    )
+    for view in views:
+        print(f"  view  {view}")
+    for table in tables:
+        print(f"  table {table}")
 
 
 def _print_status(
