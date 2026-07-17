@@ -14,8 +14,21 @@ migrations/
   cli.py         # pydantic-settings CLI app + per-env URL selection
   discovery.py   # pure ordering / filename rules
   runner.py      # applies files, maintains schema_migrations
-  versions/      # the ordered .sql files
+  versions/      # shared .sql files, applied to every environment
+    prod/        # prod-only overlay (RLS policies)
+    testing/     # testing-only overlay (role grants)
 ```
+
+**Per-environment overlays.** Files directly in `versions/` are *shared* and
+apply to every environment. Files in `versions/prod/` or `versions/testing/`
+apply **only** when `--env` selects that environment, so a difference that must
+exist in one database but not the other (production RLS; the test database's
+role grants) still lives in a versioned, runner-applied file. Recreating a
+database from scratch is therefore just the runner: `--env prod` replays the
+shared files plus the prod overlay, `--env testing` the shared files plus the
+testing overlay. Shared files and an overlay share **one** version sequence
+(pick the next unused `NNNN` across both), so a reused number fails discovery
+loudly rather than one file silently shadowing another.
 
 The runner and its dependencies (`psycopg`, `pydantic-settings`) are **dev
 dependencies** — install them with `uv sync` (the default dev groups).
@@ -72,7 +85,9 @@ Find each connection string in that project's Supabase dashboard under
 1. Create the next file: `versions/NNNN_short_description.sql` (4-digit version,
    one higher than the latest; `lower_snake_case` name). For example, changing a
    view — the case that motivated this runner (#156) — becomes a new file with a
-   `CREATE OR REPLACE VIEW ...` statement.
+   `CREATE OR REPLACE VIEW ...` statement. For a change that must apply to only
+   one environment, put it in `versions/prod/` or `versions/testing/` instead and
+   number it from the same shared sequence (the next unused `NNNN`).
 2. Write plain SQL. Prefer idempotent statements (`CREATE OR REPLACE VIEW`,
    `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`) where practical.
 3. Apply it with `uv run poe migrate` against testing (the default), then
@@ -94,11 +109,15 @@ migrations added afterwards apply normally.
 ## What is and isn't a migration
 
 `versions/0001_initial_schema.sql` is the structural baseline: tables, foreign
-keys, and views. Two things are intentionally **not** migrations, because they
-differ per environment and are applied as one-off setup:
+keys, and views. The two environment-specific setup steps that used to live
+outside the runner are now versioned overlays (see **Per-environment overlays**
+above), so the whole database — shared schema plus its environment's specifics —
+is reproducible from the runner alone:
 
-- `../sql_stuff/enable_rls.sql` — production row-level security policies.
-- `../sql_stuff/grant_test_permissions.sql` — role grants for the RLS-free test
-  database.
+- `versions/prod/0005_enable_rls.sql` — production row-level security policies.
+- `versions/testing/0004_grant_test_permissions.sql` — role grants for the
+  RLS-free test database.
 
-`../sql_stuff/drop_tables.sql` remains a manual teardown helper.
+`../sql_stuff/drop_tables.sql` remains a manual teardown helper, and
+`../sql_stuff/create_tables.sql` is a legacy convenience snapshot — neither is
+run by the runner.

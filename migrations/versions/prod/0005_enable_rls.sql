@@ -19,10 +19,10 @@
 -- subquery is NOT self-referential and does not recurse — no SECURITY DEFINER
 -- helper is needed.
 --
--- This is a one-off setup script (per the migrations README split), not a
--- migration. It is written to be re-runnable: each policy is dropped if present
--- before being recreated, so applying it over the existing personal-only
--- policies replaces them cleanly.
+-- This is a prod-only migration (versions/prod/): RLS exists on prod but not on
+-- the RLS-free test database, so the runner applies it only for --env prod. Each
+-- policy is dropped if present before being recreated, so applying it over the
+-- personal-only policies a pre-joint database already has replaces them cleanly.
 
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bank_accounts ENABLE ROW LEVEL SECURITY;

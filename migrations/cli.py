@@ -130,7 +130,7 @@ class MigrateCli(pydantic_settings.BaseSettings):
             print(f"error: {exc}", file=sys.stderr)
             raise SystemExit(2) from exc
         try:
-            migrations = discovery.discover_migrations(VERSIONS_DIR)
+            migrations = discovery.discover_for_env(VERSIONS_DIR, self.env)
             with psycopg.connect(database_url) as conn:
                 self._dispatch(conn, migrations)
         except psycopg.Error as exc:
