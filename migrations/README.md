@@ -118,6 +118,5 @@ is reproducible from the runner alone:
 - `versions/testing/0004_grant_test_permissions.sql` — role grants for the
   RLS-free test database.
 
-`../sql_stuff/drop_tables.sql` remains a manual teardown helper, and
-`../sql_stuff/create_tables.sql` is a legacy convenience snapshot — neither is
-run by the runner.
+`../sql_stuff/drop_tables.sql` remains a manual teardown helper (drop everything,
+then rebuild with the runner); it is not run by the runner itself.
