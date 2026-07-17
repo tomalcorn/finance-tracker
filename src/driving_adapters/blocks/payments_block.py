@@ -154,6 +154,7 @@ def _build_expense_config(
                         "format_func": get_expense_source_name,
                     },
                     format_func=get_expense_source_name,
+                    required=False,
                 ),
                 frontend_models.DFEColumnConfig(
                     column_name="payment_type",
