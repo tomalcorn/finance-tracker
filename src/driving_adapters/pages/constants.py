@@ -18,3 +18,8 @@ class Pages(enum.Enum):
         title="Login",
         icon=":material/lock:",
     )
+    JOINT_DEMO = st.Page(
+        "driving_adapters/pages/joint_demo.py",
+        title="Joint RLS demo",
+        icon=":material/group:",
+    )
