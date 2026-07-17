@@ -43,11 +43,14 @@ uv run poe migrate --dry-run         # list what apply would do, change nothing
 uv run poe migrate --baseline --dry-run  # list what baseline would record
 uv run poe migrate --status          # list applied / pending, change nothing
 uv run poe migrate --baseline        # record present files as applied, run none
+uv run poe migrate --reset --dry-run # list what a reset would drop, change nothing
+uv run poe migrate --reset --yes     # DROP every table/view in public, then rebuild
 uv run poe migrate --help            # full flag list
 ```
 
-`--dry-run` is a preview modifier: on its own it previews `apply`, and combined
-with `--baseline` it previews baselining. `--status` is standalone and cannot be
+`--dry-run` is a preview modifier: on its own it previews `apply`, combined with
+`--baseline` it previews baselining, and combined with `--reset` it lists what a
+reset would drop. `--status` is standalone and cannot be
 combined with `--baseline` or `--dry-run`.
 
 ## Connecting to the database
@@ -118,6 +121,10 @@ is reproducible from the runner alone:
 - `versions/testing/0004_grant_test_permissions.sql` — role grants for the
   RLS-free test database.
 
-The runner only rolls forward — there is no down/teardown step. To rebuild a
-database from scratch, drop it (or its `public` schema) through Supabase or
-`psql`, then re-run `uv run poe migrate --env <env>`.
+Migrations only roll forward — there are no per-file down steps. To rebuild a
+database from scratch, tear it down with `uv run poe migrate --reset --yes --env
+<env>` (drops every table and view in the `public` schema, including the
+`schema_migrations` tracking table) and then re-run `uv run poe migrate --env
+<env>` to replay everything. Preview the teardown first with `--reset --dry-run`.
+`--reset` refuses to run without `--yes` (or `--dry-run`), so it cannot fire by
+accident — mind the `--env`, since it drops whichever database that selects.

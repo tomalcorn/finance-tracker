@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from psycopg import sql
+
 if TYPE_CHECKING:
     import psycopg
 
@@ -61,3 +63,52 @@ def record_migration(conn: psycopg.Connection, migration: Migration) -> None:
     """Record a migration as applied WITHOUT running its SQL (baselining)."""
     with conn.transaction(), conn.cursor() as cur:
         cur.execute(_INSERT_VERSION_IF_ABSENT, (migration.version, migration.name))
+
+
+_SELECT_VIEWS = (
+    "SELECT table_name FROM information_schema.views "
+    "WHERE table_schema = 'public' ORDER BY table_name;"
+)
+
+_SELECT_TABLES = (
+    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
+)
+
+
+def public_object_names(conn: psycopg.Connection) -> tuple[list[str], list[str]]:
+    """Return the ``(views, tables)`` currently in the ``public`` schema.
+
+    Both lists are ordered by name. Used to preview a reset and to drive the
+    drop itself, so the teardown carries no hard-coded schema knowledge.
+    """
+    with conn.cursor() as cur:
+        cur.execute(_SELECT_VIEWS)
+        views = [row[0] for row in cur.fetchall()]
+        cur.execute(_SELECT_TABLES)
+        tables = [row[0] for row in cur.fetchall()]
+    return views, tables
+
+
+def reset_public_schema(conn: psycopg.Connection) -> tuple[list[str], list[str]]:
+    """Drop every view and table in the ``public`` schema, atomically.
+
+    This includes the ``schema_migrations`` tracking table, so a subsequent
+    apply replays every migration from scratch. Destructive and irreversible;
+    the CLI gates it behind an explicit confirmation. Returns the ``(views,
+    tables)`` that were dropped.
+    """
+    views, tables = public_object_names(conn)
+    with conn.transaction(), conn.cursor() as cur:
+        for view in views:
+            cur.execute(
+                sql.SQL("DROP VIEW IF EXISTS public.{} CASCADE;").format(
+                    sql.Identifier(view),
+                ),
+            )
+        for table in tables:
+            cur.execute(
+                sql.SQL("DROP TABLE IF EXISTS public.{} CASCADE;").format(
+                    sql.Identifier(table),
+                ),
+            )
+    return views, tables
