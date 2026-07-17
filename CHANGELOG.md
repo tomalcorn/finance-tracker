@@ -1,3 +1,9 @@
+## v0.8.0 (2026-07-17)
+
+### Feat
+
+- **rls**: joint-aware RLS policies + ownership constraint (#174) (#187)
+
 ## v0.7.1 (2026-07-17)
 
 ### Fix
