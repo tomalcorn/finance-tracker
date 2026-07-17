@@ -1,3 +1,9 @@
+## v0.7.1 (2026-07-17)
+
+### Fix
+
+- **payments**: allow expense entry without an expense source (#186) (#188)
+
 ## v0.7.0 (2026-07-14)
 
 ### Feat
