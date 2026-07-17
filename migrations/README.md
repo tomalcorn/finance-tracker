@@ -118,5 +118,6 @@ is reproducible from the runner alone:
 - `versions/testing/0004_grant_test_permissions.sql` — role grants for the
   RLS-free test database.
 
-`../sql_stuff/drop_tables.sql` remains a manual teardown helper (drop everything,
-then rebuild with the runner); it is not run by the runner itself.
+The runner only rolls forward — there is no down/teardown step. To rebuild a
+database from scratch, drop it (or its `public` schema) through Supabase or
+`psql`, then re-run `uv run poe migrate --env <env>`.
