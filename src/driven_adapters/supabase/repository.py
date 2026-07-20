@@ -282,6 +282,63 @@ def subscription_repository(
     )
 
 
+def joint_account_repository(
+    user_id: str,
+    cache: "cache_mod.CacheGateway",
+    connection: "st_supabase_connection.SupabaseConnection",
+) -> SupabaseRepository[entities.JointAccountModel, read_models.JointAccountView]:
+    """Build the joint-accounts repository.
+
+    RLS scopes ``joint_accounts`` to the accounts the caller belongs to, so
+    ``get_all`` answers "which joint accounts do I share" and ``save`` creates
+    one. Like payments, joint accounts have no SQL view, so reads hit the raw
+    table. The plain ``Repository`` surface (read + insert) covers what the joint
+    use cases need, so no narrower named port is introduced here; a filtered read
+    such as "members of this account" is added as an explicit method when a use
+    case needs it, never as a generic filter argument.
+    """
+    return SupabaseRepository(
+        user_id,
+        RepoSpec(
+            parse=entities.JointAccountModel.model_validate,
+            view_model=read_models.JointAccountView,
+            read_table=table_names.TableNames.JOINT_ACCOUNTS,
+            write_table=table_names.TableNames.JOINT_ACCOUNTS,
+        ),
+        cache,
+        connection,
+    )
+
+
+def joint_account_member_repository(
+    user_id: str,
+    cache: "cache_mod.CacheGateway",
+    connection: "st_supabase_connection.SupabaseConnection",
+) -> SupabaseRepository[
+    entities.JointAccountMemberModel,
+    read_models.JointAccountMemberView,
+]:
+    """Build the joint-account membership repository.
+
+    Membership is read + insert: ``get_all`` lists the caller's own membership
+    rows (RLS on ``joint_account_members`` is own-rows-only) and ``save`` adds
+    one. No SQL view, so reads hit the raw table. Inserting a *co-member's* row
+    is blocked by that same RLS ``WITH CHECK`` on the app connection and belongs
+    to the privileged create/invite flow (T6), not this plumbing.
+    """
+    return SupabaseRepository(
+        user_id,
+        RepoSpec(
+            parse=entities.JointAccountMemberModel.model_validate,
+            view_model=read_models.JointAccountMemberView,
+            read_table=table_names.TableNames.JOINT_ACCOUNT_MEMBERS,
+            write_table=table_names.TableNames.JOINT_ACCOUNT_MEMBERS,
+        ),
+        cache,
+        connection,
+    )
+
+
 def payment_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
