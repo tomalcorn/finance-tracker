@@ -1,6 +1,5 @@
 """Use case for recording a contribution from a personal account to a joint one."""
 
-import datetime
 from typing import TYPE_CHECKING
 
 from domain import entities
@@ -8,6 +7,7 @@ from ports import errors as port_errors
 from use_cases import errors
 
 if TYPE_CHECKING:
+    import datetime
     import uuid
 
     from ports import repository
@@ -58,7 +58,7 @@ class ContributeToJointUseCase:
         amount: float,
         from_bank_account_id: "uuid.UUID",
         to_bank_account_id: "uuid.UUID",
-        payment_date: datetime.date | None = None,
+        payment_date: "datetime.date",
     ) -> None:
         """Record a contribution to the user's joint account.
 
@@ -66,7 +66,7 @@ class ContributeToJointUseCase:
             amount: The amount contributed. Must be greater than zero.
             from_bank_account_id: The personal bank account the money leaves.
             to_bank_account_id: The joint bank account the money arrives in.
-            payment_date: The date of both legs. Defaults to today.
+            payment_date: The date of both legs.
 
         Raises:
             ContributionAmountError: If ``amount`` is not greater than zero.
@@ -81,16 +81,15 @@ class ContributeToJointUseCase:
         if amount <= 0:
             raise errors.ContributionAmountError(amount)
 
-        date = payment_date or datetime.datetime.now(tz=datetime.UTC).date()
         account = self._resolve_joint_account()
         expense_source_id = self._resolve_joint_expense_source()
-        name = f"Joint: {account.name}" if account.name else "Joint contribution"
+        name = f"Joint: {account.name}"
 
         expense = entities.ExpensePaymentModel(
             user_id=self._user_id,
             name=name,
             expense=amount,
-            payment_date=date,
+            payment_date=payment_date,
             bank_account_id=from_bank_account_id,
             expense_source_id=expense_source_id,
         )
@@ -98,7 +97,7 @@ class ContributeToJointUseCase:
             user_id=self._user_id,
             name=name,
             income=amount,
-            payment_date=date,
+            payment_date=payment_date,
             bank_account_id=to_bank_account_id,
             ownership_type=entities.OwnershipType.JOINT,
             joint_account_id=account.id,

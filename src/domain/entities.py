@@ -262,8 +262,8 @@ class JointAccountModel(pydantic.BaseModel):
     )
     name: Annotated[
         str,
-        pydantic.Field(description="The name of the joint account."),
-    ] = ""
+        pydantic.Field(description="The name of the joint account.", min_length=1),
+    ]
 
 
 class JointAccountMemberModel(pydantic.BaseModel):
