@@ -1,3 +1,9 @@
+## v0.9.0 (2026-07-21)
+
+### Feat
+
+- **joint**: driven-adapter plumbing for joint accounts + membership (#175) (#189)
+
 ## v0.8.0 (2026-07-17)
 
 ### Feat
