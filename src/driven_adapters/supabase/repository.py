@@ -41,22 +41,26 @@ class RepoSpec[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]:
     view_model: type[ViewT]
     read_table: table_names.ViewNames | table_names.TableNames
     write_table: table_names.TableNames
-    scoped_to_user: bool = False
 
 
 class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel](
     repository.Repository[EntityT],
 ):
-    """Read and write one aggregate through the injected cache gateway.
+    """Read and write one aggregate, in one ownership mode, through the cache.
 
-    The cache is shared across sessions and keyed per slice. A user's personal
-    rows live under ``{user_id}:{table}``; joint rows live under
-    ``joint:{account_id}:{table}``, a key every member of the account shares, so
-    one member's joint write busts the same entry the other member reads. RLS
-    scopes each DB read, and the slice filters keep personal and joint rows in
-    their own entries. A ``scoped_to_user`` aggregate discovers the user's joint
-    accounts itself (a cache-backed read of ``joint_accounts``) rather than being
-    handed them, so composition wires it with nothing but the shared deps.
+    ``ownership`` selects what the repository sees and where it caches:
+
+    * ``PERSONAL`` — the user's personal rows, keyed ``{user_id}:{table}``.
+    * ``JOINT`` — the joint rows of the user's joint account, keyed
+      ``joint:{account_id}:{table}``. That key is derived from the account, not
+      the user, so **every member computes the same key**: one member's joint
+      write busts exactly the entry the other member reads.
+    * ``None`` — no ownership dimension (the two joint tables), keyed
+      ``{user_id}:{table}`` with no filter.
+
+    RLS already restricts every read to rows the user may see, so the mode
+    filter only narrows that to the half being displayed; the account id is
+    needed for the cache key, not for the query.
     """
 
     def __init__(
@@ -65,44 +69,29 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         spec: "RepoSpec[EntityT, ViewT]",
         cache: "cache_mod.CacheGateway",
         connection: "st_supabase_connection.SupabaseConnection",
+        ownership: entities.OwnershipType | None = None,
     ) -> None:
-        """Bind the repository to a user, its spec, the cache, and a connection."""
+        """Bind the repository to a user, spec, cache, connection and mode."""
         self._user_id = user_id
         self._spec = spec
         self._cache = cache
         self._connection = connection
-        self._memo_joint_account_ids: frozenset[uuid.UUID] | None = None
+        self._ownership = ownership
+        self._account_id: uuid.UUID | None = None
+        self._account_loaded = False
 
-    def _personal_key(
-        self,
-        table: "table_names.ViewNames | table_names.TableNames",
-    ) -> str:
-        """Return the user-scoped cache key for a table or view."""
-        return f"{self._user_id}:{table}"
+    def _joint_account_id(self) -> "uuid.UUID | None":
+        """Return the user's joint account id, or None if they have none.
 
-    def _joint_key(
-        self,
-        account_id: "uuid.UUID",
-        table: "table_names.ViewNames | table_names.TableNames",
-    ) -> str:
-        """Return the account-scoped cache key shared by an account's members."""
-        return f"joint:{account_id}:{table}"
-
-    def _joint_account_ids(self) -> "frozenset[uuid.UUID]":
-        """Return the joint accounts the current user belongs to.
-
-        Empty for a non-``scoped_to_user`` aggregate. Otherwise a cache-backed
-        read of ``joint_accounts`` (RLS scopes it to the user's accounts), keyed
-        ``{user_id}:joint_accounts`` — the same entry the joint-accounts repo
-        fills, so it is fetched once per session and shared. Memoised on the
-        instance so the read and write paths agree within one repository.
+        A user belongs to at most one joint account, so this is a single id. It
+        is read through the cache under ``{user_id}:joint_accounts`` — the entry
+        the joint-accounts repo also fills, so it costs one fetch per session —
+        and memoised so a repository's read and write paths agree.
         """
-        if not self._spec.scoped_to_user:
-            return frozenset()
-        if self._memo_joint_account_ids is None:
+        if not self._account_loaded:
             accounts = table_names.TableNames.JOINT_ACCOUNTS
             rows = self._cache.get_from_or_load_cache(
-                self._personal_key(accounts),
+                f"{self._user_id}:{accounts}",
                 functools.partial(
                     client.fetch_table,
                     str(accounts),
@@ -110,38 +99,33 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
                     self._connection,
                 ),
             )
-            self._memo_joint_account_ids = frozenset(
-                uuid.UUID(str(row["id"])) for row in rows
-            )
-        return self._memo_joint_account_ids
+            self._account_id = uuid.UUID(str(rows[0]["id"])) if rows else None
+            self._account_loaded = True
+        return self._account_id
 
-    def _read_slices(self) -> "list[tuple[str, dict[str, str]]]":
-        """Return the ``(cache_key, eq_filters)`` slices that form a full read.
+    def _cache_key(
+        self,
+        table: "table_names.ViewNames | table_names.TableNames",
+    ) -> str | None:
+        """Return this mode's cache key for a table or view.
 
-        A non-``scoped_to_user`` aggregate is a single unfiltered whole-table
-        read under the user key. A ``scoped_to_user`` one is the user's personal
-        slice plus one joint slice per account they belong to, each filtered so
-        its cache entry holds only that slice's rows.
+        ``None`` when the repository is joint but the user has no joint account,
+        which is the same thing as having no rows to read or invalidate.
         """
-        table = self._spec.read_table
-        if not self._spec.scoped_to_user:
-            return [(self._personal_key(table), {})]
-        personal = entities.OwnershipType.PERSONAL
-        joint = entities.OwnershipType.JOINT
-        slices: list[tuple[str, dict[str, str]]] = [
-            (self._personal_key(table), {"ownership_type": personal}),
-        ]
-        slices.extend(
-            (
-                self._joint_key(account_id, table),
-                {"ownership_type": joint, "joint_account_id": str(account_id)},
-            )
-            for account_id in self._joint_account_ids()
-        )
-        return slices
+        if self._ownership is not entities.OwnershipType.JOINT:
+            return f"{self._user_id}:{table}"
+        account_id = self._joint_account_id()
+        return None if account_id is None else f"joint:{account_id}:{table}"
+
+    def _eq_filters(self) -> dict[str, str]:
+        """Return the equality filter selecting this mode's rows."""
+        if self._ownership is None:
+            return {}
+        filters: dict[str, str] = {"ownership_type": self._ownership}
+        return filters
 
     def _load_rows(self, eq_filters: dict[str, str]) -> list[entities.JsonDict]:
-        """Fetch one slice's rows from Supabase (a cache-miss loader)."""
+        """Fetch this mode's rows from Supabase (a cache-miss loader)."""
         return client.fetch_table(
             str(self._spec.read_table),
             "*",
@@ -150,19 +134,17 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         )
 
     def _fetch_rows(self) -> list[entities.JsonDict]:
-        rows: list[entities.JsonDict] = []
         try:
-            for key, eq_filters in self._read_slices():
-                rows.extend(
-                    self._cache.get_from_or_load_cache(
-                        key,
-                        functools.partial(self._load_rows, eq_filters),
-                    ),
-                )
+            key = self._cache_key(self._spec.read_table)
+            if key is None:
+                return []
+            return self._cache.get_from_or_load_cache(
+                key,
+                functools.partial(self._load_rows, self._eq_filters()),
+            )
         except adapter_errors.AdapterError as e:
             msg = f"Failed to fetch rows from {self._spec.read_table}: {e}"
             raise errors.RepositoryError(msg) from e
-        return rows
 
     def _fetch_by_ids(self, ids: list["uuid.UUID"]) -> list[entities.JsonDict]:
         id_strs = {str(i) for i in ids}
@@ -172,21 +154,14 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         """Return the cache keys a write to this aggregate busts.
 
         The written table plus every view that depends on it (Supabase schema
-        knowledge that belongs on the driven side), each under the user's
-        personal key and — for a ``scoped_to_user`` aggregate — under the joint
-        key of every account the user belongs to. Busting a purely-personal
-        write's joint keys too is a cheap over-invalidation that avoids
-        inspecting each written row's ownership.
+        knowledge that belongs on the driven side), each under this repository's
+        own key. A repository only ever writes rows of its own ownership, so it
+        only ever has to bust its own entries — and because a joint key is
+        derived from the account, busting it reaches every member of it.
         """
         views = table_names.VIEWS_AFFECTED_BY.get(self._spec.write_table, [])
-        tables = (self._spec.write_table, *views)
-        keys = [self._personal_key(t) for t in tables]
-        keys.extend(
-            self._joint_key(account_id, t)
-            for account_id in self._joint_account_ids()
-            for t in tables
-        )
-        return keys
+        keys = (self._cache_key(t) for t in (self._spec.write_table, *views))
+        return [key for key in keys if key is not None]
 
     def get_all(self) -> list[EntityT]:
         """Return all records for the current user."""
@@ -261,6 +236,7 @@ def bank_account_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
     connection: "st_supabase_connection.SupabaseConnection",
+    ownership: entities.OwnershipType,
 ) -> SupabaseRepository[entities.BankAccountModel, read_models.BankAccountView]:
     """Build the bank-accounts repository."""
     return SupabaseRepository(
@@ -270,10 +246,10 @@ def bank_account_repository(
             view_model=read_models.BankAccountView,
             read_table=table_names.ViewNames.BANK_ACCOUNTS,
             write_table=table_names.TableNames.BANK_ACCOUNTS,
-            scoped_to_user=True,
         ),
         cache,
         connection,
+        ownership,
     )
 
 
@@ -281,6 +257,7 @@ def budget_tracker_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
     connection: "st_supabase_connection.SupabaseConnection",
+    ownership: entities.OwnershipType,
 ) -> SupabaseRepository[entities.BudgetTrackerItemModel, read_models.BudgetTrackerView]:
     """Build the budget-tracker repository."""
     return SupabaseRepository(
@@ -290,10 +267,10 @@ def budget_tracker_repository(
             view_model=read_models.BudgetTrackerView,
             read_table=table_names.ViewNames.BUDGET_TRACKER,
             write_table=table_names.TableNames.BUDGET_TRACKER,
-            scoped_to_user=True,
         ),
         cache,
         connection,
+        ownership,
     )
 
 
@@ -301,6 +278,7 @@ def expense_source_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
     connection: "st_supabase_connection.SupabaseConnection",
+    ownership: entities.OwnershipType,
 ) -> SupabaseRepository[entities.ExpenseSourceModel, read_models.ExpenseSourceView]:
     """Build the expense-sources repository."""
     return SupabaseRepository(
@@ -310,10 +288,10 @@ def expense_source_repository(
             view_model=read_models.ExpenseSourceView,
             read_table=table_names.ViewNames.EXPENSE_SOURCES,
             write_table=table_names.TableNames.EXPENSE_SOURCES,
-            scoped_to_user=True,
         ),
         cache,
         connection,
+        ownership,
     )
 
 
@@ -321,6 +299,7 @@ def income_source_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
     connection: "st_supabase_connection.SupabaseConnection",
+    ownership: entities.OwnershipType,
 ) -> SupabaseRepository[entities.IncomeSourceModel, read_models.IncomeSourceView]:
     """Build the income-sources repository."""
     return SupabaseRepository(
@@ -330,10 +309,10 @@ def income_source_repository(
             view_model=read_models.IncomeSourceView,
             read_table=table_names.ViewNames.INCOME_SOURCES,
             write_table=table_names.TableNames.INCOME_SOURCES,
-            scoped_to_user=True,
         ),
         cache,
         connection,
+        ownership,
     )
 
 
@@ -341,6 +320,7 @@ def one_off_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
     connection: "st_supabase_connection.SupabaseConnection",
+    ownership: entities.OwnershipType,
 ) -> SupabaseRepository[entities.OneOffItemModel, read_models.OneOffView]:
     """Build the one-offs repository."""
     return SupabaseRepository(
@@ -350,10 +330,10 @@ def one_off_repository(
             view_model=read_models.OneOffView,
             read_table=table_names.ViewNames.ONE_OFFS,
             write_table=table_names.TableNames.ONE_OFFS,
-            scoped_to_user=True,
         ),
         cache,
         connection,
+        ownership,
     )
 
 
@@ -361,6 +341,7 @@ def subscription_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
     connection: "st_supabase_connection.SupabaseConnection",
+    ownership: entities.OwnershipType,
 ) -> SupabaseRepository[entities.SubscriptionModel, read_models.SubscriptionView]:
     """Build the subscriptions repository."""
     return SupabaseRepository(
@@ -370,10 +351,10 @@ def subscription_repository(
             view_model=read_models.SubscriptionView,
             read_table=table_names.ViewNames.SUBSCRIPTIONS,
             write_table=table_names.TableNames.SUBSCRIPTIONS,
-            scoped_to_user=True,
         ),
         cache,
         connection,
+        ownership,
     )
 
 
@@ -438,6 +419,7 @@ def payment_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
     connection: "st_supabase_connection.SupabaseConnection",
+    ownership: entities.OwnershipType,
 ) -> SupabaseRepository[entities.AnyPaymentModel, read_models.PaymentView]:
     """Build the payments repository.
 
@@ -452,8 +434,8 @@ def payment_repository(
             view_model=read_models.PaymentView,
             read_table=table_names.TableNames.PAYMENTS,
             write_table=table_names.TableNames.PAYMENTS,
-            scoped_to_user=True,
         ),
         cache,
         connection,
+        ownership,
     )

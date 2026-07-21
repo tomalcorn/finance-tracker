@@ -20,6 +20,8 @@ from driving_adapters import cache as ui_cache
 from ports import errors
 
 _USER_ID = "auth0|test-user-123"
+_PERSONAL = entities.OwnershipType.PERSONAL
+_JOINT = entities.OwnershipType.JOINT
 _CONN = mock.MagicMock(spec=st_supabase_connection.SupabaseConnection)
 
 # The key an ownership-scoped repo reads to discover the user's joint accounts.
@@ -112,7 +114,12 @@ class TestGetAll:
     def test_parses_served_rows_into_entities(self) -> None:
         # Arrange
         rows = [_bank_view_row(name="Mine"), _bank_view_row(name="Also mine")]
-        repo = repository.bank_account_repository(_USER_ID, FakeCache(rows), _CONN)
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache(rows),
+            _CONN,
+            _PERSONAL,
+        )
 
         # Act
         result = repo.get_all()
@@ -123,7 +130,7 @@ class TestGetAll:
     def test_reads_use_a_user_scoped_cache_key(self) -> None:
         # Arrange
         cache = FakeCache([_bank_view_row()])
-        repo = repository.bank_account_repository(_USER_ID, cache, _CONN)
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN, _PERSONAL)
 
         # Act
         repo.get_all()
@@ -140,6 +147,7 @@ class TestGetAll:
             _USER_ID,
             FakeCache(fetch_error=boom),
             _CONN,
+            _PERSONAL,
         )
 
         # Act
@@ -161,6 +169,7 @@ class TestGetAll:
             _USER_ID,
             FakeCache(fetch_error=KeyError("id")),
             _CONN,
+            _PERSONAL,
         )
 
         # Act / Assert
@@ -176,7 +185,12 @@ class TestGetByIds:
             _bank_view_row(row_id=wanted, name="Wanted"),
             _bank_view_row(name="Other"),
         ]
-        repo = repository.bank_account_repository(_USER_ID, FakeCache(rows), _CONN)
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache(rows),
+            _CONN,
+            _PERSONAL,
+        )
 
         # Act
         result = repo.get_by_ids([wanted])
@@ -195,7 +209,12 @@ class TestRows:
         # Arrange
         balance = 999.0
         row = _bank_view_row(current_balance=balance)
-        repo = repository.bank_account_repository(_USER_ID, FakeCache([row]), _CONN)
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache([row]),
+            _CONN,
+            _PERSONAL,
+        )
 
         # Act
         result = repo.rows()
@@ -212,7 +231,12 @@ class TestUniqueValues:
             {"user_id": _USER_ID, "name": "A", "note": None},
             {"user_id": _USER_ID, "name": "B", "note": "y"},
         ]
-        repo = repository.bank_account_repository(_USER_ID, FakeCache(rows), _CONN)
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache(rows),
+            _CONN,
+            _PERSONAL,
+        )
 
         # Act / Assert
         assert all(
@@ -228,7 +252,12 @@ class TestUniqueValues:
             {"user_id": _USER_ID, "budget_tracker_ids": ["a", "b"]},
             {"user_id": _USER_ID, "budget_tracker_ids": ["b", "c"]},
         ]
-        repo = repository.income_source_repository(_USER_ID, FakeCache(rows), _CONN)
+        repo = repository.income_source_repository(
+            _USER_ID,
+            FakeCache(rows),
+            _CONN,
+            _PERSONAL,
+        )
 
         # Act
         result = repo.unique_values("budget_tracker_ids")
@@ -242,30 +271,13 @@ class TestUniqueValues:
 # ---------------------------------------------------------------------------
 
 
-class TestOwnershipScopedSlices:
-    """Ownership-scoped reads split into a personal slice + per-account joint slices."""
+class TestOwnershipModes:
+    """A repository reads and writes one ownership mode: personal or joint."""
 
-    def test_reads_request_personal_then_joint_slice_keys(self) -> None:
-        # Arrange - the user belongs to one joint account, discovered via the
-        # joint_accounts cache key rather than being passed in
-        account = uuid.uuid4()
-        cache = KeyedFakeCache({_JOINT_ACCOUNTS_KEY: [{"id": str(account)}]})
-        repo = repository.bank_account_repository(_USER_ID, cache, _CONN)
-
-        # Act
-        repo.get_all()
-
-        # Assert - personal slice first, then the account's joint slice
-        view = table_names.ViewNames.BANK_ACCOUNTS
-        assert cache.requested_keys == [
-            f"{_USER_ID}:{view}",
-            f"joint:{account}:{view}",
-        ]
-
-    def test_a_personal_only_user_reads_just_the_user_key(self) -> None:
-        # Arrange - no joint accounts, so no joint slices (today's behaviour)
+    def test_personal_reads_use_the_user_key(self) -> None:
+        # Arrange
         cache = FakeCache([_bank_view_row()])
-        repo = repository.bank_account_repository(_USER_ID, cache, _CONN)
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN, _PERSONAL)
 
         # Act
         repo.get_all()
@@ -275,32 +287,62 @@ class TestOwnershipScopedSlices:
             f"{_USER_ID}:{table_names.ViewNames.BANK_ACCOUNTS}",
         ]
 
-    def test_get_all_merges_personal_and_joint_slice_rows(self) -> None:
-        # Arrange - each slice key serves its own rows
-        account = uuid.uuid4()
-        view = table_names.ViewNames.BANK_ACCOUNTS
-        cache = KeyedFakeCache(
-            {
-                _JOINT_ACCOUNTS_KEY: [{"id": str(account)}],
-                f"{_USER_ID}:{view}": [_bank_view_row(name="Personal")],
-                f"joint:{account}:{view}": [
-                    _bank_view_row(
-                        name="Joint",
-                        ownership_type=entities.OwnershipType.JOINT,
-                        joint_account_id=account,
-                    ),
-                ],
-            },
+    def test_personal_reads_filter_to_personal_rows(self) -> None:
+        # Arrange
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache(),
+            _CONN,
+            _PERSONAL,
         )
-        repo = repository.bank_account_repository(_USER_ID, cache, _CONN)
+
+        # Act
+        filters = repo._eq_filters()
+
+        # Assert
+        assert filters == {"ownership_type": _PERSONAL}
+
+    def test_joint_reads_use_the_account_key_not_the_user_key(self) -> None:
+        # Arrange - the account is discovered through the joint_accounts key
+        account = uuid.uuid4()
+        cache = KeyedFakeCache({_JOINT_ACCOUNTS_KEY: [{"id": str(account)}]})
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN, _JOINT)
+
+        # Act
+        repo.get_all()
+
+        # Assert - keyed by account, so both members land on the same entry
+        assert cache.requested_keys == [
+            f"joint:{account}:{table_names.ViewNames.BANK_ACCOUNTS}",
+        ]
+
+    def test_joint_reads_filter_to_joint_rows(self) -> None:
+        # Arrange
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            KeyedFakeCache({}),
+            _CONN,
+            _JOINT,
+        )
+
+        # Act
+        filters = repo._eq_filters()
+
+        # Assert - RLS already limits to the user's account, so mode is enough
+        assert filters == {"ownership_type": _JOINT}
+
+    def test_joint_repo_reads_nothing_when_the_user_has_no_account(self) -> None:
+        # Arrange - no joint account rows for this user
+        cache = KeyedFakeCache({})
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN, _JOINT)
 
         # Act
         result = repo.get_all()
 
         # Assert
-        assert {model.name for model in result} == {"Personal", "Joint"}
+        assert result == []
 
-    def test_write_busts_the_accounts_joint_slice_key(self) -> None:
+    def test_joint_write_busts_the_shared_account_key(self) -> None:
         # Arrange - a spec-less connection so the write chain (.table().insert())
         # is a no-op; the write path then reaches cache invalidation.
         account = uuid.uuid4()
@@ -309,9 +351,10 @@ class TestOwnershipScopedSlices:
             _USER_ID,
             cache,
             mock.MagicMock(),
+            _JOINT,
         )
 
-        # Act - any write fans invalidation out to the user's joint keys
+        # Act
         repo.apply(entities.BackendUpdates(added_rows=[_bank_view_row()]))
 
         # Assert - the shared joint key is busted, so co-members refresh
@@ -319,6 +362,22 @@ class TestOwnershipScopedSlices:
             f"joint:{account}:{table_names.TableNames.BANK_ACCOUNTS}"
             in cache.invalidated
         )
+
+    def test_personal_write_leaves_joint_keys_alone(self) -> None:
+        # Arrange
+        cache = FakeCache([_bank_view_row()])
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            cache,
+            mock.MagicMock(),
+            _PERSONAL,
+        )
+
+        # Act
+        repo.apply(entities.BackendUpdates(added_rows=[_bank_view_row()]))
+
+        # Assert - a personal write only ever touches user-scoped keys
+        assert not any(key.startswith("joint:") for key in cache.invalidated)
 
 
 class TestCrossMemberStaleness:
@@ -328,14 +387,13 @@ class TestCrossMemberStaleness:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        # Arrange - real cross-session cache; count joint-slice loads by filter
+        # Arrange - real cross-session cache; count joint reads by filter. RLS
+        # already limits each member to their own account, so the mode is the
+        # whole filter; the account only shows up in the cache key.
         ui_cache._get_data_cached.clear()
         ui_cache._key_versions.clear()
         account = uuid.uuid4()
-        joint_filter = {
-            "ownership_type": "joint",
-            "joint_account_id": str(account),
-        }
+        joint_filter: dict[str, str] = {"ownership_type": _JOINT}
         loads: list[dict[str, str]] = []
 
         def _fake_fetch(
@@ -356,8 +414,18 @@ class TestCrossMemberStaleness:
         # served by the patched fetch_table, so the connection is otherwise unused.
         write_conn = mock.MagicMock()
         shared_cache = ui_cache.StreamlitCache()
-        repo_a = repository.payment_repository("auth0|a", shared_cache, write_conn)
-        repo_b = repository.payment_repository("auth0|b", shared_cache, write_conn)
+        repo_a = repository.payment_repository(
+            "auth0|a",
+            shared_cache,
+            write_conn,
+            _JOINT,
+        )
+        repo_b = repository.payment_repository(
+            "auth0|b",
+            shared_cache,
+            write_conn,
+            _JOINT,
+        )
 
         # Act - B warms its read, A writes a joint row, B reads again
         repo_b.get_all()
@@ -390,6 +458,7 @@ class TestPaymentRepository:
             _USER_ID,
             FakeCache([expense, income]),
             _CONN,
+            _PERSONAL,
         )
 
         # Act

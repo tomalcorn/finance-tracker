@@ -32,6 +32,7 @@ def _bank_repo(
         _USER_ID,
         cache.StreamlitCache(),
         connection,
+        entities.OwnershipType.PERSONAL,
     )
 
 
