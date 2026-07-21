@@ -12,6 +12,8 @@ from driving_adapters import cache as ui_cache
 from use_cases import bank_one_offs, initialise_workspace, reconcile_subscriptions
 
 if TYPE_CHECKING:
+    import uuid
+
     from domain import entities, read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
     from ports import authentication, repository
@@ -28,13 +30,43 @@ def authenticator() -> "authentication.Authenticator":
     return supabase_auth.SupabaseAuthenticator(_connection(), jwt_secret)
 
 
-def _repo_deps() -> tuple[
+def _base_deps() -> tuple[
     str,
     ui_cache.StreamlitCache,
     st_supabase_connection.SupabaseConnection,
 ]:
     """Return the (user_id, cache, connection) triple every repo factory needs."""
     return auth.get_current_user(), ui_cache.StreamlitCache(), _connection()
+
+
+def _joint_account_ids(
+    user_id: str,
+    cache: ui_cache.StreamlitCache,
+    connection: st_supabase_connection.SupabaseConnection,
+) -> "frozenset[uuid.UUID]":
+    """Return the joint accounts the current user belongs to (RLS-scoped).
+
+    Sourced from the joint-accounts repository, whose RLS view is already the
+    user's accounts; the read is cache-backed under the user's joint_accounts
+    key. Drives the ownership-scoped repos' joint read/invalidation slices.
+    """
+    accounts = supabase_repos.joint_account_repository(
+        user_id,
+        cache,
+        connection,
+    ).get_all()
+    return frozenset(account.id for account in accounts)
+
+
+def _repo_deps() -> tuple[
+    str,
+    ui_cache.StreamlitCache,
+    st_supabase_connection.SupabaseConnection,
+    "frozenset[uuid.UUID]",
+]:
+    """Return the (user_id, cache, connection, joint_account_ids) owned repos need."""
+    user_id, cache, connection = _base_deps()
+    return user_id, cache, connection, _joint_account_ids(user_id, cache, connection)
 
 
 def bank_account_data_source() -> "data_source_mod.GridDataSource":
@@ -73,15 +105,19 @@ def subscription_data_source() -> "data_source_mod.GridDataSource":
 
 
 def joint_account_repository() -> "repository.Repository[entities.JointAccountModel]":
-    """Repository for the joint accounts the current user belongs to."""
-    return supabase_repos.joint_account_repository(*_repo_deps())
+    """Repository for the joint accounts the current user belongs to.
+
+    Uses the base deps (no joint-account-id slices): joint_accounts has no
+    ownership dimension, and this repo is itself the source of those ids.
+    """
+    return supabase_repos.joint_account_repository(*_base_deps())
 
 
 def joint_account_member_repository() -> (
     "repository.Repository[entities.JointAccountMemberModel]"
 ):
     """Repository for the current user's joint-account memberships."""
-    return supabase_repos.joint_account_member_repository(*_repo_deps())
+    return supabase_repos.joint_account_member_repository(*_base_deps())
 
 
 def bank_account_views() -> "list[read_models.BankAccountView]":
@@ -122,49 +158,30 @@ def reconcile_subscriptions_use_case() -> (
     reconcile_subscriptions.ReconcileSubscriptionsUseCase
 ):
     """Build ReconcileSubscriptionsUseCase wired to Supabase repositories."""
-    user_id, cache, connection = _repo_deps()
+    deps = _repo_deps()
     return reconcile_subscriptions.ReconcileSubscriptionsUseCase(
-        subscription_repo=supabase_repos.subscription_repository(
-            user_id,
-            cache,
-            connection,
-        ),
-        payment_repo=supabase_repos.payment_repository(user_id, cache, connection),
+        subscription_repo=supabase_repos.subscription_repository(*deps),
+        payment_repo=supabase_repos.payment_repository(*deps),
     )
 
 
 def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUseCase:
     """Build InitialiseUserWorkspaceUseCase wired to Supabase repositories."""
-    user_id, cache, connection = _repo_deps()
+    deps = _repo_deps()
+    user_id = deps[0]
     return initialise_workspace.InitialiseUserWorkspaceUseCase(
         user_id=user_id,
-        budget_tracker_repo=supabase_repos.budget_tracker_repository(
-            user_id,
-            cache,
-            connection,
-        ),
-        expense_source_repo=supabase_repos.expense_source_repository(
-            user_id,
-            cache,
-            connection,
-        ),
+        budget_tracker_repo=supabase_repos.budget_tracker_repository(*deps),
+        expense_source_repo=supabase_repos.expense_source_repository(*deps),
     )
 
 
 def bank_one_offs_use_case() -> bank_one_offs.BankOneOffsUseCase:
     """Build BankOneOffsUseCase wired to Supabase repositories."""
-    user_id, cache, connection = _repo_deps()
+    deps = _repo_deps()
     return bank_one_offs.BankOneOffsUseCase(
-        one_off_repo=supabase_repos.one_off_repository(user_id, cache, connection),
-        budget_tracker_repo=supabase_repos.budget_tracker_repository(
-            user_id,
-            cache,
-            connection,
-        ),
-        expense_source_repo=supabase_repos.expense_source_repository(
-            user_id,
-            cache,
-            connection,
-        ),
-        payment_repo=supabase_repos.payment_repository(user_id, cache, connection),
+        one_off_repo=supabase_repos.one_off_repository(*deps),
+        budget_tracker_repo=supabase_repos.budget_tracker_repository(*deps),
+        expense_source_repo=supabase_repos.expense_source_repository(*deps),
+        payment_repo=supabase_repos.payment_repository(*deps),
     )

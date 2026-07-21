@@ -16,6 +16,7 @@ import st_supabase_connection
 from domain import entities, read_models
 from driven_adapters import errors as adapter_errors
 from driven_adapters.supabase import repository, table_names
+from driving_adapters import cache as ui_cache
 from ports import errors
 
 _USER_ID = "auth0|test-user-123"
@@ -51,13 +52,15 @@ class FakeCache:
         self.invalidated.extend(keys)
 
 
-def _bank_view_row(
+def _bank_view_row(  # noqa: PLR0913 - keyword-only test row builder; each field is an independent knob
     *,
     user_id: str = _USER_ID,
     row_id: uuid.UUID | None = None,
     name: str = "Current",
     starting_balance: float = 250.0,
     current_balance: float = 250.0,
+    ownership_type: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+    joint_account_id: uuid.UUID | None = None,
 ) -> dict:
     """Return a bank_accounts_view-shaped row (carries the computed column)."""
     return read_models.BankAccountView(
@@ -66,7 +69,30 @@ def _bank_view_row(
         name=name,
         starting_balance=starting_balance,
         current_balance=current_balance,
+        ownership_type=ownership_type,
+        joint_account_id=joint_account_id,
     ).model_dump(mode="json")
+
+
+class KeyedFakeCache:
+    """CacheGateway fake serving different rows per cache key."""
+
+    def __init__(self, rows_by_key: dict[str, list[dict]]) -> None:
+        """Seed the fake with a ``key -> rows`` map."""
+        self._rows_by_key = rows_by_key
+        self.requested_keys: list[str] = []
+        self.invalidated: list[str] = []
+
+    def get_from_or_load_cache(
+        self,
+        key: str,
+        loader: Callable[[], list[dict[str, object]]],  # noqa: ARG002 - fake serves fixed rows without a backend
+    ) -> list[dict[str, object]]:
+        self.requested_keys.append(key)
+        return list(self._rows_by_key.get(key, []))
+
+    def invalidate(self, keys: Iterable[str]) -> None:
+        self.invalidated.extend(keys)
 
 
 # ---------------------------------------------------------------------------
@@ -206,6 +232,149 @@ class TestUniqueValues:
 # ---------------------------------------------------------------------------
 # Payments: discriminated-union parsing
 # ---------------------------------------------------------------------------
+
+
+class TestOwnershipScopedSlices:
+    """Ownership-scoped reads split into a personal slice + per-account joint slices."""
+
+    def test_reads_request_personal_then_joint_slice_keys(self) -> None:
+        # Arrange - one joint account keeps the slice order deterministic
+        account = uuid.uuid4()
+        cache = FakeCache([_bank_view_row()])
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            cache,
+            _CONN,
+            frozenset({account}),
+        )
+
+        # Act
+        repo.get_all()
+
+        # Assert - personal slice first, then the account's joint slice
+        view = table_names.ViewNames.BANK_ACCOUNTS
+        assert cache.requested_keys == [
+            f"{_USER_ID}:{view}",
+            f"joint:{account}:{view}",
+        ]
+
+    def test_a_personal_only_user_reads_just_the_user_key(self) -> None:
+        # Arrange - no joint accounts, so no joint slices (today's behaviour)
+        cache = FakeCache([_bank_view_row()])
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN)
+
+        # Act
+        repo.get_all()
+
+        # Assert
+        assert cache.requested_keys == [
+            f"{_USER_ID}:{table_names.ViewNames.BANK_ACCOUNTS}",
+        ]
+
+    def test_get_all_merges_personal_and_joint_slice_rows(self) -> None:
+        # Arrange - each slice key serves its own rows
+        account = uuid.uuid4()
+        view = table_names.ViewNames.BANK_ACCOUNTS
+        cache = KeyedFakeCache(
+            {
+                f"{_USER_ID}:{view}": [_bank_view_row(name="Personal")],
+                f"joint:{account}:{view}": [
+                    _bank_view_row(
+                        name="Joint",
+                        ownership_type=entities.OwnershipType.JOINT,
+                        joint_account_id=account,
+                    ),
+                ],
+            },
+        )
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            cache,
+            _CONN,
+            frozenset({account}),
+        )
+
+        # Act
+        result = repo.get_all()
+
+        # Assert
+        assert {model.name for model in result} == {"Personal", "Joint"}
+
+    def test_write_busts_the_accounts_joint_slice_key(self) -> None:
+        # Arrange - a spec-less connection so the write chain (.table().insert())
+        # is a no-op; the write path then reaches cache invalidation.
+        account = uuid.uuid4()
+        cache = FakeCache([_bank_view_row()])
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            cache,
+            mock.MagicMock(),
+            frozenset({account}),
+        )
+
+        # Act - any write fans invalidation out to the user's joint keys
+        repo.apply(entities.BackendUpdates(added_rows=[_bank_view_row()]))
+
+        # Assert - the shared joint key is busted, so co-members refresh
+        assert (
+            f"joint:{account}:{table_names.TableNames.BANK_ACCOUNTS}"
+            in cache.invalidated
+        )
+
+
+class TestCrossMemberStaleness:
+    """The core fix: one member's joint write refreshes another member's read."""
+
+    def test_a_partners_joint_write_reloads_the_shared_slice(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Arrange - real cross-session cache; count joint-slice loads by filter
+        ui_cache._get_data_cached.clear()
+        ui_cache._key_versions.clear()
+        account = uuid.uuid4()
+        joint_filter = {
+            "ownership_type": "joint",
+            "joint_account_id": str(account),
+        }
+        loads: list[dict[str, str]] = []
+
+        def _fake_fetch(
+            table_name: str,  # noqa: ARG001 - signature mirrors client.fetch_table
+            query_string: str,  # noqa: ARG001 - unused in the fake
+            connection: object,  # noqa: ARG001 - unused in the fake
+            eq_filters: dict[str, str] | None = None,
+        ) -> list[dict[str, object]]:
+            loads.append(eq_filters or {})
+            return []
+
+        monkeypatch.setattr(repository.client, "fetch_table", _fake_fetch)
+        # A spec-less connection so A's write chain is a harmless no-op; reads are
+        # served by the patched fetch_table, so the connection is otherwise unused.
+        write_conn = mock.MagicMock()
+        shared_cache = ui_cache.StreamlitCache()
+        repo_a = repository.payment_repository(
+            "auth0|a",
+            shared_cache,
+            write_conn,
+            frozenset({account}),
+        )
+        repo_b = repository.payment_repository(
+            "auth0|b",
+            shared_cache,
+            write_conn,
+            frozenset({account}),
+        )
+
+        # Act - B warms its read, A writes a joint row, B reads again
+        repo_b.get_all()
+        joint_loads_before = loads.count(joint_filter)
+        repo_a.apply(entities.BackendUpdates(added_rows=[{"id": str(uuid.uuid4())}]))
+        repo_b.get_all()
+        joint_loads_after = loads.count(joint_filter)
+
+        # Assert - B's shared joint slice reloaded after A's write (was stale before)
+        assert joint_loads_after == joint_loads_before + 1
 
 
 class TestPaymentRepository:
