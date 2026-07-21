@@ -80,8 +80,14 @@ def _run_reconcile(
             user_id,
             cache_impl,
             connection,
+            entities.OwnershipType.PERSONAL,
         ),
-        payment_repo=supabase_repos.payment_repository(user_id, cache_impl, connection),
+        payment_repo=supabase_repos.payment_repository(
+            user_id,
+            cache_impl,
+            connection,
+            entities.OwnershipType.PERSONAL,
+        ),
     )
     use_case.execute()
     cache._get_data_cached.clear()

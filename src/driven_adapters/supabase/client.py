@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, cast
 from driven_adapters import errors
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     import st_supabase_connection
 
     from domain import entities
@@ -31,13 +33,18 @@ def fetch_table(
     table_name: str,
     query_string: str,
     connection: "st_supabase_connection.SupabaseConnection",
+    eq_filters: "Mapping[str, str] | None" = None,
 ) -> list["entities.JsonDict"]:
-    """Fetch all rows from the specified table.
+    """Fetch rows from the specified table, optionally narrowed by equality.
 
     Args:
         table_name: The name of the table to query.
         query_string: The select query string.
         connection: connection object to query against.
+        eq_filters: Optional ``column -> value`` equality filters, applied as
+            chained ``.eq(column, value)`` clauses. Used for the ownership-scoped
+            slice reads (e.g. ``ownership_type='joint'`` for a given
+            ``joint_account_id``); omit for a whole-table read.
 
     Returns:
         A list of dictionaries representing the queried data.
@@ -47,6 +54,8 @@ def fetch_table(
 
     """
     query = connection.table(table_name).select(query_string)
+    for column, value in (eq_filters or {}).items():
+        query = query.eq(column, value)
     rows = _execute_query(query)
     if not isinstance(rows, list):
         msg = f"Expected a list of rows from {table_name}, got {type(rows).__name__}"

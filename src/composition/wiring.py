@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import st_supabase_connection
 import streamlit as st
 
+from domain import entities
 from driven_adapters.supabase import authenticator as supabase_auth
 from driven_adapters.supabase import repository as supabase_repos
 from driving_adapters import auth
@@ -12,7 +13,7 @@ from driving_adapters import cache as ui_cache
 from use_cases import bank_one_offs, initialise_workspace, reconcile_subscriptions
 
 if TYPE_CHECKING:
-    from domain import entities, read_models
+    from domain import read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
     from ports import authentication, repository
 
@@ -33,47 +34,70 @@ def _repo_deps() -> tuple[
     ui_cache.StreamlitCache,
     st_supabase_connection.SupabaseConnection,
 ]:
-    """Return the (user_id, cache, connection) triple every repo factory needs."""
+    """Return the (user_id, cache, connection) triple every repo factory needs.
+
+    Ownership-scoped repos discover the user's joint accounts themselves, so no
+    joint-account ids are threaded through here.
+    """
     return auth.get_current_user(), ui_cache.StreamlitCache(), _connection()
 
 
-def bank_account_data_source() -> "data_source_mod.GridDataSource":
+def bank_account_data_source(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "data_source_mod.GridDataSource":
     """GridDataSource for the bank accounts DFE."""
-    return supabase_repos.bank_account_repository(*_repo_deps())
+    return supabase_repos.bank_account_repository(*_repo_deps(), ownership)
 
 
-def budget_tracker_data_source() -> "data_source_mod.GridDataSource":
+def budget_tracker_data_source(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "data_source_mod.GridDataSource":
     """GridDataSource for the budget tracker DFE."""
-    return supabase_repos.budget_tracker_repository(*_repo_deps())
+    return supabase_repos.budget_tracker_repository(*_repo_deps(), ownership)
 
 
-def expense_source_data_source() -> "data_source_mod.GridDataSource":
+def expense_source_data_source(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "data_source_mod.GridDataSource":
     """GridDataSource for the expense sources DFE."""
-    return supabase_repos.expense_source_repository(*_repo_deps())
+    return supabase_repos.expense_source_repository(*_repo_deps(), ownership)
 
 
-def income_source_data_source() -> "data_source_mod.GridDataSource":
+def income_source_data_source(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "data_source_mod.GridDataSource":
     """GridDataSource for the income sources DFE."""
-    return supabase_repos.income_source_repository(*_repo_deps())
+    return supabase_repos.income_source_repository(*_repo_deps(), ownership)
 
 
-def one_off_data_source() -> "data_source_mod.GridDataSource":
+def one_off_data_source(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "data_source_mod.GridDataSource":
     """GridDataSource for the one-offs DFE."""
-    return supabase_repos.one_off_repository(*_repo_deps())
+    return supabase_repos.one_off_repository(*_repo_deps(), ownership)
 
 
-def payment_data_source() -> "data_source_mod.GridDataSource":
+def payment_data_source(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "data_source_mod.GridDataSource":
     """GridDataSource for the payments DFEs."""
-    return supabase_repos.payment_repository(*_repo_deps())
+    return supabase_repos.payment_repository(*_repo_deps(), ownership)
 
 
-def subscription_data_source() -> "data_source_mod.GridDataSource":
+def subscription_data_source(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "data_source_mod.GridDataSource":
     """GridDataSource for the subscriptions DFE."""
-    return supabase_repos.subscription_repository(*_repo_deps())
+    return supabase_repos.subscription_repository(*_repo_deps(), ownership)
 
 
 def joint_account_repository() -> "repository.Repository[entities.JointAccountModel]":
-    """Repository for the joint accounts the current user belongs to."""
+    """Repository for the joint accounts the current user belongs to.
+
+    Not ownership-scoped: joint_accounts has no ownership dimension, so it reads
+    under the single ``{user_id}:joint_accounts`` key — the same entry the
+    ownership-scoped repos consult to discover the user's accounts.
+    """
     return supabase_repos.joint_account_repository(*_repo_deps())
 
 
@@ -84,87 +108,125 @@ def joint_account_member_repository() -> (
     return supabase_repos.joint_account_member_repository(*_repo_deps())
 
 
-def bank_account_views() -> "list[read_models.BankAccountView]":
+def bank_account_views(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "list[read_models.BankAccountView]":
     """Return the current user's bank accounts as typed view rows.
 
     Carries the computed ``current_balance`` column, so it is the read the
     bank-accounts overview metrics use.
     """
-    repo = supabase_repos.bank_account_repository(*_repo_deps())
+    repo = supabase_repos.bank_account_repository(
+        *_repo_deps(),
+        ownership,
+    )
     return repo.rows()
 
 
-def bank_account_id_name_map() -> dict[str, str]:
+def bank_account_id_name_map(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> dict[str, str]:
     """Return an ``{id: name}`` map of the current user's bank accounts."""
-    repo = supabase_repos.bank_account_repository(*_repo_deps())
+    repo = supabase_repos.bank_account_repository(
+        *_repo_deps(),
+        ownership,
+    )
     return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
-def expense_source_id_name_map() -> dict[str, str]:
+def expense_source_id_name_map(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> dict[str, str]:
     """Return an ``{id: name}`` map of the current user's expense sources."""
-    repo = supabase_repos.expense_source_repository(*_repo_deps())
+    repo = supabase_repos.expense_source_repository(
+        *_repo_deps(),
+        ownership,
+    )
     return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
-def income_source_id_name_map() -> dict[str, str]:
+def income_source_id_name_map(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> dict[str, str]:
     """Return an ``{id: name}`` map of the current user's income sources."""
-    repo = supabase_repos.income_source_repository(*_repo_deps())
+    repo = supabase_repos.income_source_repository(
+        *_repo_deps(),
+        ownership,
+    )
     return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
-def budget_tracker_id_name_map() -> dict[str, str]:
+def budget_tracker_id_name_map(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> dict[str, str]:
     """Return an ``{id: name}`` map of the current user's budget tracker items."""
-    repo = supabase_repos.budget_tracker_repository(*_repo_deps())
+    repo = supabase_repos.budget_tracker_repository(
+        *_repo_deps(),
+        ownership,
+    )
     return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
-def reconcile_subscriptions_use_case() -> (
-    reconcile_subscriptions.ReconcileSubscriptionsUseCase
-):
+def reconcile_subscriptions_use_case(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> reconcile_subscriptions.ReconcileSubscriptionsUseCase:
     """Build ReconcileSubscriptionsUseCase wired to Supabase repositories."""
-    user_id, cache, connection = _repo_deps()
+    deps = _repo_deps()
     return reconcile_subscriptions.ReconcileSubscriptionsUseCase(
         subscription_repo=supabase_repos.subscription_repository(
-            user_id,
-            cache,
-            connection,
+            *deps,
+            ownership,
         ),
-        payment_repo=supabase_repos.payment_repository(user_id, cache, connection),
+        payment_repo=supabase_repos.payment_repository(
+            *deps,
+            ownership,
+        ),
     )
 
 
 def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUseCase:
-    """Build InitialiseUserWorkspaceUseCase wired to Supabase repositories."""
-    user_id, cache, connection = _repo_deps()
+    """Build InitialiseUserWorkspaceUseCase wired to Supabase repositories.
+
+    Personal-only on purpose: seeding a joint account is not the same job as
+    seeding a personal workspace (a joint account should not simply inherit
+    the personal budget trackers), so it needs its own use case rather than an
+    ownership argument here.
+    """
+    deps = _repo_deps()
+    user_id = deps[0]
     return initialise_workspace.InitialiseUserWorkspaceUseCase(
         user_id=user_id,
         budget_tracker_repo=supabase_repos.budget_tracker_repository(
-            user_id,
-            cache,
-            connection,
+            *deps,
+            entities.OwnershipType.PERSONAL,
         ),
         expense_source_repo=supabase_repos.expense_source_repository(
-            user_id,
-            cache,
-            connection,
+            *deps,
+            entities.OwnershipType.PERSONAL,
         ),
     )
 
 
-def bank_one_offs_use_case() -> bank_one_offs.BankOneOffsUseCase:
+def bank_one_offs_use_case(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> bank_one_offs.BankOneOffsUseCase:
     """Build BankOneOffsUseCase wired to Supabase repositories."""
-    user_id, cache, connection = _repo_deps()
+    deps = _repo_deps()
     return bank_one_offs.BankOneOffsUseCase(
-        one_off_repo=supabase_repos.one_off_repository(user_id, cache, connection),
+        one_off_repo=supabase_repos.one_off_repository(
+            *deps,
+            ownership,
+        ),
         budget_tracker_repo=supabase_repos.budget_tracker_repository(
-            user_id,
-            cache,
-            connection,
+            *deps,
+            ownership,
         ),
         expense_source_repo=supabase_repos.expense_source_repository(
-            user_id,
-            cache,
-            connection,
+            *deps,
+            ownership,
         ),
-        payment_repo=supabase_repos.payment_repository(user_id, cache, connection),
+        payment_repo=supabase_repos.payment_repository(
+            *deps,
+            ownership,
+        ),
     )

@@ -20,6 +20,26 @@ class RepositoryError(PortError):
     """
 
 
+class NoJointAccountError(RepositoryError):
+    """Raised when a joint-scoped repository is used without a joint account.
+
+    A joint repository reads and writes the rows of the user's joint account, so
+    it has nothing to act on when the user belongs to none. A caller that can
+    offer to create one (the joint dashboard) catches this specifically; anything
+    else lets it surface as the ``RepositoryError`` it is.
+    """
+
+    def __init__(self, user_id: str) -> None:
+        """Construct NoJointAccountError.
+
+        Args:
+            user_id: The user who belongs to no joint account.
+
+        """
+        self.user_id = user_id
+        super().__init__(f"User {user_id!r} belongs to no joint account.")
+
+
 class AuthenticationError(PortError):
     """Raised when the backend cannot be authenticated for a user.
 
