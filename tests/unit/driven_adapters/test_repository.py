@@ -331,16 +331,16 @@ class TestOwnershipModes:
         # Assert - RLS already limits to the user's account, so mode is enough
         assert filters == {"ownership_type": _JOINT}
 
-    def test_joint_repo_reads_nothing_when_the_user_has_no_account(self) -> None:
+    def test_joint_repo_raises_when_the_user_has_no_account(self) -> None:
         # Arrange - no joint account rows for this user
         cache = KeyedFakeCache({})
         repo = repository.bank_account_repository(_USER_ID, cache, _CONN, _JOINT)
 
-        # Act
-        result = repo.get_all()
-
-        # Assert
-        assert result == []
+        # Act / Assert - asking a joint repo for data the user cannot have is a
+        # caller error, not an empty result
+        with pytest.raises(errors.NoJointAccountError) as exc_info:
+            repo.get_all()
+        assert exc_info.value.user_id == _USER_ID
 
     def test_joint_write_busts_the_shared_account_key(self) -> None:
         # Arrange - a spec-less connection so the write chain (.table().insert())

@@ -108,7 +108,9 @@ def joint_account_member_repository() -> (
     return supabase_repos.joint_account_member_repository(*_repo_deps())
 
 
-def bank_account_views() -> "list[read_models.BankAccountView]":
+def bank_account_views(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "list[read_models.BankAccountView]":
     """Return the current user's bank accounts as typed view rows.
 
     Carries the computed ``current_balance`` column, so it is the read the
@@ -116,66 +118,80 @@ def bank_account_views() -> "list[read_models.BankAccountView]":
     """
     repo = supabase_repos.bank_account_repository(
         *_repo_deps(),
-        entities.OwnershipType.PERSONAL,
+        ownership,
     )
     return repo.rows()
 
 
-def bank_account_id_name_map() -> dict[str, str]:
+def bank_account_id_name_map(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> dict[str, str]:
     """Return an ``{id: name}`` map of the current user's bank accounts."""
     repo = supabase_repos.bank_account_repository(
         *_repo_deps(),
-        entities.OwnershipType.PERSONAL,
+        ownership,
     )
     return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
-def expense_source_id_name_map() -> dict[str, str]:
+def expense_source_id_name_map(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> dict[str, str]:
     """Return an ``{id: name}`` map of the current user's expense sources."""
     repo = supabase_repos.expense_source_repository(
         *_repo_deps(),
-        entities.OwnershipType.PERSONAL,
+        ownership,
     )
     return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
-def income_source_id_name_map() -> dict[str, str]:
+def income_source_id_name_map(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> dict[str, str]:
     """Return an ``{id: name}`` map of the current user's income sources."""
     repo = supabase_repos.income_source_repository(
         *_repo_deps(),
-        entities.OwnershipType.PERSONAL,
+        ownership,
     )
     return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
-def budget_tracker_id_name_map() -> dict[str, str]:
+def budget_tracker_id_name_map(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> dict[str, str]:
     """Return an ``{id: name}`` map of the current user's budget tracker items."""
     repo = supabase_repos.budget_tracker_repository(
         *_repo_deps(),
-        entities.OwnershipType.PERSONAL,
+        ownership,
     )
     return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
-def reconcile_subscriptions_use_case() -> (
-    reconcile_subscriptions.ReconcileSubscriptionsUseCase
-):
+def reconcile_subscriptions_use_case(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> reconcile_subscriptions.ReconcileSubscriptionsUseCase:
     """Build ReconcileSubscriptionsUseCase wired to Supabase repositories."""
     deps = _repo_deps()
     return reconcile_subscriptions.ReconcileSubscriptionsUseCase(
         subscription_repo=supabase_repos.subscription_repository(
             *deps,
-            entities.OwnershipType.PERSONAL,
+            ownership,
         ),
         payment_repo=supabase_repos.payment_repository(
             *deps,
-            entities.OwnershipType.PERSONAL,
+            ownership,
         ),
     )
 
 
 def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUseCase:
-    """Build InitialiseUserWorkspaceUseCase wired to Supabase repositories."""
+    """Build InitialiseUserWorkspaceUseCase wired to Supabase repositories.
+
+    Personal-only on purpose: seeding a joint account is not the same job as
+    seeding a personal workspace (a joint account should not simply inherit
+    the personal budget trackers), so it needs its own use case rather than an
+    ownership argument here.
+    """
     deps = _repo_deps()
     user_id = deps[0]
     return initialise_workspace.InitialiseUserWorkspaceUseCase(
@@ -191,24 +207,26 @@ def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUse
     )
 
 
-def bank_one_offs_use_case() -> bank_one_offs.BankOneOffsUseCase:
+def bank_one_offs_use_case(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> bank_one_offs.BankOneOffsUseCase:
     """Build BankOneOffsUseCase wired to Supabase repositories."""
     deps = _repo_deps()
     return bank_one_offs.BankOneOffsUseCase(
         one_off_repo=supabase_repos.one_off_repository(
             *deps,
-            entities.OwnershipType.PERSONAL,
+            ownership,
         ),
         budget_tracker_repo=supabase_repos.budget_tracker_repository(
             *deps,
-            entities.OwnershipType.PERSONAL,
+            ownership,
         ),
         expense_source_repo=supabase_repos.expense_source_repository(
             *deps,
-            entities.OwnershipType.PERSONAL,
+            ownership,
         ),
         payment_repo=supabase_repos.payment_repository(
             *deps,
-            entities.OwnershipType.PERSONAL,
+            ownership,
         ),
     )

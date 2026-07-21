@@ -69,9 +69,15 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         spec: "RepoSpec[EntityT, ViewT]",
         cache: "cache_mod.CacheGateway",
         connection: "st_supabase_connection.SupabaseConnection",
-        ownership: entities.OwnershipType | None = None,
+        ownership: entities.OwnershipType | None,
     ) -> None:
-        """Bind the repository to a user, spec, cache, connection and mode."""
+        """Bind the repository to a user, spec, cache, connection and mode.
+
+        ``ownership`` is required rather than defaulted: an aggregate that has
+        the ownership dimension must say which half it serves, and passing
+        ``None`` (no dimension at all, the two joint tables) is a decision worth
+        making explicitly at the call site.
+        """
         self._user_id = user_id
         self._spec = spec
         self._cache = cache
@@ -106,16 +112,21 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
     def _cache_key(
         self,
         table: "table_names.ViewNames | table_names.TableNames",
-    ) -> str | None:
+    ) -> str:
         """Return this mode's cache key for a table or view.
 
-        ``None`` when the repository is joint but the user has no joint account,
-        which is the same thing as having no rows to read or invalidate.
+        Raises:
+            NoJointAccountError: The repository is joint but the user belongs to
+                no joint account, so there is no account to key against — a
+                caller asking a joint repository for data it cannot have.
+
         """
         if self._ownership is not entities.OwnershipType.JOINT:
             return f"{self._user_id}:{table}"
         account_id = self._joint_account_id()
-        return None if account_id is None else f"joint:{account_id}:{table}"
+        if account_id is None:
+            raise errors.NoJointAccountError(self._user_id)
+        return f"joint:{account_id}:{table}"
 
     def _eq_filters(self) -> dict[str, str]:
         """Return the equality filter selecting this mode's rows."""
@@ -135,11 +146,8 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
 
     def _fetch_rows(self) -> list[entities.JsonDict]:
         try:
-            key = self._cache_key(self._spec.read_table)
-            if key is None:
-                return []
             return self._cache.get_from_or_load_cache(
-                key,
+                self._cache_key(self._spec.read_table),
                 functools.partial(self._load_rows, self._eq_filters()),
             )
         except adapter_errors.AdapterError as e:
@@ -160,8 +168,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         derived from the account, busting it reaches every member of it.
         """
         views = table_names.VIEWS_AFFECTED_BY.get(self._spec.write_table, [])
-        keys = (self._cache_key(t) for t in (self._spec.write_table, *views))
-        return [key for key in keys if key is not None]
+        return [self._cache_key(t) for t in (self._spec.write_table, *views)]
 
     def get_all(self) -> list[EntityT]:
         """Return all records for the current user."""
@@ -383,6 +390,7 @@ def joint_account_repository(
         ),
         cache,
         connection,
+        None,  # no ownership dimension on the joint tables
     )
 
 
@@ -412,6 +420,7 @@ def joint_account_member_repository(
         ),
         cache,
         connection,
+        None,  # no ownership dimension on the joint tables
     )
 
 
