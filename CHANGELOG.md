@@ -1,3 +1,9 @@
+## v0.10.0 (2026-07-21)
+
+### Feat
+
+- **joint**: split cache keys into personal + joint slices (#176) (#190)
+
 ## v0.9.0 (2026-07-21)
 
 ### Feat
