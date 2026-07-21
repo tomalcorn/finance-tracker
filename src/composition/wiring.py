@@ -12,9 +12,9 @@ from driving_adapters import cache as ui_cache
 from use_cases import bank_one_offs, initialise_workspace, reconcile_subscriptions
 
 if TYPE_CHECKING:
-    from domain import read_models
+    from domain import entities, read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
-    from ports import authentication
+    from ports import authentication, repository
 
 
 def _connection() -> st_supabase_connection.SupabaseConnection:
@@ -70,6 +70,18 @@ def payment_data_source() -> "data_source_mod.GridDataSource":
 def subscription_data_source() -> "data_source_mod.GridDataSource":
     """GridDataSource for the subscriptions DFE."""
     return supabase_repos.subscription_repository(*_repo_deps())
+
+
+def joint_account_repository() -> "repository.Repository[entities.JointAccountModel]":
+    """Repository for the joint accounts the current user belongs to."""
+    return supabase_repos.joint_account_repository(*_repo_deps())
+
+
+def joint_account_member_repository() -> (
+    "repository.Repository[entities.JointAccountMemberModel]"
+):
+    """Repository for the current user's joint-account memberships."""
+    return supabase_repos.joint_account_member_repository(*_repo_deps())
 
 
 def bank_account_views() -> "list[read_models.BankAccountView]":
