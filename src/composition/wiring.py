@@ -10,7 +10,12 @@ from driven_adapters.supabase import authenticator as supabase_auth
 from driven_adapters.supabase import repository as supabase_repos
 from driving_adapters import auth
 from driving_adapters import cache as ui_cache
-from use_cases import bank_one_offs, initialise_workspace, reconcile_subscriptions
+from use_cases import (
+    bank_one_offs,
+    contribute_to_joint,
+    initialise_workspace,
+    reconcile_subscriptions,
+)
 
 if TYPE_CHECKING:
     from domain import read_models
@@ -204,6 +209,34 @@ def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUse
             *deps,
             entities.OwnershipType.PERSONAL,
         ),
+    )
+
+
+def contribute_to_joint_use_case() -> contribute_to_joint.ContributeToJointUseCase:
+    """Build ContributeToJointUseCase wired to Supabase repositories.
+
+    Takes no ownership argument: a contribution spans both halves by
+    definition, so it is handed one payments repository per mode. The expense
+    sources are personal because the "Joint" source it books against is the
+    personal-side anchor for the transfer.
+    """
+    deps = _repo_deps()
+    user_id = deps[0]
+    return contribute_to_joint.ContributeToJointUseCase(
+        user_id=user_id,
+        personal_payment_repo=supabase_repos.payment_repository(
+            *deps,
+            entities.OwnershipType.PERSONAL,
+        ),
+        joint_payment_repo=supabase_repos.payment_repository(
+            *deps,
+            entities.OwnershipType.JOINT,
+        ),
+        expense_source_repo=supabase_repos.expense_source_repository(
+            *deps,
+            entities.OwnershipType.PERSONAL,
+        ),
+        joint_account_repo=supabase_repos.joint_account_repository(*deps),
     )
 
 

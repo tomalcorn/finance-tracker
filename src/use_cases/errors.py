@@ -41,3 +41,38 @@ class AmountToBankLTEZeroError(BankOneOffsError):
         """Construct AmountToBankLTEZeroError."""
         self.item_name = item_name
         super().__init__(f"{item_name} has nothing to bank.")
+
+
+class ContributionError(UseCaseError):
+    """Base error for the contribute_to_joint use case."""
+
+
+class ContributionAmountError(ContributionError):
+    """Error when the contribution amount is less than or equal to zero."""
+
+    def __init__(self, amount: float) -> None:
+        """Construct ContributionAmountError."""
+        self.amount = amount
+        super().__init__(f"A contribution must be more than zero, got {amount}.")
+
+
+class NoJointAccountToContributeToError(ContributionError):
+    """Error when the contributing user belongs to no joint account."""
+
+    def __init__(self, user_id: str) -> None:
+        """Construct NoJointAccountToContributeToError."""
+        self.user_id = user_id
+        super().__init__(f"User {user_id!r} belongs to no joint account.")
+
+
+class JointExpenseSourceNotFoundError(ContributionError):
+    """Error when the hidden "Joint" expense source is missing for a user."""
+
+    def __init__(self, user_id: str) -> None:
+        """Construct JointExpenseSourceNotFoundError."""
+        self.user_id = user_id
+        super().__init__(f"User {user_id!r} has no 'Joint' expense source.")
+
+
+class ContributionWriteError(ContributionError):
+    """Error when a repository operation in the contribution flow fails."""
