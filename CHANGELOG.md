@@ -1,3 +1,9 @@
+## v0.11.0 (2026-07-21)
+
+### Feat
+
+- **joint**: contribution use case, personal expense + joint income (#178) (#193)
+
 ## v0.10.0 (2026-07-21)
 
 ### Feat
