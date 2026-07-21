@@ -200,6 +200,10 @@ class _PaymentBaseModel(FinanceTrackerBaseModel):
         uuid.UUID | None,
         pydantic.Field(description="The originating subscription ID, if any."),
     ] = None
+    linked_payment_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The payment this one settles, if any."),
+    ] = None
 
 
 class ExpensePaymentModel(_PaymentBaseModel):
@@ -258,8 +262,8 @@ class JointAccountModel(pydantic.BaseModel):
     )
     name: Annotated[
         str,
-        pydantic.Field(description="The name of the joint account."),
-    ] = ""
+        pydantic.Field(description="The name of the joint account.", min_length=1),
+    ]
 
 
 class JointAccountMemberModel(pydantic.BaseModel):
