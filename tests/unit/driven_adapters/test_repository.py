@@ -22,6 +22,11 @@ from ports import errors
 _USER_ID = "auth0|test-user-123"
 _CONN = mock.MagicMock(spec=st_supabase_connection.SupabaseConnection)
 
+# The key an ownership-scoped repo reads to discover the user's joint accounts.
+# The fakes serve it but keep it out of ``requested_keys`` so the slice-key
+# assertions stay focused on the aggregate read under test.
+_JOINT_ACCOUNTS_KEY = f"{_USER_ID}:{table_names.TableNames.JOINT_ACCOUNTS}"
+
 
 class FakeCache:
     """In-memory CacheGateway: serves fixed rows, records keys and invalidations."""
@@ -43,9 +48,11 @@ class FakeCache:
         key: str,
         loader: Callable[[], list[dict[str, object]]],  # noqa: ARG002 - loader unused; the fake serves fixed rows without hitting a backend
     ) -> list[dict[str, object]]:
-        self.requested_keys.append(key)
         if self._fetch_error is not None:
             raise self._fetch_error
+        if key == _JOINT_ACCOUNTS_KEY:
+            return []  # personal-only: no joint accounts discovered
+        self.requested_keys.append(key)
         return list(self._rows)
 
     def invalidate(self, keys: Iterable[str]) -> None:
@@ -88,7 +95,8 @@ class KeyedFakeCache:
         key: str,
         loader: Callable[[], list[dict[str, object]]],  # noqa: ARG002 - fake serves fixed rows without a backend
     ) -> list[dict[str, object]]:
-        self.requested_keys.append(key)
+        if key != _JOINT_ACCOUNTS_KEY:
+            self.requested_keys.append(key)
         return list(self._rows_by_key.get(key, []))
 
     def invalidate(self, keys: Iterable[str]) -> None:
@@ -238,15 +246,11 @@ class TestOwnershipScopedSlices:
     """Ownership-scoped reads split into a personal slice + per-account joint slices."""
 
     def test_reads_request_personal_then_joint_slice_keys(self) -> None:
-        # Arrange - one joint account keeps the slice order deterministic
+        # Arrange - the user belongs to one joint account, discovered via the
+        # joint_accounts cache key rather than being passed in
         account = uuid.uuid4()
-        cache = FakeCache([_bank_view_row()])
-        repo = repository.bank_account_repository(
-            _USER_ID,
-            cache,
-            _CONN,
-            frozenset({account}),
-        )
+        cache = KeyedFakeCache({_JOINT_ACCOUNTS_KEY: [{"id": str(account)}]})
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN)
 
         # Act
         repo.get_all()
@@ -277,6 +281,7 @@ class TestOwnershipScopedSlices:
         view = table_names.ViewNames.BANK_ACCOUNTS
         cache = KeyedFakeCache(
             {
+                _JOINT_ACCOUNTS_KEY: [{"id": str(account)}],
                 f"{_USER_ID}:{view}": [_bank_view_row(name="Personal")],
                 f"joint:{account}:{view}": [
                     _bank_view_row(
@@ -287,12 +292,7 @@ class TestOwnershipScopedSlices:
                 ],
             },
         )
-        repo = repository.bank_account_repository(
-            _USER_ID,
-            cache,
-            _CONN,
-            frozenset({account}),
-        )
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN)
 
         # Act
         result = repo.get_all()
@@ -304,12 +304,11 @@ class TestOwnershipScopedSlices:
         # Arrange - a spec-less connection so the write chain (.table().insert())
         # is a no-op; the write path then reaches cache invalidation.
         account = uuid.uuid4()
-        cache = FakeCache([_bank_view_row()])
+        cache = KeyedFakeCache({_JOINT_ACCOUNTS_KEY: [{"id": str(account)}]})
         repo = repository.bank_account_repository(
             _USER_ID,
             cache,
             mock.MagicMock(),
-            frozenset({account}),
         )
 
         # Act - any write fans invalidation out to the user's joint keys
@@ -340,12 +339,16 @@ class TestCrossMemberStaleness:
         loads: list[dict[str, str]] = []
 
         def _fake_fetch(
-            table_name: str,  # noqa: ARG001 - signature mirrors client.fetch_table
+            table_name: str,
             query_string: str,  # noqa: ARG001 - unused in the fake
             connection: object,  # noqa: ARG001 - unused in the fake
             eq_filters: dict[str, str] | None = None,
         ) -> list[dict[str, object]]:
             loads.append(eq_filters or {})
+            # Both members belong to the same joint account, so each discovers
+            # it and derives the same shared joint slice key.
+            if table_name == str(table_names.TableNames.JOINT_ACCOUNTS):
+                return [{"id": str(account)}]
             return []
 
         monkeypatch.setattr(repository.client, "fetch_table", _fake_fetch)
@@ -353,18 +356,8 @@ class TestCrossMemberStaleness:
         # served by the patched fetch_table, so the connection is otherwise unused.
         write_conn = mock.MagicMock()
         shared_cache = ui_cache.StreamlitCache()
-        repo_a = repository.payment_repository(
-            "auth0|a",
-            shared_cache,
-            write_conn,
-            frozenset({account}),
-        )
-        repo_b = repository.payment_repository(
-            "auth0|b",
-            shared_cache,
-            write_conn,
-            frozenset({account}),
-        )
+        repo_a = repository.payment_repository("auth0|a", shared_cache, write_conn)
+        repo_b = repository.payment_repository("auth0|b", shared_cache, write_conn)
 
         # Act - B warms its read, A writes a joint row, B reads again
         repo_b.get_all()

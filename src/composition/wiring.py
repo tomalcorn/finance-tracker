@@ -12,8 +12,6 @@ from driving_adapters import cache as ui_cache
 from use_cases import bank_one_offs, initialise_workspace, reconcile_subscriptions
 
 if TYPE_CHECKING:
-    import uuid
-
     from domain import entities, read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
     from ports import authentication, repository
@@ -30,43 +28,17 @@ def authenticator() -> "authentication.Authenticator":
     return supabase_auth.SupabaseAuthenticator(_connection(), jwt_secret)
 
 
-def _base_deps() -> tuple[
-    str,
-    ui_cache.StreamlitCache,
-    st_supabase_connection.SupabaseConnection,
-]:
-    """Return the (user_id, cache, connection) triple every repo factory needs."""
-    return auth.get_current_user(), ui_cache.StreamlitCache(), _connection()
-
-
-def _joint_account_ids(
-    user_id: str,
-    cache: ui_cache.StreamlitCache,
-    connection: st_supabase_connection.SupabaseConnection,
-) -> "frozenset[uuid.UUID]":
-    """Return the joint accounts the current user belongs to (RLS-scoped).
-
-    Sourced from the joint-accounts repository, whose RLS view is already the
-    user's accounts; the read is cache-backed under the user's joint_accounts
-    key. Drives the ownership-scoped repos' joint read/invalidation slices.
-    """
-    accounts = supabase_repos.joint_account_repository(
-        user_id,
-        cache,
-        connection,
-    ).get_all()
-    return frozenset(account.id for account in accounts)
-
-
 def _repo_deps() -> tuple[
     str,
     ui_cache.StreamlitCache,
     st_supabase_connection.SupabaseConnection,
-    "frozenset[uuid.UUID]",
 ]:
-    """Return the (user_id, cache, connection, joint_account_ids) owned repos need."""
-    user_id, cache, connection = _base_deps()
-    return user_id, cache, connection, _joint_account_ids(user_id, cache, connection)
+    """Return the (user_id, cache, connection) triple every repo factory needs.
+
+    Ownership-scoped repos discover the user's joint accounts themselves, so no
+    joint-account ids are threaded through here.
+    """
+    return auth.get_current_user(), ui_cache.StreamlitCache(), _connection()
 
 
 def bank_account_data_source() -> "data_source_mod.GridDataSource":
@@ -107,17 +79,18 @@ def subscription_data_source() -> "data_source_mod.GridDataSource":
 def joint_account_repository() -> "repository.Repository[entities.JointAccountModel]":
     """Repository for the joint accounts the current user belongs to.
 
-    Uses the base deps (no joint-account-id slices): joint_accounts has no
-    ownership dimension, and this repo is itself the source of those ids.
+    Not ownership-scoped: joint_accounts has no ownership dimension, so it reads
+    under the single ``{user_id}:joint_accounts`` key — the same entry the
+    ownership-scoped repos consult to discover the user's accounts.
     """
-    return supabase_repos.joint_account_repository(*_base_deps())
+    return supabase_repos.joint_account_repository(*_repo_deps())
 
 
 def joint_account_member_repository() -> (
     "repository.Repository[entities.JointAccountMemberModel]"
 ):
     """Repository for the current user's joint-account memberships."""
-    return supabase_repos.joint_account_member_repository(*_base_deps())
+    return supabase_repos.joint_account_member_repository(*_repo_deps())
 
 
 def bank_account_views() -> "list[read_models.BankAccountView]":
