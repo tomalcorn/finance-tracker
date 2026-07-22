@@ -13,23 +13,24 @@ from use_cases import contribute_to_joint, errors
 logger = logging.getLogger(__name__)
 
 
-def _validated_submission(
+def _can_submit(
     amount: float | None,
     from_account_id: str | None,
     to_account_id: str | None,
-) -> tuple[float, str, str] | None:
-    """Return the validated ``(amount, source, destination)``, or None if incomplete.
+) -> bool:
+    """Return whether the contribution form is complete enough to submit.
 
     A submittable contribution needs a positive amount, a personal source
     account, and a joint destination account. An empty destination dropdown
     (no joint bank account exists) leaves ``to_account_id`` ``None``, so this
-    also enforces the "needs a joint bank account first" guard. Returning the
-    narrowed triple lets the caller compute it once and reuse it for both the
-    button's disabled state and the submit branch.
+    also enforces the "needs a joint bank account first" guard.
     """
-    if amount is not None and amount > 0 and from_account_id and to_account_id:
-        return amount, from_account_id, to_account_id
-    return None
+    return (
+        amount is not None
+        and amount > 0
+        and from_account_id is not None
+        and to_account_id is not None
+    )
 
 
 class ContributeButton:
@@ -106,21 +107,20 @@ class ContributeButton:
             else self._get_today_date()
         )
 
-        # Computed once: it both gates the button and, being the narrowed
-        # triple, carries the values the submit branch needs without re-checking.
-        submission = _validated_submission(amount, from_account, to_account)
         submitted = st.button(
             "Contribute",
-            disabled=submission is None,
+            disabled=not _can_submit(amount, from_account, to_account),
             key="contribute_submit",
         )
-        if submitted and submission is not None:
-            contribution_amount, from_account_id, to_account_id = submission
+        # The three re-checks narrow the widget outputs to non-None for the
+        # type checker; ``disabled`` already makes the button unclickable
+        # unless _can_submit held, so this branch only runs when they are set.
+        if submitted and amount is not None and from_account and to_account:
             try:
                 self._contribute_use_case.execute(
-                    amount=contribution_amount,
-                    from_bank_account_id=uuid.UUID(from_account_id),
-                    to_bank_account_id=uuid.UUID(to_account_id),
+                    amount=float(amount),
+                    from_bank_account_id=uuid.UUID(from_account),
+                    to_bank_account_id=uuid.UUID(to_account),
                     payment_date=payment_date,
                 )
             except errors.ContributionError:
