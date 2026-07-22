@@ -24,6 +24,7 @@ from driving_adapters.blocks import (
     payments_block,
     subscriptions_block,
 )
+from driving_adapters.components.buttons import contribute_button
 
 _JOINT = entities.OwnershipType.JOINT
 
@@ -65,8 +66,22 @@ with error_boundary.boundary("loading your joint dashboard"):
     income_source_map = wiring.income_source_id_name_map(_JOINT)
     budget_tracker_map = wiring.budget_tracker_id_name_map(_JOINT)
 
+    # A contribution spans both modes: its source is a personal bank account, so
+    # the dialog needs the personal map for the "from" dropdown alongside the
+    # joint map (``bank_account_map``) for the "to" dropdown.
+    personal_bank_account_map = wiring.bank_account_id_name_map()
+
     # Use cases.
     bank_one_offs_use_case = wiring.bank_one_offs_use_case(_JOINT)
+    contribute_use_case = wiring.contribute_to_joint_use_case()
+
+# Fund the joint account: a personal-expense + joint-income pair, booked by the
+# contribution use case. Sits under the header as the page's primary action.
+contribute_button.ContributeButton(
+    contribute_use_case,
+    personal_bank_account_map,
+    bank_account_map,
+)()
 
 one_offs_container = st.container(border=True)
 budget_tracker_container = st.container(border=True)
