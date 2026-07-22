@@ -28,14 +28,14 @@ from driving_adapters.blocks import (
 _JOINT = entities.OwnershipType.JOINT
 
 st.title(":material/group: Joint")
-st.caption("Shared accounts, budget, and payments for your joint account.")
 
 with error_boundary.boundary("loading your joint dashboard"):
     # A user belongs to at most one joint account. Reading it here both gates
     # the page and warms the ``{user_id}:joint_accounts`` cache entry every
     # joint-scoped repo consults to resolve its account, so it costs no extra
     # fetch.
-    if not wiring.joint_account_repository().get_all():
+    joint_accounts = wiring.joint_account_repository().get_all()
+    if not joint_accounts:
         st.info(
             "You don't have a joint account yet. Once you're a member of one, "
             "your shared accounts, budget, and payments will appear here. "
@@ -43,6 +43,12 @@ with error_boundary.boundary("loading your joint dashboard"):
             "work and how to set one up.",
         )
         st.stop()
+
+    # Name the account so this page cannot be mistaken for Personal. Co-member
+    # names are not shown: the membership table is own-rows-only under RLS, so a
+    # member cannot read who else belongs (see #176). Surfacing them is a
+    # follow-up once membership exposes co-members.
+    st.caption(f":orange[Shared account] · **{joint_accounts[0].name}**")
 
     # Grid data sources, one per aggregate grid.
     bank_account_data_source = wiring.bank_account_data_source(_JOINT)
@@ -94,7 +100,7 @@ with error_boundary.boundary("reconciling your subscriptions"):
 
 
 with one_offs_container, error_boundary.boundary("loading your one-offs"):
-    st.subheader(":material/bubble_chart: :violet[One-Offs]")
+    st.subheader(":material/bubble_chart: :orange[One-Offs]")
     one_offs_block.render(
         one_off_data_source,
         budget_tracker_map,
@@ -103,7 +109,7 @@ with one_offs_container, error_boundary.boundary("loading your one-offs"):
     )
 
 with budget_tracker_container, error_boundary.boundary("loading your budget tracker"):
-    st.subheader(":material/pie_chart: :red[Budget Tracker]")
+    st.subheader(":material/pie_chart: :orange[Budget Tracker]")
     budget_tracker_block.render(
         budget_tracker_data_source,
         expense_source_data_source,
@@ -112,7 +118,7 @@ with budget_tracker_container, error_boundary.boundary("loading your budget trac
     )
 
 with payments_container, error_boundary.boundary("loading your payments"):
-    st.subheader(":material/payments: :green[Payments]")
+    st.subheader(":material/payments: :orange[Payments]")
     payments_block.render(
         payment_data_source,
         bank_account_map,
@@ -127,7 +133,7 @@ with bank_accounts_container, error_boundary.boundary("loading your bank account
     bank_accounts_block.render(bank_account_data_source, bank_accounts)
 
 with subscriptions_container, error_boundary.boundary("loading your subscriptions"):
-    st.subheader(":material/autorenew: :blue[Subscriptions]")
+    st.subheader(":material/autorenew: :orange[Subscriptions]")
     subscriptions_block.render(
         subscription_data_source,
         bank_account_map,
