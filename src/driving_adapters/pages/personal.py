@@ -1,10 +1,14 @@
-"""Dashboard page for the finance tracker application.
+"""Personal dashboard page for the finance tracker application.
 
-This page is the dashboard's composition root: it builds every dependency the
-blocks need once, from ``composition.wiring``, and passes them into each
-block's ``commit`` / ``render``. The blocks themselves no longer import
-``wiring`` — they receive their grid data sources, id→name maps, and use cases
-as arguments.
+This page is the personal dashboard's composition root: it builds every
+dependency the blocks need once, from ``composition.wiring``, and passes them
+into each block's ``commit`` / ``render``. The blocks themselves no longer
+import ``wiring`` — they receive their grid data sources, id→name maps, and use
+cases as arguments.
+
+Every data source is built with the default ``PERSONAL`` ownership, so this
+page shows only the current user's ``ownership_type='personal'`` rows. Its
+joint counterpart is ``joint.py``.
 """
 
 import streamlit as st
@@ -19,7 +23,10 @@ from driving_adapters.blocks import (
     subscriptions_block,
 )
 
-with error_boundary.boundary("loading your dashboard"):
+st.title(":material/dashboard: Personal")
+st.caption("Your private accounts, budget, and payments — visible only to you.")
+
+with error_boundary.boundary("loading your personal dashboard"):
     # Grid data sources, one per aggregate grid.
     bank_account_data_source = wiring.bank_account_data_source()
     budget_tracker_data_source = wiring.budget_tracker_data_source()
@@ -70,7 +77,7 @@ with error_boundary.boundary("reconciling your subscriptions"):
 
 
 with one_offs_container, error_boundary.boundary("loading your one-offs"):
-    st.subheader(":material/bubble_chart: :violet[One-Offs]")
+    st.subheader(":material/bubble_chart: :blue[One-Offs]")
     one_offs_block.render(
         one_off_data_source,
         budget_tracker_map,
@@ -79,7 +86,7 @@ with one_offs_container, error_boundary.boundary("loading your one-offs"):
     )
 
 with budget_tracker_container, error_boundary.boundary("loading your budget tracker"):
-    st.subheader(":material/pie_chart: :red[Budget Tracker]")
+    st.subheader(":material/pie_chart: :blue[Budget Tracker]")
     budget_tracker_block.render(
         budget_tracker_data_source,
         expense_source_data_source,
@@ -88,7 +95,7 @@ with budget_tracker_container, error_boundary.boundary("loading your budget trac
     )
 
 with payments_container, error_boundary.boundary("loading your payments"):
-    st.subheader(":material/payments: :green[Payments]")
+    st.subheader(":material/payments: :blue[Payments]")
     payments_block.render(
         payment_data_source,
         bank_account_map,
@@ -99,7 +106,7 @@ with payments_container, error_boundary.boundary("loading your payments"):
 with bank_accounts_container, error_boundary.boundary("loading your bank accounts"):
     # Read after reconciliation so computed balances reflect its new payments.
     bank_accounts = wiring.bank_account_views()
-    st.subheader(":material/account_balance: :orange[Bank Accounts]")
+    st.subheader(":material/account_balance: :blue[Bank Accounts]")
     bank_accounts_block.render(bank_account_data_source, bank_accounts)
 
 with subscriptions_container, error_boundary.boundary("loading your subscriptions"):

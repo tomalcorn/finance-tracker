@@ -40,9 +40,15 @@ session.run_once_per_session(
 docs_registry = docs_pages.DocsRegistry(docs_pages.DOCS_DIR)
 docs_ui = docs_pages.DocsUI(docs_registry)
 
+# The Joint page (constants.Pages.JOINT) is deliberately not registered yet:
+# the joint workflow lands as one breaking change in the final Joint ticket.
+# The page and its wiring stay in the tree, ready to be added here then.
 pg = st.navigation(
     {
-        "": [constants.Pages.DASHBOARD.value, constants.Pages.LOGIN.value],
+        "": [
+            constants.Pages.PERSONAL.value,
+            constants.Pages.LOGIN.value,
+        ],
         ":material/docs: Docs": docs_ui.build_pages(),
     },
     position="top",

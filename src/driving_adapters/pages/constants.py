@@ -8,10 +8,15 @@ import streamlit as st
 class Pages(enum.Enum):
     """File paths for each page in the application."""
 
-    DASHBOARD = st.Page(
-        "driving_adapters/pages/dashboard.py",
-        title="Dashboard",
+    PERSONAL = st.Page(
+        "driving_adapters/pages/personal.py",
+        title="Personal",
         icon=":material/dashboard:",
+    )
+    JOINT = st.Page(
+        "driving_adapters/pages/joint.py",
+        title="Joint",
+        icon=":material/group:",
     )
     LOGIN = st.Page(
         "driving_adapters/pages/login.py",
