@@ -13,6 +13,7 @@ from driving_adapters import cache as ui_cache
 from use_cases import (
     bank_one_offs,
     contribute_to_joint,
+    initialise_joint_workspace,
     initialise_workspace,
     reconcile_subscriptions,
 )
@@ -209,6 +210,34 @@ def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUse
             *deps,
             entities.OwnershipType.PERSONAL,
         ),
+    )
+
+
+def joint_workspace_init_use_case() -> (
+    initialise_joint_workspace.InitialiseJointWorkspaceUseCase
+):
+    """Build InitialiseJointWorkspaceUseCase wired to Supabase repositories.
+
+    The counterpart to :func:`workspace_init_use_case` for a joint account: the
+    trackers/sources repos are built in ``JOINT`` mode so every row is stamped
+    ``ownership_type='joint'`` and account-scoped, and a joint-accounts repo is
+    handed in so the use case can resolve the id it stamps. Not triggered yet —
+    #177 deferred in-app joint-account creation, so this has no wired call site
+    until the joint workflow lands.
+    """
+    deps = _repo_deps()
+    user_id = deps[0]
+    return initialise_joint_workspace.InitialiseJointWorkspaceUseCase(
+        user_id=user_id,
+        budget_tracker_repo=supabase_repos.budget_tracker_repository(
+            *deps,
+            entities.OwnershipType.JOINT,
+        ),
+        expense_source_repo=supabase_repos.expense_source_repository(
+            *deps,
+            entities.OwnershipType.JOINT,
+        ),
+        joint_account_repo=supabase_repos.joint_account_repository(*deps),
     )
 
 
