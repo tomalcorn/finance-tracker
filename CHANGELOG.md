@@ -1,3 +1,9 @@
+## v0.13.0 (2026-07-22)
+
+### Feat
+
+- **joint**: Contribute button + dialog (#180) (#195)
+
 ## v0.12.0 (2026-07-22)
 
 ### Feat
