@@ -1,3 +1,9 @@
+## v0.12.0 (2026-07-22)
+
+### Feat
+
+- **joint**: joint dashboard page + rename dashboard to personal (#179) (#194)
+
 ## v0.11.0 (2026-07-21)
 
 ### Feat
