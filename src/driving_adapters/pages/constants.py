@@ -11,7 +11,7 @@ class Pages(enum.Enum):
     PERSONAL = st.Page(
         "driving_adapters/pages/personal.py",
         title="Personal",
-        icon=":material/person:",
+        icon=":material/dashboard:",
     )
     JOINT = st.Page(
         "driving_adapters/pages/joint.py",

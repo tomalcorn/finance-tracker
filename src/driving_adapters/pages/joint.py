@@ -27,6 +27,9 @@ from driving_adapters.blocks import (
 
 _JOINT = entities.OwnershipType.JOINT
 
+st.title(":material/group: Joint")
+st.caption("Shared accounts, budget, and payments for your joint account.")
+
 with error_boundary.boundary("loading your joint dashboard"):
     # A user belongs to at most one joint account. Reading it here both gates
     # the page and warms the ``{user_id}:joint_accounts`` cache entry every
@@ -35,7 +38,9 @@ with error_boundary.boundary("loading your joint dashboard"):
     if not wiring.joint_account_repository().get_all():
         st.info(
             "You don't have a joint account yet. Once you're a member of one, "
-            "your shared accounts, budget, and payments will appear here.",
+            "your shared accounts, budget, and payments will appear here. "
+            "See the [Joint Accounts guide](/joint_accounts) to learn how they "
+            "work and how to set one up.",
         )
         st.stop()
 

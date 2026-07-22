@@ -23,6 +23,9 @@ from driving_adapters.blocks import (
     subscriptions_block,
 )
 
+st.title(":material/dashboard: Personal")
+st.caption("Your private accounts, budget, and payments — visible only to you.")
+
 with error_boundary.boundary("loading your personal dashboard"):
     # Grid data sources, one per aggregate grid.
     bank_account_data_source = wiring.bank_account_data_source()
