@@ -1,75 +1,16 @@
 """Tests for InitialiseJointWorkspaceUseCase."""
 
 import uuid
+from collections.abc import Callable
 
+import pydantic
 import pytest
 
 from domain import entities
 from ports import errors as port_errors
 from ports import repository
-from use_cases import errors, initialise_joint_workspace
-
-# ---------------------------------------------------------------------------
-# Fakes
-# ---------------------------------------------------------------------------
-
-
-class FakeRepository[E: entities.FinanceTrackerBaseModel](repository.Repository[E]):
-    """In-memory Repository fake with a save-failure switch for error tests."""
-
-    def __init__(self, items: list[E] | None = None) -> None:
-        """Seed the fake with initial items."""
-        self._items: dict[uuid.UUID, E] = {item.id: item for item in (items or [])}
-        self.saved: list[E] = []
-        self.raise_on_save = False
-        self.unexpected_error: Exception | None = None
-
-    def get_all(self) -> list[E]:
-        return list(self._items.values())
-
-    def get_by_id(self, item_id: uuid.UUID) -> E | None:
-        return self._items.get(item_id)
-
-    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
-        return [self._items[i] for i in ids if i in self._items]
-
-    def save(self, item: E) -> None:
-        if self.unexpected_error is not None:
-            raise self.unexpected_error
-        if self.raise_on_save:
-            msg = "Simulated save failure"
-            raise port_errors.RepositoryError(msg)
-        self._items[item.id] = item
-        self.saved.append(item)
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        """No-op; workspace initialisation saves one row at a time."""
-
-
-class FakeJointAccountRepo(repository.Repository[entities.JointAccountModel]):
-    """Joint-accounts fake returning a preset membership for the current user."""
-
-    def __init__(self, accounts: list[entities.JointAccountModel]) -> None:
-        """Seed the fake with the accounts the user belongs to."""
-        self._accounts = accounts
-
-    def get_all(self) -> list[entities.JointAccountModel]:
-        return list(self._accounts)
-
-    def get_by_ids(self, ids: list[uuid.UUID]) -> list[entities.JointAccountModel]:
-        id_set = set(ids)
-        return [a for a in self._accounts if a.id in id_set]
-
-    def save(self, item: entities.JointAccountModel) -> None:
-        """No-op; the use case never writes joint accounts."""
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        """No-op; the use case never writes joint accounts."""
-
-
-# ---------------------------------------------------------------------------
-# Factories
-# ---------------------------------------------------------------------------
+from use_cases import errors
+from use_cases.initialise_joint_workspace import InitialiseJointWorkspaceUseCase
 
 USER_ID = "user-abc"
 JOINT_ACCOUNT_ID = uuid.uuid4()
@@ -87,44 +28,133 @@ JOINT_HIDDEN_BT_NAMES = {
 }
 
 
-def make_use_case(
-    existing_trackers: list[entities.BudgetTrackerItemModel] | None = None,
-    existing_sources: list[entities.ExpenseSourceModel] | None = None,
-    *,
-    accounts: list[entities.JointAccountModel] | None = None,
-) -> tuple[
-    initialise_joint_workspace.InitialiseJointWorkspaceUseCase,
-    FakeRepository[entities.BudgetTrackerItemModel],
-    FakeRepository[entities.ExpenseSourceModel],
-]:
-    bt_repo: FakeRepository[entities.BudgetTrackerItemModel] = FakeRepository(
-        existing_trackers,
-    )
-    es_repo: FakeRepository[entities.ExpenseSourceModel] = FakeRepository(
-        existing_sources,
-    )
-    if accounts is None:
-        accounts = [entities.JointAccountModel(id=JOINT_ACCOUNT_ID, name="Ours")]
-    use_case = initialise_joint_workspace.InitialiseJointWorkspaceUseCase(
-        user_id=USER_ID,
-        budget_tracker_repo=bt_repo,
-        expense_source_repo=es_repo,
-        joint_account_repo=FakeJointAccountRepo(accounts),
-    )
-    return use_case, bt_repo, es_repo
+class FakeRepository[E: pydantic.BaseModel](repository.Repository[E]):
+    """In-memory Repository fake for use-case tests.
+
+    Bound to ``pydantic.BaseModel`` rather than ``FinanceTrackerBaseModel``:
+    ``JointAccountModel`` carries no user/ownership dimension, so it is not a
+    ``FinanceTrackerBaseModel``. ``seed`` pre-loads rows as if already
+    persisted, without recording them as saves, so ``saved`` reflects only what
+    the use case wrote. The seeding flow only ever reads whole tables and writes
+    single rows, so ``get_by_ids`` is unused.
+    """
+
+    def __init__(self, items: list[E] | None = None) -> None:
+        """Seed the fake with initial items."""
+        self._items: list[E] = list(items or [])
+        self.saved: list[E] = []
+
+    def seed(self, *items: E) -> None:
+        """Pre-load rows as already-persisted (not counted as a save)."""
+        self._items.extend(items)
+
+    def get_all(self) -> list[E]:
+        return list(self._items)
+
+    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
+        raise NotImplementedError
+
+    def save(self, item: E) -> None:
+        self._items.append(item)
+        self.saved.append(item)
+
+    def apply(self, updates: entities.BackendUpdates) -> None:
+        raise NotImplementedError
 
 
-def make_tracker(name: entities.BudgetTrackerName) -> entities.BudgetTrackerItemModel:
-    return entities.BudgetTrackerItemModel(
-        user_id=USER_ID,
-        name=name,
-        ownership_type=entities.OwnershipType.JOINT,
-        joint_account_id=JOINT_ACCOUNT_ID,
-    )
+class FailingRepository[E: pydantic.BaseModel](FakeRepository[E]):
+    """Repository fake whose writes always fail at the port boundary."""
+
+    # The item is unused: the stub exists only to fail at the port boundary.
+    def save(self, item: E) -> None:  # noqa: ARG002
+        msg = "Simulated save failure"
+        raise port_errors.RepositoryError(msg)
 
 
-def make_all_joint_trackers() -> list[entities.BudgetTrackerItemModel]:
-    return [make_tracker(name) for name in JOINT_BT_NAMES]
+class BuggyRepository[E: pydantic.BaseModel](FakeRepository[E]):
+    """Repository fake whose writes raise an arbitrary (non-port) error."""
+
+    def __init__(self, error: Exception, items: list[E] | None = None) -> None:
+        """Store the error the fake raises on every save."""
+        super().__init__(items)
+        self._error = error
+
+    # The item is unused: the stub exists only to raise the injected bug.
+    def save(self, item: E) -> None:  # noqa: ARG002
+        raise self._error
+
+
+BtRepo = FakeRepository[entities.BudgetTrackerItemModel]
+EsRepo = FakeRepository[entities.ExpenseSourceModel]
+UseCaseBuilder = Callable[..., InitialiseJointWorkspaceUseCase]
+
+
+@pytest.fixture
+def bt_repo() -> BtRepo:
+    """Return the budget trackers repository in joint mode."""
+    return BtRepo()
+
+
+@pytest.fixture
+def es_repo() -> EsRepo:
+    """Return the expense sources repository in joint mode."""
+    return EsRepo()
+
+
+@pytest.fixture
+def joint_account() -> entities.JointAccountModel:
+    """Return the joint account the workspace is seeded for."""
+    return entities.JointAccountModel(id=JOINT_ACCOUNT_ID, name="Ours")
+
+
+@pytest.fixture
+def all_joint_trackers() -> list[entities.BudgetTrackerItemModel]:
+    """Return one joint-stamped budget tracker per seeded joint name."""
+    return [
+        entities.BudgetTrackerItemModel(
+            user_id=USER_ID,
+            name=name,
+            ownership_type=entities.OwnershipType.JOINT,
+            joint_account_id=JOINT_ACCOUNT_ID,
+        )
+        for name in JOINT_BT_NAMES
+    ]
+
+
+@pytest.fixture
+def build_use_case(
+    bt_repo: BtRepo,
+    es_repo: EsRepo,
+    joint_account: entities.JointAccountModel,
+) -> UseCaseBuilder:
+    """Return a builder for the use case wired to the standard collaborators.
+
+    A test overrides exactly the collaborator it wants to vary (an empty
+    account list, or a repository that fails on write) and inherits the rest,
+    including the ``bt_repo``/``es_repo`` fixtures the test seeds and inspects.
+    """
+
+    def _build(
+        *,
+        accounts: list[entities.JointAccountModel] | None = None,
+        budget_tracker_repo: BtRepo | None = None,
+    ) -> InitialiseJointWorkspaceUseCase:
+        return InitialiseJointWorkspaceUseCase(
+            user_id=USER_ID,
+            budget_tracker_repo=budget_tracker_repo or bt_repo,
+            expense_source_repo=es_repo,
+            joint_account_repo=FakeRepository(
+                [joint_account] if accounts is None else accounts,
+            ),
+        )
+
+    return _build
+
+
+@pytest.fixture
+def use_case(build_use_case: UseCaseBuilder) -> InitialiseJointWorkspaceUseCase:
+    """Return the use case wired to the standard happy-path collaborators."""
+    return build_use_case()
 
 
 # ---------------------------------------------------------------------------
@@ -132,11 +162,11 @@ def make_all_joint_trackers() -> list[entities.BudgetTrackerItemModel]:
 # ---------------------------------------------------------------------------
 
 
-def test_joint_budget_trackers_created_excluding_joint_with_correct_user_id():
-    # Arrange
-    use_case, bt_repo, _ = make_use_case()
-
-    # Act
+def test_joint_budget_trackers_created_excluding_joint_with_correct_user_id(
+    use_case: InitialiseJointWorkspaceUseCase,
+    bt_repo: BtRepo,
+) -> None:
+    # Arrange / Act
     use_case.execute()
 
     # Assert
@@ -149,11 +179,11 @@ def test_joint_budget_trackers_created_excluding_joint_with_correct_user_id():
     )
 
 
-def test_created_budget_trackers_are_joint_stamped():
-    # Arrange
-    use_case, bt_repo, _ = make_use_case()
-
-    # Act
+def test_created_budget_trackers_are_joint_stamped(
+    use_case: InitialiseJointWorkspaceUseCase,
+    bt_repo: BtRepo,
+) -> None:
+    # Arrange / Act
     use_case.execute()
 
     # Assert
@@ -164,10 +194,13 @@ def test_created_budget_trackers_are_joint_stamped():
     )
 
 
-def test_no_budget_trackers_are_duplicated_when_all_already_exist():
+def test_no_budget_trackers_are_duplicated_when_all_already_exist(
+    use_case: InitialiseJointWorkspaceUseCase,
+    bt_repo: BtRepo,
+    all_joint_trackers: list[entities.BudgetTrackerItemModel],
+) -> None:
     # Arrange
-    existing = make_all_joint_trackers()
-    use_case, bt_repo, _ = make_use_case(existing_trackers=existing)
+    bt_repo.seed(*all_joint_trackers)
 
     # Act
     use_case.execute()
@@ -182,10 +215,12 @@ def test_no_budget_trackers_are_duplicated_when_all_already_exist():
 )
 def test_missing_budget_tracker_is_created_when_others_exist(
     missing_name: entities.BudgetTrackerName,
+    use_case: InitialiseJointWorkspaceUseCase,
+    bt_repo: BtRepo,
+    all_joint_trackers: list[entities.BudgetTrackerItemModel],
 ) -> None:
     # Arrange
-    existing = [make_tracker(n) for n in JOINT_BT_NAMES if n != missing_name]
-    use_case, bt_repo, _ = make_use_case(existing_trackers=existing)
+    bt_repo.seed(*(t for t in all_joint_trackers if t.name != missing_name))
 
     # Act
     use_case.execute()
@@ -200,11 +235,11 @@ def test_missing_budget_tracker_is_created_when_others_exist(
 # ---------------------------------------------------------------------------
 
 
-def test_hidden_expense_sources_created_for_one_offs_and_savings():
-    # Arrange
-    use_case, _, es_repo = make_use_case()
-
-    # Act
+def test_hidden_expense_sources_created_for_one_offs_and_savings(
+    use_case: InitialiseJointWorkspaceUseCase,
+    es_repo: EsRepo,
+) -> None:
+    # Arrange / Act
     use_case.execute()
 
     # Assert
@@ -212,11 +247,11 @@ def test_hidden_expense_sources_created_for_one_offs_and_savings():
     assert created_names == {name.value for name in JOINT_HIDDEN_BT_NAMES}
 
 
-def test_created_expense_sources_are_joint_stamped():
-    # Arrange
-    use_case, _, es_repo = make_use_case()
-
-    # Act
+def test_created_expense_sources_are_joint_stamped(
+    use_case: InitialiseJointWorkspaceUseCase,
+    es_repo: EsRepo,
+) -> None:
+    # Arrange / Act
     use_case.execute()
 
     # Assert
@@ -227,40 +262,43 @@ def test_created_expense_sources_are_joint_stamped():
     )
 
 
-def test_hidden_expense_source_is_linked_to_its_budget_tracker():
-    # Arrange
-    use_case, bt_repo, es_repo = make_use_case()
-
-    # Act
+def test_hidden_expense_source_is_linked_to_its_budget_tracker(
+    use_case: InitialiseJointWorkspaceUseCase,
+    bt_repo: BtRepo,
+    es_repo: EsRepo,
+) -> None:
+    # Arrange / Act
     use_case.execute()
 
     # Assert
     bt_id_by_name = {bt.name: bt.id for bt in bt_repo.get_all()}
     es_by_name = {es.name: es for es in es_repo.get_all()}
-
     assert all(
         bt_id_by_name[bt_name] in (es_by_name[bt_name.value].budget_tracker_ids or [])
         for bt_name in JOINT_HIDDEN_BT_NAMES
     )
 
 
-def test_no_expense_sources_are_duplicated_when_all_already_exist():
+def test_no_expense_sources_are_duplicated_when_all_already_exist(
+    use_case: InitialiseJointWorkspaceUseCase,
+    bt_repo: BtRepo,
+    es_repo: EsRepo,
+    all_joint_trackers: list[entities.BudgetTrackerItemModel],
+) -> None:
     # Arrange
-    trackers = make_all_joint_trackers()
-    bt_id_by_name = {bt.name: bt.id for bt in trackers}
-    existing_sources = [
-        entities.ExpenseSourceModel(
-            user_id=USER_ID,
-            name=bt_name.value,
-            budget_tracker_ids=[bt_id_by_name[bt_name]],
-            ownership_type=entities.OwnershipType.JOINT,
-            joint_account_id=JOINT_ACCOUNT_ID,
-        )
-        for bt_name in JOINT_HIDDEN_BT_NAMES
-    ]
-    use_case, _, es_repo = make_use_case(
-        existing_trackers=trackers,
-        existing_sources=existing_sources,
+    bt_repo.seed(*all_joint_trackers)
+    bt_id_by_name = {t.name: t.id for t in all_joint_trackers}
+    es_repo.seed(
+        *(
+            entities.ExpenseSourceModel(
+                user_id=USER_ID,
+                name=bt_name.value,
+                budget_tracker_ids=[bt_id_by_name[bt_name]],
+                ownership_type=entities.OwnershipType.JOINT,
+                joint_account_id=JOINT_ACCOUNT_ID,
+            )
+            for bt_name in JOINT_HIDDEN_BT_NAMES
+        ),
     )
 
     # Act
@@ -270,9 +308,12 @@ def test_no_expense_sources_are_duplicated_when_all_already_exist():
     assert len(es_repo.get_all()) == len(JOINT_HIDDEN_BT_NAMES)
 
 
-def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set_and_persisted():
+def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set_and_persisted(
+    use_case: InitialiseJointWorkspaceUseCase,
+    bt_repo: BtRepo,
+    es_repo: EsRepo,
+) -> None:
     # Arrange
-    trackers = make_all_joint_trackers()
     target_bt_name = entities.BudgetTrackerName.SAVINGS
     existing_source = entities.ExpenseSourceModel(
         user_id=USER_ID,
@@ -281,10 +322,7 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set_and_persisted()
         ownership_type=entities.OwnershipType.JOINT,
         joint_account_id=JOINT_ACCOUNT_ID,
     )
-    use_case, bt_repo, es_repo = make_use_case(
-        existing_trackers=trackers,
-        existing_sources=[existing_source],
-    )
+    es_repo.seed(existing_source)
 
     # Act
     use_case.execute()
@@ -304,9 +342,11 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set_and_persisted()
 # ---------------------------------------------------------------------------
 
 
-def test_no_joint_account_raises_no_joint_account_error():
+def test_no_joint_account_raises_no_joint_account_error(
+    build_use_case: UseCaseBuilder,
+) -> None:
     # Arrange
-    use_case, _, _ = make_use_case(accounts=[])
+    use_case = build_use_case(accounts=[])
 
     # Act / Assert
     with pytest.raises(errors.NoJointAccountToInitialiseError) as exc_info:
@@ -315,10 +355,11 @@ def test_no_joint_account_raises_no_joint_account_error():
     assert exc_info.value.user_id == USER_ID
 
 
-def test_repository_failure_raises_joint_data_access_error():
+def test_repository_failure_raises_joint_data_access_error(
+    build_use_case: UseCaseBuilder,
+) -> None:
     # Arrange
-    use_case, bt_repo, _ = make_use_case()
-    bt_repo.raise_on_save = True
+    use_case = build_use_case(budget_tracker_repo=FailingRepository())
 
     # Act
     with pytest.raises(errors.JointDataAccessError) as exc_info:
@@ -333,11 +374,12 @@ def test_repository_failure_raises_joint_data_access_error():
     )
 
 
-def test_unexpected_error_is_not_wrapped_as_joint_data_access_error():
+def test_unexpected_error_is_not_wrapped_as_joint_data_access_error(
+    build_use_case: UseCaseBuilder,
+) -> None:
     # Arrange - a genuine bug (not a RepositoryError) must propagate untouched.
-    use_case, bt_repo, _ = make_use_case()
     boom = ValueError("genuine bug")
-    bt_repo.unexpected_error = boom
+    use_case = build_use_case(budget_tracker_repo=BuggyRepository(boom))
 
     # Act / Assert
     with pytest.raises(ValueError, match="genuine bug") as exc_info:
