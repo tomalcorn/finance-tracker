@@ -1,15 +1,21 @@
-"""Dashboard page for the finance tracker application.
+"""Joint dashboard page for the finance tracker application.
 
-This page is the dashboard's composition root: it builds every dependency the
-blocks need once, from ``composition.wiring``, and passes them into each
-block's ``commit`` / ``render``. The blocks themselves no longer import
-``wiring`` — they receive their grid data sources, id→name maps, and use cases
-as arguments.
+The joint counterpart of ``personal.py``: same composition-root shape, same
+reused blocks, but every dependency is built with ``JOINT`` ownership, so the
+grids, maps, and use cases operate on the ``ownership_type='joint'`` rows of the
+account the current user belongs to. RLS already limits reads to permitted
+rows; the ownership argument narrows that to the joint slice (the T5 cache-key
+split).
+
+A user belongs to at most one joint account. If they belong to none there is
+nothing to show, so the page checks up front and stops with a prompt rather than
+letting each joint read raise ``NoJointAccountError``.
 """
 
 import streamlit as st
 
 from composition import wiring
+from domain import entities
 from driving_adapters import error_boundary
 from driving_adapters.blocks import (
     bank_accounts_block,
@@ -19,24 +25,37 @@ from driving_adapters.blocks import (
     subscriptions_block,
 )
 
-with error_boundary.boundary("loading your dashboard"):
+_JOINT = entities.OwnershipType.JOINT
+
+with error_boundary.boundary("loading your joint dashboard"):
+    # A user belongs to at most one joint account. Reading it here both gates
+    # the page and warms the ``{user_id}:joint_accounts`` cache entry every
+    # joint-scoped repo consults to resolve its account, so it costs no extra
+    # fetch.
+    if not wiring.joint_account_repository().get_all():
+        st.info(
+            "You don't have a joint account yet. Once you're a member of one, "
+            "your shared accounts, budget, and payments will appear here.",
+        )
+        st.stop()
+
     # Grid data sources, one per aggregate grid.
-    bank_account_data_source = wiring.bank_account_data_source()
-    budget_tracker_data_source = wiring.budget_tracker_data_source()
-    expense_source_data_source = wiring.expense_source_data_source()
-    income_source_data_source = wiring.income_source_data_source()
-    one_off_data_source = wiring.one_off_data_source()
-    payment_data_source = wiring.payment_data_source()
-    subscription_data_source = wiring.subscription_data_source()
+    bank_account_data_source = wiring.bank_account_data_source(_JOINT)
+    budget_tracker_data_source = wiring.budget_tracker_data_source(_JOINT)
+    expense_source_data_source = wiring.expense_source_data_source(_JOINT)
+    income_source_data_source = wiring.income_source_data_source(_JOINT)
+    one_off_data_source = wiring.one_off_data_source(_JOINT)
+    payment_data_source = wiring.payment_data_source(_JOINT)
+    subscription_data_source = wiring.subscription_data_source(_JOINT)
 
     # Foreign-key id→name maps, shared across the blocks that display them.
-    bank_account_map = wiring.bank_account_id_name_map()
-    expense_source_map = wiring.expense_source_id_name_map()
-    income_source_map = wiring.income_source_id_name_map()
-    budget_tracker_map = wiring.budget_tracker_id_name_map()
+    bank_account_map = wiring.bank_account_id_name_map(_JOINT)
+    expense_source_map = wiring.expense_source_id_name_map(_JOINT)
+    income_source_map = wiring.income_source_id_name_map(_JOINT)
+    budget_tracker_map = wiring.budget_tracker_id_name_map(_JOINT)
 
     # Use cases.
-    bank_one_offs_use_case = wiring.bank_one_offs_use_case()
+    bank_one_offs_use_case = wiring.bank_one_offs_use_case(_JOINT)
 
 one_offs_container = st.container(border=True)
 budget_tracker_container = st.container(border=True)
@@ -66,7 +85,7 @@ with error_boundary.boundary("saving your latest changes"):
     )
 
 with error_boundary.boundary("reconciling your subscriptions"):
-    wiring.reconcile_subscriptions_use_case().execute()
+    wiring.reconcile_subscriptions_use_case(_JOINT).execute()
 
 
 with one_offs_container, error_boundary.boundary("loading your one-offs"):
@@ -98,7 +117,7 @@ with payments_container, error_boundary.boundary("loading your payments"):
 
 with bank_accounts_container, error_boundary.boundary("loading your bank accounts"):
     # Read after reconciliation so computed balances reflect its new payments.
-    bank_accounts = wiring.bank_account_views()
+    bank_accounts = wiring.bank_account_views(_JOINT)
     st.subheader(":material/account_balance: :orange[Bank Accounts]")
     bank_accounts_block.render(bank_account_data_source, bank_accounts)
 

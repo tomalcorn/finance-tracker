@@ -42,7 +42,11 @@ docs_ui = docs_pages.DocsUI(docs_registry)
 
 pg = st.navigation(
     {
-        "": [constants.Pages.DASHBOARD.value, constants.Pages.LOGIN.value],
+        "": [
+            constants.Pages.PERSONAL.value,
+            constants.Pages.JOINT.value,
+            constants.Pages.LOGIN.value,
+        ],
         ":material/docs: Docs": docs_ui.build_pages(),
     },
     position="top",
