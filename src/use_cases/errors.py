@@ -30,6 +30,23 @@ class DataAccessError(WorkspaceInitializationError):
     """Raised when a repository operation fails."""
 
 
+class JointWorkspaceInitializationError(WorkspaceError):
+    """Raised when a joint account's workspace cannot be set up correctly."""
+
+
+class JointDataAccessError(JointWorkspaceInitializationError):
+    """Raised when a repository operation fails during joint workspace init."""
+
+
+class NoJointAccountToInitialiseError(JointWorkspaceInitializationError):
+    """Error when the user belongs to no joint account, so there is nothing to seed."""
+
+    def __init__(self, user_id: str) -> None:
+        """Construct NoJointAccountToInitialiseError."""
+        self.user_id = user_id
+        super().__init__(f"User {user_id!r} belongs to no joint account to initialise.")
+
+
 class BankOneOffsError(UseCaseError):
     """Base error for the bank_one_offs use case."""
 
