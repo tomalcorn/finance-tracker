@@ -32,9 +32,31 @@ def _initialise_workspace() -> None:
         st.stop()
 
 
+def _initialise_joint_workspace() -> None:
+    """Seed the current user's joint account once per session, if they have one.
+
+    Mirrors ``_initialise_workspace`` but with two differences forced by joint
+    membership being optional: a user in no joint account is a silent no-op
+    (``NoJointAccountToInitialiseError``), and a genuine seeding failure logs
+    without ``st.stop`` — a joint hiccup must not lock the user out of Personal.
+    """
+    try:
+        wiring.joint_workspace_init_use_case().execute()
+    except use_case_errors.NoJointAccountToInitialiseError:
+        logger.debug("No joint account to initialise for the current user.")
+    except use_case_errors.JointWorkspaceInitializationError:
+        st.error("Could not set up your joint workspace. Please contact support.")
+        logger.exception("Joint workspace initialization failed")
+
+
 session.run_once_per_session(
     ss_keys.SSKeys.WORKSPACE_INITIALISED,
     _initialise_workspace,
+)
+
+session.run_once_per_session(
+    ss_keys.SSKeys.JOINT_WORKSPACE_INITIALISED,
+    _initialise_joint_workspace,
 )
 
 docs_registry = docs_pages.DocsRegistry(docs_pages.DOCS_DIR)
