@@ -34,17 +34,19 @@ Joint accounts are not self-service yet. There is no button to create one or to
 invite someone, so it has to be set up manually behind the scenes.
 
 To get one, ask for a joint account to be created and say who should be on it.
-Once you are both added, a **Joint** page appears in the sidebar and whatever is
-kept in the joint account becomes visible to both of you.
+Once you are both added, whatever is kept in the joint account becomes visible
+to both of you.
 
 ## Where Shared Data Lives
 
-Once you are a member, the app has two dashboards:
+The app has two dashboards, both in the sidebar:
 
 - **Personal** — your private accounts, budget, and payments, visible only to
   you.
 - **Joint** — the shared account you belong to: its bank accounts, budget,
-  one-offs, payments, and subscriptions, visible to both members.
+  one-offs, payments, and subscriptions, visible to both members. Until you are
+  added to an account this page just explains how joint accounts work; your
+  shared data appears here once you are a member.
 
 Add something on the Joint page and it is shared; add it on the Personal page
 and it stays yours. That is the only choice you make — there is nothing to mark
