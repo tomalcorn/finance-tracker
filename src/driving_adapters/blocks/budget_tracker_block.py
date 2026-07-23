@@ -13,6 +13,9 @@ from driving_adapters.models import frontend_models
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from driving_adapters.components.buttons import (
+        contribute_button as contribute_button_component,
+    )
     from driving_adapters.components.dfes import data_source as data_source_mod
 
 _BUDGET_TRACKER_TABLE = "budget_tracker"
@@ -381,8 +384,21 @@ def render(
     expense_source_data_source: "data_source_mod.GridDataSource",
     income_source_data_source: "data_source_mod.GridDataSource",
     budget_tracker_map: dict[str, str],
+    contribute_button: "contribute_button_component.ContributeButton | None" = None,
 ) -> None:
-    """Render the budget tracker block."""
+    """Render the budget tracker block.
+
+    Args:
+        budget_tracker_data_source: Grid data source for the budget tracker tab.
+        expense_source_data_source: Grid data source for the expense sources tab.
+        income_source_data_source: Grid data source for the income sources tab.
+        budget_tracker_map: ``{id: name}`` of the user's budget trackers.
+        contribute_button: The personal→joint contribution button, rendered
+            above the budget tracker grid. Passed only by the personal page for a
+            user who belongs to a joint account; ``None`` (the joint page and
+            non-members) hides it, since contributing funds joint from personal.
+
+    """
     bt_config, es_config, is_config = _configs(
         budget_tracker_data_source,
         expense_source_data_source,
@@ -399,6 +415,8 @@ def render(
     )
 
     with budget_tracker_tab:
+        if contribute_button is not None:
+            contribute_button()
         grid.render(bt_config)
 
     with expense_tab:
