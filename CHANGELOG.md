@@ -1,3 +1,9 @@
+## v0.14.0 (2026-07-23)
+
+### Feat
+
+- **joint**: joint workspace initialisation use case (#191) (#196)
+
 ## v0.13.0 (2026-07-22)
 
 ### Feat
