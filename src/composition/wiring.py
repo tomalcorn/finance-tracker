@@ -221,9 +221,10 @@ def joint_workspace_init_use_case() -> (
     The counterpart to :func:`workspace_init_use_case` for a joint account: the
     trackers/sources repos are built in ``JOINT`` mode so every row is stamped
     ``ownership_type='joint'`` and account-scoped, and a joint-accounts repo is
-    handed in so the use case can resolve the id it stamps. Not triggered yet —
-    #177 deferred in-app joint-account creation, so this has no wired call site
-    until the joint workflow lands.
+    handed in so the use case can resolve the id it stamps. Run once per session
+    from the app entry point alongside the personal workspace init; it no-ops for
+    a user who belongs to no joint account. Idempotent, so re-running each
+    session only fills in anything missing.
     """
     deps = _repo_deps()
     user_id = deps[0]

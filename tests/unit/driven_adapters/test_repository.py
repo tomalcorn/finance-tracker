@@ -438,6 +438,93 @@ class TestCrossMemberStaleness:
         assert joint_loads_after == joint_loads_before + 1
 
 
+class TestWriteStampsOwnership:
+    """A repository stamps its own ownership onto every row it inserts.
+
+    The grid add-row dialog builds a bare row that defaults to personal, so the
+    repository — not the caller — is what makes a joint write land as joint.
+    """
+
+    @staticmethod
+    def _captured_added_row(
+        repo: repository.SupabaseRepository,
+        monkeypatch: pytest.MonkeyPatch,
+        added_row: dict,
+    ) -> dict:
+        """Apply one added row and return what reached ``client.update_backend``."""
+        captured: dict[str, entities.BackendUpdates] = {}
+
+        def _capture(
+            table_name: str,  # noqa: ARG001 - only matches update_backend's signature
+            updates: entities.BackendUpdates,
+            conn: object,  # noqa: ARG001 - only matches update_backend's signature
+        ) -> None:
+            captured["updates"] = updates
+
+        monkeypatch.setattr(repository.client, "update_backend", _capture)
+        repo.apply(entities.BackendUpdates(added_rows=[added_row]))
+        return captured["updates"].added_rows[0]
+
+    def test_joint_add_is_stamped_joint_with_the_account_id(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Arrange - a bare row defaulted to personal, as the add dialog builds it
+        account = uuid.uuid4()
+        cache = KeyedFakeCache({_JOINT_ACCOUNTS_KEY: [{"id": str(account)}]})
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN, _JOINT)
+        bare = _bank_view_row(ownership_type=_PERSONAL, joint_account_id=None)
+
+        # Act
+        written = self._captured_added_row(repo, monkeypatch, bare)
+
+        # Assert - personal default overridden to joint, account id stamped
+        assert all(
+            [
+                written["ownership_type"] == _JOINT,
+                written["joint_account_id"] == str(account),
+            ],
+        )
+
+    def test_personal_add_is_stamped_personal_with_no_account(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Arrange
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache([]),
+            _CONN,
+            _PERSONAL,
+        )
+        bare = _bank_view_row(ownership_type=_PERSONAL, joint_account_id=None)
+
+        # Act
+        written = self._captured_added_row(repo, monkeypatch, bare)
+
+        # Assert
+        assert all(
+            [
+                written["ownership_type"] == _PERSONAL,
+                written["joint_account_id"] is None,
+            ],
+        )
+
+    def test_no_ownership_table_add_is_left_untouched(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Arrange - joint_accounts has no ownership dimension (ownership None)
+        repo = repository.joint_account_repository(_USER_ID, FakeCache([]), _CONN)
+        row = {"id": str(uuid.uuid4()), "name": "Our Joint"}
+
+        # Act
+        written = self._captured_added_row(repo, monkeypatch, row)
+
+        # Assert - no ownership columns injected onto a table that lacks them
+        assert "ownership_type" not in written
+
+
 class TestPaymentRepository:
     def test_get_all_parses_expense_and_income_into_correct_subtypes(self) -> None:
         # Arrange

@@ -158,6 +158,33 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         id_strs = {str(i) for i in ids}
         return [row for row in self._fetch_rows() if row["id"] in id_strs]
 
+    def _stamp_ownership(self, row: entities.JsonDict) -> entities.JsonDict:
+        """Stamp this repository's ownership onto a row about to be inserted.
+
+        A repository writes only rows of its own ownership, so every insert it
+        makes must carry its mode's ``ownership_type`` (and, for joint, the
+        account id) regardless of what the caller supplied — the grid add-row
+        dialog builds a bare row that otherwise defaults to personal. The two
+        joint tables have no ownership dimension (ownership ``None``), so their
+        rows pass through untouched.
+
+        Raises:
+            NoJointAccountError: The repository is joint but the user belongs to
+                no joint account, so there is no account to stamp.
+
+        """
+        if self._ownership is None:
+            return row
+        stamped: entities.JsonDict = {**row, "ownership_type": self._ownership.value}
+        if self._ownership is entities.OwnershipType.JOINT:
+            account_id = self._joint_account_id()
+            if account_id is None:
+                raise errors.NoJointAccountError(self._user_id)
+            stamped["joint_account_id"] = str(account_id)
+        else:
+            stamped["joint_account_id"] = None
+        return stamped
+
     def _affected_keys(self) -> list[str]:
         """Return the cache keys a write to this aggregate busts.
 
@@ -188,7 +215,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         try:
             client.upsert_row(
                 str(self._spec.write_table),
-                item.model_dump(mode="json"),
+                self._stamp_ownership(item.model_dump(mode="json")),
                 self._connection,
             )
             self._cache.invalidate(self._affected_keys())
@@ -206,9 +233,20 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         if not (updates.added_rows or updates.edited_rows or updates.deleted_rows):
             return
         try:
+            # Inserts establish a row's ownership, so stamp this mode's ownership
+            # onto every added row; edits/deletes act on rows already of this
+            # ownership (the read that surfaced them was mode-filtered), so their
+            # ownership columns are left untouched.
+            stamped = updates.model_copy(
+                update={
+                    "added_rows": [
+                        self._stamp_ownership(row) for row in updates.added_rows
+                    ],
+                },
+            )
             client.update_backend(
                 str(self._spec.write_table),
-                updates,
+                stamped,
                 self._connection,
             )
             self._cache.invalidate(self._affected_keys())

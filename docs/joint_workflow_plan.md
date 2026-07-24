@@ -1,6 +1,32 @@
 
 # ADR: Joint Workflow for Personal + Shared Finances
 
+> **⚠️ Superseded — historical record only.** This ADR is the original sketch of
+> the joint workflow. It has been implemented and superseded by the **Joint
+> Workflow epic (#182)**, which reconciled it with the codebase as it stands
+> after the hexagonal refactor (#102), the migration runner (#158/#171), and the
+> cross-session cache (#164). Do not treat the SQL and flows below as current —
+> take the epic and the `.claude/CLAUDE.md` invariants (Cache / Read strategy /
+> architecture) as the source of truth. The main corrections the epic made:
+>
+> - **RLS keys on `public.user_id()` (the Auth0 `userId` TEXT claim), not
+>   `auth.uid()`.** The app authenticates via a minted Supabase JWT and
+>   `joint_account_members.user_id` is a TEXT Auth0 sub, not a UUID — so every
+>   `auth.uid()` snippet below is wrong for this app.
+> - **Schema ships as versioned migrations** (`migrations/versions/0002_joint_workflow.sql`
+>   onward), and **RLS is a versioned prod-only overlay**
+>   (`migrations/versions/prod/0005_enable_rls.sql`), applied by the migration
+>   runner — not hand-applied SQL.
+> - **The "backend RPC / server endpoint" is a `use_cases/` use case here.**
+>   There is no server tier; cross-aggregate coordination (create joint account,
+>   contribute) lives in use cases, plain CRUD goes through the grid port.
+> - **Contributions reuse existing anchors** (`BudgetTrackerName.JOINT` + a
+>   hidden "Joint" expense source seeded by workspace init) rather than a
+>   dedicated `joint_contributions` table.
+> - **The cache invariant changed** (#176): reads are split into a personal
+>   slice and an account-scoped joint slice so a partner's joint write
+>   invalidates the entry the other member reads.
+
 ## Context
 
 We need an approach that lets each user manage personal finances while sharing a joint ledger with another user. Users must only see their personal data and any joint data for shared accounts they belong to. The existing system models Payments, Expense Sources, Income Sources, Budget Tracker entries and Bank Accounts.
