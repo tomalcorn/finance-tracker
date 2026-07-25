@@ -355,7 +355,7 @@ class TestOwnershipModes:
         )
 
         # Act
-        repo.apply(entities.BackendUpdates(added_rows=[_bank_view_row()]))
+        repo.save_entities(repo.build_entities([_bank_view_row()]))
 
         # Assert - the shared joint key is busted, so co-members refresh
         assert (
@@ -374,7 +374,7 @@ class TestOwnershipModes:
         )
 
         # Act
-        repo.apply(entities.BackendUpdates(added_rows=[_bank_view_row()]))
+        repo.save_entities(repo.build_entities([_bank_view_row()]))
 
         # Assert - a personal write only ever touches user-scoped keys
         assert not any(key.startswith("joint:") for key in cache.invalidated)
@@ -430,12 +430,103 @@ class TestCrossMemberStaleness:
         # Act - B warms its read, A writes a joint row, B reads again
         repo_b.get_all()
         joint_loads_before = loads.count(joint_filter)
-        repo_a.apply(entities.BackendUpdates(added_rows=[{"id": str(uuid.uuid4())}]))
+        repo_a.save_entities(
+            [
+                entities.ExpensePaymentModel(
+                    user_id="auth0|a",
+                    bank_account_id=uuid.uuid4(),
+                    ownership_type=_JOINT,
+                    joint_account_id=account,
+                ),
+            ],
+        )
         repo_b.get_all()
         joint_loads_after = loads.count(joint_filter)
 
         # Assert - B's shared joint slice reloaded after A's write (was stale before)
         assert joint_loads_after == joint_loads_before + 1
+
+
+class TestBuildEntitiesCompletesOwnership:
+    """The gate completes a raw row with the repository's write context.
+
+    The grid add-row dialog supplies a bare row with no ownership at all, so the
+    repository — not the caller — is what makes a joint write land as joint. The
+    entity is complete the moment it exists, and is never patched afterwards.
+    """
+
+    def test_joint_row_is_built_joint_with_the_account_id(self) -> None:
+        # Arrange - a bare row with no ownership, as the add dialog builds it
+        account = uuid.uuid4()
+        cache = KeyedFakeCache({_JOINT_ACCOUNTS_KEY: [{"id": str(account)}]})
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN, _JOINT)
+        bare = _bank_view_row(ownership_type=_PERSONAL, joint_account_id=None)
+
+        # Act
+        built = repo.build_entities([bare])[0]
+
+        # Assert - personal default overridden to joint, account id supplied
+        assert all(
+            [
+                built.ownership_type is entities.OwnershipType.JOINT,
+                built.joint_account_id == account,
+                built.user_id == _USER_ID,
+            ],
+        )
+
+    def test_personal_row_is_built_personal_with_no_account(self) -> None:
+        # Arrange
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache([]),
+            _CONN,
+            _PERSONAL,
+        )
+        bare = _bank_view_row(ownership_type=_PERSONAL, joint_account_id=None)
+
+        # Act
+        built = repo.build_entities([bare])[0]
+
+        # Assert
+        assert all(
+            [
+                built.ownership_type is entities.OwnershipType.PERSONAL,
+                built.joint_account_id is None,
+            ],
+        )
+
+    def test_no_ownership_table_row_gets_only_the_owner(self) -> None:
+        # Arrange - joint_accounts has no ownership dimension (ownership None)
+        repo = repository.joint_account_repository(_USER_ID, FakeCache([]), _CONN)
+        row = {"id": str(uuid.uuid4()), "name": "Our Joint"}
+
+        # Act
+        built = repo.build_entities([row])[0]
+
+        # Assert - no ownership columns invented for a table that lacks them
+        assert not hasattr(built, "ownership_type")
+
+    def test_a_joint_repository_rejects_a_personal_entity(self) -> None:
+        # Arrange - misfiling a personal row through a joint repository would
+        # write it to the wrong slice and bust the wrong cache keys.
+        account = uuid.uuid4()
+        cache = KeyedFakeCache({_JOINT_ACCOUNTS_KEY: [{"id": str(account)}]})
+        repo = repository.bank_account_repository(_USER_ID, cache, _CONN, _JOINT)
+        personal = entities.BankAccountModel(user_id=_USER_ID, name="Mine")
+
+        # Act / Assert
+        with pytest.raises(errors.RepositoryError, match="ownership"):
+            repo.save_entities([personal])
+
+    def test_an_invalid_row_becomes_a_repository_error(self) -> None:
+        # Arrange - a row missing the required bank_account_id. The gate is a port
+        # boundary, so a validation failure must arrive as a RepositoryError
+        # rather than leaking pydantic's (or the domain's) own error type.
+        repo = repository.payment_repository(_USER_ID, FakeCache([]), _CONN, _PERSONAL)
+
+        # Act / Assert
+        with pytest.raises(errors.RepositoryError, match="Invalid row"):
+            repo.build_entities([{"payment_type": "expense", "name": "No account"}])
 
 
 class TestPaymentRepository:

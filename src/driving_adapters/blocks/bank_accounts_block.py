@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import streamlit as st
 
-from domain import entities
 from driving_adapters.components.buttons import constants
 from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
@@ -33,7 +32,6 @@ def _build_config(
         source=frontend_models.GridSource(
             write_table=_TABLE_NAME,
             data_source=data_source,
-            backend_model=entities.BankAccountModel,
         ),
         display=frontend_models.GridDisplay(
             columns=[

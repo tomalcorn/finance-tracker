@@ -63,53 +63,19 @@ def fetch_table(
     return cast("list[entities.JsonDict]", rows)
 
 
-def update_backend(
+def upsert_rows(
     table_name: str,
-    updates: "entities.BackendUpdates",
+    rows: "list[entities.JsonDict]",
     connection: "st_supabase_connection.SupabaseConnection",
 ) -> None:
-    """Apply a batch of added, edited, and deleted rows to the backend.
+    """Insert full rows, updating in place any whose primary key already exists.
 
-    Args:
-        table_name: The name of the table to update.
-        updates: The BackendUpdates object containing added, edited, and deleted rows.
-        connection: The Supabase connection to use.
-
-    Raises:
-        errors.SupabaseAdapterError: a Supabase write did not complete.
-
-    """
-    try:
-        if updates.added_rows:
-            connection.table(table_name).insert(updates.added_rows).execute()
-
-        if updates.edited_rows:
-            for row_id, changes in updates.edited_rows.items():
-                connection.table(table_name).update(changes).eq("id", row_id).execute()
-
-        if updates.deleted_rows:
-            connection.table(table_name).delete().in_(
-                "id",
-                updates.deleted_rows,
-            ).execute()
-    except Exception as e:
-        msg = f"Supabase write to '{table_name}' failed: {e}"
-        raise errors.SupabaseAdapterError(msg) from e
-
-
-def upsert_row(
-    table_name: str,
-    row: "entities.JsonDict",
-    connection: "st_supabase_connection.SupabaseConnection",
-) -> None:
-    """Insert a single row, or update it in place when its primary key exists.
-
-    Backs ``Repository.save``'s insert-or-update contract, so a fetched row that
-    is mutated and saved does not collide with a plain insert's duplicate key.
+    Backs ``Repository.save_entities``: a fetched row that is copied with changes
+    and saved must not collide with a plain insert's duplicate key.
 
     Args:
         table_name: The name of the table to write to.
-        row: The full row payload to upsert.
+        rows: The full row payloads to upsert.
         connection: The Supabase connection to use.
 
     Raises:
@@ -117,7 +83,54 @@ def upsert_row(
 
     """
     try:
-        connection.table(table_name).upsert(row).execute()
+        connection.table(table_name).upsert(rows).execute()
+    except Exception as e:
+        msg = f"Supabase write to '{table_name}' failed: {e}"
+        raise errors.SupabaseAdapterError(msg) from e
+
+
+def update_rows(
+    table_name: str,
+    edits: "entities.EditedRows",
+    connection: "st_supabase_connection.SupabaseConnection",
+) -> None:
+    """Patch the given columns of existing rows, one request per row id.
+
+    Args:
+        table_name: The name of the table to update.
+        edits: Changed columns keyed by row id.
+        connection: The Supabase connection to use.
+
+    Raises:
+        errors.SupabaseAdapterError: a Supabase write did not complete.
+
+    """
+    try:
+        for row_id, changes in edits.items():
+            connection.table(table_name).update(changes).eq("id", row_id).execute()
+    except Exception as e:
+        msg = f"Supabase write to '{table_name}' failed: {e}"
+        raise errors.SupabaseAdapterError(msg) from e
+
+
+def delete_rows(
+    table_name: str,
+    ids: "entities.DeletedIds",
+    connection: "st_supabase_connection.SupabaseConnection",
+) -> None:
+    """Delete the rows with the given ids in one request.
+
+    Args:
+        table_name: The name of the table to delete from.
+        ids: The ids of the rows to delete.
+        connection: The Supabase connection to use.
+
+    Raises:
+        errors.SupabaseAdapterError: the Supabase write did not complete.
+
+    """
+    try:
+        connection.table(table_name).delete().in_("id", ids).execute()
     except Exception as e:
         msg = f"Supabase write to '{table_name}' failed: {e}"
         raise errors.SupabaseAdapterError(msg) from e

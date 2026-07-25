@@ -175,16 +175,14 @@ class TestReconcileSubscription:
             cadence=cadence,
             start_date=start_date,
         )
-        updates = entities.BackendUpdates()
-
-        self.use_case._reconcile_subscription(sub, [], updates)
+        new_rows, _ = self.use_case._reconcile_subscription(sub, [])
 
         assert all(
             [
-                len(updates.added_rows) == 1,
-                updates.added_rows[0]["name"] == f"Sub: {_DEFAULT_NAME}",
-                updates.added_rows[0]["expense"] == _DEFAULT_AMOUNT,
-                updates.added_rows[0]["payment_date"] == expected_date.isoformat(),
+                len(new_rows) == 1,
+                new_rows[0]["name"] == f"Sub: {_DEFAULT_NAME}",
+                new_rows[0]["expense"] == _DEFAULT_AMOUNT,
+                new_rows[0]["payment_date"] == expected_date,
             ],
         )
 
@@ -208,15 +206,12 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payment = _make_payment(sub, payment_date)
-        updates = entities.BackendUpdates()
-
-        self.use_case._reconcile_subscription(sub, [payment], updates)
+        new_rows, deleted_ids = self.use_case._reconcile_subscription(sub, [payment])
 
         assert all(
             [
-                len(updates.added_rows) == 0,
-                len(updates.edited_rows) == 0,
-                len(updates.deleted_rows) == 0,
+                len(new_rows) == 0,
+                len(deleted_ids) == 0,
             ],
         )
 
@@ -244,14 +239,12 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payment = _make_payment(sub, payment_date)
-        updates = entities.BackendUpdates()
-
-        self.use_case._reconcile_subscription(sub, [payment], updates)
+        _, deleted_ids = self.use_case._reconcile_subscription(sub, [payment])
 
         assert all(
             [
-                len(updates.deleted_rows) == 1,
-                str(payment.id) in updates.deleted_rows,
+                len(deleted_ids) == 1,
+                str(payment.id) in deleted_ids,
             ],
         )
 
@@ -285,14 +278,12 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payments = payments_factory(sub)
-        updates = entities.BackendUpdates()
-
-        self.use_case._reconcile_subscription(sub, payments, updates)
+        new_rows, deleted_ids = self.use_case._reconcile_subscription(sub, payments)
 
         assert all(
             [
-                len(updates.added_rows) == 0,
-                len(updates.deleted_rows) == 0,
+                len(new_rows) == 0,
+                len(deleted_ids) == 0,
             ],
         )
 
@@ -307,16 +298,14 @@ class TestReconcileSubscription:
             bank_account_id,
             expense_source_id=expense_source_id,
         )
-        updates = entities.BackendUpdates()
+        new_rows, _ = self.use_case._reconcile_subscription(sub, [])
 
-        self.use_case._reconcile_subscription(sub, [], updates)
-
-        added = updates.added_rows[0]
+        added = new_rows[0]
         assert all(
             [
-                added["subscription_id"] == str(sub.id),
-                added["bank_account_id"] == str(bank_account_id),
-                added["expense_source_id"] == str(expense_source_id),
+                added["subscription_id"] == sub.id,
+                added["bank_account_id"] == bank_account_id,
+                added["expense_source_id"] == expense_source_id,
                 added["payment_type"] == "expense",
             ],
         )

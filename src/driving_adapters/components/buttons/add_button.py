@@ -3,12 +3,10 @@
 import logging
 import typing
 
-import pydantic
 import streamlit as st
 
-from domain import entities
-from driving_adapters import auth
 from driving_adapters.components.buttons import constants
+from ports import errors as port_errors
 
 if typing.TYPE_CHECKING:
     from driving_adapters.models import frontend_models
@@ -32,28 +30,20 @@ def _submit_new_row(
     grid_source: "frontend_models.GridSource",
     new_row: dict[str, object],
 ) -> None:
-    """Validate a new row and write it through the grid data source.
+    """Build a new row into an entity through the port, then persist it.
 
     Raises:
-        ValueError: If the row fails validation, or the grid has no data source
-            to write through.
+        ValueError: If the grid has no data source to write through.
+        RepositoryError: If the row is not valid for the aggregate, or the write
+            fails.
 
     """
-    try:
-        new_row["user_id"] = auth.get_current_user()
-        new_row.update(grid_source.extra_row_values or {})
-        model_instance = grid_source.backend_model.model_validate(new_row)
-    except pydantic.ValidationError as e:
-        msg = f"Invalid data for new row in {grid_source.write_table}: {e}"
-        raise ValueError(msg) from e
     if grid_source.data_source is None:
         msg = "An editable grid requires a data source to add rows."
         raise ValueError(msg)
-    grid_source.data_source.apply(
-        entities.BackendUpdates(
-            added_rows=[model_instance.model_dump(mode="json", exclude_none=True)],
-        ),
-    )
+    new_row.update(grid_source.extra_row_values or {})
+    data_source = grid_source.data_source
+    data_source.save_entities(data_source.build_entities([new_row]))
 
 
 @st.dialog("Add Row")
@@ -86,7 +76,7 @@ def _add_row_dialog(
         }
         try:
             _submit_new_row(grid_source, new_row)
-        except ValueError:
+        except (ValueError, port_errors.RepositoryError):
             logger.exception("Failed to add a new row to %s", grid_source.write_table)
             st.error("Could not add the row. Please check the values and try again.")
             return
