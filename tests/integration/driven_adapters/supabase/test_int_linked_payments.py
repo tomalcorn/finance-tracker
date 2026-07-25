@@ -68,6 +68,15 @@ def _linked_pair(
 
     yield linked_expense, income
 
+    # Clear the cross-links before deleting. The rows reference each other, so
+    # under the pre-0009 schema neither could be deleted while both links were
+    # set — a teardown that just deleted them would leave rows behind and break
+    # the shared bank-account fixture for every later test.
+    for payment_id in (linked_expense.id, income.id):
+        connection.table("payments").update({"linked_payment_id": None}).eq(
+            "id",
+            str(payment_id),
+        ).execute()
     for payment_id in (linked_expense.id, income.id):
         connection.table("payments").delete().eq("id", str(payment_id)).execute()
 
