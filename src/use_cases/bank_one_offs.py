@@ -73,18 +73,34 @@ class BankOneOffsUseCase:
 
         expense_source_id = self._resolve_one_offs_expense_source()
 
+        banked_items = []
+        payment_rows: list[entities.RawRow] = []
         for item in items:
             monthly_contribution = item.current_month
-            item.banked += monthly_contribution
-            item.current_month = 0
-            self._one_off_repo.save(item)
-
-            payment = entities.ExpensePaymentModel(
-                user_id=item.user_id,
-                name=f"Bank: {item.name}",
-                expense=monthly_contribution,
-                payment_date=payment_date,
-                bank_account_id=bank_account_id,
-                expense_source_id=expense_source_id,
+            # Entities are frozen: banking produces a new item rather than
+            # mutating the stored one in place.
+            banked_items.append(
+                entities.OneOffItemModel.model_validate(
+                    item.model_copy(
+                        update={
+                            "banked": item.banked + monthly_contribution,
+                            "current_month": 0,
+                        },
+                    ),
+                ),
             )
-            self._payment_repo.save(payment)
+            payment_rows.append(
+                {
+                    "payment_type": "expense",
+                    "name": f"Bank: {item.name}",
+                    "expense": monthly_contribution,
+                    "payment_date": payment_date,
+                    "bank_account_id": bank_account_id,
+                    "expense_source_id": expense_source_id,
+                },
+            )
+
+        self._one_off_repo.save_entities(banked_items)
+        self._payment_repo.save_entities(
+            self._payment_repo.build_entities(payment_rows),
+        )

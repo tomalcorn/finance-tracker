@@ -47,7 +47,6 @@ def _build_config(
         source=frontend_models.GridSource(
             write_table=_TABLE_NAME,
             data_source=data_source,
-            backend_model=entities.OneOffItemModel,
             extra_row_values=(
                 {"budget_tracker_id": one_offs_bt_id} if one_offs_bt_id else None
             ),

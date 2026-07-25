@@ -249,43 +249,41 @@ class TestEnforceUniqueCols:
         assert result == {"name": "Item (11)", "value": 100}
 
 
-class TestComputeBackendUpdates:
-    """Tests for compute_backend_updates edit/delete diffing."""
+class TestComputeDeltas:
+    """Tests for compute_deltas edit/delete diffing."""
 
     def test_edited_rows_keyed_by_id(self) -> None:
         """An edited row maps its backend id to the changes."""
         working_df = pd.DataFrame({"id": ["a", "b"], "total_budget": [10, 20]})
-        updates = grid_sync.compute_backend_updates(
+        edits, deleted_ids = grid_sync.compute_deltas(
             working_df=working_df,
             edited_rows={"1": {"total_budget": 99}},
             deleted_rows=[],
             unique_col_names=[],
             unique_checker=lambda _col: set(),
         )
-        assert updates.edited_rows == {"b": {"total_budget": 99}}
-        assert updates.deleted_rows == []
+        assert all([edits == {"b": {"total_budget": 99}}, deleted_ids == []])
 
     def test_deleted_rows_resolve_to_ids(self) -> None:
         """A deleted positional index resolves to its backend id."""
         working_df = pd.DataFrame({"id": ["a", "b", "c"]})
-        updates = grid_sync.compute_backend_updates(
+        edits, deleted_ids = grid_sync.compute_deltas(
             working_df=working_df,
             edited_rows={},
             deleted_rows=[0, 2],
             unique_col_names=[],
             unique_checker=lambda _col: set(),
         )
-        assert updates.deleted_rows == ["a", "c"]
-        assert updates.edited_rows == {}
+        assert all([deleted_ids == ["a", "c"], edits == {}])
 
     def test_edit_applies_uniqueness_suffix(self) -> None:
         """An edit to a unique column is suffixed against existing values."""
         working_df = pd.DataFrame({"id": ["a"], "name": ["Item"]})
-        updates = grid_sync.compute_backend_updates(
+        edits, _ = grid_sync.compute_deltas(
             working_df=working_df,
             edited_rows={"0": {"name": "Item"}},
             deleted_rows=[],
             unique_col_names=["name"],
             unique_checker=lambda _col: {"Item"},
         )
-        assert updates.edited_rows == {"a": {"name": "Item (1)"}}
+        assert edits == {"a": {"name": "Item (1)"}}

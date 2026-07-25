@@ -15,12 +15,13 @@ from typing import TYPE_CHECKING
 import pydantic
 
 from domain import entities, read_models
+from domain import errors as domain_errors
 from driven_adapters import errors as adapter_errors
 from driven_adapters.supabase import client, table_names
 from ports import errors, repository
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     import st_supabase_connection
 
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
 _PaymentAdapter = pydantic.TypeAdapter(entities.AnyPaymentModel)
 
 
-def _parse_payment(row: entities.JsonDict) -> entities.AnyPaymentModel:
+def _parse_payment(row: entities.RawRow) -> entities.AnyPaymentModel:
     return _PaymentAdapter.validate_python(row)
 
 
@@ -37,10 +38,41 @@ def _parse_payment(row: entities.JsonDict) -> entities.AnyPaymentModel:
 class RepoSpec[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]:
     """The per-aggregate configuration a ``SupabaseRepository`` needs."""
 
-    parse: "Callable[[entities.JsonDict], EntityT]"
+    parse: "Callable[[entities.RawRow], EntityT]"
     view_model: type[ViewT]
     read_table: table_names.ViewNames | table_names.TableNames
     write_table: table_names.TableNames
+
+
+@dataclasses.dataclass(frozen=True)
+class OwnershipContext:
+    """The owner and ownership fields for every row this repository writes.
+
+    ``ownership_type`` is ``None`` for the aggregates with no ownership dimension
+    (the two joint tables), whose rows carry only a ``user_id``.
+    """
+
+    user_id: str
+    ownership_type: entities.OwnershipType | None
+    joint_account_id: uuid.UUID | None
+
+    def as_fields(self) -> entities.JsonDict:
+        """Return the context as row fields, ready to complete a raw row."""
+        fields: entities.JsonDict = {"user_id": self.user_id}
+        if self.ownership_type is None:
+            return fields
+        fields["ownership_type"] = self.ownership_type.value
+        fields["joint_account_id"] = (
+            str(self.joint_account_id) if self.joint_account_id is not None else None
+        )
+        return fields
+
+    def ownership_matches(self, entity: entities.HasOwnershipDimension) -> bool:
+        """Return whether ``entity`` is owned the way this context writes."""
+        return (
+            entity.ownership_type is self.ownership_type
+            and entity.joint_account_id == self.joint_account_id
+        )
 
 
 class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel](
@@ -158,32 +190,20 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         id_strs = {str(i) for i in ids}
         return [row for row in self._fetch_rows() if row["id"] in id_strs]
 
-    def _stamp_ownership(self, row: entities.JsonDict) -> entities.JsonDict:
-        """Stamp this repository's ownership onto a row about to be inserted.
-
-        A repository writes only rows of its own ownership, so every insert it
-        makes must carry its mode's ``ownership_type`` (and, for joint, the
-        account id) regardless of what the caller supplied — the grid add-row
-        dialog builds a bare row that otherwise defaults to personal. The two
-        joint tables have no ownership dimension (ownership ``None``), so their
-        rows pass through untouched.
+    def _ownership_context(self) -> OwnershipContext:
+        """Return the owner/ownership fields this repository writes under.
 
         Raises:
             NoJointAccountError: The repository is joint but the user belongs to
-                no joint account, so there is no account to stamp.
+                no joint account, so there is no account to write against.
 
         """
-        if self._ownership is None:
-            return row
-        stamped: entities.JsonDict = {**row, "ownership_type": self._ownership.value}
+        account_id: uuid.UUID | None = None
         if self._ownership is entities.OwnershipType.JOINT:
             account_id = self._joint_account_id()
             if account_id is None:
                 raise errors.NoJointAccountError(self._user_id)
-            stamped["joint_account_id"] = str(account_id)
-        else:
-            stamped["joint_account_id"] = None
-        return stamped
+        return OwnershipContext(self._user_id, self._ownership, account_id)
 
     def _affected_keys(self) -> list[str]:
         """Return the cache keys a write to this aggregate busts.
@@ -205,53 +225,97 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         """Return the records matching the given IDs."""
         return [self._spec.parse(row) for row in self._fetch_by_ids(ids)]
 
-    def save(self, item: EntityT) -> None:
-        """Insert or update a single record.
+    def build_entities(self, rows: "Sequence[entities.RawRow]") -> list[EntityT]:
+        """Complete raw rows with this repository's write context, then validate.
 
-        Translates the adapter's own ``AdapterError`` into the port-level
-        ``RepositoryError`` at the port boundary; a genuine programming error is
-        left to propagate untouched rather than being masked as a write failure.
+        The write gate: a row arrives missing the fields that decide whose it is,
+        and leaves as a complete entity. The context is applied to the raw fields
+        *before* validation, so the entity is valid the moment it exists and is
+        never patched afterwards.
         """
+        context = self._ownership_context().as_fields()
         try:
-            client.upsert_row(
-                str(self._spec.write_table),
-                self._stamp_ownership(item.model_dump(mode="json")),
-                self._connection,
-            )
-            self._cache.invalidate(self._affected_keys())
-        except adapter_errors.AdapterError as e:
-            msg = f"Failed to save row to {self._spec.write_table}: {e}"
+            return [self._spec.parse({**row, **context}) for row in rows]
+        except (pydantic.ValidationError, domain_errors.DomainError) as e:
+            # A model validator raising a DomainError is not wrapped by pydantic
+            # (DomainError is not a ValueError), so catch it too: both are the
+            # same failure — this row is not valid for this aggregate.
+            msg = f"Invalid row for {self._spec.write_table}: {e}"
             raise errors.RepositoryError(msg) from e
 
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        """Apply a batch of inserts, edits, and deletes; a no-op batch is skipped.
+    def save_entities(self, items: "Sequence[EntityT]") -> None:
+        """Upsert complete entities, busting this repository's cache keys once.
 
         Translates the adapter's own ``AdapterError`` into the port-level
         ``RepositoryError`` at the port boundary; a genuine programming error is
         left to propagate untouched rather than being masked as a write failure.
         """
-        if not (updates.added_rows or updates.edited_rows or updates.deleted_rows):
+        if not items:
             return
+        self._assert_owned(items)
         try:
-            # Inserts establish a row's ownership, so stamp this mode's ownership
-            # onto every added row; edits/deletes act on rows already of this
-            # ownership (the read that surfaced them was mode-filtered), so their
-            # ownership columns are left untouched.
-            stamped = updates.model_copy(
-                update={
-                    "added_rows": [
-                        self._stamp_ownership(row) for row in updates.added_rows
-                    ],
-                },
-            )
-            client.update_backend(
+            client.upsert_rows(
                 str(self._spec.write_table),
-                stamped,
+                [item.model_dump(mode="json") for item in items],
                 self._connection,
             )
             self._cache.invalidate(self._affected_keys())
         except adapter_errors.AdapterError as e:
-            msg = f"Failed to apply updates to {self._spec.write_table}: {e}"
+            msg = f"Failed to save rows to {self._spec.write_table}: {e}"
+            raise errors.RepositoryError(msg) from e
+
+    def _assert_owned(self, items: "Sequence[EntityT]") -> None:
+        """Reject entities not owned the way this repository writes.
+
+        A repository serves one ownership mode, so persisting a personal entity
+        through a joint repository (or the reverse) would misfile the row and bust
+        the wrong cache keys. Fail loudly at the boundary instead.
+
+        Raises:
+            RepositoryError: Any entity's ownership does not match this mode.
+
+        """
+        owned = [
+            item for item in items if isinstance(item, entities.HasOwnershipDimension)
+        ]
+        if not owned:
+            # The joint tables' entities carry no ownership dimension, so there
+            # is nothing to match against.
+            return
+        context = self._ownership_context()
+        if all(context.ownership_matches(item) for item in owned):
+            return
+        msg = (
+            f"Cannot save rows to {self._spec.write_table}: an entity's ownership "
+            f"does not match this repository's {self._ownership} mode."
+        )
+        raise errors.RepositoryError(msg)
+
+    def apply_edits(self, edits: entities.EditedRows) -> None:
+        """Patch the given columns of stored rows; an empty patch set is skipped.
+
+        Edits act on rows already of this repository's ownership (the read that
+        surfaced them was mode-filtered) and cannot change identity or ownership
+        columns, so they do not pass through the entity gate.
+        """
+        if not edits:
+            return
+        try:
+            client.update_rows(str(self._spec.write_table), edits, self._connection)
+            self._cache.invalidate(self._affected_keys())
+        except adapter_errors.AdapterError as e:
+            msg = f"Failed to apply edits to {self._spec.write_table}: {e}"
+            raise errors.RepositoryError(msg) from e
+
+    def apply_deletions(self, ids: entities.DeletedIds) -> None:
+        """Delete the rows with the given ids; an empty list is skipped."""
+        if not ids:
+            return
+        try:
+            client.delete_rows(str(self._spec.write_table), ids, self._connection)
+            self._cache.invalidate(self._affected_keys())
+        except adapter_errors.AdapterError as e:
+            msg = f"Failed to delete rows from {self._spec.write_table}: {e}"
             raise errors.RepositoryError(msg) from e
 
     def rows(self) -> list[ViewT]:

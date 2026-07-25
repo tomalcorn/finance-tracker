@@ -167,11 +167,15 @@ class ContributeToJointUseCase:
 
         """
         try:
-            self._personal_payment_repo.save(expense)
-            self._joint_payment_repo.save(income)
+            self._personal_payment_repo.save_entities([expense])
+            self._joint_payment_repo.save_entities([income])
 
-            expense.linked_payment_id = income.id
-            self._personal_payment_repo.save(expense)
+            # Entities are frozen, so the forward link is a new copy of the
+            # expense, upserted over the row just written.
+            linked = entities.ExpensePaymentModel.model_validate(
+                expense.model_copy(update={"linked_payment_id": income.id}),
+            )
+            self._personal_payment_repo.save_entities([linked])
         except port_errors.RepositoryError as e:
             msg = (
                 f"Failed to record a contribution of {expense.expense} to joint "

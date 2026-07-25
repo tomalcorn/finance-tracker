@@ -161,12 +161,13 @@ def commit(config: "frontend_models.DFEConfig") -> None:
         for col in config.display.columns
         if col.editable and col.enforce_unique
     ]
-    updates = grid_sync.compute_backend_updates(
+    edits, deleted_ids = grid_sync.compute_deltas(
         working_df=working_df,
         edited_rows=edited_rows,
         deleted_rows=deleted_rows,
         unique_col_names=unique_col_names,
         unique_checker=data_source.unique_values,
     )
-    data_source.apply(updates)
+    data_source.apply_edits(edits)
+    data_source.apply_deletions(deleted_ids)
     del st.session_state[key]

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import uuid
+    from collections.abc import Sequence
 
     import pydantic
 
@@ -32,12 +33,58 @@ class Repository[EntityT: "pydantic.BaseModel"](abc.ABC):
         """
 
     @abc.abstractmethod
-    def save(self, item: EntityT) -> None:
-        """Insert or update a single record."""
+    def build_entities(self, rows: "Sequence[entities.RawRow]") -> list[EntityT]:
+        """Complete and validate raw rows into entities — the write gate.
+
+        Each row is completed with the ownership context this repository writes
+        under (its owner, ownership mode, and joint account where applicable)
+        and then validated into an entity. Callers that hold only user-supplied
+        fields go through here; a caller already holding every field may
+        construct the entity directly. Nothing is persisted.
+
+        Args:
+            rows: Raw field maps, each missing the ownership context.
+
+        Returns:
+            One complete entity per input row, in the same order.
+
+        Raises:
+            RepositoryError: A row is not valid for this aggregate, or the
+                ownership context could not be resolved.
+
+        """
 
     @abc.abstractmethod
-    def apply(self, updates: "entities.BackendUpdates") -> None:
-        """Apply a batch of inserts, edits, and deletes in one operation.
+    def save_entities(self, items: "Sequence[EntityT]") -> None:
+        """Persist complete entities, inserting or updating each by id.
 
-        A no-op batch is skipped so an unchanged grid never touches the backend.
+        Every write of a whole row goes through here, whether the entity is new
+        or a modified copy of a stored one. An empty list is a no-op.
+
+        Raises:
+            RepositoryError: The write failed, or an entity is not owned the way
+                this repository writes.
+
+        """
+
+    @abc.abstractmethod
+    def apply_edits(self, edits: "entities.EditedRows") -> None:
+        """Patch the given columns of stored rows, keyed by row id.
+
+        Partial by design: only the supplied columns change. Identity and
+        ownership columns are not editable, so a patch cannot move a row between
+        owners. An empty patch set is a no-op.
+
+        Raises:
+            RepositoryError: The write failed.
+
+        """
+
+    @abc.abstractmethod
+    def apply_deletions(self, ids: "entities.DeletedIds") -> None:
+        """Delete the rows with the given ids. An empty list is a no-op.
+
+        Raises:
+            RepositoryError: The write failed.
+
         """

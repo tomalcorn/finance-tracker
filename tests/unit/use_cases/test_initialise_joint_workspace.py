@@ -2,15 +2,18 @@
 
 import uuid
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-import pydantic
 import pytest
 
 from domain import entities
 from ports import errors as port_errors
-from ports import repository
 from use_cases import errors
 from use_cases.initialise_joint_workspace import InitialiseJointWorkspaceUseCase
+
+if TYPE_CHECKING:
+    from tests import conftest
+
 
 USER_ID = "user-abc"
 JOINT_ACCOUNT_ID = uuid.uuid4()
@@ -28,77 +31,21 @@ JOINT_HIDDEN_BT_NAMES = {
 }
 
 
-class FakeRepository[E: pydantic.BaseModel](repository.Repository[E]):
-    """In-memory Repository fake for use-case tests.
-
-    Bound to ``pydantic.BaseModel`` rather than ``FinanceTrackerBaseModel``:
-    ``JointAccountModel`` carries no user/ownership dimension, so it is not a
-    ``FinanceTrackerBaseModel``. ``seed`` pre-loads rows as if already
-    persisted, without recording them as saves, so ``saved`` reflects only what
-    the use case wrote. The seeding flow only ever reads whole tables and writes
-    single rows, so ``get_by_ids`` is unused.
-    """
-
-    def __init__(self, items: list[E] | None = None) -> None:
-        """Seed the fake with initial items."""
-        self._items: list[E] = list(items or [])
-        self.saved: list[E] = []
-
-    def seed(self, *items: E) -> None:
-        """Pre-load rows as already-persisted (not counted as a save)."""
-        self._items.extend(items)
-
-    def get_all(self) -> list[E]:
-        return list(self._items)
-
-    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
-        raise NotImplementedError
-
-    def save(self, item: E) -> None:
-        self._items.append(item)
-        self.saved.append(item)
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        raise NotImplementedError
-
-
-class FailingRepository[E: pydantic.BaseModel](FakeRepository[E]):
-    """Repository fake whose writes always fail at the port boundary."""
-
-    # The item is unused: the stub exists only to fail at the port boundary.
-    def save(self, item: E) -> None:  # noqa: ARG002
-        msg = "Simulated save failure"
-        raise port_errors.RepositoryError(msg)
-
-
-class BuggyRepository[E: pydantic.BaseModel](FakeRepository[E]):
-    """Repository fake whose writes raise an arbitrary (non-port) error."""
-
-    def __init__(self, error: Exception, items: list[E] | None = None) -> None:
-        """Store the error the fake raises on every save."""
-        super().__init__(items)
-        self._error = error
-
-    # The item is unused: the stub exists only to raise the injected bug.
-    def save(self, item: E) -> None:  # noqa: ARG002
-        raise self._error
-
-
-BtRepo = FakeRepository[entities.BudgetTrackerItemModel]
-EsRepo = FakeRepository[entities.ExpenseSourceModel]
+type BtRepo = conftest.FakeRepository[entities.BudgetTrackerItemModel]
+type EsRepo = conftest.FakeRepository[entities.ExpenseSourceModel]
 UseCaseBuilder = Callable[..., InitialiseJointWorkspaceUseCase]
 
 
 @pytest.fixture
-def bt_repo() -> BtRepo:
+def bt_repo(build_repo: "conftest.RepoBuilder") -> BtRepo:
     """Return the budget trackers repository in joint mode."""
-    return BtRepo()
+    return build_repo()
 
 
 @pytest.fixture
-def es_repo() -> EsRepo:
+def es_repo(build_repo: "conftest.RepoBuilder") -> EsRepo:
     """Return the expense sources repository in joint mode."""
-    return EsRepo()
+    return build_repo()
 
 
 @pytest.fixture
@@ -123,6 +70,7 @@ def all_joint_trackers() -> list[entities.BudgetTrackerItemModel]:
 
 @pytest.fixture
 def build_use_case(
+    build_repo: "conftest.RepoBuilder",
     bt_repo: BtRepo,
     es_repo: EsRepo,
     joint_account: entities.JointAccountModel,
@@ -143,7 +91,7 @@ def build_use_case(
             user_id=USER_ID,
             budget_tracker_repo=budget_tracker_repo or bt_repo,
             expense_source_repo=es_repo,
-            joint_account_repo=FakeRepository(
+            joint_account_repo=build_repo(
                 [joint_account] if accounts is None else accounts,
             ),
         )
@@ -327,12 +275,15 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set_and_persisted(
     # Act
     use_case.execute()
 
-    # Assert - the mutated source is linked and written back
+    # Assert - a linked copy of the source is written back (entities are frozen,
+    # so the link lands on the stored copy rather than the seeded object)
     bt_id = next(bt.id for bt in bt_repo.get_all() if bt.name == target_bt_name)
+    stored = es_repo.get_by_id(existing_source.id)
     assert all(
         [
-            bt_id in (existing_source.budget_tracker_ids or []),
-            existing_source in es_repo.saved,
+            stored is not None,
+            bt_id in ((stored and stored.budget_tracker_ids) or []),
+            existing_source.id in [saved.id for saved in es_repo.saved],
         ],
     )
 
@@ -357,9 +308,12 @@ def test_no_joint_account_raises_no_joint_account_error(
 
 def test_repository_failure_raises_joint_data_access_error(
     build_use_case: UseCaseBuilder,
+    build_repo: "conftest.RepoBuilder",
 ) -> None:
     # Arrange
-    use_case = build_use_case(budget_tracker_repo=FailingRepository())
+    failing: BtRepo = build_repo()
+    failing.save_error = port_errors.RepositoryError("Simulated save failure")
+    use_case = build_use_case(budget_tracker_repo=failing)
 
     # Act
     with pytest.raises(errors.JointDataAccessError) as exc_info:
@@ -376,10 +330,13 @@ def test_repository_failure_raises_joint_data_access_error(
 
 def test_unexpected_error_is_not_wrapped_as_joint_data_access_error(
     build_use_case: UseCaseBuilder,
+    build_repo: "conftest.RepoBuilder",
 ) -> None:
     # Arrange - a genuine bug (not a RepositoryError) must propagate untouched.
     boom = ValueError("genuine bug")
-    use_case = build_use_case(budget_tracker_repo=BuggyRepository(boom))
+    buggy: BtRepo = build_repo()
+    buggy.save_error = boom
+    use_case = build_use_case(budget_tracker_repo=buggy)
 
     # Act / Assert
     with pytest.raises(ValueError, match="genuine bug") as exc_info:

@@ -1,15 +1,17 @@
 """Unit tests for the contribute button."""
 
-import uuid
+from typing import TYPE_CHECKING
 
-import pydantic
 import pytest
 import streamlit.testing.v1 as st_test
 
-from domain import entities
 from driving_adapters.components.buttons import contribute_button
-from ports import repository
 from use_cases.contribute_to_joint import ContributeToJointUseCase
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from tests import conftest
 
 
 class TestCanSubmit:
@@ -41,33 +43,17 @@ class TestCanSubmit:
         assert result is expected
 
 
-class _FakeRepository[E: pydantic.BaseModel](repository.Repository[E]):
-    """No-op Repository fake; the render tests never submit, so nothing runs."""
-
-    def get_all(self) -> list[E]:
-        return []
-
-    # ids is unused: the render tests never read by id.
-    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:  # noqa: ARG002
-        return []
-
-    def save(self, item: E) -> None:
-        """No-op; the render tests never write."""
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        """No-op; the render tests never write."""
-
-
 def _button(
+    build_repo: "conftest.RepoBuilder",
     joint_bank_account_map: dict[str, str],
 ) -> contribute_button.ContributeButton:
     """Build a ContributeButton whose use case never runs in the render tests."""
     use_case = ContributeToJointUseCase(
         user_id="auth0|test-user-1",
-        personal_payment_repo=_FakeRepository[entities.AnyPaymentModel](),
-        joint_payment_repo=_FakeRepository[entities.AnyPaymentModel](),
-        expense_source_repo=_FakeRepository[entities.ExpenseSourceModel](),
-        joint_account_repo=_FakeRepository[entities.JointAccountModel](),
+        personal_payment_repo=build_repo(),
+        joint_payment_repo=build_repo(),
+        expense_source_repo=build_repo(),
+        joint_account_repo=build_repo(),
     )
     return contribute_button.ContributeButton(
         use_case,
@@ -87,17 +73,27 @@ def _dialog_wrapper(button: "contribute_button.ContributeButton") -> None:
     button._contribute_dialog()
 
 
-def _app_tester(joint_bank_account_map: dict[str, str]) -> st_test.AppTest:
-    return st_test.AppTest.from_function(
-        _dialog_wrapper,
-        default_timeout=120,
-        kwargs={"button": _button(joint_bank_account_map)},
-    )
+@pytest.fixture(name="build_app_tester")
+def _build_app_tester(
+    build_repo: "conftest.RepoBuilder",
+) -> "Callable[..., st_test.AppTest]":
+    """Return a builder for an AppTest rendering the dialog over a given map."""
+
+    def _build(joint_bank_account_map: dict[str, str]) -> st_test.AppTest:
+        return st_test.AppTest.from_function(
+            _dialog_wrapper,
+            default_timeout=120,
+            kwargs={"button": _button(build_repo, joint_bank_account_map)},
+        )
+
+    return _build
 
 
-def test_dialog_renders_submit_when_joint_account_exists() -> None:
+def test_dialog_renders_submit_when_joint_account_exists(
+    build_app_tester: "Callable[..., st_test.AppTest]",
+) -> None:
     # Arrange
-    app_tester = _app_tester({"joint-1": "Joint Current"})
+    app_tester = build_app_tester({"joint-1": "Joint Current"})
 
     # Act
     app_tester.run()
@@ -106,9 +102,11 @@ def test_dialog_renders_submit_when_joint_account_exists() -> None:
     assert any(btn.key == "contribute_submit" for btn in app_tester.button)
 
 
-def test_dialog_warns_when_no_joint_bank_account() -> None:
+def test_dialog_warns_when_no_joint_bank_account(
+    build_app_tester: "Callable[..., st_test.AppTest]",
+) -> None:
     # Arrange
-    app_tester = _app_tester({})
+    app_tester = build_app_tester({})
 
     # Act
     app_tester.run()

@@ -104,15 +104,18 @@ class InitialiseJointWorkspaceUseCase:
         existing_bts = self._bt_repo.get_all()
         existing_names = {bt.name for bt in existing_bts}
 
-        for name in _JOINT_BUDGET_TRACKER_NAMES:
-            if name not in existing_names:
-                bt = entities.BudgetTrackerItemModel(
+        self._bt_repo.save_entities(
+            [
+                entities.BudgetTrackerItemModel(
                     user_id=self._user_id,
                     name=name,
                     ownership_type=entities.OwnershipType.JOINT,
                     joint_account_id=joint_account_id,
                 )
-                self._bt_repo.save(bt)
+                for name in _JOINT_BUDGET_TRACKER_NAMES
+                if name not in existing_names
+            ],
+        )
 
     def _ensure_hidden_expense_sources(
         self,
@@ -123,6 +126,7 @@ class InitialiseJointWorkspaceUseCase:
         existing_es = self._es_repo.get_all()
         es_by_name = {es.name: es for es in existing_es}
 
+        to_save = []
         for bt_name in _HIDDEN_EXPENSE_SOURCE_BT_NAMES:
             bt_id = bt_id_by_name[bt_name]
 
@@ -130,18 +134,34 @@ class InitialiseJointWorkspaceUseCase:
             existing = es_by_name.get(expense_source_name)
 
             if existing is None:
-                new_es = entities.ExpenseSourceModel(
-                    user_id=self._user_id,
-                    name=expense_source_name,
-                    budget_tracker_ids=[bt_id],
-                    ownership_type=entities.OwnershipType.JOINT,
-                    joint_account_id=joint_account_id,
+                to_save.append(
+                    entities.ExpenseSourceModel(
+                        user_id=self._user_id,
+                        name=expense_source_name,
+                        budget_tracker_ids=[bt_id],
+                        ownership_type=entities.OwnershipType.JOINT,
+                        joint_account_id=joint_account_id,
+                    ),
                 )
-                self._es_repo.save(new_es)
-            # Ensure the budget_tracker_ids list contains bt_id
+            # Ensure the budget_tracker_ids list contains bt_id.
             elif existing.budget_tracker_ids is None:
-                existing.budget_tracker_ids = [bt_id]
-                self._es_repo.save(existing)
+                to_save.append(
+                    entities.ExpenseSourceModel.model_validate(
+                        existing.model_copy(update={"budget_tracker_ids": [bt_id]}),
+                    ),
+                )
             elif bt_id not in existing.budget_tracker_ids:
-                existing.budget_tracker_ids.append(bt_id)
-                self._es_repo.save(existing)
+                to_save.append(
+                    entities.ExpenseSourceModel.model_validate(
+                        existing.model_copy(
+                            update={
+                                "budget_tracker_ids": [
+                                    *existing.budget_tracker_ids,
+                                    bt_id,
+                                ],
+                            },
+                        ),
+                    ),
+                )
+
+        self._es_repo.save_entities(to_save)

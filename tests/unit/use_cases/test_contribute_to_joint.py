@@ -3,15 +3,18 @@
 import datetime
 import uuid
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-import pydantic
 import pytest
 
 from domain import entities
 from ports import errors as port_errors
-from ports import repository
 from use_cases import errors
 from use_cases.contribute_to_joint import ContributeToJointUseCase
+
+if TYPE_CHECKING:
+    from tests import conftest
+
 
 USER_ID = "user-123"
 FROM_BANK_ACCOUNT_ID = uuid.uuid4()
@@ -21,59 +24,28 @@ AMOUNT = 250.0
 ACCOUNT_NAME = "Household"
 
 
-class FakeRepository[E: pydantic.BaseModel](repository.Repository[E]):
-    """In-memory Repository fake for use-case tests.
-
-    Bound to ``pydantic.BaseModel`` rather than ``FinanceTrackerBaseModel``:
-    ``JointAccountModel`` carries no user/ownership dimension, so it is not a
-    ``FinanceTrackerBaseModel``. The contribution flow only ever reads whole
-    tables and writes single rows, so ``get_by_ids`` / ``apply`` are unused.
-    """
-
-    def __init__(self, items: list[E] | None = None) -> None:
-        """Seed the fake with initial items."""
-        self._items: list[E] = list(items or [])
-        self.saved: list[E] = []
-
-    def get_all(self) -> list[E]:
-        return list(self._items)
-
-    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
-        raise NotImplementedError
-
-    def save(self, item: E) -> None:
-        self._items.append(item)
-        # Snapshot: the expense is saved twice and mutated in between, so
-        # storing the live object would make both entries look identical.
-        self.saved.append(item.model_copy())
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        raise NotImplementedError
-
-
-class FailingRepository[E: pydantic.BaseModel](FakeRepository[E]):
-    """Repository fake whose writes always fail at the port boundary."""
-
-    # The item is unused: the stub exists only to fail at the port boundary.
-    def save(self, item: E) -> None:  # noqa: ARG002
-        msg = "backend unavailable"
-        raise port_errors.RepositoryError(msg)
-
-
-PaymentRepo = FakeRepository[entities.AnyPaymentModel]
+type PaymentRepo = conftest.FakeRepository[entities.AnyPaymentModel]
 UseCaseBuilder = Callable[..., ContributeToJointUseCase]
 
 
 @pytest.fixture
-def personal_repo() -> PaymentRepo:
+def personal_repo(build_payment_repo: Callable[..., PaymentRepo]) -> PaymentRepo:
     """Return the payments repository in personal mode."""
-    return PaymentRepo()
+    return build_payment_repo(USER_ID)
 
 
 @pytest.fixture
-def joint_repo() -> PaymentRepo:
+def joint_repo(build_payment_repo: Callable[..., PaymentRepo]) -> PaymentRepo:
     """Return the payments repository in joint mode."""
-    return PaymentRepo()
+    return build_payment_repo(USER_ID)
+
+
+@pytest.fixture
+def failing_repo(build_payment_repo: Callable[..., PaymentRepo]) -> PaymentRepo:
+    """Return a payments repository whose writes fail at the port boundary."""
+    repo = build_payment_repo(USER_ID)
+    repo.save_error = port_errors.RepositoryError("backend unavailable")
+    return repo
 
 
 @pytest.fixture
@@ -93,6 +65,7 @@ def joint_expense_source() -> entities.ExpenseSourceModel:
 
 @pytest.fixture
 def build_use_case(
+    build_repo: "conftest.RepoBuilder",
     personal_repo: PaymentRepo,
     joint_repo: PaymentRepo,
     joint_account: entities.JointAccountModel,
@@ -116,10 +89,10 @@ def build_use_case(
             user_id=USER_ID,
             personal_payment_repo=personal or personal_repo,
             joint_payment_repo=joint or joint_repo,
-            expense_source_repo=FakeRepository(
+            expense_source_repo=build_repo(
                 [joint_expense_source] if expense_sources is None else expense_sources,
             ),
-            joint_account_repo=FakeRepository(
+            joint_account_repo=build_repo(
                 [joint_account] if accounts is None else accounts,
             ),
         )
@@ -320,9 +293,10 @@ def test_a_missing_expense_source_writes_nothing(
 
 def test_a_failed_write_becomes_a_use_case_error(
     build_use_case: UseCaseBuilder,
+    failing_repo: PaymentRepo,
 ):
     # Arrange
-    use_case = build_use_case(personal=FailingRepository[entities.AnyPaymentModel]())
+    use_case = build_use_case(personal=failing_repo)
 
     # Act / Assert
     with pytest.raises(errors.ContributionWriteError):
@@ -331,9 +305,10 @@ def test_a_failed_write_becomes_a_use_case_error(
 
 def test_a_failed_write_chains_the_repository_error(
     build_use_case: UseCaseBuilder,
+    failing_repo: PaymentRepo,
 ):
     # Arrange
-    use_case = build_use_case(joint=FailingRepository[entities.AnyPaymentModel]())
+    use_case = build_use_case(joint=failing_repo)
 
     # Act / Assert
     with pytest.raises(errors.ContributionWriteError) as exc_info:
