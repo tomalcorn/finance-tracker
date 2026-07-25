@@ -3,7 +3,7 @@
 import datetime
 import uuid
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -11,6 +11,10 @@ from domain import entities
 from ports import errors as port_errors
 from use_cases import errors
 from use_cases.contribute_to_joint import ContributeToJointUseCase
+
+if TYPE_CHECKING:
+    from tests import conftest
+
 
 USER_ID = "user-123"
 FROM_BANK_ACCOUNT_ID = uuid.uuid4()
@@ -20,7 +24,7 @@ AMOUNT = 250.0
 ACCOUNT_NAME = "Household"
 
 
-type PaymentRepo = Any  # the conftest fake; its recorded writes are not on the port
+type PaymentRepo = conftest.FakeRepository[entities.AnyPaymentModel]
 UseCaseBuilder = Callable[..., ContributeToJointUseCase]
 
 
@@ -61,7 +65,7 @@ def joint_expense_source() -> entities.ExpenseSourceModel:
 
 @pytest.fixture
 def build_use_case(
-    build_repo: "Callable[..., Any]",
+    build_repo: "conftest.RepoBuilder",
     personal_repo: PaymentRepo,
     joint_repo: PaymentRepo,
     joint_account: entities.JointAccountModel,

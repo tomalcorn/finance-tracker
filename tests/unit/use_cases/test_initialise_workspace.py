@@ -1,6 +1,6 @@
 """Tests for InitialiseUserWorkspaceUseCase."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -10,6 +10,8 @@ from use_cases import errors, initialise_workspace
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from tests import conftest
 
 # ---------------------------------------------------------------------------
 # Factories
@@ -24,8 +26,8 @@ HIDDEN_BT_NAMES = {
 }
 
 
-type BtRepo = Any  # the conftest fake; its recorded writes are not on the port
-type EsRepo = Any  # the conftest fake; its recorded writes are not on the port
+type BtRepo = conftest.FakeRepository[entities.BudgetTrackerItemModel]
+type EsRepo = conftest.FakeRepository[entities.ExpenseSourceModel]
 UseCaseBundle = tuple[
     initialise_workspace.InitialiseUserWorkspaceUseCase,
     BtRepo,
@@ -35,7 +37,7 @@ type UseCaseBuilder = Callable[..., UseCaseBundle]
 
 
 @pytest.fixture(name="build_use_case")
-def _build_use_case(build_repo: "Callable[..., Any]") -> "UseCaseBuilder":
+def _build_use_case(build_repo: "conftest.RepoBuilder") -> "UseCaseBuilder":
     """Return a builder for the use case plus its two repositories.
 
     A test overrides only what it seeds — existing trackers, existing sources —

@@ -1,7 +1,6 @@
 """Unit tests for the filter button free functions."""
 
 import datetime
-from typing import TYPE_CHECKING
 from unittest import mock
 
 import pandas as pd
@@ -14,13 +13,9 @@ from domain import query
 from driving_adapters.components.buttons import filter_button
 from driving_adapters.models import frontend_models
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-    from typing import Any
-
 
 def _config(
-    build_stub_data_source: "Callable[..., Any]",
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
     unique_values: set[object] | None = None,
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config whose data source yields ``unique_values``."""
@@ -46,7 +41,7 @@ def test_get_min_max_values(
     column_values: set[object],
     expected_min: float,
     expected_max: float,
-    build_stub_data_source: "Callable[..., Any]",
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
     """Test _get_min_max_values returns correct min and max values."""
     # Act
@@ -69,7 +64,9 @@ def _filter_dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
 
 
 @pytest.fixture(name="app_tester")
-def _app_tester(build_stub_data_source: "Callable[..., Any]") -> st_test.AppTest:
+def _app_tester(
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+) -> st_test.AppTest:
     dialog_configs = [
         frontend_models.DFEColumnConfig(
             column_name="col1",
@@ -170,7 +167,7 @@ class TestFilterHandling:
 
     def test_handle_numeric_filtering_no_filtering(
         self,
-        build_stub_data_source: "Callable[..., Any]",
+        build_stub_data_source: "conftest.StubDataSourceBuilder",
     ) -> None:
         """_handle_numeric_filtering returns None when the slider is unchanged."""
         # Arrange
@@ -200,7 +197,7 @@ class TestFilterHandling:
 
     def test_handle_numeric_filtering_with_filtering(
         self,
-        build_stub_data_source: "Callable[..., Any]",
+        build_stub_data_source: "conftest.StubDataSourceBuilder",
     ) -> None:
         """_handle_numeric_filtering returns Filters for the chosen range."""
         # Arrange

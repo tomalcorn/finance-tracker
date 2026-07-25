@@ -11,8 +11,7 @@ from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-    from typing import Any
+    from tests import conftest
 
 
 class _StubModel(pydantic.BaseModel):
@@ -26,7 +25,7 @@ class _RowModel(pydantic.BaseModel):
 
 def _config(
     *,
-    data_source: "Any" = None,  # noqa: ANN401 - the conftest stub, injected by fixture
+    data_source: "conftest.StubDataSource | None" = None,
     sample_data: pd.DataFrame | None = None,
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config for the tests."""
@@ -43,7 +42,7 @@ def _config(
 
 
 def test_build_working_df_reads_from_data_source(
-    build_stub_data_source: "Callable[..., Any]",
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
     # Arrange
     rows: list[pydantic.BaseModel] = [
@@ -61,7 +60,7 @@ def test_build_working_df_reads_from_data_source(
 
 
 def test_build_working_df_falls_back_to_sample_when_source_empty(
-    build_stub_data_source: "Callable[..., Any]",
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
     # Arrange
     sample = pd.DataFrame({"name": ["Example"]})
@@ -87,7 +86,7 @@ def test_build_working_df_without_data_source_uses_sample() -> None:
 
 
 def test_commit_applies_editor_deltas_through_the_port(
-    build_stub_data_source: "Callable[..., Any]",
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
     # Arrange
     rows: list[pydantic.BaseModel] = [
@@ -114,7 +113,7 @@ def test_commit_applies_editor_deltas_through_the_port(
 
 
 def test_commit_clears_the_widget_deltas(
-    build_stub_data_source: "Callable[..., Any]",
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
     # Arrange
     rows: list[pydantic.BaseModel] = [_RowModel(id="uuid-0", name="Alice")]
@@ -132,7 +131,7 @@ def test_commit_clears_the_widget_deltas(
 
 
 def test_commit_skips_sample_data_without_crashing(
-    build_stub_data_source: "Callable[..., Any]",
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
     # Arrange - the port returns no rows, so the grid shows sample data (no id
     # column); editing it must not crash on the missing id when committing.
@@ -158,7 +157,7 @@ def test_commit_skips_sample_data_without_crashing(
 
 
 def test_commit_is_a_noop_without_deltas(
-    build_stub_data_source: "Callable[..., Any]",
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
     # Arrange
     data_source = build_stub_data_source(rows=[_RowModel(id="uuid-0", name="Alice")])

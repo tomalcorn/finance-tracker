@@ -2,7 +2,7 @@
 
 import uuid
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -10,6 +10,10 @@ from domain import entities
 from ports import errors as port_errors
 from use_cases import errors
 from use_cases.initialise_joint_workspace import InitialiseJointWorkspaceUseCase
+
+if TYPE_CHECKING:
+    from tests import conftest
+
 
 USER_ID = "user-abc"
 JOINT_ACCOUNT_ID = uuid.uuid4()
@@ -27,19 +31,19 @@ JOINT_HIDDEN_BT_NAMES = {
 }
 
 
-type BtRepo = Any  # the conftest fake; its recorded writes are not on the port
-type EsRepo = Any  # the conftest fake; its recorded writes are not on the port
+type BtRepo = conftest.FakeRepository[entities.BudgetTrackerItemModel]
+type EsRepo = conftest.FakeRepository[entities.ExpenseSourceModel]
 UseCaseBuilder = Callable[..., InitialiseJointWorkspaceUseCase]
 
 
 @pytest.fixture
-def bt_repo(build_repo: "Callable[..., Any]") -> BtRepo:
+def bt_repo(build_repo: "conftest.RepoBuilder") -> BtRepo:
     """Return the budget trackers repository in joint mode."""
     return build_repo()
 
 
 @pytest.fixture
-def es_repo(build_repo: "Callable[..., Any]") -> EsRepo:
+def es_repo(build_repo: "conftest.RepoBuilder") -> EsRepo:
     """Return the expense sources repository in joint mode."""
     return build_repo()
 
@@ -66,7 +70,7 @@ def all_joint_trackers() -> list[entities.BudgetTrackerItemModel]:
 
 @pytest.fixture
 def build_use_case(
-    build_repo: "Callable[..., Any]",
+    build_repo: "conftest.RepoBuilder",
     bt_repo: BtRepo,
     es_repo: EsRepo,
     joint_account: entities.JointAccountModel,
@@ -304,7 +308,7 @@ def test_no_joint_account_raises_no_joint_account_error(
 
 def test_repository_failure_raises_joint_data_access_error(
     build_use_case: UseCaseBuilder,
-    build_repo: "Callable[..., Any]",
+    build_repo: "conftest.RepoBuilder",
 ) -> None:
     # Arrange
     failing: BtRepo = build_repo()
@@ -326,7 +330,7 @@ def test_repository_failure_raises_joint_data_access_error(
 
 def test_unexpected_error_is_not_wrapped_as_joint_data_access_error(
     build_use_case: UseCaseBuilder,
-    build_repo: "Callable[..., Any]",
+    build_repo: "conftest.RepoBuilder",
 ) -> None:
     # Arrange - a genuine bug (not a RepositoryError) must propagate untouched.
     boom = ValueError("genuine bug")

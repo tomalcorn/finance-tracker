@@ -10,7 +10,8 @@ from use_cases.contribute_to_joint import ContributeToJointUseCase
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from typing import Any
+
+    from tests import conftest
 
 
 class TestCanSubmit:
@@ -43,7 +44,7 @@ class TestCanSubmit:
 
 
 def _button(
-    build_repo: "Callable[..., Any]",
+    build_repo: "conftest.RepoBuilder",
     joint_bank_account_map: dict[str, str],
 ) -> contribute_button.ContributeButton:
     """Build a ContributeButton whose use case never runs in the render tests."""
@@ -74,7 +75,7 @@ def _dialog_wrapper(button: "contribute_button.ContributeButton") -> None:
 
 @pytest.fixture(name="build_app_tester")
 def _build_app_tester(
-    build_repo: "Callable[..., Any]",
+    build_repo: "conftest.RepoBuilder",
 ) -> "Callable[..., st_test.AppTest]":
     """Return a builder for an AppTest rendering the dialog over a given map."""
 

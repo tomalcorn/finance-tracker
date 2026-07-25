@@ -14,9 +14,6 @@ from driving_adapters.components.buttons import add_button
 from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-    from typing import Any
-
     from driving_adapters.components.dfes import data_source as data_source_mod
 
 USER_ID = "auth0|test-user-1"
@@ -42,7 +39,7 @@ def _config(
 
 
 def test_submit_new_row_saves_the_entity_built_by_the_port(
-    build_stub_data_source: "Callable[..., Any]",
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
     # Arrange
     data_source = build_stub_data_source(
@@ -65,7 +62,7 @@ class _LinkedRowModel(pydantic.BaseModel):
 
 
 def test_submit_new_row_merges_extra_row_values(
-    build_stub_data_source: "Callable[..., Any]",
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
     # Arrange - the expense-sources grid links new rows to its budget tracker
     # via extra_row_values so they survive the tab's array_contains filter.
@@ -109,7 +106,9 @@ def _dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
 
 
 @pytest.fixture(name="app_tester")
-def _app_tester(build_stub_data_source: "Callable[..., Any]") -> st_test.AppTest:
+def _app_tester(
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+) -> st_test.AppTest:
     source = build_stub_data_source(
         context={"user_id": USER_ID},
         model=entities.ExpensePaymentModel,

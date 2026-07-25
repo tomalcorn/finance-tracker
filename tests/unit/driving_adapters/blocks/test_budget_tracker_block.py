@@ -1,6 +1,6 @@
 """Unit tests for the budget tracker block's contribute-button wiring."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 import streamlit.testing.v1 as st_test
@@ -11,15 +11,15 @@ from use_cases.contribute_to_joint import ContributeToJointUseCase
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from driving_adapters.components.dfes import data_source as data_source_mod
-    from ports import repository
+    from tests import conftest
 
-type RepoBuilder = "Callable[..., repository.Repository[Any]]"
-type SourceBuilder = "Callable[..., data_source_mod.GridDataSource]"
+    from driving_adapters.components.dfes import data_source as data_source_mod
 
 
 @pytest.fixture(name="contribute_btn")
-def _contribute_btn(build_repo: RepoBuilder) -> contribute_button.ContributeButton:
+def _contribute_btn(
+    build_repo: "conftest.RepoBuilder",
+) -> contribute_button.ContributeButton:
     """Return a ContributeButton whose use case never runs in the render tests."""
     use_case = ContributeToJointUseCase(
         user_id="auth0|test-user-1",
@@ -52,7 +52,7 @@ def _render_wrapper(
 
 @pytest.fixture(name="build_app_tester")
 def _build_app_tester(
-    build_stub_data_source: SourceBuilder,
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> "Callable[[contribute_button.ContributeButton | None], st_test.AppTest]":
     """Return a builder for an AppTest rendering the block, button or not."""
 
