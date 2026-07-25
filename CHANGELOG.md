@@ -1,3 +1,9 @@
+## v1.1.0 (2026-07-25)
+
+### Feat
+
+- **joint**: associate a joint contribution with a joint income source (#200) (#202)
+
 ## v1.0.0 (2026-07-25)
 
 Promotes the joint workflow (#182) to a stable major version. No code changes
