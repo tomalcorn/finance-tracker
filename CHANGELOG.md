@@ -1,3 +1,9 @@
+## v0.14.1 (2026-07-25)
+
+### Refactor
+
+- route every write through a frozen entity gate (#199)
+
 ## v0.14.0 (2026-07-23)
 
 ### Feat

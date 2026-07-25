@@ -452,7 +452,7 @@ class TestBuildEntitiesCompletesOwnership:
 
     The grid add-row dialog supplies a bare row with no ownership at all, so the
     repository — not the caller — is what makes a joint write land as joint. The
-    entity is complete the moment it exists; nothing stamps it afterwards.
+    entity is complete the moment it exists, and is never patched afterwards.
     """
 
     def test_joint_row_is_built_joint_with_the_account_id(self) -> None:
