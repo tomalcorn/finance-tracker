@@ -49,10 +49,6 @@ with error_boundary.boundary("loading your personal dashboard"):
     # Use cases.
     bank_one_offs_use_case = wiring.bank_one_offs_use_case()
 
-    # Contributing moves money from personal into the joint account, so its
-    # button belongs on the personal budget tracker — but only for a user who
-    # belongs to a joint account. Reading joint accounts here also warms the
-    # {user_id}:joint_accounts cache entry the joint-scoped repos consult.
     contribute_button = None
     if wiring.joint_account_repository().get_all():
         contribute_button = contribute_button_mod.ContributeButton(

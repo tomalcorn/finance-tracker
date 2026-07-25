@@ -82,6 +82,28 @@ def test_render_shows_contribute_button_when_provided(
     assert any(btn.key == "contribute_button" for btn in app_tester.button)
 
 
+def test_contribute_button_shares_the_button_row_with_filter(
+    build_app_tester: "Callable[..., st_test.AppTest]",
+    contribute_btn: contribute_button.ContributeButton,
+) -> None:
+    # Arrange - the contribute button sits *alongside* the grid's filter button
+    # rather than stacking above it, so the two must land in sibling columns of
+    # one row, not merely both be present on the page.
+    app_tester = build_app_tester(contribute_btn)
+
+    # Act
+    app_tester.run()
+
+    # Assert
+    columns = [{btn.key for btn in column.button} for column in app_tester.columns]
+    assert all(
+        [
+            {"budget_tracker_filter_button"} in columns,
+            {"contribute_button"} in columns,
+        ],
+    )
+
+
 def test_render_omits_contribute_button_when_absent(
     build_app_tester: "Callable[..., st_test.AppTest]",
 ) -> None:

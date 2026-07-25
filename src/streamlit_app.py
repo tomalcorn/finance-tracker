@@ -62,9 +62,6 @@ session.run_once_per_session(
 docs_registry = docs_pages.DocsRegistry(docs_pages.DOCS_DIR)
 docs_ui = docs_pages.DocsUI(docs_registry)
 
-# The Joint page self-gates: a user who belongs to no joint account sees a
-# prompt explaining how they work rather than any shared data, so it is safe to
-# register for everyone (see joint.py).
 pg = st.navigation(
     {
         "": [

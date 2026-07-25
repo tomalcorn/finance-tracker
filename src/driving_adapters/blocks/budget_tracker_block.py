@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from domain import entities, query
-from driving_adapters.components.buttons import constants
+from driving_adapters.components.buttons import constants, filter_button
 from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
 
@@ -376,6 +376,31 @@ def commit(
     grid.commit(is_config)
 
 
+def _render_with_contribute(
+    config: frontend_models.DFEConfig,
+    contribute_button: "contribute_button_component.ContributeButton",
+) -> None:
+    """Render the budget tracker grid with the contribute button in its button row.
+
+    The default ``grid.render`` would stack the button above the row, so this
+    composes the row itself — the same seam the one-offs block uses for its
+    "bank it" button. The grid is ``num_rows="fixed"``, so filter is the only
+    built-in button to sit alongside.
+    """
+    filter_col, contribute_col, _ = st.columns(
+        constants.FILTER_CONTRIBUTE_BUTTON_WIDTHS,
+    )
+    with filter_col:
+        filter_button.render_filter_button(config.source, config.display)
+    with contribute_col:
+        contribute_button()
+    grid.render_editor(
+        config.display,
+        config.key_prefix,
+        grid.build_working_df(config),
+    )
+
+
 def render(
     budget_tracker_data_source: "data_source_mod.GridDataSource",
     expense_source_data_source: "data_source_mod.GridDataSource",
@@ -412,9 +437,10 @@ def render(
     )
 
     with budget_tracker_tab:
-        if contribute_button is not None:
-            contribute_button()
-        grid.render(bt_config)
+        if contribute_button is None:
+            grid.render(bt_config)
+        else:
+            _render_with_contribute(bt_config, contribute_button)
 
     with expense_tab:
         grid.render(es_config)
