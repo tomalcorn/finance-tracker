@@ -1,6 +1,6 @@
 [project]
 name = "finance-tracker"
-version = "0.15.0"
+version = "1.0.0"
 description = "This is the finance-tracker package for managing personal finances!"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -50,7 +50,11 @@ migrate = {cmd = "python -m migrations"}
 name = "cz_conventional_commits"
 version_provider = "pep621"
 tag_format = "v$version"
-major_version_zero = true
+# false: a breaking change (`feat!:` / `BREAKING CHANGE:`) bumps the major
+# version. While this was true, a breaking change bumped the minor instead and
+# its BREAKING CHANGE section was left out of the changelog — which is why the
+# joint cutover (#181) released as 0.15.0 with no note that it was breaking.
+major_version_zero = false
 annotated_tag = true
 update_changelog_on_bump = true
 changelog_start_rev = "v0.1.0"

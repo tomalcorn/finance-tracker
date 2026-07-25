@@ -1,3 +1,39 @@
+## v1.0.0 (2026-07-25)
+
+Promotes the joint workflow (#182) to a stable major version. No code changes
+since v0.15.0 — this marks the feature set released across v0.6.0–v0.15.0 as
+stable, and the point from which breaking changes bump the major version.
+
+### Joint accounts
+
+Two people can each keep private personal finances while sharing a joint ledger:
+
+- **Ownership is a first-class dimension.** Every bank account, budget tracker,
+  expense/income source, one-off, payment and subscription is either `personal`
+  or `joint`; joint rows carry a `joint_account_id` (#172, #173).
+- **Row-level security enforces visibility**, rather than app-side filtering —
+  each member sees their own personal rows plus the joint rows of the account
+  they belong to (#174).
+- **A Joint dashboard** mirrors Personal over the shared account's data (#179).
+- **Contribute to Joint** records a transfer as a linked pair — a personal
+  expense and a matching joint income — traceable from either side (#178, #180).
+- **Joint workspaces seed themselves** with default budget trackers and hidden
+  expense sources on first load (#191).
+
+### BREAKING CHANGE
+
+- **The per-user cache invariant is retired** (#176). A read is split into a
+  personal slice and an account-scoped joint slice, so one member's joint write
+  invalidates exactly the entry their partner reads instead of waiting out a
+  TTL. Cache keys changed shape.
+- **The repository write contract is replaced** (#198). `BackendUpdates` is gone.
+  Every write passes through a frozen entity — built by `build_entities`,
+  persisted by `save_entities` — with `apply_edits` / `apply_deletions` carrying
+  the grid's editor deltas.
+- **Database migrations 0002–0009 must be applied** before this release runs.
+  Existing rows default to `ownership_type='personal'`, so personal data is
+  untouched by the upgrade.
+
 ## v0.15.0 (2026-07-25)
 
 ### Feat
