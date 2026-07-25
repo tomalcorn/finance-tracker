@@ -152,30 +152,31 @@ def enforce_unique_cols(
     return row
 
 
-def compute_backend_updates(
+def compute_deltas(
     working_df: pd.DataFrame,
     edited_rows: dict[str, dict[str, typing.Any]],
     deleted_rows: list[int],
     unique_col_names: list[str],
     unique_checker: UniqueChecker,
-) -> entities.BackendUpdates:
-    """Build BackendUpdates from the editor's edited and deleted row deltas.
+) -> tuple[entities.EditedRows, entities.DeletedIds]:
+    """Translate the editor's positional deltas into id-keyed backend deltas.
 
-    Edited rows are keyed by their backend ``id`` and have their unique
-    columns suffixed via ``unique_checker``. Deleted rows resolve their
-    positional index to a backend ``id``.
+    Edited rows are keyed by their backend ``id`` and have their unique columns
+    suffixed via ``unique_checker``. Deleted rows resolve their positional index
+    to a backend ``id``.
+
+    Returns:
+        The column patches keyed by row id, and the ids to delete.
+
     """
-    beu_edited_rows: dict[str, dict[str, typing.Any]] = {}
+    edits: entities.EditedRows = {}
     for row_idx, changes in edited_rows.items():
         unique_changes = enforce_unique_cols(changes, unique_col_names, unique_checker)
         row_id = working_df.iloc[int(row_idx)]["id"]
-        beu_edited_rows[row_id] = unique_changes
+        edits[row_id] = unique_changes
 
-    beu_deleted_rows: list[str] = [
+    deleted_ids: entities.DeletedIds = [
         working_df.iloc[row_idx]["id"] for row_idx in deleted_rows
     ]
 
-    return entities.BackendUpdates(
-        edited_rows=beu_edited_rows,
-        deleted_rows=beu_deleted_rows,
-    )
+    return edits, deleted_ids

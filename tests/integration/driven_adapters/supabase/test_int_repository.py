@@ -65,7 +65,7 @@ class TestBankAccountRepositoryReads:
 
 
 class TestBankAccountRepositoryWrites:
-    """apply add / edit / delete (successor to data_client.update_backend)."""
+    """The split write surface: create, patch, and delete against a live table."""
 
     def test_apply_adds_row(
         self,
@@ -82,9 +82,7 @@ class TestBankAccountRepositoryWrites:
 
         # Act
         cache._get_data_cached.clear()
-        bank_repo.apply(
-            entities.BackendUpdates(added_rows=[new_account.model_dump(mode="json")]),
-        )
+        bank_repo.save_entities([new_account])
         cache._get_data_cached.clear()
         added = _get_by_id(bank_repo, new_account.id)
 
@@ -113,7 +111,7 @@ class TestBankAccountRepositoryWrites:
 
         # Act - a plain insert here would raise a duplicate-key error (#146)
         cache._get_data_cached.clear()
-        bank_repo.save(mutated)
+        bank_repo.save_entities([mutated])
         cache._get_data_cached.clear()
         saved = _get_by_id(bank_repo, yield_sample_bank_account.id)
 
@@ -121,7 +119,7 @@ class TestBankAccountRepositoryWrites:
         saved_as_expected = saved is not None and saved.name == "SavedName"
         assert saved_as_expected
 
-    def test_apply_edits_row(
+    def test_apply_edits_patches_a_row(
         self,
         bank_repo: BankRepo,
         yield_sample_bank_account: entities.BankAccountModel,
@@ -129,10 +127,8 @@ class TestBankAccountRepositoryWrites:
         """An edit applied via apply is reflected on the next read."""
         # Act
         cache._get_data_cached.clear()
-        bank_repo.apply(
-            entities.BackendUpdates(
-                edited_rows={str(yield_sample_bank_account.id): {"name": "EditedName"}},
-            ),
+        bank_repo.apply_edits(
+            {str(yield_sample_bank_account.id): {"name": "EditedName"}},
         )
         cache._get_data_cached.clear()
         edited = _get_by_id(bank_repo, yield_sample_bank_account.id)
@@ -141,7 +137,7 @@ class TestBankAccountRepositoryWrites:
         edited_as_expected = edited is not None and edited.name == "EditedName"
         assert edited_as_expected
 
-    def test_apply_deletes_row(
+    def test_apply_deletions_removes_a_row(
         self,
         bank_repo: BankRepo,
         yield_sample_bank_account: entities.BankAccountModel,
@@ -149,24 +145,20 @@ class TestBankAccountRepositoryWrites:
         """A row deleted via apply is gone on the next read."""
         # Act
         cache._get_data_cached.clear()
-        bank_repo.apply(
-            entities.BackendUpdates(
-                deleted_rows=[str(yield_sample_bank_account.id)],
-            ),
-        )
+        bank_repo.apply_deletions([str(yield_sample_bank_account.id)])
         cache._get_data_cached.clear()
 
         # Assert
         assert _get_by_id(bank_repo, yield_sample_bank_account.id) is None
 
-    def test_apply_adds_edits_and_deletes(
+    def test_create_edit_and_delete_all_reach_the_backend(
         self,
         bank_repo: BankRepo,
         connection: st_supabase_connection.SupabaseConnection,
         sample_bank_account: entities.BankAccountModel,
         yield_sample_bank_accounts: list[entities.BankAccountModel],
     ) -> None:
-        """A single batch of add + edit + delete is applied atomically."""
+        """A create, an edit, and a delete each reach the backend."""
         # Arrange
         new_account = sample_bank_account.model_copy(
             update={"id": uuid.uuid4(), "name": "Added Combined"},
@@ -175,15 +167,11 @@ class TestBankAccountRepositoryWrites:
 
         # Act
         cache._get_data_cached.clear()
-        bank_repo.apply(
-            entities.BackendUpdates(
-                added_rows=[new_account.model_dump(mode="json")],
-                edited_rows={
-                    str(yield_sample_bank_accounts[0].id): {"name": "EditedCombined"},
-                },
-                deleted_rows=[str(yield_sample_bank_accounts[1].id)],
-            ),
+        bank_repo.save_entities([new_account])
+        bank_repo.apply_edits(
+            {str(yield_sample_bank_accounts[0].id): {"name": "EditedCombined"}},
         )
+        bank_repo.apply_deletions([str(yield_sample_bank_accounts[1].id)])
         cache._get_data_cached.clear()
         accounts = {account.id: account for account in bank_repo.get_all()}
 

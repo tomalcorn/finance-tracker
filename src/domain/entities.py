@@ -4,7 +4,7 @@ import datetime
 import enum
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, Protocol, Self, runtime_checkable
 
 import pydantic
 
@@ -13,12 +13,28 @@ from domain import errors
 type JSON = None | bool | str | int | float | Sequence[JSON] | Mapping[str, JSON]
 type JsonDict = dict[str, JSON]
 
+type RawRow = Mapping[str, object]
+"""An unvalidated field map on its way into an entity."""
+
 
 class OwnershipType(enum.StrEnum):
     """Whether an aggregate belongs to one user or a shared joint account."""
 
     PERSONAL = enum.auto()
     JOINT = enum.auto()
+
+
+@runtime_checkable
+class HasOwnershipDimension(Protocol):
+    """An entity that is owned personally or by a joint account.
+
+    The joint tables have no ownership dimension, so their entities do not
+    satisfy this: whether ownership applies to an aggregate is a question about
+    the entity, not about the caller inspecting it.
+    """
+
+    ownership_type: OwnershipType
+    joint_account_id: uuid.UUID | None
 
 
 def require_joint_account_id(
@@ -42,6 +58,11 @@ def require_joint_account_id(
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):
     """Base model for finance tracker entities."""
+
+    # revalidate_instances: model_copy(update=...) skips field validators, so a
+    # modified copy is re-validated by passing it back through model_validate.
+    # Without this, validating an existing instance returns it untouched.
+    model_config = pydantic.ConfigDict(frozen=True, revalidate_instances="always")
 
     id: uuid.UUID = pydantic.Field(
         description="The unique identifier for the item.",
@@ -283,21 +304,8 @@ class JointAccountMemberModel(pydantic.BaseModel):
     ]
 
 
-class BackendUpdates(pydantic.BaseModel):
-    """Model for tracking pending creates, edits and deletes before committing."""
-
-    added_rows: list[JsonDict] = pydantic.Field(
-        default_factory=list,
-        description="List of new row data entries.",
-    )
-    edited_rows: dict[str, JsonDict] = pydantic.Field(
-        default_factory=dict,
-        description="Dictionary of IDs to updated row data.",
-    )
-    deleted_rows: list[str] = pydantic.Field(
-        default_factory=list,
-        description="List of row ids to be deleted.",
-    )
+type EditedRows = dict[str, JsonDict]
+type DeletedIds = list[str]
 
 
 # Union type used wherever a payment row could be either kind.

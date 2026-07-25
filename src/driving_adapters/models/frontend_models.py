@@ -163,10 +163,6 @@ class GridSource(pydantic.BaseModel):
             ),
         ),
     ] = None
-    backend_model: Annotated[
-        type[pydantic.BaseModel],
-        pydantic.Field(description="The write model rows are validated against."),
-    ]
     extra_row_values: Annotated[
         dict[str, Any] | None,
         pydantic.Field(

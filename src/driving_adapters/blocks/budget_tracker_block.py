@@ -60,7 +60,6 @@ def _build_budget_tracker_config(
         source=frontend_models.GridSource(
             write_table=_BUDGET_TRACKER_TABLE,
             data_source=data_source,
-            backend_model=entities.BudgetTrackerItemModel,
         ),
         display=frontend_models.GridDisplay(
             columns=[
@@ -158,7 +157,6 @@ def _build_expense_sources_config(
         source=frontend_models.GridSource(
             write_table=_EXPENSE_SOURCES_TABLE,
             data_source=data_source,
-            backend_model=entities.ExpenseSourceModel,
             # The tab only shows sources linked to the expenses budget tracker
             # (via the array_contains filter below), so a source added through
             # the dialog must be linked too — otherwise it saves but is filtered
@@ -275,7 +273,6 @@ def _build_income_sources_config(
         source=frontend_models.GridSource(
             write_table=_INCOME_SOURCES_TABLE,
             data_source=data_source,
-            backend_model=entities.IncomeSourceModel,
         ),
         display=frontend_models.GridDisplay(
             columns=[
