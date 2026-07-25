@@ -4,38 +4,15 @@ import datetime
 import uuid
 
 import pytest
+from tests.fakes import FakeRepository, payment_fake
 
 from domain import entities
-from ports import repository
 from use_cases.bank_one_offs import BankOneOffsUseCase
 from use_cases.errors import AmountToBankLTEZeroError
 
 # ---------------------------------------------------------------------------
 # Fake
 # ---------------------------------------------------------------------------
-
-
-class FakeRepository[E: entities.FinanceTrackerBaseModel](repository.Repository[E]):
-    """In-memory Repository fake for use-case tests."""
-
-    def __init__(self, items: list[E] | None = None) -> None:
-        """Seed the fake with initial items."""
-        self._items: dict[uuid.UUID, E] = {item.id: item for item in (items or [])}
-        self.saved: list[E] = []
-        self.applied: list[entities.BackendUpdates] = []
-
-    def get_all(self) -> list[E]:
-        return list(self._items.values())
-
-    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
-        return [self._items[i] for i in ids if i in self._items]
-
-    def save(self, item: E) -> None:
-        self._items[item.id] = item
-        self.saved.append(item)
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        self.applied.append(updates)
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +72,7 @@ def _make_use_case(
     es_repo: FakeRepository[entities.ExpenseSourceModel] = FakeRepository(
         expense_sources or [],
     )
-    p_repo = payment_repo or FakeRepository[entities.AnyPaymentModel]()
+    p_repo = payment_repo or payment_fake(USER_ID)
     use_case = BankOneOffsUseCase(
         one_off_repo=one_off_repo,
         budget_tracker_repo=bt_repo,
@@ -130,22 +107,22 @@ def test_banking_an_item_zeroes_current_month_and_accumulates_banked():
 
 
 def test_banked_one_off_is_persisted():
-    # Arrange - the one-off is fetched, mutated, then saved back; saving an
-    # existing row must reach the repository (issue #146).
+    # Arrange - the one-off is fetched, banked into a new copy, and saved back;
+    # saving an existing row must reach the repository (issue #146).
     item = _make_one_off(current_month=50.0)
     use_case, one_off_repo, _ = _make_use_case([item])
 
     # Act
     use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
 
-    # Assert - the existing row is written back through save
-    assert item in one_off_repo.saved
+    # Assert - the banked copy of that row is written back
+    assert [saved.id for saved in one_off_repo.saved] == [item.id]
 
 
 def test_banking_an_item_creates_a_payment():
     # Arrange
     item = _make_one_off(current_month=50.0)
-    payment_repo = FakeRepository[entities.AnyPaymentModel]()
+    payment_repo = payment_fake(USER_ID)
     use_case, _, _ = _make_use_case([item], payment_repo=payment_repo)
 
     # Act
@@ -158,7 +135,7 @@ def test_banking_an_item_creates_a_payment():
 def test_payment_fields_reflect_the_banked_item():
     # Arrange
     item = _make_one_off(current_month=50.0, name="Holiday")
-    payment_repo = FakeRepository[entities.AnyPaymentModel]()
+    payment_repo = payment_fake(USER_ID)
     use_case, _, _ = _make_use_case([item], payment_repo=payment_repo)
 
     # Act
@@ -184,7 +161,7 @@ def test_banking_multiple_items_creates_one_payment_per_item():
         _make_one_off(current_month=50.0, name="Holiday"),
         _make_one_off(current_month=30.0, name="Car"),
     ]
-    payment_repo = FakeRepository[entities.AnyPaymentModel]()
+    payment_repo = payment_fake(USER_ID)
     use_case, _, _ = _make_use_case(items, payment_repo=payment_repo)
 
     # Act
@@ -199,7 +176,7 @@ def test_payment_uses_current_month_not_post_update_banked():
     """Ensures the payment amount is the monthly contribution, not the running total."""
     # Arrange
     item = _make_one_off(current_month=50.0, banked=200.0)
-    payment_repo = FakeRepository[entities.AnyPaymentModel]()
+    payment_repo = payment_fake(USER_ID)
     use_case, _, _ = _make_use_case([item], payment_repo=payment_repo)
 
     # Act
@@ -220,7 +197,7 @@ def test_payment_has_expense_source_id_when_one_offs_tracker_and_source_exist():
     tracker = _make_one_offs_tracker()
     source = _make_expense_source(budget_tracker_ids=[tracker.id])
     item = _make_one_off(current_month=50.0)
-    payment_repo = FakeRepository[entities.AnyPaymentModel]()
+    payment_repo = payment_fake(USER_ID)
     use_case, _, _ = _make_use_case(
         [item],
         budget_trackers=[tracker],
@@ -250,7 +227,7 @@ def test_payment_expense_source_id_is_none_when_lookup_cannot_resolve(
 ):
     # Arrange
     item = _make_one_off(current_month=50.0)
-    payment_repo = FakeRepository[entities.AnyPaymentModel]()
+    payment_repo = payment_fake(USER_ID)
     use_case, _, _ = _make_use_case(
         [item],
         budget_trackers=budget_trackers,

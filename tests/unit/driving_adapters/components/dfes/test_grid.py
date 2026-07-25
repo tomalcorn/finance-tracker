@@ -3,8 +3,8 @@
 import pandas as pd
 import pydantic
 import streamlit as st
+from tests import fakes
 
-from domain import entities
 from driving_adapters import ss_keys
 from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
@@ -19,38 +19,15 @@ class _RowModel(pydantic.BaseModel):
     name: str
 
 
-class _StubDataSource:
-    """GridDataSource stub: fixed rows/column values, records applied batches."""
-
-    def __init__(
-        self,
-        rows: list[pydantic.BaseModel] | None = None,
-        column_values: set[object] | None = None,
-    ) -> None:
-        self._rows = rows or []
-        self._column_values = column_values or set()
-        self.applied: list[entities.BackendUpdates] = []
-
-    def rows(self) -> list[pydantic.BaseModel]:
-        return self._rows
-
-    def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
-        return self._column_values
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        self.applied.append(updates)
-
-
 def _config(
     *,
-    data_source: _StubDataSource | None = None,
+    data_source: fakes.StubDataSource | None = None,
     sample_data: pd.DataFrame | None = None,
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config for the tests."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table="test_table",
-            backend_model=_StubModel,
             data_source=data_source,
         ),
         display=frontend_models.GridDisplay(
@@ -66,7 +43,7 @@ def test_build_working_df_reads_from_data_source() -> None:
         _RowModel(id="0", name="Alice"),
         _RowModel(id="1", name="Bob"),
     ]
-    config = _config(data_source=_StubDataSource(rows=rows))
+    config = _config(data_source=fakes.StubDataSource(rows=rows))
 
     # Act
     working_df = grid.build_working_df(config)
@@ -79,7 +56,7 @@ def test_build_working_df_reads_from_data_source() -> None:
 def test_build_working_df_falls_back_to_sample_when_source_empty() -> None:
     # Arrange
     sample = pd.DataFrame({"name": ["Example"]})
-    config = _config(data_source=_StubDataSource(rows=[]), sample_data=sample)
+    config = _config(data_source=fakes.StubDataSource(rows=[]), sample_data=sample)
 
     # Act
     working_df = grid.build_working_df(config)
@@ -106,7 +83,7 @@ def test_commit_applies_editor_deltas_through_the_port() -> None:
         _RowModel(id="uuid-0", name="Alice"),
         _RowModel(id="uuid-1", name="Bob"),
     ]
-    data_source = _StubDataSource(rows=rows)
+    data_source = fakes.StubDataSource(rows=rows)
     config = _config(data_source=data_source)
     st.session_state["test_table"] = {
         ss_keys.SSKeys.EDITED_ROWS: {"0": {"name": "Renamed"}},
@@ -116,19 +93,19 @@ def test_commit_applies_editor_deltas_through_the_port() -> None:
     # Act
     grid.commit(config)
 
-    # Assert
-    assert data_source.applied == [
-        entities.BackendUpdates(
-            edited_rows={"uuid-0": {"name": "Renamed"}},
-            deleted_rows=["uuid-1"],
-        ),
-    ]
+    # Assert - edits and deletions go through their own port methods
+    assert all(
+        [
+            data_source.edits == [{"uuid-0": {"name": "Renamed"}}],
+            data_source.deleted == ["uuid-1"],
+        ],
+    )
 
 
 def test_commit_clears_the_widget_deltas() -> None:
     # Arrange
     rows: list[pydantic.BaseModel] = [_RowModel(id="uuid-0", name="Alice")]
-    config = _config(data_source=_StubDataSource(rows=rows))
+    config = _config(data_source=fakes.StubDataSource(rows=rows))
     st.session_state["test_table"] = {
         ss_keys.SSKeys.EDITED_ROWS: {"0": {"name": "Renamed"}},
         ss_keys.SSKeys.DELETED_ROWS: [],
@@ -145,7 +122,7 @@ def test_commit_skips_sample_data_without_crashing() -> None:
     # Arrange - the port returns no rows, so the grid shows sample data (no id
     # column); editing it must not crash on the missing id when committing.
     sample = pd.DataFrame({"name": ["Example"]})
-    data_source = _StubDataSource(rows=[])
+    data_source = fakes.StubDataSource(rows=[])
     config = _config(data_source=data_source, sample_data=sample)
     st.session_state["test_table"] = {
         ss_keys.SSKeys.EDITED_ROWS: {"0": {"name": "Renamed"}},
@@ -155,15 +132,19 @@ def test_commit_skips_sample_data_without_crashing() -> None:
     # Act
     grid.commit(config)
 
-    # Assert - nothing applied and the unpersistable deltas are cleared
+    # Assert - nothing written and the unpersistable deltas are cleared
     assert all(
-        [data_source.applied == [], "test_table" not in st.session_state],
+        [
+            data_source.edits == [],
+            data_source.deleted == [],
+            "test_table" not in st.session_state,
+        ],
     )
 
 
 def test_commit_is_a_noop_without_deltas() -> None:
     # Arrange
-    data_source = _StubDataSource(rows=[_RowModel(id="uuid-0", name="Alice")])
+    data_source = fakes.StubDataSource(rows=[_RowModel(id="uuid-0", name="Alice")])
     config = _config(data_source=data_source)
     st.session_state["test_table"] = {
         ss_keys.SSKeys.EDITED_ROWS: {},
@@ -174,4 +155,4 @@ def test_commit_is_a_noop_without_deltas() -> None:
     grid.commit(config)
 
     # Assert
-    assert data_source.applied == []
+    assert all([data_source.edits == [], data_source.deleted == []])

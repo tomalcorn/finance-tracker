@@ -4,35 +4,14 @@ import datetime
 from unittest import mock
 
 import pandas as pd
-import pydantic
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from tests import conftest
+from tests import conftest, fakes
 
 from domain import query
 from driving_adapters.components.buttons import filter_button
 from driving_adapters.models import frontend_models
-
-
-class _StubModel(pydantic.BaseModel):
-    pass
-
-
-class _StubDataSource:
-    """GridDataSource stub returning a fixed set of column values."""
-
-    def __init__(self, column_values: set[object] | None = None) -> None:
-        self._column_values = column_values or set()
-
-    def rows(self) -> list[pydantic.BaseModel]:
-        return []
-
-    def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
-        return self._column_values
-
-    def apply(self, updates: object) -> None:
-        """No-op; filter tests never write."""
 
 
 def _config(unique_values: set[object] | None = None) -> frontend_models.DFEConfig:
@@ -40,8 +19,7 @@ def _config(unique_values: set[object] | None = None) -> frontend_models.DFEConf
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table="test_table",
-            backend_model=_StubModel,
-            data_source=_StubDataSource(unique_values),
+            data_source=fakes.StubDataSource(column_values=unique_values),
         ),
         display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
     )
@@ -100,8 +78,7 @@ def _app_tester() -> st_test.AppTest:
     config = frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table="test_table",
-            backend_model=_StubModel,
-            data_source=_StubDataSource({0.88, 0.23, 0.1}),
+            data_source=fakes.StubDataSource(column_values={0.88, 0.23, 0.1}),
         ),
         display=frontend_models.GridDisplay(
             columns=dialog_configs,

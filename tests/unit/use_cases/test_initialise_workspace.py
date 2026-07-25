@@ -1,49 +1,15 @@
 """Tests for InitialiseUserWorkspaceUseCase."""
 
-import uuid
-
 import pytest
+from tests.fakes import FakeRepository
 
 from domain import entities
 from ports import errors as port_errors
-from ports import repository
 from use_cases import errors, initialise_workspace
 
 # ---------------------------------------------------------------------------
 # Fake
 # ---------------------------------------------------------------------------
-
-
-class FakeRepository[E: entities.FinanceTrackerBaseModel](repository.Repository[E]):
-    """In-memory Repository fake with a save-failure switch for error tests."""
-
-    def __init__(self, items: list[E] | None = None) -> None:
-        """Seed the fake with initial items."""
-        self._items: dict[uuid.UUID, E] = {item.id: item for item in (items or [])}
-        self.saved: list[E] = []
-        self.raise_on_save = False
-        self.unexpected_error: Exception | None = None
-
-    def get_all(self) -> list[E]:
-        return list(self._items.values())
-
-    def get_by_id(self, item_id: uuid.UUID) -> E | None:
-        return self._items.get(item_id)
-
-    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
-        return [self._items[i] for i in ids if i in self._items]
-
-    def save(self, item: E) -> None:
-        if self.unexpected_error is not None:
-            raise self.unexpected_error
-        if self.raise_on_save:
-            msg = "Simulated save failure"
-            raise port_errors.RepositoryError(msg)
-        self._items[item.id] = item
-        self.saved.append(item)
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        """No-op; workspace initialisation saves one row at a time."""
 
 
 # ---------------------------------------------------------------------------
@@ -275,8 +241,9 @@ def test_existing_expense_source_with_none_bt_ids_is_persisted():
     # Act
     use_case.execute()
 
-    # Assert - the mutated source is written back, not just changed in memory
-    assert existing_source in es_repo.saved
+    # Assert - a linked copy of the source is written back, not just changed in
+    # memory (entities are frozen, so the stored row is a new object)
+    assert existing_source.id in [saved.id for saved in es_repo.saved]
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +254,7 @@ def test_existing_expense_source_with_none_bt_ids_is_persisted():
 def test_repository_failure_raises_data_access_error():
     # Arrange
     use_case, bt_repo, _ = make_use_case()
-    bt_repo.raise_on_save = True
+    bt_repo.save_error = port_errors.RepositoryError("backend unavailable")
 
     # Act
     with pytest.raises(errors.DataAccessError) as exc_info:
@@ -307,7 +274,7 @@ def test_unexpected_error_is_not_wrapped_as_data_access_error():
     # rather than being masked as a workspace-init failure.
     use_case, bt_repo, _ = make_use_case()
     boom = ValueError("genuine bug")
-    bt_repo.unexpected_error = boom
+    bt_repo.save_error = boom
 
     # Act / Assert
     with pytest.raises(ValueError, match="genuine bug") as exc_info:

@@ -1,14 +1,11 @@
 """Unit tests for the contribute button."""
 
-import uuid
-
-import pydantic
 import pytest
 import streamlit.testing.v1 as st_test
+from tests.fakes import FakeRepository
 
 from domain import entities
 from driving_adapters.components.buttons import contribute_button
-from ports import repository
 from use_cases.contribute_to_joint import ContributeToJointUseCase
 
 
@@ -41,33 +38,16 @@ class TestCanSubmit:
         assert result is expected
 
 
-class _FakeRepository[E: pydantic.BaseModel](repository.Repository[E]):
-    """No-op Repository fake; the render tests never submit, so nothing runs."""
-
-    def get_all(self) -> list[E]:
-        return []
-
-    # ids is unused: the render tests never read by id.
-    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:  # noqa: ARG002
-        return []
-
-    def save(self, item: E) -> None:
-        """No-op; the render tests never write."""
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        """No-op; the render tests never write."""
-
-
 def _button(
     joint_bank_account_map: dict[str, str],
 ) -> contribute_button.ContributeButton:
     """Build a ContributeButton whose use case never runs in the render tests."""
     use_case = ContributeToJointUseCase(
         user_id="auth0|test-user-1",
-        personal_payment_repo=_FakeRepository[entities.AnyPaymentModel](),
-        joint_payment_repo=_FakeRepository[entities.AnyPaymentModel](),
-        expense_source_repo=_FakeRepository[entities.ExpenseSourceModel](),
-        joint_account_repo=_FakeRepository[entities.JointAccountModel](),
+        personal_payment_repo=FakeRepository[entities.AnyPaymentModel](),
+        joint_payment_repo=FakeRepository[entities.AnyPaymentModel](),
+        expense_source_repo=FakeRepository[entities.ExpenseSourceModel](),
+        joint_account_repo=FakeRepository[entities.JointAccountModel](),
     )
     return contribute_button.ContributeButton(
         use_case,

@@ -10,7 +10,6 @@ from unittest import mock
 
 import pytest
 
-from domain import entities
 from driven_adapters import errors
 from driven_adapters.supabase import client
 
@@ -39,16 +38,49 @@ def test_fetch_table_translates_a_transport_failure() -> None:
     assert exc_info.value.__cause__ is boom
 
 
-def test_update_backend_translates_a_transport_failure() -> None:
+def test_upsert_rows_translates_a_transport_failure() -> None:
     # Arrange
     boom = ConnectionError("network down")
     mock_conn = mock.MagicMock()
-    mock_conn.table.return_value.insert.return_value.execute.side_effect = boom
-    updates = entities.BackendUpdates(added_rows=[{"id": "x"}])
+    mock_conn.table.return_value.upsert.return_value.execute.side_effect = boom
 
     # Act
     with pytest.raises(errors.SupabaseAdapterError) as exc_info:
-        client.update_backend("bank_accounts", updates, _connection(mock_conn))
+        client.upsert_rows("bank_accounts", [{"id": "x"}], _connection(mock_conn))
+
+    # Assert - the transport error is preserved as the chained cause
+    assert exc_info.value.__cause__ is boom
+
+
+def test_update_rows_translates_a_transport_failure() -> None:
+    # Arrange
+    boom = ConnectionError("network down")
+    mock_conn = mock.MagicMock()
+    table = mock_conn.table.return_value
+    table.update.return_value.eq.return_value.execute.side_effect = boom
+
+    # Act
+    with pytest.raises(errors.SupabaseAdapterError) as exc_info:
+        client.update_rows(
+            "bank_accounts",
+            {"x": {"name": "n"}},
+            _connection(mock_conn),
+        )
+
+    # Assert - the transport error is preserved as the chained cause
+    assert exc_info.value.__cause__ is boom
+
+
+def test_delete_rows_translates_a_transport_failure() -> None:
+    # Arrange
+    boom = ConnectionError("network down")
+    mock_conn = mock.MagicMock()
+    table = mock_conn.table.return_value
+    table.delete.return_value.in_.return_value.execute.side_effect = boom
+
+    # Act
+    with pytest.raises(errors.SupabaseAdapterError) as exc_info:
+        client.delete_rows("bank_accounts", ["x"], _connection(mock_conn))
 
     # Assert - the transport error is preserved as the chained cause
     assert exc_info.value.__cause__ is boom

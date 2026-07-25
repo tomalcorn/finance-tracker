@@ -1,29 +1,17 @@
 """Unit tests for the add button free functions."""
 
-import typing
-from unittest import mock
-
 import pandas as pd
 import pydantic
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from tests import conftest
+from tests import conftest, fakes
 
 from domain import entities
 from driving_adapters.components.buttons import add_button
 from driving_adapters.models import frontend_models
 
-
-@pytest.fixture(autouse=True)
-def _mock_current_user() -> typing.Generator[None, None, None]:
-    """Patch the current user lookup so add button tests avoid Streamlit auth."""
-    with mock.patch.object(
-        add_button.auth,
-        "get_current_user",
-        return_value="auth0|test-user-1",
-    ):
-        yield
+USER_ID = "auth0|test-user-1"
 
 
 class _RowModel(pydantic.BaseModel):
@@ -31,53 +19,35 @@ class _RowModel(pydantic.BaseModel):
     user_id: str
 
 
-class _StubDataSource:
-    """GridDataSource stub recording the batches applied through the port."""
-
-    def __init__(self) -> None:
-        self.applied: list[entities.BackendUpdates] = []
-
-    def rows(self) -> list[pydantic.BaseModel]:
-        return []
-
-    # column_name is unused: the stub only satisfies the GridDataSource protocol.
-    def unique_values(self, column_name: str) -> set[object]:  # noqa: ARG002
-        return set()
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        self.applied.append(updates)
+def _stub(model: type[pydantic.BaseModel] | None = None) -> fakes.StubDataSource:
+    """Return a stub whose gate stamps the owner, as the repository would."""
+    return fakes.StubDataSource(model=model, context={"user_id": USER_ID})
 
 
 def _config(
     *,
-    backend_model: type[pydantic.BaseModel],
-    data_source: _StubDataSource,
+    data_source: fakes.StubDataSource,
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config for the add-button tests."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table="test_table",
-            backend_model=backend_model,
             data_source=data_source,
         ),
         display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
     )
 
 
-def test_submit_new_row_applies_through_data_source() -> None:
+def test_submit_new_row_saves_the_entity_built_by_the_port() -> None:
     # Arrange
-    data_source = _StubDataSource()
-    config = _config(backend_model=_RowModel, data_source=data_source)
+    data_source = _stub(_RowModel)
+    config = _config(data_source=data_source)
 
     # Act
     add_button._submit_new_row(config.source, {"name": "Savings"})
 
-    # Assert
-    assert data_source.applied == [
-        entities.BackendUpdates(
-            added_rows=[{"name": "Savings", "user_id": "auth0|test-user-1"}],
-        ),
-    ]
+    # Assert - the row went through the gate and the resulting entity was saved
+    assert data_source.saved == [_RowModel(name="Savings", user_id=USER_ID)]
 
 
 class _LinkedRowModel(pydantic.BaseModel):
@@ -89,11 +59,10 @@ class _LinkedRowModel(pydantic.BaseModel):
 def test_submit_new_row_merges_extra_row_values() -> None:
     # Arrange - the expense-sources grid links new rows to its budget tracker
     # via extra_row_values so they survive the tab's array_contains filter.
-    data_source = _StubDataSource()
+    data_source = _stub(_LinkedRowModel)
     config = frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table="expense_sources",
-            backend_model=_LinkedRowModel,
             data_source=data_source,
             extra_row_values={"budget_tracker_ids": ["bt-expenses"]},
         ),
@@ -104,15 +73,11 @@ def test_submit_new_row_merges_extra_row_values() -> None:
     add_button._submit_new_row(config.source, {"name": "Rent"})
 
     # Assert
-    assert data_source.applied == [
-        entities.BackendUpdates(
-            added_rows=[
-                {
-                    "name": "Rent",
-                    "user_id": "auth0|test-user-1",
-                    "budget_tracker_ids": ["bt-expenses"],
-                },
-            ],
+    assert data_source.saved == [
+        _LinkedRowModel(
+            name="Rent",
+            user_id=USER_ID,
+            budget_tracker_ids=["bt-expenses"],
         ),
     ]
 
@@ -136,10 +101,7 @@ def _app_tester() -> st_test.AppTest:
         _dialog_wrapper,
         default_timeout=120,
         kwargs={
-            "config": _config(
-                backend_model=entities.ExpensePaymentModel,
-                data_source=_StubDataSource(),
-            ),
+            "config": _config(data_source=_stub(entities.ExpensePaymentModel)),
         },
     )
 

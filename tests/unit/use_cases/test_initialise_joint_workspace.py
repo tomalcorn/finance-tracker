@@ -3,12 +3,11 @@
 import uuid
 from collections.abc import Callable
 
-import pydantic
 import pytest
+from tests.fakes import FailingRepository, FakeRepository
 
 from domain import entities
 from ports import errors as port_errors
-from ports import repository
 from use_cases import errors
 from use_cases.initialise_joint_workspace import InitialiseJointWorkspaceUseCase
 
@@ -26,62 +25,6 @@ JOINT_HIDDEN_BT_NAMES = {
     entities.BudgetTrackerName.ONE_OFFS,
     entities.BudgetTrackerName.SAVINGS,
 }
-
-
-class FakeRepository[E: pydantic.BaseModel](repository.Repository[E]):
-    """In-memory Repository fake for use-case tests.
-
-    Bound to ``pydantic.BaseModel`` rather than ``FinanceTrackerBaseModel``:
-    ``JointAccountModel`` carries no user/ownership dimension, so it is not a
-    ``FinanceTrackerBaseModel``. ``seed`` pre-loads rows as if already
-    persisted, without recording them as saves, so ``saved`` reflects only what
-    the use case wrote. The seeding flow only ever reads whole tables and writes
-    single rows, so ``get_by_ids`` is unused.
-    """
-
-    def __init__(self, items: list[E] | None = None) -> None:
-        """Seed the fake with initial items."""
-        self._items: list[E] = list(items or [])
-        self.saved: list[E] = []
-
-    def seed(self, *items: E) -> None:
-        """Pre-load rows as already-persisted (not counted as a save)."""
-        self._items.extend(items)
-
-    def get_all(self) -> list[E]:
-        return list(self._items)
-
-    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
-        raise NotImplementedError
-
-    def save(self, item: E) -> None:
-        self._items.append(item)
-        self.saved.append(item)
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        raise NotImplementedError
-
-
-class FailingRepository[E: pydantic.BaseModel](FakeRepository[E]):
-    """Repository fake whose writes always fail at the port boundary."""
-
-    # The item is unused: the stub exists only to fail at the port boundary.
-    def save(self, item: E) -> None:  # noqa: ARG002
-        msg = "Simulated save failure"
-        raise port_errors.RepositoryError(msg)
-
-
-class BuggyRepository[E: pydantic.BaseModel](FakeRepository[E]):
-    """Repository fake whose writes raise an arbitrary (non-port) error."""
-
-    def __init__(self, error: Exception, items: list[E] | None = None) -> None:
-        """Store the error the fake raises on every save."""
-        super().__init__(items)
-        self._error = error
-
-    # The item is unused: the stub exists only to raise the injected bug.
-    def save(self, item: E) -> None:  # noqa: ARG002
-        raise self._error
 
 
 BtRepo = FakeRepository[entities.BudgetTrackerItemModel]
@@ -327,12 +270,15 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set_and_persisted(
     # Act
     use_case.execute()
 
-    # Assert - the mutated source is linked and written back
+    # Assert - a linked copy of the source is written back (entities are frozen,
+    # so the link lands on the stored copy rather than the seeded object)
     bt_id = next(bt.id for bt in bt_repo.get_all() if bt.name == target_bt_name)
+    stored = es_repo.get_by_id(existing_source.id)
     assert all(
         [
-            bt_id in (existing_source.budget_tracker_ids or []),
-            existing_source in es_repo.saved,
+            stored is not None,
+            bt_id in ((stored and stored.budget_tracker_ids) or []),
+            existing_source.id in [saved.id for saved in es_repo.saved],
         ],
     )
 
@@ -379,7 +325,9 @@ def test_unexpected_error_is_not_wrapped_as_joint_data_access_error(
 ) -> None:
     # Arrange - a genuine bug (not a RepositoryError) must propagate untouched.
     boom = ValueError("genuine bug")
-    use_case = build_use_case(budget_tracker_repo=BuggyRepository(boom))
+    buggy: BtRepo = BtRepo()
+    buggy.save_error = boom
+    use_case = build_use_case(budget_tracker_repo=buggy)
 
     # Act / Assert
     with pytest.raises(ValueError, match="genuine bug") as exc_info:

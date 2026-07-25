@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import streamlit as st
 
-from domain import entities, query
+from domain import query
 from driving_adapters import lookups
 from driving_adapters.components.buttons import constants
 from driving_adapters.components.dfes import grid
@@ -77,7 +77,9 @@ def _build_expense_config(
         source=frontend_models.GridSource(
             write_table=_TABLE_NAME,
             data_source=data_source,
-            backend_model=entities.ExpensePaymentModel,
+            # Payments are a discriminated union, so an added row must state its
+            # branch for the repository's gate to parse it as an expense.
+            extra_row_values={"payment_type": "expense"},
         ),
         display=frontend_models.GridDisplay(
             columns=[
@@ -182,7 +184,8 @@ def _build_income_config(
             write_table=_TABLE_NAME,
             key_prefix_override=_INCOME_KEY_PREFIX,
             data_source=data_source,
-            backend_model=entities.IncomePaymentModel,
+            # See the expense grid: the union needs its branch stated.
+            extra_row_values={"payment_type": "income"},
         ),
         display=frontend_models.GridDisplay(
             columns=[

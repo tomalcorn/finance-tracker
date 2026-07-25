@@ -4,12 +4,11 @@ import datetime
 import uuid
 from collections.abc import Callable
 
-import pydantic
 import pytest
+from tests.fakes import FailingRepository, FakeRepository
 
 from domain import entities
 from ports import errors as port_errors
-from ports import repository
 from use_cases import errors
 from use_cases.contribute_to_joint import ContributeToJointUseCase
 
@@ -19,45 +18,6 @@ TO_BANK_ACCOUNT_ID = uuid.uuid4()
 PAYMENT_DATE = datetime.date(2025, 1, 1)
 AMOUNT = 250.0
 ACCOUNT_NAME = "Household"
-
-
-class FakeRepository[E: pydantic.BaseModel](repository.Repository[E]):
-    """In-memory Repository fake for use-case tests.
-
-    Bound to ``pydantic.BaseModel`` rather than ``FinanceTrackerBaseModel``:
-    ``JointAccountModel`` carries no user/ownership dimension, so it is not a
-    ``FinanceTrackerBaseModel``. The contribution flow only ever reads whole
-    tables and writes single rows, so ``get_by_ids`` / ``apply`` are unused.
-    """
-
-    def __init__(self, items: list[E] | None = None) -> None:
-        """Seed the fake with initial items."""
-        self._items: list[E] = list(items or [])
-        self.saved: list[E] = []
-
-    def get_all(self) -> list[E]:
-        return list(self._items)
-
-    def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
-        raise NotImplementedError
-
-    def save(self, item: E) -> None:
-        self._items.append(item)
-        # Snapshot: the expense is saved twice and mutated in between, so
-        # storing the live object would make both entries look identical.
-        self.saved.append(item.model_copy())
-
-    def apply(self, updates: entities.BackendUpdates) -> None:
-        raise NotImplementedError
-
-
-class FailingRepository[E: pydantic.BaseModel](FakeRepository[E]):
-    """Repository fake whose writes always fail at the port boundary."""
-
-    # The item is unused: the stub exists only to fail at the port boundary.
-    def save(self, item: E) -> None:  # noqa: ARG002
-        msg = "backend unavailable"
-        raise port_errors.RepositoryError(msg)
 
 
 PaymentRepo = FakeRepository[entities.AnyPaymentModel]

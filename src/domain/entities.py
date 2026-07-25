@@ -13,6 +13,15 @@ from domain import errors
 type JSON = None | bool | str | int | float | Sequence[JSON] | Mapping[str, JSON]
 type JsonDict = dict[str, JSON]
 
+type RawRow = Mapping[str, object]
+"""An unvalidated field map on its way into an entity.
+
+Deliberately wider than :data:`JsonDict`: these are raw values straight from a
+widget or a use case (dates, UUIDs, floats), not yet serialised or validated.
+``Repository.build_entities`` is the only thing that consumes them, and what it
+returns is a validated entity.
+"""
+
 
 class OwnershipType(enum.StrEnum):
     """Whether an aggregate belongs to one user or a shared joint account."""
@@ -41,7 +50,14 @@ def require_joint_account_id(
 
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):
-    """Base model for finance tracker entities."""
+    """Base model for finance tracker entities.
+
+    Frozen: an entity is built complete and never mutated afterwards. A change
+    to a persisted row is a new entity (``model_copy(update=...)``) or a column
+    patch through ``Repository.apply_edits``, never an in-place edit.
+    """
+
+    model_config = pydantic.ConfigDict(frozen=True)
 
     id: uuid.UUID = pydantic.Field(
         description="The unique identifier for the item.",
@@ -283,21 +299,16 @@ class JointAccountMemberModel(pydantic.BaseModel):
     ]
 
 
-class BackendUpdates(pydantic.BaseModel):
-    """Model for tracking pending creates, edits and deletes before committing."""
+type EditedRows = dict[str, JsonDict]
+"""Pending column patches, keyed by row id, holding only the changed columns.
 
-    added_rows: list[JsonDict] = pydantic.Field(
-        default_factory=list,
-        description="List of new row data entries.",
-    )
-    edited_rows: dict[str, JsonDict] = pydantic.Field(
-        default_factory=dict,
-        description="Dictionary of IDs to updated row data.",
-    )
-    deleted_rows: list[str] = pydantic.Field(
-        default_factory=list,
-        description="List of row ids to be deleted.",
-    )
+An edit cannot alter a row's identity or ownership (those columns are never
+editable), so a patch does not re-enter the entity gate — unlike a creation,
+which must be built complete via ``Repository.build_entities``.
+"""
+
+type DeletedIds = list[str]
+"""Ids of rows pending deletion."""
 
 
 # Union type used wherever a payment row could be either kind.

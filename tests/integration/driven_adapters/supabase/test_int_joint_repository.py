@@ -94,7 +94,7 @@ class TestJointAccountRepository:
 
         # Act
         cache._get_data_cached.clear()
-        joint_account_repo.save(account)
+        joint_account_repo.save_entities([account])
         cache._get_data_cached.clear()
         saved = _account_by_id(joint_account_repo, account.id)
 
@@ -127,7 +127,7 @@ class TestMembershipRepository:
 
         # Act
         cache._get_data_cached.clear()
-        membership_repo.save(member)
+        membership_repo.save_entities([member])
         cache._get_data_cached.clear()
         member_ids = {row.id for row in membership_repo.get_all()}
 
