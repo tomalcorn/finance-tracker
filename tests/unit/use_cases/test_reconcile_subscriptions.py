@@ -175,9 +175,7 @@ class TestReconcileSubscription:
             cadence=cadence,
             start_date=start_date,
         )
-        deleted_ids: list[str] = []
-
-        new_rows = self.use_case._reconcile_subscription(sub, [], deleted_ids)
+        new_rows, _ = self.use_case._reconcile_subscription(sub, [])
 
         assert all(
             [
@@ -208,9 +206,7 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payment = _make_payment(sub, payment_date)
-        deleted_ids: list[str] = []
-
-        new_rows = self.use_case._reconcile_subscription(sub, [payment], deleted_ids)
+        new_rows, deleted_ids = self.use_case._reconcile_subscription(sub, [payment])
 
         assert all(
             [
@@ -243,10 +239,7 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payment = _make_payment(sub, payment_date)
-        deleted_ids: list[str] = []
-
-        # The deletion is the subject here, so the returned rows are not asserted.
-        self.use_case._reconcile_subscription(sub, [payment], deleted_ids)
+        _, deleted_ids = self.use_case._reconcile_subscription(sub, [payment])
 
         assert all(
             [
@@ -285,9 +278,7 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payments = payments_factory(sub)
-        deleted_ids: list[str] = []
-
-        new_rows = self.use_case._reconcile_subscription(sub, payments, deleted_ids)
+        new_rows, deleted_ids = self.use_case._reconcile_subscription(sub, payments)
 
         assert all(
             [
@@ -307,9 +298,7 @@ class TestReconcileSubscription:
             bank_account_id,
             expense_source_id=expense_source_id,
         )
-        deleted_ids: list[str] = []
-
-        new_rows = self.use_case._reconcile_subscription(sub, [], deleted_ids)
+        new_rows, _ = self.use_case._reconcile_subscription(sub, [])
 
         added = new_rows[0]
         assert all(

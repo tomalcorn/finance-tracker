@@ -1,26 +1,32 @@
 """Unit tests for the budget tracker block's contribute-button wiring."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+import pytest
 import streamlit.testing.v1 as st_test
-from tests import conftest
 
-from domain import entities
 from driving_adapters.components.buttons import contribute_button
 from use_cases.contribute_to_joint import ContributeToJointUseCase
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from driving_adapters.components.dfes import data_source as data_source_mod
+    from ports import repository
+
+type RepoBuilder = "Callable[..., repository.Repository[Any]]"
+type SourceBuilder = "Callable[..., data_source_mod.GridDataSource]"
 
 
-def _contribute_button() -> contribute_button.ContributeButton:
-    """Build a ContributeButton whose use case never runs in the render tests."""
+@pytest.fixture(name="contribute_btn")
+def _contribute_btn(build_repo: RepoBuilder) -> contribute_button.ContributeButton:
+    """Return a ContributeButton whose use case never runs in the render tests."""
     use_case = ContributeToJointUseCase(
         user_id="auth0|test-user-1",
-        personal_payment_repo=conftest.FakeRepository[entities.AnyPaymentModel](),
-        joint_payment_repo=conftest.FakeRepository[entities.AnyPaymentModel](),
-        expense_source_repo=conftest.FakeRepository[entities.ExpenseSourceModel](),
-        joint_account_repo=conftest.FakeRepository[entities.JointAccountModel](),
+        personal_payment_repo=build_repo(),
+        joint_payment_repo=build_repo(),
+        expense_source_repo=build_repo(),
+        joint_account_repo=build_repo(),
     )
     return contribute_button.ContributeButton(
         use_case,
@@ -44,17 +50,30 @@ def _render_wrapper(
     budget_tracker_block.render(source, source, source, {}, button)
 
 
-def _app_tester(button: "contribute_button.ContributeButton | None") -> st_test.AppTest:
-    return st_test.AppTest.from_function(
-        _render_wrapper,
-        default_timeout=120,
-        kwargs={"button": button, "source": conftest.StubDataSource()},
-    )
+@pytest.fixture(name="build_app_tester")
+def _build_app_tester(
+    build_stub_data_source: SourceBuilder,
+) -> "Callable[[contribute_button.ContributeButton | None], st_test.AppTest]":
+    """Return a builder for an AppTest rendering the block, button or not."""
+
+    def _build(
+        button: contribute_button.ContributeButton | None,
+    ) -> st_test.AppTest:
+        return st_test.AppTest.from_function(
+            _render_wrapper,
+            default_timeout=120,
+            kwargs={"button": button, "source": build_stub_data_source()},
+        )
+
+    return _build
 
 
-def test_render_shows_contribute_button_when_provided() -> None:
+def test_render_shows_contribute_button_when_provided(
+    build_app_tester: "Callable[..., st_test.AppTest]",
+    contribute_btn: contribute_button.ContributeButton,
+) -> None:
     # Arrange
-    app_tester = _app_tester(_contribute_button())
+    app_tester = build_app_tester(contribute_btn)
 
     # Act
     app_tester.run()
@@ -63,9 +82,11 @@ def test_render_shows_contribute_button_when_provided() -> None:
     assert any(btn.key == "contribute_button" for btn in app_tester.button)
 
 
-def test_render_omits_contribute_button_when_absent() -> None:
+def test_render_omits_contribute_button_when_absent(
+    build_app_tester: "Callable[..., st_test.AppTest]",
+) -> None:
     # Arrange
-    app_tester = _app_tester(None)
+    app_tester = build_app_tester(None)
 
     # Act
     app_tester.run()

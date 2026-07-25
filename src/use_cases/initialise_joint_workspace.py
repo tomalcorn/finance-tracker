@@ -143,9 +143,7 @@ class InitialiseJointWorkspaceUseCase:
                         joint_account_id=joint_account_id,
                     ),
                 )
-            # Ensure the budget_tracker_ids list contains bt_id. Entities are
-            # frozen, so linking produces a copy rather than an in-place append;
-            # model_copy skips validators, so each copy is re-validated.
+            # Ensure the budget_tracker_ids list contains bt_id.
             elif existing.budget_tracker_ids is None:
                 to_save.append(
                     entities.ExpenseSourceModel.model_validate(

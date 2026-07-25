@@ -1,5 +1,7 @@
 """Unit tests for the add button free functions."""
 
+from typing import TYPE_CHECKING
+
 import pandas as pd
 import pydantic
 import pytest
@@ -11,6 +13,12 @@ from domain import entities
 from driving_adapters.components.buttons import add_button
 from driving_adapters.models import frontend_models
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any
+
+    from driving_adapters.components.dfes import data_source as data_source_mod
+
 USER_ID = "auth0|test-user-1"
 
 
@@ -19,14 +27,9 @@ class _RowModel(pydantic.BaseModel):
     user_id: str
 
 
-def _stub(model: type[pydantic.BaseModel] | None = None) -> conftest.StubDataSource:
-    """Return a stub whose gate stamps the owner, as the repository would."""
-    return conftest.StubDataSource(model=model, context={"user_id": USER_ID})
-
-
 def _config(
     *,
-    data_source: conftest.StubDataSource,
+    data_source: "data_source_mod.GridDataSource",
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config for the add-button tests."""
     return frontend_models.DFEConfig(
@@ -38,9 +41,14 @@ def _config(
     )
 
 
-def test_submit_new_row_saves_the_entity_built_by_the_port() -> None:
+def test_submit_new_row_saves_the_entity_built_by_the_port(
+    build_stub_data_source: "Callable[..., Any]",
+) -> None:
     # Arrange
-    data_source = _stub(_RowModel)
+    data_source = build_stub_data_source(
+        context={"user_id": USER_ID},
+        model=_RowModel,
+    )
     config = _config(data_source=data_source)
 
     # Act
@@ -56,10 +64,15 @@ class _LinkedRowModel(pydantic.BaseModel):
     budget_tracker_ids: list[str] | None = None
 
 
-def test_submit_new_row_merges_extra_row_values() -> None:
+def test_submit_new_row_merges_extra_row_values(
+    build_stub_data_source: "Callable[..., Any]",
+) -> None:
     # Arrange - the expense-sources grid links new rows to its budget tracker
     # via extra_row_values so they survive the tab's array_contains filter.
-    data_source = _stub(_LinkedRowModel)
+    data_source = build_stub_data_source(
+        context={"user_id": USER_ID},
+        model=_LinkedRowModel,
+    )
     config = frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table="expense_sources",
@@ -96,13 +109,15 @@ def _dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
 
 
 @pytest.fixture(name="app_tester")
-def _app_tester() -> st_test.AppTest:
+def _app_tester(build_stub_data_source: "Callable[..., Any]") -> st_test.AppTest:
+    source = build_stub_data_source(
+        context={"user_id": USER_ID},
+        model=entities.ExpensePaymentModel,
+    )
     return st_test.AppTest.from_function(
         _dialog_wrapper,
         default_timeout=120,
-        kwargs={
-            "config": _config(data_source=_stub(entities.ExpensePaymentModel)),
-        },
+        kwargs={"config": _config(data_source=source)},
     )
 
 

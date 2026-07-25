@@ -2,10 +2,9 @@
 
 import datetime
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
-from tests import conftest
 
 from domain import entities
 from use_cases.bank_one_offs import BankOneOffsUseCase
@@ -54,16 +53,16 @@ def _make_expense_source(
     )
 
 
-PaymentRepo = conftest.FakeRepository[entities.AnyPaymentModel]
-OneOffRepo = conftest.FakeRepository[entities.OneOffItemModel]
+type PaymentRepo = Any  # the conftest fake; its recorded writes are not on the port
+type OneOffRepo = Any  # the conftest fake; its recorded writes are not on the port
 UseCaseBundle = tuple[BankOneOffsUseCase, OneOffRepo, PaymentRepo]
 type UseCaseBuilder = Callable[..., UseCaseBundle]
 
 
 @pytest.fixture(name="build_use_case")
 def _build_use_case(
-    build_repo: conftest.RepoBuilder,
-    build_payment_repo: conftest.PaymentRepoBuilder,
+    build_repo: "Callable[..., Any]",
+    build_payment_repo: "Callable[..., Any]",
 ) -> "UseCaseBuilder":
     """Return a builder for the use case plus the repositories under assertion.
 
@@ -134,7 +133,7 @@ def test_banked_one_off_is_persisted(
 
 def test_banking_an_item_creates_a_payment(
     build_use_case: "UseCaseBuilder",
-    build_payment_repo: conftest.PaymentRepoBuilder,
+    build_payment_repo: "Callable[..., Any]",
 ):
     # Arrange
     item = _make_one_off(current_month=50.0)
@@ -150,7 +149,7 @@ def test_banking_an_item_creates_a_payment(
 
 def test_payment_fields_reflect_the_banked_item(
     build_use_case: "UseCaseBuilder",
-    build_payment_repo: conftest.PaymentRepoBuilder,
+    build_payment_repo: "Callable[..., Any]",
 ):
     # Arrange
     item = _make_one_off(current_month=50.0, name="Holiday")
@@ -176,7 +175,7 @@ def test_payment_fields_reflect_the_banked_item(
 
 def test_banking_multiple_items_creates_one_payment_per_item(
     build_use_case: "UseCaseBuilder",
-    build_payment_repo: conftest.PaymentRepoBuilder,
+    build_payment_repo: "Callable[..., Any]",
 ):
     # Arrange
     items = [
@@ -196,7 +195,7 @@ def test_banking_multiple_items_creates_one_payment_per_item(
 
 def test_payment_uses_current_month_not_post_update_banked(
     build_use_case: "UseCaseBuilder",
-    build_payment_repo: conftest.PaymentRepoBuilder,
+    build_payment_repo: "Callable[..., Any]",
 ):
     """Ensures the payment amount is the monthly contribution, not the running total."""
     # Arrange
@@ -219,7 +218,7 @@ def test_payment_uses_current_month_not_post_update_banked(
 
 def test_payment_has_expense_source_id_when_one_offs_tracker_and_source_exist(
     build_use_case: "UseCaseBuilder",
-    build_payment_repo: conftest.PaymentRepoBuilder,
+    build_payment_repo: "Callable[..., Any]",
 ):
     # Arrange
     tracker = _make_one_offs_tracker()
@@ -253,7 +252,7 @@ def test_payment_expense_source_id_is_none_when_lookup_cannot_resolve(
     budget_trackers: list[entities.BudgetTrackerItemModel],
     expense_sources: list[entities.ExpenseSourceModel],
     build_use_case: "UseCaseBuilder",
-    build_payment_repo: conftest.PaymentRepoBuilder,
+    build_payment_repo: "Callable[..., Any]",
 ):
     # Arrange
     item = _make_one_off(current_month=50.0)

@@ -2,9 +2,9 @@
 
 import uuid
 from collections.abc import Callable
+from typing import Any
 
 import pytest
-from tests import conftest
 
 from domain import entities
 from ports import errors as port_errors
@@ -27,19 +27,19 @@ JOINT_HIDDEN_BT_NAMES = {
 }
 
 
-BtRepo = conftest.FakeRepository[entities.BudgetTrackerItemModel]
-EsRepo = conftest.FakeRepository[entities.ExpenseSourceModel]
+type BtRepo = Any  # the conftest fake; its recorded writes are not on the port
+type EsRepo = Any  # the conftest fake; its recorded writes are not on the port
 UseCaseBuilder = Callable[..., InitialiseJointWorkspaceUseCase]
 
 
 @pytest.fixture
-def bt_repo(build_repo: conftest.RepoBuilder) -> BtRepo:
+def bt_repo(build_repo: "Callable[..., Any]") -> BtRepo:
     """Return the budget trackers repository in joint mode."""
     return build_repo()
 
 
 @pytest.fixture
-def es_repo(build_repo: conftest.RepoBuilder) -> EsRepo:
+def es_repo(build_repo: "Callable[..., Any]") -> EsRepo:
     """Return the expense sources repository in joint mode."""
     return build_repo()
 
@@ -66,7 +66,7 @@ def all_joint_trackers() -> list[entities.BudgetTrackerItemModel]:
 
 @pytest.fixture
 def build_use_case(
-    build_repo: conftest.RepoBuilder,
+    build_repo: "Callable[..., Any]",
     bt_repo: BtRepo,
     es_repo: EsRepo,
     joint_account: entities.JointAccountModel,
@@ -304,7 +304,7 @@ def test_no_joint_account_raises_no_joint_account_error(
 
 def test_repository_failure_raises_joint_data_access_error(
     build_use_case: UseCaseBuilder,
-    build_repo: conftest.RepoBuilder,
+    build_repo: "Callable[..., Any]",
 ) -> None:
     # Arrange
     failing: BtRepo = build_repo()
@@ -326,7 +326,7 @@ def test_repository_failure_raises_joint_data_access_error(
 
 def test_unexpected_error_is_not_wrapped_as_joint_data_access_error(
     build_use_case: UseCaseBuilder,
-    build_repo: conftest.RepoBuilder,
+    build_repo: "Callable[..., Any]",
 ) -> None:
     # Arrange - a genuine bug (not a RepositoryError) must propagate untouched.
     boom = ValueError("genuine bug")

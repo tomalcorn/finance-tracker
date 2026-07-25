@@ -75,11 +75,11 @@ class ReconcileSubscriptionsUseCase:
             sub_id = str(sub.id)
             current_payments = payments_by_subscription.get(sub_id, [])
             try:
-                new_rows.extend(
-                    self._reconcile_subscription(sub, current_payments, deleted_ids),
-                )
+                due, superseded = self._reconcile_subscription(sub, current_payments)
             except domain_errors.InvalidSubscriptionCadenceError as e:
                 raise errors.InvalidCadenceError(e.cadence) from e
+            new_rows.extend(due)
+            deleted_ids.extend(superseded)
 
         self._payment_repo.save_entities(self._payment_repo.build_entities(new_rows))
         self._payment_repo.apply_deletions(deleted_ids)
@@ -88,19 +88,19 @@ class ReconcileSubscriptionsUseCase:
         self,
         sub: entities.SubscriptionModel,
         current_payments: list[entities.ExpensePaymentModel],
-        deleted_ids: list[str],
-    ) -> list[entities.RawRow]:
-        """Return the payment rows this subscription is due, recording deletions.
+    ) -> tuple[list[entities.RawRow], list[str]]:
+        """Return what this subscription needs written and removed.
 
         Args:
             sub: The subscription to reconcile.
             current_payments: Its existing subscription-generated payments.
-            deleted_ids: Accumulator the ids of superseded payments are added to.
 
         Returns:
-            The raw rows for any payment now due — at most one.
+            The raw rows for any payment now due — at most one — and the ids of
+            any payments it supersedes.
 
         """
+        deleted_ids: list[str] = []
         future_payments = [
             payment
             for payment in current_payments
@@ -110,7 +110,7 @@ class ReconcileSubscriptionsUseCase:
         is_expired = sub.end_date is not None and sub.end_date < self._today
         if not sub.is_active or is_expired:
             deleted_ids.extend(str(payment.id) for payment in future_payments)
-            return []
+            return [], deleted_ids
 
         if sub.end_date:
             expired = [
@@ -126,13 +126,13 @@ class ReconcileSubscriptionsUseCase:
             ]
 
         if future_payments:
-            return []
+            return [], deleted_ids
 
         next_date = self._compute_next_date(sub)
         if next_date is None:
-            return []
+            return [], deleted_ids
 
-        return [
+        due: list[entities.RawRow] = [
             {
                 "payment_type": "expense",
                 "name": f"Sub: {sub.name}",
@@ -143,6 +143,7 @@ class ReconcileSubscriptionsUseCase:
                 "subscription_id": sub.id,
             },
         ]
+        return due, deleted_ids
 
     def _compute_next_date(
         self,

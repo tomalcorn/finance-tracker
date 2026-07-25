@@ -78,8 +78,7 @@ class BankOneOffsUseCase:
         for item in items:
             monthly_contribution = item.current_month
             # Entities are frozen: banking produces a new item rather than
-            # mutating the stored one in place. model_copy skips validators, so
-            # the copy is re-validated before it counts as an entity.
+            # mutating the stored one in place.
             banked_items.append(
                 entities.OneOffItemModel.model_validate(
                     item.model_copy(

@@ -67,7 +67,7 @@ class OwnershipContext:
         )
         return fields
 
-    def ownership_matches(self, entity: entities.FinanceTrackerBaseModel) -> bool:
+    def ownership_matches(self, entity: entities.HasOwnershipDimension) -> bool:
         """Return whether ``entity`` is owned the way this context writes."""
         return (
             entity.ownership_type is self.ownership_type
@@ -275,23 +275,21 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
             RepositoryError: Any entity's ownership does not match this mode.
 
         """
-        context = self._ownership_context()
-        if context.ownership_type is None:
-            # The joint tables carry no ownership dimension, so there is nothing
-            # to match against.
+        owned = [
+            item for item in items if isinstance(item, entities.HasOwnershipDimension)
+        ]
+        if not owned:
+            # The joint tables' entities carry no ownership dimension, so there
+            # is nothing to match against.
             return
-        for item in items:
-            # An ownership-scoped aggregate's entity is always a
-            # FinanceTrackerBaseModel; the check narrows the type to prove it.
-            if not isinstance(item, entities.FinanceTrackerBaseModel):
-                continue
-            if not context.ownership_matches(item):
-                msg = (
-                    f"Cannot save rows to {self._spec.write_table}: an entity's "
-                    f"ownership does not match this repository's "
-                    f"{self._ownership} mode."
-                )
-                raise errors.RepositoryError(msg)
+        context = self._ownership_context()
+        if all(context.ownership_matches(item) for item in owned):
+            return
+        msg = (
+            f"Cannot save rows to {self._spec.write_table}: an entity's ownership "
+            f"does not match this repository's {self._ownership} mode."
+        )
+        raise errors.RepositoryError(msg)
 
     def apply_edits(self, edits: entities.EditedRows) -> None:
         """Patch the given columns of stored rows; an empty patch set is skipped.

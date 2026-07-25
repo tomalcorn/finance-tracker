@@ -4,7 +4,7 @@ import datetime
 import enum
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, Protocol, Self, runtime_checkable
 
 import pydantic
 
@@ -22,6 +22,19 @@ class OwnershipType(enum.StrEnum):
 
     PERSONAL = enum.auto()
     JOINT = enum.auto()
+
+
+@runtime_checkable
+class HasOwnershipDimension(Protocol):
+    """An entity that is owned personally or by a joint account.
+
+    The joint tables have no ownership dimension, so their entities do not
+    satisfy this: whether ownership applies to an aggregate is a question about
+    the entity, not about the caller inspecting it.
+    """
+
+    ownership_type: OwnershipType
+    joint_account_id: uuid.UUID | None
 
 
 def require_joint_account_id(

@@ -1,6 +1,7 @@
 """Unit tests for the filter button free functions."""
 
 import datetime
+from typing import TYPE_CHECKING
 from unittest import mock
 
 import pandas as pd
@@ -13,13 +14,20 @@ from domain import query
 from driving_adapters.components.buttons import filter_button
 from driving_adapters.models import frontend_models
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any
 
-def _config(unique_values: set[object] | None = None) -> frontend_models.DFEConfig:
+
+def _config(
+    build_stub_data_source: "Callable[..., Any]",
+    unique_values: set[object] | None = None,
+) -> frontend_models.DFEConfig:
     """Build a minimal grid config whose data source yields ``unique_values``."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table="test_table",
-            data_source=conftest.StubDataSource(column_values=unique_values),
+            data_source=build_stub_data_source(column_values=unique_values),
         ),
         display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
     )
@@ -38,11 +46,12 @@ def test_get_min_max_values(
     column_values: set[object],
     expected_min: float,
     expected_max: float,
+    build_stub_data_source: "Callable[..., Any]",
 ) -> None:
     """Test _get_min_max_values returns correct min and max values."""
     # Act
     min_value, max_value = filter_button._get_min_max_values(
-        _config(column_values).source,
+        _config(build_stub_data_source, column_values).source,
         "test_numeric_column",
     )
 
@@ -60,7 +69,7 @@ def _filter_dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
 
 
 @pytest.fixture(name="app_tester")
-def _app_tester() -> st_test.AppTest:
+def _app_tester(build_stub_data_source: "Callable[..., Any]") -> st_test.AppTest:
     dialog_configs = [
         frontend_models.DFEColumnConfig(
             column_name="col1",
@@ -78,7 +87,7 @@ def _app_tester() -> st_test.AppTest:
     config = frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table="test_table",
-            data_source=conftest.StubDataSource(column_values={0.88, 0.23, 0.1}),
+            data_source=build_stub_data_source(column_values={0.88, 0.23, 0.1}),
         ),
         display=frontend_models.GridDisplay(
             columns=dialog_configs,
@@ -159,7 +168,10 @@ class TestFilterHandling:
             lte=datetime.date(2024, 1, 31),
         )
 
-    def test_handle_numeric_filtering_no_filtering(self) -> None:
+    def test_handle_numeric_filtering_no_filtering(
+        self,
+        build_stub_data_source: "Callable[..., Any]",
+    ) -> None:
         """_handle_numeric_filtering returns None when the slider is unchanged."""
         # Arrange
         with (
@@ -179,14 +191,17 @@ class TestFilterHandling:
 
             # Act
             result = filter_button._handle_numeric_filtering(
-                _config().source,
+                _config(build_stub_data_source).source,
                 numeric_col_config,
             )
 
         # Assert
         assert result is None
 
-    def test_handle_numeric_filtering_with_filtering(self) -> None:
+    def test_handle_numeric_filtering_with_filtering(
+        self,
+        build_stub_data_source: "Callable[..., Any]",
+    ) -> None:
         """_handle_numeric_filtering returns Filters for the chosen range."""
         # Arrange
         with mock.patch.object(st, "slider", return_value=(20.0, 80.0)):
@@ -199,7 +214,7 @@ class TestFilterHandling:
 
             # Act
             result = filter_button._handle_numeric_filtering(
-                _config({10.0, 90.0}).source,
+                _config(build_stub_data_source, {10.0, 90.0}).source,
                 numeric_col_config,
             )
 

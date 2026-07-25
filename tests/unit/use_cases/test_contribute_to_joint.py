@@ -6,7 +6,6 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from tests import conftest
 
 from domain import entities
 from ports import errors as port_errors
@@ -21,7 +20,7 @@ AMOUNT = 250.0
 ACCOUNT_NAME = "Household"
 
 
-PaymentRepo = conftest.FakeRepository[entities.AnyPaymentModel]
+type PaymentRepo = Any  # the conftest fake; its recorded writes are not on the port
 UseCaseBuilder = Callable[..., ContributeToJointUseCase]
 
 
@@ -62,7 +61,7 @@ def joint_expense_source() -> entities.ExpenseSourceModel:
 
 @pytest.fixture
 def build_use_case(
-    build_repo: Callable[..., conftest.FakeRepository[Any]],
+    build_repo: "Callable[..., Any]",
     personal_repo: PaymentRepo,
     joint_repo: PaymentRepo,
     joint_account: entities.JointAccountModel,

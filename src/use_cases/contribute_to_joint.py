@@ -171,8 +171,7 @@ class ContributeToJointUseCase:
             self._joint_payment_repo.save_entities([income])
 
             # Entities are frozen, so the forward link is a new copy of the
-            # expense, upserted over the row just written. model_copy skips
-            # validators, so the copy is re-validated.
+            # expense, upserted over the row just written.
             linked = entities.ExpensePaymentModel.model_validate(
                 expense.model_copy(update={"linked_payment_id": income.id}),
             )
