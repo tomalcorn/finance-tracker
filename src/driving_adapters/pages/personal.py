@@ -14,6 +14,7 @@ joint counterpart is ``joint.py``.
 import streamlit as st
 
 from composition import wiring
+from domain import entities
 from driving_adapters import error_boundary
 from driving_adapters.blocks import (
     bank_accounts_block,
@@ -21,6 +22,9 @@ from driving_adapters.blocks import (
     one_offs_block,
     payments_block,
     subscriptions_block,
+)
+from driving_adapters.components.buttons import (
+    contribute_button as contribute_button_mod,
 )
 
 st.title(":material/dashboard: Personal")
@@ -44,6 +48,14 @@ with error_boundary.boundary("loading your personal dashboard"):
 
     # Use cases.
     bank_one_offs_use_case = wiring.bank_one_offs_use_case()
+
+    contribute_button = None
+    if wiring.joint_account_repository().get_all():
+        contribute_button = contribute_button_mod.ContributeButton(
+            wiring.contribute_to_joint_use_case(),
+            bank_account_map,
+            wiring.bank_account_id_name_map(entities.OwnershipType.JOINT),
+        )
 
 one_offs_container = st.container(border=True)
 budget_tracker_container = st.container(border=True)
@@ -92,6 +104,7 @@ with budget_tracker_container, error_boundary.boundary("loading your budget trac
         expense_source_data_source,
         income_source_data_source,
         budget_tracker_map,
+        contribute_button,
     )
 
 with payments_container, error_boundary.boundary("loading your payments"):

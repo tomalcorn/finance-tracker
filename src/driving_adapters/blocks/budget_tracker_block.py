@@ -6,13 +6,16 @@ import pandas as pd
 import streamlit as st
 
 from domain import entities, query
-from driving_adapters.components.buttons import constants
+from driving_adapters.components.buttons import constants, filter_button
 from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from driving_adapters.components.buttons import (
+        contribute_button as contribute_button_component,
+    )
     from driving_adapters.components.dfes import data_source as data_source_mod
 
 _BUDGET_TRACKER_TABLE = "budget_tracker"
@@ -373,13 +376,51 @@ def commit(
     grid.commit(is_config)
 
 
+def _render_with_contribute(
+    config: frontend_models.DFEConfig,
+    contribute_button: "contribute_button_component.ContributeButton",
+) -> None:
+    """Render the budget tracker grid with the contribute button in its button row.
+
+    The default ``grid.render`` would stack the button above the row, so this
+    composes the row itself — the same seam the one-offs block uses for its
+    "bank it" button. The grid is ``num_rows="fixed"``, so filter is the only
+    built-in button to sit alongside.
+    """
+    filter_col, contribute_col, _ = st.columns(
+        constants.FILTER_CONTRIBUTE_BUTTON_WIDTHS,
+    )
+    with filter_col:
+        filter_button.render_filter_button(config.source, config.display)
+    with contribute_col:
+        contribute_button()
+    grid.render_editor(
+        config.display,
+        config.key_prefix,
+        grid.build_working_df(config),
+    )
+
+
 def render(
     budget_tracker_data_source: "data_source_mod.GridDataSource",
     expense_source_data_source: "data_source_mod.GridDataSource",
     income_source_data_source: "data_source_mod.GridDataSource",
     budget_tracker_map: dict[str, str],
+    contribute_button: "contribute_button_component.ContributeButton | None" = None,
 ) -> None:
-    """Render the budget tracker block."""
+    """Render the budget tracker block.
+
+    Args:
+        budget_tracker_data_source: Grid data source for the budget tracker tab.
+        expense_source_data_source: Grid data source for the expense sources tab.
+        income_source_data_source: Grid data source for the income sources tab.
+        budget_tracker_map: ``{id: name}`` of the user's budget trackers.
+        contribute_button: The personal→joint contribution button, rendered
+            above the budget tracker grid. Passed only by the personal page for a
+            user who belongs to a joint account; ``None`` (the joint page and
+            non-members) hides it, since contributing funds joint from personal.
+
+    """
     bt_config, es_config, is_config = _configs(
         budget_tracker_data_source,
         expense_source_data_source,
@@ -396,7 +437,10 @@ def render(
     )
 
     with budget_tracker_tab:
-        grid.render(bt_config)
+        if contribute_button is None:
+            grid.render(bt_config)
+        else:
+            _render_with_contribute(bt_config, contribute_button)
 
     with expense_tab:
         grid.render(es_config)

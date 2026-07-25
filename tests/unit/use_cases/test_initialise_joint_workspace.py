@@ -293,17 +293,20 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set_and_persisted(
 # ---------------------------------------------------------------------------
 
 
-def test_no_joint_account_raises_no_joint_account_error(
+def test_no_joint_account_seeds_nothing(
     build_use_case: UseCaseBuilder,
+    bt_repo: BtRepo,
+    es_repo: EsRepo,
 ) -> None:
-    # Arrange
+    # Arrange - a user in no joint account has nothing to seed, so this is a
+    # no-op rather than a failure: the entry point runs it for every user.
     use_case = build_use_case(accounts=[])
 
-    # Act / Assert
-    with pytest.raises(errors.NoJointAccountToInitialiseError) as exc_info:
-        use_case.execute()
+    # Act
+    use_case.execute()
 
-    assert exc_info.value.user_id == USER_ID
+    # Assert
+    assert all([bt_repo.saved == [], es_repo.saved == []])
 
 
 def test_repository_failure_raises_joint_data_access_error(

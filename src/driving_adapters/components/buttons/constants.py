@@ -3,6 +3,9 @@
 import enum
 
 ADD_FILTER_BUTTON_WIDTHS = [0.05, 0.05, 0.9]
+# Wider middle column than the icon-only buttons above: the contribute button
+# carries a text label.
+FILTER_CONTRIBUTE_BUTTON_WIDTHS = [0.05, 0.2, 0.75]
 MAX_UNIQUE_VALUES = 20
 
 

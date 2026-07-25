@@ -32,21 +32,38 @@ def _initialise_workspace() -> None:
         st.stop()
 
 
+def _initialise_joint_workspace() -> None:
+    """Seed the current user's joint account once per session, if they have one.
+
+    Seeding is a no-op for a user in no joint account, so this runs for everyone.
+    Unlike the personal init it only logs on failure: joint membership is
+    optional, so a joint hiccup must not lock the user out of Personal.
+    """
+    try:
+        wiring.joint_workspace_init_use_case().execute()
+    except use_case_errors.JointWorkspaceInitializationError:
+        st.error("Could not set up your joint workspace. Please contact support.")
+        logger.exception("Joint workspace initialization failed")
+
+
 session.run_once_per_session(
     ss_keys.SSKeys.WORKSPACE_INITIALISED,
     _initialise_workspace,
 )
 
+session.run_once_per_session(
+    ss_keys.SSKeys.JOINT_WORKSPACE_INITIALISED,
+    _initialise_joint_workspace,
+)
+
 docs_registry = docs_pages.DocsRegistry(docs_pages.DOCS_DIR)
 docs_ui = docs_pages.DocsUI(docs_registry)
 
-# The Joint page (constants.Pages.JOINT) is deliberately not registered yet:
-# the joint workflow lands as one breaking change in the final Joint ticket.
-# The page and its wiring stay in the tree, ready to be added here then.
 pg = st.navigation(
     {
         "": [
             constants.Pages.PERSONAL.value,
+            constants.Pages.JOINT.value,
             constants.Pages.LOGIN.value,
         ],
         ":material/docs: Docs": docs_ui.build_pages(),
