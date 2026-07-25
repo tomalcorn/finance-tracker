@@ -65,15 +65,18 @@ class InitialiseJointWorkspaceUseCase:
         """Ensure the user's joint account has its default trackers and sources.
 
         Idempotent (create-if-missing), matching the personal workspace use case.
+        A user who belongs to no joint account has nothing to seed, so this is a
+        no-op for them rather than a failure — unlike contributing, where the
+        missing account is what the caller asked to act on.
 
         Raises:
-            NoJointAccountToInitialiseError: If the user belongs to no joint
-                account, so there is nothing to seed.
             JointDataAccessError: If any repository operation fails.
 
         """
         try:
             account = self._resolve_joint_account()
+            if account is None:
+                return
             self._ensure_default_budget_trackers(account.id)
 
             # Fetch all budget tracker rows again to get IDs
@@ -87,17 +90,10 @@ class InitialiseJointWorkspaceUseCase:
             msg = f"Failed to initialise joint workspace for user {self._user_id}: {e}"
             raise errors.JointDataAccessError(msg) from e
 
-    def _resolve_joint_account(self) -> entities.JointAccountModel:
-        """Return the user's one joint account.
-
-        Raises:
-            NoJointAccountToInitialiseError: If the user belongs to none.
-
-        """
+    def _resolve_joint_account(self) -> entities.JointAccountModel | None:
+        """Return the user's one joint account, or None if they belong to none."""
         accounts = self._joint_account_repo.get_all()
-        if not accounts:
-            raise errors.NoJointAccountToInitialiseError(self._user_id)
-        return accounts[0]
+        return accounts[0] if accounts else None
 
     def _ensure_default_budget_trackers(self, joint_account_id: "uuid.UUID") -> None:
         """Create any missing joint budget tracker rows for the account."""

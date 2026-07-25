@@ -35,15 +35,12 @@ def _initialise_workspace() -> None:
 def _initialise_joint_workspace() -> None:
     """Seed the current user's joint account once per session, if they have one.
 
-    Mirrors ``_initialise_workspace`` but with two differences forced by joint
-    membership being optional: a user in no joint account is a silent no-op
-    (``NoJointAccountToInitialiseError``), and a genuine seeding failure logs
-    without ``st.stop`` — a joint hiccup must not lock the user out of Personal.
+    Seeding is a no-op for a user in no joint account, so this runs for everyone.
+    Unlike the personal init it only logs on failure: joint membership is
+    optional, so a joint hiccup must not lock the user out of Personal.
     """
     try:
         wiring.joint_workspace_init_use_case().execute()
-    except use_case_errors.NoJointAccountToInitialiseError:
-        logger.debug("No joint account to initialise for the current user.")
     except use_case_errors.JointWorkspaceInitializationError:
         st.error("Could not set up your joint workspace. Please contact support.")
         logger.exception("Joint workspace initialization failed")
