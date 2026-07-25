@@ -32,6 +32,7 @@ def _contribute_btn(
         use_case,
         {"personal-1": "Personal Current"},
         {"joint-1": "Joint Current"},
+        {"income-1": "Salary"},
     )
 
 

@@ -55,6 +55,7 @@ with error_boundary.boundary("loading your personal dashboard"):
             wiring.contribute_to_joint_use_case(),
             bank_account_map,
             wiring.bank_account_id_name_map(entities.OwnershipType.JOINT),
+            wiring.income_source_id_name_map(entities.OwnershipType.JOINT),
         )
 
 one_offs_container = st.container(border=True)
