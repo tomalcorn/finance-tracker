@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 USER_ID = "user-123"
 FROM_BANK_ACCOUNT_ID = uuid.uuid4()
 TO_BANK_ACCOUNT_ID = uuid.uuid4()
+INCOME_SOURCE_ID = uuid.uuid4()
 PAYMENT_DATE = datetime.date(2025, 1, 1)
 AMOUNT = 250.0
 ACCOUNT_NAME = "Household"
@@ -128,7 +129,13 @@ def _contribute(
     use_case: ContributeToJointUseCase,
     amount: float = AMOUNT,
 ) -> None:
-    use_case.execute(amount, FROM_BANK_ACCOUNT_ID, TO_BANK_ACCOUNT_ID, PAYMENT_DATE)
+    use_case.execute(
+        amount,
+        FROM_BANK_ACCOUNT_ID,
+        TO_BANK_ACCOUNT_ID,
+        INCOME_SOURCE_ID,
+        PAYMENT_DATE,
+    )
 
 
 def test_contribution_books_a_personal_expense(
@@ -174,6 +181,17 @@ def test_contribution_books_a_matching_joint_income(
             income.payment_date == PAYMENT_DATE,
         ],
     )
+
+
+def test_the_joint_income_is_booked_against_the_chosen_income_source(
+    use_case: ContributeToJointUseCase,
+    joint_repo: PaymentRepo,
+):
+    # Arrange / Act
+    _contribute(use_case)
+
+    # Assert - an unsourced income would be missing from the joint roll-ups.
+    assert _saved_income(joint_repo).income_source_id == INCOME_SOURCE_ID
 
 
 def test_the_pair_is_traceable_to_each_other(
