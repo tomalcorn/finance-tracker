@@ -1,3 +1,9 @@
+## v0.15.0 (2026-07-25)
+
+### Feat
+
+- **joint**: joint workflow cutover + entity write gate (#181) (#197)
+
 ## v0.14.1 (2026-07-25)
 
 ### Refactor
