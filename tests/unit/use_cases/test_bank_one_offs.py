@@ -2,18 +2,17 @@
 
 import datetime
 import uuid
+from typing import TYPE_CHECKING
 
 import pytest
-from tests.fakes import FakeRepository, payment_fake
+from tests import conftest
 
 from domain import entities
 from use_cases.bank_one_offs import BankOneOffsUseCase
 from use_cases.errors import AmountToBankLTEZeroError
 
-# ---------------------------------------------------------------------------
-# Fake
-# ---------------------------------------------------------------------------
-
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # ---------------------------------------------------------------------------
 # Factories
@@ -55,31 +54,41 @@ def _make_expense_source(
     )
 
 
-def _make_use_case(
-    items: list[entities.OneOffItemModel],
-    budget_trackers: list[entities.BudgetTrackerItemModel] | None = None,
-    expense_sources: list[entities.ExpenseSourceModel] | None = None,
-    payment_repo: FakeRepository[entities.AnyPaymentModel] | None = None,
-) -> tuple[
-    BankOneOffsUseCase,
-    FakeRepository[entities.OneOffItemModel],
-    FakeRepository[entities.AnyPaymentModel],
-]:
-    one_off_repo: FakeRepository[entities.OneOffItemModel] = FakeRepository(items)
-    bt_repo: FakeRepository[entities.BudgetTrackerItemModel] = FakeRepository(
-        budget_trackers or [],
-    )
-    es_repo: FakeRepository[entities.ExpenseSourceModel] = FakeRepository(
-        expense_sources or [],
-    )
-    p_repo = payment_repo or payment_fake(USER_ID)
-    use_case = BankOneOffsUseCase(
-        one_off_repo=one_off_repo,
-        budget_tracker_repo=bt_repo,
-        expense_source_repo=es_repo,
-        payment_repo=p_repo,
-    )
-    return use_case, one_off_repo, p_repo
+PaymentRepo = conftest.FakeRepository[entities.AnyPaymentModel]
+OneOffRepo = conftest.FakeRepository[entities.OneOffItemModel]
+UseCaseBundle = tuple[BankOneOffsUseCase, OneOffRepo, PaymentRepo]
+type UseCaseBuilder = Callable[..., UseCaseBundle]
+
+
+@pytest.fixture(name="build_use_case")
+def _build_use_case(
+    build_repo: conftest.RepoBuilder,
+    build_payment_repo: conftest.PaymentRepoBuilder,
+) -> "UseCaseBuilder":
+    """Return a builder for the use case plus the repositories under assertion.
+
+    A test overrides only the collaborator it varies — the seeded one-offs, the
+    trackers, the sources, or a payments repo it wants to inspect — and inherits
+    the rest.
+    """
+
+    def _build(
+        items: list[entities.OneOffItemModel],
+        budget_trackers: list[entities.BudgetTrackerItemModel] | None = None,
+        expense_sources: list[entities.ExpenseSourceModel] | None = None,
+        payment_repo: PaymentRepo | None = None,
+    ) -> UseCaseBundle:
+        one_off_repo = build_repo(items)
+        p_repo = payment_repo or build_payment_repo(USER_ID)
+        use_case = BankOneOffsUseCase(
+            one_off_repo=one_off_repo,
+            budget_tracker_repo=build_repo(budget_trackers or []),
+            expense_source_repo=build_repo(expense_sources or []),
+            payment_repo=p_repo,
+        )
+        return use_case, one_off_repo, p_repo
+
+    return _build
 
 
 # ---------------------------------------------------------------------------
@@ -87,10 +96,12 @@ def _make_use_case(
 # ---------------------------------------------------------------------------
 
 
-def test_banking_an_item_zeroes_current_month_and_accumulates_banked():
+def test_banking_an_item_zeroes_current_month_and_accumulates_banked(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
     item = _make_one_off(current_month=50.0, banked=100.0)
-    use_case, one_off_repo, _ = _make_use_case([item])
+    use_case, one_off_repo, _ = build_use_case([item])
 
     # Act
     use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
@@ -106,11 +117,13 @@ def test_banking_an_item_zeroes_current_month_and_accumulates_banked():
     )
 
 
-def test_banked_one_off_is_persisted():
+def test_banked_one_off_is_persisted(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange - the one-off is fetched, banked into a new copy, and saved back;
     # saving an existing row must reach the repository (issue #146).
     item = _make_one_off(current_month=50.0)
-    use_case, one_off_repo, _ = _make_use_case([item])
+    use_case, one_off_repo, _ = build_use_case([item])
 
     # Act
     use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
@@ -119,11 +132,14 @@ def test_banked_one_off_is_persisted():
     assert [saved.id for saved in one_off_repo.saved] == [item.id]
 
 
-def test_banking_an_item_creates_a_payment():
+def test_banking_an_item_creates_a_payment(
+    build_use_case: "UseCaseBuilder",
+    build_payment_repo: conftest.PaymentRepoBuilder,
+):
     # Arrange
     item = _make_one_off(current_month=50.0)
-    payment_repo = payment_fake(USER_ID)
-    use_case, _, _ = _make_use_case([item], payment_repo=payment_repo)
+    payment_repo = build_payment_repo(USER_ID)
+    use_case, _, _ = build_use_case([item], payment_repo=payment_repo)
 
     # Act
     use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
@@ -132,11 +148,14 @@ def test_banking_an_item_creates_a_payment():
     assert len(payment_repo.saved) == 1
 
 
-def test_payment_fields_reflect_the_banked_item():
+def test_payment_fields_reflect_the_banked_item(
+    build_use_case: "UseCaseBuilder",
+    build_payment_repo: conftest.PaymentRepoBuilder,
+):
     # Arrange
     item = _make_one_off(current_month=50.0, name="Holiday")
-    payment_repo = payment_fake(USER_ID)
-    use_case, _, _ = _make_use_case([item], payment_repo=payment_repo)
+    payment_repo = build_payment_repo(USER_ID)
+    use_case, _, _ = build_use_case([item], payment_repo=payment_repo)
 
     # Act
     use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
@@ -155,14 +174,17 @@ def test_payment_fields_reflect_the_banked_item():
     )
 
 
-def test_banking_multiple_items_creates_one_payment_per_item():
+def test_banking_multiple_items_creates_one_payment_per_item(
+    build_use_case: "UseCaseBuilder",
+    build_payment_repo: conftest.PaymentRepoBuilder,
+):
     # Arrange
     items = [
         _make_one_off(current_month=50.0, name="Holiday"),
         _make_one_off(current_month=30.0, name="Car"),
     ]
-    payment_repo = payment_fake(USER_ID)
-    use_case, _, _ = _make_use_case(items, payment_repo=payment_repo)
+    payment_repo = build_payment_repo(USER_ID)
+    use_case, _, _ = build_use_case(items, payment_repo=payment_repo)
 
     # Act
     use_case.execute([i.id for i in items], BANK_ACCOUNT_ID, PAYMENT_DATE)
@@ -172,12 +194,15 @@ def test_banking_multiple_items_creates_one_payment_per_item():
     assert len(payment_repo.saved) == expected_saved
 
 
-def test_payment_uses_current_month_not_post_update_banked():
+def test_payment_uses_current_month_not_post_update_banked(
+    build_use_case: "UseCaseBuilder",
+    build_payment_repo: conftest.PaymentRepoBuilder,
+):
     """Ensures the payment amount is the monthly contribution, not the running total."""
     # Arrange
     item = _make_one_off(current_month=50.0, banked=200.0)
-    payment_repo = payment_fake(USER_ID)
-    use_case, _, _ = _make_use_case([item], payment_repo=payment_repo)
+    payment_repo = build_payment_repo(USER_ID)
+    use_case, _, _ = build_use_case([item], payment_repo=payment_repo)
 
     # Act
     use_case.execute([item.id], BANK_ACCOUNT_ID, PAYMENT_DATE)
@@ -192,13 +217,16 @@ def test_payment_uses_current_month_not_post_update_banked():
 # ---------------------------------------------------------------------------
 
 
-def test_payment_has_expense_source_id_when_one_offs_tracker_and_source_exist():
+def test_payment_has_expense_source_id_when_one_offs_tracker_and_source_exist(
+    build_use_case: "UseCaseBuilder",
+    build_payment_repo: conftest.PaymentRepoBuilder,
+):
     # Arrange
     tracker = _make_one_offs_tracker()
     source = _make_expense_source(budget_tracker_ids=[tracker.id])
     item = _make_one_off(current_month=50.0)
-    payment_repo = payment_fake(USER_ID)
-    use_case, _, _ = _make_use_case(
+    payment_repo = build_payment_repo(USER_ID)
+    use_case, _, _ = build_use_case(
         [item],
         budget_trackers=[tracker],
         expense_sources=[source],
@@ -224,11 +252,13 @@ def test_payment_has_expense_source_id_when_one_offs_tracker_and_source_exist():
 def test_payment_expense_source_id_is_none_when_lookup_cannot_resolve(
     budget_trackers: list[entities.BudgetTrackerItemModel],
     expense_sources: list[entities.ExpenseSourceModel],
+    build_use_case: "UseCaseBuilder",
+    build_payment_repo: conftest.PaymentRepoBuilder,
 ):
     # Arrange
     item = _make_one_off(current_month=50.0)
-    payment_repo = payment_fake(USER_ID)
-    use_case, _, _ = _make_use_case(
+    payment_repo = build_payment_repo(USER_ID)
+    use_case, _, _ = build_use_case(
         [item],
         budget_trackers=budget_trackers,
         expense_sources=expense_sources,
@@ -259,10 +289,11 @@ def test_payment_expense_source_id_is_none_when_lookup_cannot_resolve(
 def test_banking_item_with_non_positive_amount_raises(
     current_month: float,
     expected_match: str,
+    build_use_case: "UseCaseBuilder",
 ):
     # Arrange
     item = _make_one_off(current_month=current_month, name=expected_match)
-    use_case, _, _ = _make_use_case([item])
+    use_case, _, _ = build_use_case([item])
 
     # Act
     with pytest.raises(AmountToBankLTEZeroError) as exc_info:
@@ -277,11 +308,13 @@ def test_banking_item_with_non_positive_amount_raises(
     )
 
 
-def test_no_items_are_saved_if_any_item_has_non_positive_amount():
+def test_no_items_are_saved_if_any_item_has_non_positive_amount(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
     good_item = _make_one_off(current_month=50.0, name="Holiday")
     bad_item = _make_one_off(current_month=0.0, name="Car")
-    use_case, one_off_repo, payment_repo = _make_use_case([good_item, bad_item])
+    use_case, one_off_repo, payment_repo = build_use_case([good_item, bad_item])
 
     # Act
     with pytest.raises(AmountToBankLTEZeroError):

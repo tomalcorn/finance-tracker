@@ -1,16 +1,16 @@
 """Tests for InitialiseUserWorkspaceUseCase."""
 
+from typing import TYPE_CHECKING
+
 import pytest
-from tests.fakes import FakeRepository
+from tests import conftest
 
 from domain import entities
 from ports import errors as port_errors
 from use_cases import errors, initialise_workspace
 
-# ---------------------------------------------------------------------------
-# Fake
-# ---------------------------------------------------------------------------
-
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # ---------------------------------------------------------------------------
 # Factories
@@ -25,26 +25,38 @@ HIDDEN_BT_NAMES = {
 }
 
 
-def make_use_case(
-    existing_trackers: list[entities.BudgetTrackerItemModel] | None = None,
-    existing_sources: list[entities.ExpenseSourceModel] | None = None,
-) -> tuple[
+BtRepo = conftest.FakeRepository[entities.BudgetTrackerItemModel]
+EsRepo = conftest.FakeRepository[entities.ExpenseSourceModel]
+UseCaseBundle = tuple[
     initialise_workspace.InitialiseUserWorkspaceUseCase,
-    FakeRepository[entities.BudgetTrackerItemModel],
-    FakeRepository[entities.ExpenseSourceModel],
-]:
-    bt_repo: FakeRepository[entities.BudgetTrackerItemModel] = FakeRepository(
-        existing_trackers,
-    )
-    es_repo: FakeRepository[entities.ExpenseSourceModel] = FakeRepository(
-        existing_sources,
-    )
-    use_case = initialise_workspace.InitialiseUserWorkspaceUseCase(
-        user_id=USER_ID,
-        budget_tracker_repo=bt_repo,
-        expense_source_repo=es_repo,
-    )
-    return use_case, bt_repo, es_repo
+    BtRepo,
+    EsRepo,
+]
+type UseCaseBuilder = Callable[..., UseCaseBundle]
+
+
+@pytest.fixture(name="build_use_case")
+def _build_use_case(build_repo: conftest.RepoBuilder) -> "UseCaseBuilder":
+    """Return a builder for the use case plus its two repositories.
+
+    A test overrides only what it seeds — existing trackers, existing sources —
+    and inherits empty repositories for the rest.
+    """
+
+    def _build(
+        existing_trackers: list[entities.BudgetTrackerItemModel] | None = None,
+        existing_sources: list[entities.ExpenseSourceModel] | None = None,
+    ) -> UseCaseBundle:
+        bt_repo = build_repo(existing_trackers)
+        es_repo = build_repo(existing_sources)
+        use_case = initialise_workspace.InitialiseUserWorkspaceUseCase(
+            user_id=USER_ID,
+            budget_tracker_repo=bt_repo,
+            expense_source_repo=es_repo,
+        )
+        return use_case, bt_repo, es_repo
+
+    return _build
 
 
 def make_tracker(name: entities.BudgetTrackerName) -> entities.BudgetTrackerItemModel:
@@ -60,9 +72,11 @@ def make_all_trackers() -> list[entities.BudgetTrackerItemModel]:
 # ---------------------------------------------------------------------------
 
 
-def test_all_budget_tracker_names_are_created_for_a_fresh_user_with_correct_user_id():
+def test_all_budget_tracker_names_are_created_for_a_fresh_user_with_correct_user_id(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
-    use_case, bt_repo, _ = make_use_case()
+    use_case, bt_repo, _ = build_use_case()
 
     # Act
     use_case.execute()
@@ -77,10 +91,12 @@ def test_all_budget_tracker_names_are_created_for_a_fresh_user_with_correct_user
     )
 
 
-def test_no_budget_trackers_are_duplicated_when_all_already_exist():
+def test_no_budget_trackers_are_duplicated_when_all_already_exist(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
     existing = make_all_trackers()
-    use_case, bt_repo, _ = make_use_case(existing_trackers=existing)
+    use_case, bt_repo, _ = build_use_case(existing_trackers=existing)
 
     # Act
     use_case.execute()
@@ -95,12 +111,13 @@ def test_no_budget_trackers_are_duplicated_when_all_already_exist():
 )
 def test_missing_budget_tracker_is_created_when_others_exist(
     missing_name: entities.BudgetTrackerName,
+    build_use_case: "UseCaseBuilder",
 ) -> None:
     # Arrange
     existing = [
         make_tracker(n) for n in entities.BudgetTrackerName if n != missing_name
     ]
-    use_case, bt_repo, _ = make_use_case(existing_trackers=existing)
+    use_case, bt_repo, _ = build_use_case(existing_trackers=existing)
 
     # Act
     use_case.execute()
@@ -115,9 +132,11 @@ def test_missing_budget_tracker_is_created_when_others_exist(
 # ---------------------------------------------------------------------------
 
 
-def test_hidden_expense_sources_created_for_each_hidden_bt_name_with_right_user_id():
+def test_hidden_expense_sources_created_for_each_hidden_bt_name_with_right_user_id(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
-    use_case, _, es_repo = make_use_case()
+    use_case, _, es_repo = build_use_case()
 
     # Act
     use_case.execute()
@@ -132,9 +151,11 @@ def test_hidden_expense_sources_created_for_each_hidden_bt_name_with_right_user_
     )
 
 
-def test_hidden_expense_source_is_linked_to_its_budget_tracker():
+def test_hidden_expense_source_is_linked_to_its_budget_tracker(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
-    use_case, bt_repo, es_repo = make_use_case()
+    use_case, bt_repo, es_repo = build_use_case()
 
     # Act
     use_case.execute()
@@ -149,7 +170,9 @@ def test_hidden_expense_source_is_linked_to_its_budget_tracker():
     )
 
 
-def test_no_expense_sources_are_duplicated_when_all_already_exist():
+def test_no_expense_sources_are_duplicated_when_all_already_exist(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
     trackers = make_all_trackers()
     bt_id_by_name = {bt.name: bt.id for bt in trackers}
@@ -161,7 +184,7 @@ def test_no_expense_sources_are_duplicated_when_all_already_exist():
         )
         for bt_name in HIDDEN_BT_NAMES
     ]
-    use_case, _, es_repo = make_use_case(
+    use_case, _, es_repo = build_use_case(
         existing_trackers=trackers,
         existing_sources=existing_sources,
     )
@@ -173,7 +196,9 @@ def test_no_expense_sources_are_duplicated_when_all_already_exist():
     assert len(es_repo.get_all()) == len(HIDDEN_BT_NAMES)
 
 
-def test_existing_expense_source_with_missing_bt_id_gets_it_added():
+def test_existing_expense_source_with_missing_bt_id_gets_it_added(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
     trackers = make_all_trackers()
     bt_id_by_name = {bt.name: bt.id for bt in trackers}
@@ -185,7 +210,7 @@ def test_existing_expense_source_with_missing_bt_id_gets_it_added():
         name=target_bt_name.value,
         budget_tracker_ids=[],
     )
-    use_case, _, es_repo = make_use_case(
+    use_case, _, es_repo = build_use_case(
         existing_trackers=trackers,
         existing_sources=[existing_source],
     )
@@ -199,7 +224,9 @@ def test_existing_expense_source_with_missing_bt_id_gets_it_added():
     assert bt_id_by_name[target_bt_name] in (updated.budget_tracker_ids or [])
 
 
-def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set():
+def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
     trackers = make_all_trackers()
     target_bt_name = entities.BudgetTrackerName.SAVINGS
@@ -209,7 +236,7 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set():
         name=target_bt_name.value,
         budget_tracker_ids=None,
     )
-    use_case, bt_repo, es_repo = make_use_case(
+    use_case, bt_repo, es_repo = build_use_case(
         existing_trackers=trackers,
         existing_sources=[existing_source],
     )
@@ -224,7 +251,9 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set():
     assert bt_id in (updated.budget_tracker_ids or [])
 
 
-def test_existing_expense_source_with_none_bt_ids_is_persisted():
+def test_existing_expense_source_with_none_bt_ids_is_persisted(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
     trackers = make_all_trackers()
     target_bt_name = entities.BudgetTrackerName.SAVINGS
@@ -233,7 +262,7 @@ def test_existing_expense_source_with_none_bt_ids_is_persisted():
         name=target_bt_name.value,
         budget_tracker_ids=None,
     )
-    use_case, _, es_repo = make_use_case(
+    use_case, _, es_repo = build_use_case(
         existing_trackers=trackers,
         existing_sources=[existing_source],
     )
@@ -251,9 +280,11 @@ def test_existing_expense_source_with_none_bt_ids_is_persisted():
 # ---------------------------------------------------------------------------
 
 
-def test_repository_failure_raises_data_access_error():
+def test_repository_failure_raises_data_access_error(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange
-    use_case, bt_repo, _ = make_use_case()
+    use_case, bt_repo, _ = build_use_case()
     bt_repo.save_error = port_errors.RepositoryError("backend unavailable")
 
     # Act
@@ -269,10 +300,12 @@ def test_repository_failure_raises_data_access_error():
     )
 
 
-def test_unexpected_error_is_not_wrapped_as_data_access_error():
+def test_unexpected_error_is_not_wrapped_as_data_access_error(
+    build_use_case: "UseCaseBuilder",
+):
     # Arrange - a genuine bug (not a RepositoryError) must propagate untouched
     # rather than being masked as a workspace-init failure.
-    use_case, bt_repo, _ = make_use_case()
+    use_case, bt_repo, _ = build_use_case()
     boom = ValueError("genuine bug")
     bt_repo.save_error = boom
 

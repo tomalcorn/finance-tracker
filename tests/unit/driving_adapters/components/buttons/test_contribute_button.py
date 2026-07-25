@@ -2,7 +2,7 @@
 
 import pytest
 import streamlit.testing.v1 as st_test
-from tests.fakes import FakeRepository
+from tests import conftest
 
 from domain import entities
 from driving_adapters.components.buttons import contribute_button
@@ -44,10 +44,10 @@ def _button(
     """Build a ContributeButton whose use case never runs in the render tests."""
     use_case = ContributeToJointUseCase(
         user_id="auth0|test-user-1",
-        personal_payment_repo=FakeRepository[entities.AnyPaymentModel](),
-        joint_payment_repo=FakeRepository[entities.AnyPaymentModel](),
-        expense_source_repo=FakeRepository[entities.ExpenseSourceModel](),
-        joint_account_repo=FakeRepository[entities.JointAccountModel](),
+        personal_payment_repo=conftest.FakeRepository[entities.AnyPaymentModel](),
+        joint_payment_repo=conftest.FakeRepository[entities.AnyPaymentModel](),
+        expense_source_repo=conftest.FakeRepository[entities.ExpenseSourceModel](),
+        joint_account_repo=conftest.FakeRepository[entities.JointAccountModel](),
     )
     return contribute_button.ContributeButton(
         use_case,

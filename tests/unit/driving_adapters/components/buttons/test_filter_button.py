@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from tests import conftest, fakes
+from tests import conftest
 
 from domain import query
 from driving_adapters.components.buttons import filter_button
@@ -19,7 +19,7 @@ def _config(unique_values: set[object] | None = None) -> frontend_models.DFEConf
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table="test_table",
-            data_source=fakes.StubDataSource(column_values=unique_values),
+            data_source=conftest.StubDataSource(column_values=unique_values),
         ),
         display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
     )
@@ -78,7 +78,7 @@ def _app_tester() -> st_test.AppTest:
     config = frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table="test_table",
-            data_source=fakes.StubDataSource(column_values={0.88, 0.23, 0.1}),
+            data_source=conftest.StubDataSource(column_values={0.88, 0.23, 0.1}),
         ),
         display=frontend_models.GridDisplay(
             columns=dialog_configs,

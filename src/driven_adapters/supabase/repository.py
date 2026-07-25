@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 import pydantic
 
 from domain import entities, read_models
+from domain import errors as domain_errors
 from driven_adapters import errors as adapter_errors
 from driven_adapters.supabase import client, table_names
 from ports import errors, repository
@@ -44,14 +45,11 @@ class RepoSpec[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]:
 
 
 @dataclasses.dataclass(frozen=True)
-class WriteContext:
-    """The owner and ownership fields every row this repository writes carries.
+class OwnershipContext:
+    """The owner and ownership fields for every row this repository writes.
 
-    One resolved answer to "what makes this row mine", so the write gate has a
-    single place to complete rows from and a further dimension can be added here
-    rather than at each call site. ``ownership_type`` is ``None`` for the
-    aggregates with no ownership dimension (the two joint tables), whose rows
-    carry only a ``user_id``.
+    ``ownership_type`` is ``None`` for the aggregates with no ownership dimension
+    (the two joint tables), whose rows carry only a ``user_id``.
     """
 
     user_id: str
@@ -69,17 +67,11 @@ class WriteContext:
         )
         return fields
 
-    def owns(self, entity: pydantic.BaseModel) -> bool:
-        """Return whether ``entity`` is owned the way this context writes.
-
-        Aggregates without the ownership dimension have nothing to check, so they
-        always match.
-        """
-        if self.ownership_type is None:
-            return True
+    def ownership_matches(self, entity: entities.FinanceTrackerBaseModel) -> bool:
+        """Return whether ``entity`` is owned the way this context writes."""
         return (
-            getattr(entity, "ownership_type", None) is self.ownership_type
-            and getattr(entity, "joint_account_id", None) == self.joint_account_id
+            entity.ownership_type is self.ownership_type
+            and entity.joint_account_id == self.joint_account_id
         )
 
 
@@ -198,7 +190,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         id_strs = {str(i) for i in ids}
         return [row for row in self._fetch_rows() if row["id"] in id_strs]
 
-    def _write_context(self) -> WriteContext:
+    def _ownership_context(self) -> OwnershipContext:
         """Return the owner/ownership fields this repository writes under.
 
         Raises:
@@ -211,7 +203,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
             account_id = self._joint_account_id()
             if account_id is None:
                 raise errors.NoJointAccountError(self._user_id)
-        return WriteContext(self._user_id, self._ownership, account_id)
+        return OwnershipContext(self._user_id, self._ownership, account_id)
 
     def _affected_keys(self) -> list[str]:
         """Return the cache keys a write to this aggregate busts.
@@ -241,10 +233,13 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         *before* validation, so the entity is valid the moment it exists and is
         never patched afterwards.
         """
-        context = self._write_context().as_fields()
+        context = self._ownership_context().as_fields()
         try:
             return [self._spec.parse({**row, **context}) for row in rows]
-        except pydantic.ValidationError as e:
+        except (pydantic.ValidationError, domain_errors.DomainError) as e:
+            # A model validator raising a DomainError is not wrapped by pydantic
+            # (DomainError is not a ValueError), so catch it too: both are the
+            # same failure — this row is not valid for this aggregate.
             msg = f"Invalid row for {self._spec.write_table}: {e}"
             raise errors.RepositoryError(msg) from e
 
@@ -280,14 +275,23 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
             RepositoryError: Any entity's ownership does not match this mode.
 
         """
-        context = self._write_context()
-        if all(context.owns(item) for item in items):
+        context = self._ownership_context()
+        if context.ownership_type is None:
+            # The joint tables carry no ownership dimension, so there is nothing
+            # to match against.
             return
-        msg = (
-            f"Cannot save rows to {self._spec.write_table}: an entity's ownership "
-            f"does not match this repository's {self._ownership} mode."
-        )
-        raise errors.RepositoryError(msg)
+        for item in items:
+            # An ownership-scoped aggregate's entity is always a
+            # FinanceTrackerBaseModel; the check narrows the type to prove it.
+            if not isinstance(item, entities.FinanceTrackerBaseModel):
+                continue
+            if not context.ownership_matches(item):
+                msg = (
+                    f"Cannot save rows to {self._spec.write_table}: an entity's "
+                    f"ownership does not match this repository's "
+                    f"{self._ownership} mode."
+                )
+                raise errors.RepositoryError(msg)
 
     def apply_edits(self, edits: entities.EditedRows) -> None:
         """Patch the given columns of stored rows; an empty patch set is skipped.

@@ -32,10 +32,6 @@ def _submit_new_row(
 ) -> None:
     """Build a new row into an entity through the port, then persist it.
 
-    The dialog supplies only what the user typed; the data source completes the
-    row with the owner and ownership it writes under and validates it, so the row
-    is a complete entity before it is saved.
-
     Raises:
         ValueError: If the grid has no data source to write through.
         RepositoryError: If the row is not valid for the aggregate, or the write

@@ -14,13 +14,7 @@ type JSON = None | bool | str | int | float | Sequence[JSON] | Mapping[str, JSON
 type JsonDict = dict[str, JSON]
 
 type RawRow = Mapping[str, object]
-"""An unvalidated field map on its way into an entity.
-
-Deliberately wider than :data:`JsonDict`: these are raw values straight from a
-widget or a use case (dates, UUIDs, floats), not yet serialised or validated.
-``Repository.build_entities`` is the only thing that consumes them, and what it
-returns is a validated entity.
-"""
+"""An unvalidated field map on its way into an entity."""
 
 
 class OwnershipType(enum.StrEnum):
@@ -50,14 +44,12 @@ def require_joint_account_id(
 
 
 class FinanceTrackerBaseModel(pydantic.BaseModel):
-    """Base model for finance tracker entities.
+    """Base model for finance tracker entities."""
 
-    Frozen: an entity is built complete and never mutated afterwards. A change
-    to a persisted row is a new entity (``model_copy(update=...)``) or a column
-    patch through ``Repository.apply_edits``, never an in-place edit.
-    """
-
-    model_config = pydantic.ConfigDict(frozen=True)
+    # revalidate_instances: model_copy(update=...) skips field validators, so a
+    # modified copy is re-validated by passing it back through model_validate.
+    # Without this, validating an existing instance returns it untouched.
+    model_config = pydantic.ConfigDict(frozen=True, revalidate_instances="always")
 
     id: uuid.UUID = pydantic.Field(
         description="The unique identifier for the item.",
@@ -300,15 +292,7 @@ class JointAccountMemberModel(pydantic.BaseModel):
 
 
 type EditedRows = dict[str, JsonDict]
-"""Pending column patches, keyed by row id, holding only the changed columns.
-
-An edit cannot alter a row's identity or ownership (those columns are never
-editable), so a patch does not re-enter the entity gate — unlike a creation,
-which must be built complete via ``Repository.build_entities``.
-"""
-
 type DeletedIds = list[str]
-"""Ids of rows pending deletion."""
 
 
 # Union type used wherever a payment row could be either kind.

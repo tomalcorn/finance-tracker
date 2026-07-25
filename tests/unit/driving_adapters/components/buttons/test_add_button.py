@@ -5,7 +5,7 @@ import pydantic
 import pytest
 import streamlit as st
 import streamlit.testing.v1 as st_test
-from tests import conftest, fakes
+from tests import conftest
 
 from domain import entities
 from driving_adapters.components.buttons import add_button
@@ -19,14 +19,14 @@ class _RowModel(pydantic.BaseModel):
     user_id: str
 
 
-def _stub(model: type[pydantic.BaseModel] | None = None) -> fakes.StubDataSource:
+def _stub(model: type[pydantic.BaseModel] | None = None) -> conftest.StubDataSource:
     """Return a stub whose gate stamps the owner, as the repository would."""
-    return fakes.StubDataSource(model=model, context={"user_id": USER_ID})
+    return conftest.StubDataSource(model=model, context={"user_id": USER_ID})
 
 
 def _config(
     *,
-    data_source: fakes.StubDataSource,
+    data_source: conftest.StubDataSource,
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config for the add-button tests."""
     return frontend_models.DFEConfig(

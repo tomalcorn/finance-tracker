@@ -175,10 +175,9 @@ class TestReconcileSubscription:
             cadence=cadence,
             start_date=start_date,
         )
-        new_rows: list[entities.RawRow] = []
         deleted_ids: list[str] = []
 
-        self.use_case._reconcile_subscription(sub, [], new_rows, deleted_ids)
+        new_rows = self.use_case._reconcile_subscription(sub, [], deleted_ids)
 
         assert all(
             [
@@ -209,10 +208,9 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payment = _make_payment(sub, payment_date)
-        new_rows: list[entities.RawRow] = []
         deleted_ids: list[str] = []
 
-        self.use_case._reconcile_subscription(sub, [payment], new_rows, deleted_ids)
+        new_rows = self.use_case._reconcile_subscription(sub, [payment], deleted_ids)
 
         assert all(
             [
@@ -245,10 +243,10 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payment = _make_payment(sub, payment_date)
-        new_rows: list[entities.RawRow] = []
         deleted_ids: list[str] = []
 
-        self.use_case._reconcile_subscription(sub, [payment], new_rows, deleted_ids)
+        # The deletion is the subject here, so the returned rows are not asserted.
+        self.use_case._reconcile_subscription(sub, [payment], deleted_ids)
 
         assert all(
             [
@@ -287,10 +285,9 @@ class TestReconcileSubscription:
     ) -> None:
         sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
         payments = payments_factory(sub)
-        new_rows: list[entities.RawRow] = []
         deleted_ids: list[str] = []
 
-        self.use_case._reconcile_subscription(sub, payments, new_rows, deleted_ids)
+        new_rows = self.use_case._reconcile_subscription(sub, payments, deleted_ids)
 
         assert all(
             [
@@ -310,10 +307,9 @@ class TestReconcileSubscription:
             bank_account_id,
             expense_source_id=expense_source_id,
         )
-        new_rows: list[entities.RawRow] = []
         deleted_ids: list[str] = []
 
-        self.use_case._reconcile_subscription(sub, [], new_rows, deleted_ids)
+        new_rows = self.use_case._reconcile_subscription(sub, [], deleted_ids)
 
         added = new_rows[0]
         assert all(

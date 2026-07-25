@@ -75,17 +75,12 @@ class ReconcileSubscriptionsUseCase:
             sub_id = str(sub.id)
             current_payments = payments_by_subscription.get(sub_id, [])
             try:
-                self._reconcile_subscription(
-                    sub,
-                    current_payments,
-                    new_rows,
-                    deleted_ids,
+                new_rows.extend(
+                    self._reconcile_subscription(sub, current_payments, deleted_ids),
                 )
             except domain_errors.InvalidSubscriptionCadenceError as e:
                 raise errors.InvalidCadenceError(e.cadence) from e
 
-        # The due payments are raw field maps, so they go through the repository's
-        # gate to come back as entities owned the way this repository writes.
         self._payment_repo.save_entities(self._payment_repo.build_entities(new_rows))
         self._payment_repo.apply_deletions(deleted_ids)
 
@@ -93,10 +88,19 @@ class ReconcileSubscriptionsUseCase:
         self,
         sub: entities.SubscriptionModel,
         current_payments: list[entities.ExpensePaymentModel],
-        new_rows: list[entities.RawRow],
         deleted_ids: list[str],
-    ) -> None:
-        """Reconcile a single subscription's payments."""
+    ) -> list[entities.RawRow]:
+        """Return the payment rows this subscription is due, recording deletions.
+
+        Args:
+            sub: The subscription to reconcile.
+            current_payments: Its existing subscription-generated payments.
+            deleted_ids: Accumulator the ids of superseded payments are added to.
+
+        Returns:
+            The raw rows for any payment now due — at most one.
+
+        """
         future_payments = [
             payment
             for payment in current_payments
@@ -106,7 +110,7 @@ class ReconcileSubscriptionsUseCase:
         is_expired = sub.end_date is not None and sub.end_date < self._today
         if not sub.is_active or is_expired:
             deleted_ids.extend(str(payment.id) for payment in future_payments)
-            return
+            return []
 
         if sub.end_date:
             expired = [
@@ -122,16 +126,13 @@ class ReconcileSubscriptionsUseCase:
             ]
 
         if future_payments:
-            return
+            return []
 
         next_date = self._compute_next_date(sub)
         if next_date is None:
-            return
+            return []
 
-        # A raw field map, not an entity: the ownership fields that complete it
-        # are the repository's to supply (payments are a discriminated union, so
-        # the row states its payment_type for the gate to parse the right branch).
-        new_rows.append(
+        return [
             {
                 "payment_type": "expense",
                 "name": f"Sub: {sub.name}",
@@ -141,7 +142,7 @@ class ReconcileSubscriptionsUseCase:
                 "expense_source_id": sub.expense_source_id,
                 "subscription_id": sub.id,
             },
-        )
+        ]
 
     def _compute_next_date(
         self,

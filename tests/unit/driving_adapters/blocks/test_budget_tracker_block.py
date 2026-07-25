@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 import streamlit.testing.v1 as st_test
-from tests import fakes
+from tests import conftest
 
 from domain import entities
 from driving_adapters.components.buttons import contribute_button
@@ -17,10 +17,10 @@ def _contribute_button() -> contribute_button.ContributeButton:
     """Build a ContributeButton whose use case never runs in the render tests."""
     use_case = ContributeToJointUseCase(
         user_id="auth0|test-user-1",
-        personal_payment_repo=fakes.FakeRepository[entities.AnyPaymentModel](),
-        joint_payment_repo=fakes.FakeRepository[entities.AnyPaymentModel](),
-        expense_source_repo=fakes.FakeRepository[entities.ExpenseSourceModel](),
-        joint_account_repo=fakes.FakeRepository[entities.JointAccountModel](),
+        personal_payment_repo=conftest.FakeRepository[entities.AnyPaymentModel](),
+        joint_payment_repo=conftest.FakeRepository[entities.AnyPaymentModel](),
+        expense_source_repo=conftest.FakeRepository[entities.ExpenseSourceModel](),
+        joint_account_repo=conftest.FakeRepository[entities.JointAccountModel](),
     )
     return contribute_button.ContributeButton(
         use_case,
@@ -48,7 +48,7 @@ def _app_tester(button: "contribute_button.ContributeButton | None") -> st_test.
     return st_test.AppTest.from_function(
         _render_wrapper,
         default_timeout=120,
-        kwargs={"button": button, "source": fakes.StubDataSource()},
+        kwargs={"button": button, "source": conftest.StubDataSource()},
     )
 
 

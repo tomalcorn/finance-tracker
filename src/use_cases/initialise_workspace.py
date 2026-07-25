@@ -95,17 +95,25 @@ class InitialiseUserWorkspaceUseCase:
                     ),
                 )
             # Ensure the budget_tracker_ids list contains bt_id. Entities are
-            # frozen, so linking produces a copy rather than an in-place append.
+            # frozen, so linking produces a copy rather than an in-place append;
+            # model_copy skips validators, so each copy is re-validated.
             elif existing.budget_tracker_ids is None:
                 to_save.append(
-                    existing.model_copy(update={"budget_tracker_ids": [bt_id]}),
+                    entities.ExpenseSourceModel.model_validate(
+                        existing.model_copy(update={"budget_tracker_ids": [bt_id]}),
+                    ),
                 )
             elif bt_id not in existing.budget_tracker_ids:
                 to_save.append(
-                    existing.model_copy(
-                        update={
-                            "budget_tracker_ids": [*existing.budget_tracker_ids, bt_id],
-                        },
+                    entities.ExpenseSourceModel.model_validate(
+                        existing.model_copy(
+                            update={
+                                "budget_tracker_ids": [
+                                    *existing.budget_tracker_ids,
+                                    bt_id,
+                                ],
+                            },
+                        ),
                     ),
                 )
 

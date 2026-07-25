@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Callable
 
 import pytest
-from tests.fakes import FailingRepository, FakeRepository
+from tests import conftest
 
 from domain import entities
 from ports import errors as port_errors
@@ -27,21 +27,21 @@ JOINT_HIDDEN_BT_NAMES = {
 }
 
 
-BtRepo = FakeRepository[entities.BudgetTrackerItemModel]
-EsRepo = FakeRepository[entities.ExpenseSourceModel]
+BtRepo = conftest.FakeRepository[entities.BudgetTrackerItemModel]
+EsRepo = conftest.FakeRepository[entities.ExpenseSourceModel]
 UseCaseBuilder = Callable[..., InitialiseJointWorkspaceUseCase]
 
 
 @pytest.fixture
-def bt_repo() -> BtRepo:
+def bt_repo(build_repo: conftest.RepoBuilder) -> BtRepo:
     """Return the budget trackers repository in joint mode."""
-    return BtRepo()
+    return build_repo()
 
 
 @pytest.fixture
-def es_repo() -> EsRepo:
+def es_repo(build_repo: conftest.RepoBuilder) -> EsRepo:
     """Return the expense sources repository in joint mode."""
-    return EsRepo()
+    return build_repo()
 
 
 @pytest.fixture
@@ -66,6 +66,7 @@ def all_joint_trackers() -> list[entities.BudgetTrackerItemModel]:
 
 @pytest.fixture
 def build_use_case(
+    build_repo: conftest.RepoBuilder,
     bt_repo: BtRepo,
     es_repo: EsRepo,
     joint_account: entities.JointAccountModel,
@@ -86,7 +87,7 @@ def build_use_case(
             user_id=USER_ID,
             budget_tracker_repo=budget_tracker_repo or bt_repo,
             expense_source_repo=es_repo,
-            joint_account_repo=FakeRepository(
+            joint_account_repo=build_repo(
                 [joint_account] if accounts is None else accounts,
             ),
         )
@@ -303,9 +304,12 @@ def test_no_joint_account_raises_no_joint_account_error(
 
 def test_repository_failure_raises_joint_data_access_error(
     build_use_case: UseCaseBuilder,
+    build_repo: conftest.RepoBuilder,
 ) -> None:
     # Arrange
-    use_case = build_use_case(budget_tracker_repo=FailingRepository())
+    failing: BtRepo = build_repo()
+    failing.save_error = port_errors.RepositoryError("Simulated save failure")
+    use_case = build_use_case(budget_tracker_repo=failing)
 
     # Act
     with pytest.raises(errors.JointDataAccessError) as exc_info:
@@ -322,10 +326,11 @@ def test_repository_failure_raises_joint_data_access_error(
 
 def test_unexpected_error_is_not_wrapped_as_joint_data_access_error(
     build_use_case: UseCaseBuilder,
+    build_repo: conftest.RepoBuilder,
 ) -> None:
     # Arrange - a genuine bug (not a RepositoryError) must propagate untouched.
     boom = ValueError("genuine bug")
-    buggy: BtRepo = BtRepo()
+    buggy: BtRepo = build_repo()
     buggy.save_error = boom
     use_case = build_use_case(budget_tracker_repo=buggy)
 

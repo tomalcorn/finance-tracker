@@ -518,6 +518,16 @@ class TestBuildEntitiesCompletesOwnership:
         with pytest.raises(errors.RepositoryError, match="ownership"):
             repo.save_entities([personal])
 
+    def test_an_invalid_row_becomes_a_repository_error(self) -> None:
+        # Arrange - a row missing the required bank_account_id. The gate is a port
+        # boundary, so a validation failure must arrive as a RepositoryError
+        # rather than leaking pydantic's (or the domain's) own error type.
+        repo = repository.payment_repository(_USER_ID, FakeCache([]), _CONN, _PERSONAL)
+
+        # Act / Assert
+        with pytest.raises(errors.RepositoryError, match="Invalid row"):
+            repo.build_entities([{"payment_type": "expense", "name": "No account"}])
+
 
 class TestPaymentRepository:
     def test_get_all_parses_expense_and_income_into_correct_subtypes(self) -> None:

@@ -3,9 +3,10 @@
 import datetime
 import uuid
 from collections.abc import Callable
+from typing import Any
 
 import pytest
-from tests.fakes import FailingRepository, FakeRepository
+from tests import conftest
 
 from domain import entities
 from ports import errors as port_errors
@@ -20,20 +21,28 @@ AMOUNT = 250.0
 ACCOUNT_NAME = "Household"
 
 
-PaymentRepo = FakeRepository[entities.AnyPaymentModel]
+PaymentRepo = conftest.FakeRepository[entities.AnyPaymentModel]
 UseCaseBuilder = Callable[..., ContributeToJointUseCase]
 
 
 @pytest.fixture
-def personal_repo() -> PaymentRepo:
+def personal_repo(build_payment_repo: Callable[..., PaymentRepo]) -> PaymentRepo:
     """Return the payments repository in personal mode."""
-    return PaymentRepo()
+    return build_payment_repo(USER_ID)
 
 
 @pytest.fixture
-def joint_repo() -> PaymentRepo:
+def joint_repo(build_payment_repo: Callable[..., PaymentRepo]) -> PaymentRepo:
     """Return the payments repository in joint mode."""
-    return PaymentRepo()
+    return build_payment_repo(USER_ID)
+
+
+@pytest.fixture
+def failing_repo(build_payment_repo: Callable[..., PaymentRepo]) -> PaymentRepo:
+    """Return a payments repository whose writes fail at the port boundary."""
+    repo = build_payment_repo(USER_ID)
+    repo.save_error = port_errors.RepositoryError("backend unavailable")
+    return repo
 
 
 @pytest.fixture
@@ -53,6 +62,7 @@ def joint_expense_source() -> entities.ExpenseSourceModel:
 
 @pytest.fixture
 def build_use_case(
+    build_repo: Callable[..., conftest.FakeRepository[Any]],
     personal_repo: PaymentRepo,
     joint_repo: PaymentRepo,
     joint_account: entities.JointAccountModel,
@@ -76,10 +86,10 @@ def build_use_case(
             user_id=USER_ID,
             personal_payment_repo=personal or personal_repo,
             joint_payment_repo=joint or joint_repo,
-            expense_source_repo=FakeRepository(
+            expense_source_repo=build_repo(
                 [joint_expense_source] if expense_sources is None else expense_sources,
             ),
-            joint_account_repo=FakeRepository(
+            joint_account_repo=build_repo(
                 [joint_account] if accounts is None else accounts,
             ),
         )
@@ -280,9 +290,10 @@ def test_a_missing_expense_source_writes_nothing(
 
 def test_a_failed_write_becomes_a_use_case_error(
     build_use_case: UseCaseBuilder,
+    failing_repo: PaymentRepo,
 ):
     # Arrange
-    use_case = build_use_case(personal=FailingRepository[entities.AnyPaymentModel]())
+    use_case = build_use_case(personal=failing_repo)
 
     # Act / Assert
     with pytest.raises(errors.ContributionWriteError):
@@ -291,9 +302,10 @@ def test_a_failed_write_becomes_a_use_case_error(
 
 def test_a_failed_write_chains_the_repository_error(
     build_use_case: UseCaseBuilder,
+    failing_repo: PaymentRepo,
 ):
     # Arrange
-    use_case = build_use_case(joint=FailingRepository[entities.AnyPaymentModel]())
+    use_case = build_use_case(joint=failing_repo)
 
     # Act / Assert
     with pytest.raises(errors.ContributionWriteError) as exc_info:

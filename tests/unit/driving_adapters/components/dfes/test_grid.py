@@ -3,7 +3,7 @@
 import pandas as pd
 import pydantic
 import streamlit as st
-from tests import fakes
+from tests import conftest
 
 from driving_adapters import ss_keys
 from driving_adapters.components.dfes import grid
@@ -21,7 +21,7 @@ class _RowModel(pydantic.BaseModel):
 
 def _config(
     *,
-    data_source: fakes.StubDataSource | None = None,
+    data_source: conftest.StubDataSource | None = None,
     sample_data: pd.DataFrame | None = None,
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config for the tests."""
@@ -43,7 +43,7 @@ def test_build_working_df_reads_from_data_source() -> None:
         _RowModel(id="0", name="Alice"),
         _RowModel(id="1", name="Bob"),
     ]
-    config = _config(data_source=fakes.StubDataSource(rows=rows))
+    config = _config(data_source=conftest.StubDataSource(rows=rows))
 
     # Act
     working_df = grid.build_working_df(config)
@@ -56,7 +56,7 @@ def test_build_working_df_reads_from_data_source() -> None:
 def test_build_working_df_falls_back_to_sample_when_source_empty() -> None:
     # Arrange
     sample = pd.DataFrame({"name": ["Example"]})
-    config = _config(data_source=fakes.StubDataSource(rows=[]), sample_data=sample)
+    config = _config(data_source=conftest.StubDataSource(rows=[]), sample_data=sample)
 
     # Act
     working_df = grid.build_working_df(config)
@@ -83,7 +83,7 @@ def test_commit_applies_editor_deltas_through_the_port() -> None:
         _RowModel(id="uuid-0", name="Alice"),
         _RowModel(id="uuid-1", name="Bob"),
     ]
-    data_source = fakes.StubDataSource(rows=rows)
+    data_source = conftest.StubDataSource(rows=rows)
     config = _config(data_source=data_source)
     st.session_state["test_table"] = {
         ss_keys.SSKeys.EDITED_ROWS: {"0": {"name": "Renamed"}},
@@ -105,7 +105,7 @@ def test_commit_applies_editor_deltas_through_the_port() -> None:
 def test_commit_clears_the_widget_deltas() -> None:
     # Arrange
     rows: list[pydantic.BaseModel] = [_RowModel(id="uuid-0", name="Alice")]
-    config = _config(data_source=fakes.StubDataSource(rows=rows))
+    config = _config(data_source=conftest.StubDataSource(rows=rows))
     st.session_state["test_table"] = {
         ss_keys.SSKeys.EDITED_ROWS: {"0": {"name": "Renamed"}},
         ss_keys.SSKeys.DELETED_ROWS: [],
@@ -122,7 +122,7 @@ def test_commit_skips_sample_data_without_crashing() -> None:
     # Arrange - the port returns no rows, so the grid shows sample data (no id
     # column); editing it must not crash on the missing id when committing.
     sample = pd.DataFrame({"name": ["Example"]})
-    data_source = fakes.StubDataSource(rows=[])
+    data_source = conftest.StubDataSource(rows=[])
     config = _config(data_source=data_source, sample_data=sample)
     st.session_state["test_table"] = {
         ss_keys.SSKeys.EDITED_ROWS: {"0": {"name": "Renamed"}},
@@ -144,7 +144,7 @@ def test_commit_skips_sample_data_without_crashing() -> None:
 
 def test_commit_is_a_noop_without_deltas() -> None:
     # Arrange
-    data_source = fakes.StubDataSource(rows=[_RowModel(id="uuid-0", name="Alice")])
+    data_source = conftest.StubDataSource(rows=[_RowModel(id="uuid-0", name="Alice")])
     config = _config(data_source=data_source)
     st.session_state["test_table"] = {
         ss_keys.SSKeys.EDITED_ROWS: {},
