@@ -349,3 +349,19 @@ def test_execute_writes_nothing_when_a_tap_is_incomplete(
 
     # Assert
     assert payment_repo.saved == []
+
+
+def test_execute_logs_the_name_the_tap_supplied(
+    use_case: LogQuickPaymentUseCase,
+    quick_button: entities.QuickButtonModel,
+    payment_repo: PaymentRepo,
+) -> None:
+    # Arrange - the button's name is a label for the tile, not a fixed payment
+    # name: one "Groceries" tap is a big shop, the next is a pint of milk
+    details = log_quick_payment.QuickPaymentDetails(name="Tesco big shop")
+
+    # Act
+    use_case.execute(quick_button.id, details)
+
+    # Assert
+    assert _saved_expense(payment_repo).name == "Tesco big shop"
