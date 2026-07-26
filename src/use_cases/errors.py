@@ -84,3 +84,20 @@ class JointExpenseSourceNotFoundError(ContributionError):
 
 class ContributionWriteError(ContributionError):
     """Error when a repository operation in the contribution flow fails."""
+
+
+class QuickPaymentError(UseCaseError):
+    """Base error for the log_quick_payment use case."""
+
+
+class QuickButtonNotFoundError(QuickPaymentError):
+    """Error when the tapped quick button no longer exists."""
+
+    def __init__(self, button_id: str) -> None:
+        """Construct QuickButtonNotFoundError."""
+        self.button_id = button_id
+        super().__init__(f"No quick button with id {button_id!r}.")
+
+
+class QuickPaymentWriteError(QuickPaymentError):
+    """Error when a repository operation in the quick-payment flow fails."""

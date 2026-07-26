@@ -18,6 +18,11 @@ class Pages(enum.Enum):
         title="Joint",
         icon=":material/group:",
     )
+    QUICK_EXPENSES = st.Page(
+        "driving_adapters/pages/quick_expenses.py",
+        title="Quick Expenses",
+        icon=":material/bolt:",
+    )
     LOGIN = st.Page(
         "driving_adapters/pages/login.py",
         title="Login",

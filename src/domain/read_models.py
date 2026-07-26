@@ -244,6 +244,35 @@ class OneOffView(_ViewBase):
     ]
 
 
+class QuickButtonView(_ViewBase):
+    """Read model for quick_buttons rows.
+
+    Quick buttons have no SQL view — this reads the raw ``quick_buttons`` table,
+    so it carries no computed columns.
+    """
+
+    expense: Annotated[
+        float,
+        pydantic.Field(description="The expense amount logged by a tap."),
+    ]
+    bank_account_id: Annotated[
+        uuid.UUID,
+        pydantic.Field(description="The bank account the payment comes from."),
+    ]
+    expense_source_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The expense source the payment is booked to."),
+    ] = None
+    icon: Annotated[
+        str | None,
+        pydantic.Field(description="An optional emoji shown before the name."),
+    ] = None
+    display_order: Annotated[
+        int,
+        pydantic.Field(description="Position of the button in the grid."),
+    ]
+
+
 class JointAccountView(pydantic.BaseModel):
     """Read model for joint_accounts rows.
 

@@ -269,6 +269,35 @@ class IncomePaymentModel(_PaymentBaseModel):
     ] = None
 
 
+class QuickButtonModel(FinanceTrackerBaseModel):
+    """Model representing a preset expense loggable with one tap."""
+
+    name: Annotated[
+        str,
+        pydantic.Field(description="The label shown on the button.", min_length=1),
+    ]
+    expense: Annotated[
+        float,
+        pydantic.Field(description="The expense amount logged by a tap.", gt=0),
+    ]
+    bank_account_id: Annotated[
+        uuid.UUID,
+        pydantic.Field(description="The bank account the payment comes from."),
+    ]
+    expense_source_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The expense source the payment is booked to."),
+    ] = None
+    icon: Annotated[
+        str | None,
+        pydantic.Field(description="An optional emoji shown before the name."),
+    ] = None
+    display_order: Annotated[
+        int,
+        pydantic.Field(description="Position of the button in the grid.", ge=0),
+    ] = 0
+
+
 class JointAccountModel(pydantic.BaseModel):
     """Model representing a joint (shared) account.
 
