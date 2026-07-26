@@ -113,14 +113,13 @@ class LogQuickPaymentUseCase:
         button = self._resolve_button(button_id)
         supplied = details or QuickPaymentDetails()
 
+        name = self._resolve_name(button, supplied)
         expense = supplied.expense if supplied.expense is not None else button.expense
         bank_account_id = supplied.bank_account_id or button.bank_account_id
-        self._check_complete(button, expense, bank_account_id)
+        self._check_complete(button, name, expense, bank_account_id)
 
         row: entities.RawRow = {
-            # Three names, most specific first: what the form typed, what the
-            # button presets, and failing both the button's own label.
-            "name": supplied.name or button.payment_name or button.name,
+            "name": name,
             "expense": expense,
             "payment_date": (supplied.payment_date or _today()).isoformat(),
             "checked": False,
@@ -133,28 +132,52 @@ class LogQuickPaymentUseCase:
         return self._write(row, button)
 
     @staticmethod
+    def _resolve_name(
+        button: entities.QuickButtonModel,
+        supplied: QuickPaymentDetails,
+    ) -> str:
+        """Return the name to log the payment under, most specific first.
+
+        What the form typed wins, then the button's own preset. Only a ``LOG``
+        button falls back to its *label*: it has no form in which to be told a
+        name, so borrowing the tile's is the best it can do. A ``PROMPT`` button
+        that presets none is asking to be given one, and a label like "Groceries"
+        is not an answer to that question.
+        """
+        if supplied.name:
+            return supplied.name
+        if button.payment_name:
+            return button.payment_name
+        if button.mode is entities.QuickButtonMode.LOG:
+            return button.name
+        return ""
+
+    @staticmethod
     def _check_complete(
         button: entities.QuickButtonModel,
+        name: str,
         expense: float | None,
         bank_account_id: uuid.UUID | None,
     ) -> None:
         """Reject a tap that cannot produce a whole payment.
 
-        A ``LOG`` button holds these already (the entity refuses to exist
-        otherwise), so in practice this catches a ``PROMPT`` button tapped
-        without the fields its form was there to collect.
+        A ``LOG`` button holds all of this already (the entity refuses to exist
+        otherwise, and it falls back to its label for the name), so in practice
+        this catches a ``PROMPT`` button tapped without the fields its form was
+        there to collect.
 
         Raises:
-            IncompleteQuickPaymentError: Either field is still missing.
+            IncompleteQuickPaymentError: Any of the three is still missing.
 
         """
         missing = [
             field
-            for field, value in (
-                ("an amount", expense),
-                ("a bank account", bank_account_id),
+            for field, is_set in (
+                ("a name", bool(name)),
+                ("an amount", expense is not None),
+                ("a bank account", bank_account_id is not None),
             )
-            if value is None
+            if not is_set
         ]
         if missing:
             raise errors.IncompleteQuickPaymentError(button.name, missing)

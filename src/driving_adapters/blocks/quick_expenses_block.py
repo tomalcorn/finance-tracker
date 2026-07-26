@@ -240,11 +240,13 @@ def _prompt_dialog(
     expense_source_ids = list(context.expense_source_map)
     key = f"quick_prompt_{button.id}"
 
-    # The payment's name, not the button's: the preset if it has one, else the
-    # tile's label as a sensible starting point.
+    # The payment's name, not the button's: the preset if it has one, and
+    # otherwise empty. The tile's label is deliberately *not* borrowed here —
+    # a button that presets no payment name is one that wants to be told a name,
+    # so pre-filling "Groceries" would only be something to delete first.
     name = st.text_input(
         "Name",
-        value=button.payment_name or button.name,
+        value=button.payment_name or "",
         key=f"{key}_name",
     )
     expense = st.number_input(

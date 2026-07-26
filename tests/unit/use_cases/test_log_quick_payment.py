@@ -297,9 +297,11 @@ def test_execute_logs_a_prompt_button_from_the_details_alone(
     prompt_button: entities.QuickButtonModel,
     payment_repo: PaymentRepo,
 ) -> None:
-    # Arrange - the button presets no amount and no account at all
+    # Arrange - the button presets no name, no amount and no account at all, so
+    # the form it opens is where the whole payment comes from
     use_case = build_use_case(buttons=build_repo([prompt_button]))
     details = log_quick_payment.QuickPaymentDetails(
+        name="Big shop",
         expense=SHOP_TOTAL,
         bank_account_id=BANK_ACCOUNT_ID,
     )
@@ -313,7 +315,7 @@ def test_execute_logs_a_prompt_button_from_the_details_alone(
         [
             payment.expense == SHOP_TOTAL,
             payment.bank_account_id == BANK_ACCOUNT_ID,
-            payment.name == "Groceries",
+            payment.name == "Big shop",
             payment.expense_source_id == EXPENSE_SOURCE_ID,
         ],
     )
@@ -331,7 +333,7 @@ def test_execute_rejects_a_prompt_button_tapped_with_nothing(
     with pytest.raises(errors.IncompleteQuickPaymentError) as exc_info:
         use_case.execute(prompt_button.id)
 
-    assert exc_info.value.missing == ["an amount", "a bank account"]
+    assert exc_info.value.missing == ["a name", "an amount", "a bank account"]
 
 
 def test_execute_writes_nothing_when_a_tap_is_incomplete(
@@ -427,3 +429,48 @@ def test_execute_lets_the_tap_override_a_preset_payment_name(
 
     # Assert
     assert _saved_expense(payment_repo).name == "Corner shop milk"
+
+
+def test_execute_does_not_lend_a_prompt_buttons_label_to_its_payment(
+    build_use_case: UseCaseBuilder,
+    build_repo: "conftest.RepoBuilder",
+    prompt_button: entities.QuickButtonModel,
+) -> None:
+    # Arrange - "Groceries" names the button; a payment logged through its form
+    # is told its own name, and the label is not an answer to that question
+    use_case = build_use_case(buttons=build_repo([prompt_button]))
+    details = log_quick_payment.QuickPaymentDetails(
+        expense=SHOP_TOTAL,
+        bank_account_id=BANK_ACCOUNT_ID,
+    )
+
+    # Act / Assert
+    with pytest.raises(errors.IncompleteQuickPaymentError) as exc_info:
+        use_case.execute(prompt_button.id, details)
+
+    assert exc_info.value.missing == ["a name"]
+
+
+def test_execute_uses_a_prompt_buttons_preset_payment_name(
+    build_use_case: UseCaseBuilder,
+    build_repo: "conftest.RepoBuilder",
+    payment_repo: PaymentRepo,
+) -> None:
+    # Arrange - a prompt button that does preset a payment name needs no more
+    button = entities.QuickButtonModel(
+        user_id=USER_ID,
+        name="Groceries",
+        payment_name="Weekly shop",
+        mode=entities.QuickButtonMode.PROMPT,
+    )
+    use_case = build_use_case(buttons=build_repo([button]))
+    details = log_quick_payment.QuickPaymentDetails(
+        expense=SHOP_TOTAL,
+        bank_account_id=BANK_ACCOUNT_ID,
+    )
+
+    # Act
+    use_case.execute(button.id, details)
+
+    # Assert
+    assert _saved_expense(payment_repo).name == "Weekly shop"

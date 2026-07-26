@@ -409,3 +409,23 @@ def test_tapping_a_prompt_tile_logs_nothing_until_the_form_is_submitted(
 
     # Assert
     assert payment_repo.saved == []
+
+
+def test_prompt_form_opens_with_an_empty_name_when_none_is_preset(
+    build_app_tester: Callable[..., st_test.AppTest],
+    build_button: Callable[..., entities.QuickButtonModel],
+) -> None:
+    # Arrange - the tile says "Groceries", but that names the button, not the
+    # payment, so it must not be pre-filled as one
+    button = build_button(
+        name="Groceries",
+        expense=None,
+        mode=entities.QuickButtonMode.PROMPT,
+    )
+    app_tester = build_app_tester([button]).run()
+
+    # Act
+    app_tester.button(key=f"quick_button_{button.id}").click().run()
+
+    # Assert
+    assert app_tester.text_input(key=f"quick_prompt_{button.id}_name").value == ""
