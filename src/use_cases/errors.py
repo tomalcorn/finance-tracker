@@ -86,6 +86,19 @@ class ContributionWriteError(ContributionError):
     """Error when a repository operation in the contribution flow fails."""
 
 
+class SummaryError(UseCaseError):
+    """Base error for the summarise_finances use case."""
+
+
+class SummaryReadError(SummaryError):
+    """Error when a repository read fails while summarising."""
+
+    def __init__(self, aggregate: str) -> None:
+        """Construct SummaryReadError."""
+        self.aggregate = aggregate
+        super().__init__(f"Could not read {aggregate} to summarise.")
+
+
 class QuickPaymentError(UseCaseError):
     """Base error for the log_quick_payment use case."""
 

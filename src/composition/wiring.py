@@ -17,6 +17,7 @@ from use_cases import (
     initialise_workspace,
     log_quick_payment,
     reconcile_subscriptions,
+    summarise_finances,
 )
 
 if TYPE_CHECKING:
@@ -281,6 +282,26 @@ def contribute_to_joint_use_case() -> contribute_to_joint.ContributeToJointUseCa
             entities.OwnershipType.PERSONAL,
         ),
         joint_account_repo=supabase_repos.joint_account_repository(*deps),
+    )
+
+
+def summarise_finances_use_case(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> summarise_finances.SummariseFinancesUseCase:
+    """Build SummariseFinancesUseCase wired to Supabase repositories.
+
+    The repositories satisfy the ``ViewSource`` read port directly, and each
+    resolves a cache key the page's grids already populate, so the summary
+    costs no extra fetches.
+    """
+    deps = _repo_deps()
+    return summarise_finances.SummariseFinancesUseCase(
+        bank_account_source=supabase_repos.bank_account_repository(*deps, ownership),
+        budget_tracker_source=supabase_repos.budget_tracker_repository(
+            *deps,
+            ownership,
+        ),
+        payment_source=supabase_repos.payment_repository(*deps, ownership),
     )
 
 

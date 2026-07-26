@@ -22,6 +22,7 @@ from driving_adapters.blocks import (
     one_offs_block,
     payments_block,
     subscriptions_block,
+    summary_block,
 )
 from driving_adapters.components.buttons import (
     contribute_button as contribute_button_mod,
@@ -55,8 +56,10 @@ with error_boundary.boundary("loading your personal dashboard"):
             wiring.contribute_to_joint_use_case(),
             bank_account_map,
             wiring.bank_account_id_name_map(entities.OwnershipType.JOINT),
+            wiring.income_source_id_name_map(entities.OwnershipType.JOINT),
         )
 
+summary_container = st.container(border=True)
 one_offs_container = st.container(border=True)
 budget_tracker_container = st.container(border=True)
 payments_container = st.container(border=True)
@@ -87,6 +90,11 @@ with error_boundary.boundary("saving your latest changes"):
 with error_boundary.boundary("reconciling your subscriptions"):
     wiring.reconcile_subscriptions_use_case().execute()
 
+
+with summary_container, error_boundary.boundary("loading your summary"):
+    # Read after reconciliation so the figures include its new payments.
+    st.subheader(":material/insights: :blue[Summary]")
+    summary_block.render(wiring.summarise_finances_use_case().execute())
 
 with one_offs_container, error_boundary.boundary("loading your one-offs"):
     st.subheader(":material/bubble_chart: :blue[One-Offs]")

@@ -20,7 +20,8 @@ class ContributeToJointUseCase:
     arriving in the joint one:
 
     - a **personal expense** against the hidden "Joint" expense source, and
-    - a matching **joint income** owned by the joint account.
+    - a matching **joint income** owned by the joint account, booked against a
+      joint income source the caller picks.
 
     Each row's ``linked_payment_id`` points at the other, so the pair is
     traceable from either side. The joint row cannot be reached from the
@@ -58,6 +59,7 @@ class ContributeToJointUseCase:
         amount: float,
         from_bank_account_id: "uuid.UUID",
         to_bank_account_id: "uuid.UUID",
+        income_source_id: "uuid.UUID",
         payment_date: "datetime.date",
     ) -> None:
         """Record a contribution to the user's joint account.
@@ -66,6 +68,8 @@ class ContributeToJointUseCase:
             amount: The amount contributed. Must be greater than zero.
             from_bank_account_id: The personal bank account the money leaves.
             to_bank_account_id: The joint bank account the money arrives in.
+            income_source_id: The joint income source the arriving money is
+                booked against, so it rolls up into the joint budget.
             payment_date: The date of both legs.
 
         Raises:
@@ -99,6 +103,7 @@ class ContributeToJointUseCase:
             income=amount,
             payment_date=payment_date,
             bank_account_id=to_bank_account_id,
+            income_source_id=income_source_id,
             ownership_type=entities.OwnershipType.JOINT,
             joint_account_id=account.id,
             linked_payment_id=expense.id,

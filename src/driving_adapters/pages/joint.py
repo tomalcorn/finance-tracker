@@ -23,6 +23,7 @@ from driving_adapters.blocks import (
     one_offs_block,
     payments_block,
     subscriptions_block,
+    summary_block,
 )
 
 _JOINT = entities.OwnershipType.JOINT
@@ -68,6 +69,7 @@ with error_boundary.boundary("loading your joint dashboard"):
     # Use cases.
     bank_one_offs_use_case = wiring.bank_one_offs_use_case(_JOINT)
 
+summary_container = st.container(border=True)
 one_offs_container = st.container(border=True)
 budget_tracker_container = st.container(border=True)
 payments_container = st.container(border=True)
@@ -98,6 +100,11 @@ with error_boundary.boundary("saving your latest changes"):
 with error_boundary.boundary("reconciling your subscriptions"):
     wiring.reconcile_subscriptions_use_case(_JOINT).execute()
 
+
+with summary_container, error_boundary.boundary("loading your summary"):
+    # Read after reconciliation so the figures include its new payments.
+    st.subheader(":material/insights: :orange[Summary]")
+    summary_block.render(wiring.summarise_finances_use_case(_JOINT).execute())
 
 with one_offs_container, error_boundary.boundary("loading your one-offs"):
     st.subheader(":material/bubble_chart: :orange[One-Offs]")

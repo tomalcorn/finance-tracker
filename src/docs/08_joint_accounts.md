@@ -60,9 +60,11 @@ only appears once you are a member of a joint account.
 
 It records the transfer as two payments: an expense on your personal side and a
 matching income on the joint side, so both sets of books stay balanced. You pick
-how much, which personal account it leaves, and which joint account it lands in.
-You need a joint bank account to contribute into first — the dialog will tell you
-if one does not exist yet.
+how much, which personal account it leaves, which joint account it lands in, and
+which joint income source it counts towards — that last one is what makes the
+contribution show up in the joint budget's income figures. You need a joint bank
+account and a joint income source first — the dialog will tell you if either
+does not exist yet.
 
 ## Seeing Each Other's Changes
 
