@@ -94,11 +94,7 @@ with error_boundary.boundary("reconciling your subscriptions"):
 with summary_container, error_boundary.boundary("loading your summary"):
     # Read after reconciliation so the figures include its new payments.
     st.subheader(":material/insights: :blue[Summary]")
-    summary_block.render(
-        wiring.bank_account_views(),
-        wiring.budget_tracker_views(),
-        wiring.payment_views(),
-    )
+    summary_block.render(wiring.summarise_finances_use_case().execute())
 
 with one_offs_container, error_boundary.boundary("loading your one-offs"):
     st.subheader(":material/bubble_chart: :blue[One-Offs]")

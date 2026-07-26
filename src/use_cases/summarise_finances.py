@@ -1,8 +1,4 @@
-"""Headline figures derived from the view read models.
-
-Pure aggregation: the figures are folded out of the view rows, unformatted, so
-a caller decides how to present them.
-"""
+"""Use-case producing the headline figures shown above a dashboard page."""
 
 import collections
 import datetime
@@ -10,10 +6,14 @@ from typing import TYPE_CHECKING, Annotated
 
 import pydantic
 
+from ports import errors as port_errors
+from use_cases import errors
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from domain import read_models
+    from ports import views
 
 HISTORY_MONTHS = 6
 
@@ -123,37 +123,75 @@ def _balance_history(
     return list(reversed(balances))
 
 
-def summarise(
-    bank_accounts: "Sequence[read_models.BankAccountView]",
-    budget_trackers: "Sequence[read_models.BudgetTrackerView]",
-    payments: "Sequence[read_models.PaymentView]",
-    today: datetime.date | None = None,
-    months: int = HISTORY_MONTHS,
-) -> FinanceSummary:
-    """Summarise one set of views into its headline figures.
+class SummariseFinancesUseCase:
+    """Use-case for folding one page's view rows into its headline figures."""
 
-    Args:
-        bank_accounts: The bank account view rows.
-        budget_trackers: The budget tracker view rows.
-        payments: The payment rows, over their whole history — earlier months
-            are what the trailing series are built from.
-        today: The date the current month is taken from. Defaults to today.
-        months: How many months each trailing series covers, current included.
+    def __init__(
+        self,
+        bank_account_source: "views.ViewSource[read_models.BankAccountView]",
+        budget_tracker_source: "views.ViewSource[read_models.BudgetTrackerView]",
+        payment_source: "views.ViewSource[read_models.PaymentView]",
+        today: datetime.date | None = None,
+        months: int = HISTORY_MONTHS,
+    ) -> None:
+        """Construct SummariseFinancesUseCase.
 
-    Returns:
-        The figures, unformatted.
+        Args:
+            bank_account_source: Reads the bank account view rows.
+            budget_tracker_source: Reads the budget tracker view rows.
+            payment_source: Reads the payment rows, over their whole history —
+                earlier months are what the trailing series are built from.
+            today: The date the current month is taken from. Defaults to today.
+            months: How many months each trailing series covers, current
+                included.
 
-    """
-    today = today or _today()
-    keys = _trailing_months(today, months)
-    expenses, nets = _totals_by_month(payments)
-    total_balance = sum(account.current_balance for account in bank_accounts)
+        """
+        self._bank_account_source = bank_account_source
+        self._budget_tracker_source = budget_tracker_source
+        self._payment_source = payment_source
+        self._today = today or _today()
+        self._months = months
 
-    return FinanceSummary(
-        total_balance=total_balance,
-        balance_history=_balance_history(total_balance, nets, keys),
-        total_budget=sum(tracker.total_budget for tracker in budget_trackers),
-        remaining_budget=sum(tracker.remaining for tracker in budget_trackers),
-        expenditure=expenses.get(_month_key(today), 0.0),
-        expenditure_history=[expenses.get(key, 0.0) for key in keys],
-    )
+    def _read[ViewT: pydantic.BaseModel](
+        self,
+        source: "views.ViewSource[ViewT]",
+        aggregate: str,
+    ) -> "Sequence[ViewT]":
+        """Read one aggregate's rows, naming it if the read fails.
+
+        Raises:
+            SummaryReadError: The read failed.
+
+        """
+        try:
+            return source.rows()
+        except port_errors.RepositoryError as exc:
+            raise errors.SummaryReadError(aggregate) from exc
+
+    def execute(self) -> FinanceSummary:
+        """Execute the SummariseFinancesUseCase.
+
+        Returns:
+            The figures for this page, unformatted — a caller decides how to
+            present them.
+
+        Raises:
+            SummaryReadError: One of the reads failed.
+
+        """
+        bank_accounts = self._read(self._bank_account_source, "bank accounts")
+        budget_trackers = self._read(self._budget_tracker_source, "budget trackers")
+        payments = self._read(self._payment_source, "payments")
+
+        keys = _trailing_months(self._today, self._months)
+        expenses, nets = _totals_by_month(payments)
+        total_balance = sum(account.current_balance for account in bank_accounts)
+
+        return FinanceSummary(
+            total_balance=total_balance,
+            balance_history=_balance_history(total_balance, nets, keys),
+            total_budget=sum(tracker.total_budget for tracker in budget_trackers),
+            remaining_budget=sum(tracker.remaining for tracker in budget_trackers),
+            expenditure=expenses.get(_month_key(self._today), 0.0),
+            expenditure_history=[expenses.get(key, 0.0) for key in keys],
+        )

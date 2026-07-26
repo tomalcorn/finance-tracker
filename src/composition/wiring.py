@@ -16,6 +16,7 @@ from use_cases import (
     initialise_joint_workspace,
     initialise_workspace,
     reconcile_subscriptions,
+    summarise_finances,
 )
 
 if TYPE_CHECKING:
@@ -123,36 +124,6 @@ def bank_account_views(
     bank-accounts overview metrics use.
     """
     repo = supabase_repos.bank_account_repository(
-        *_repo_deps(),
-        ownership,
-    )
-    return repo.rows()
-
-
-def budget_tracker_views(
-    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> "list[read_models.BudgetTrackerView]":
-    """Return the current user's budget trackers as typed view rows.
-
-    Carries the computed ``remaining`` column, so it is the read the summary
-    metrics use.
-    """
-    repo = supabase_repos.budget_tracker_repository(
-        *_repo_deps(),
-        ownership,
-    )
-    return repo.rows()
-
-
-def payment_views(
-    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> "list[read_models.PaymentView]":
-    """Return the current user's payments as typed view rows.
-
-    The whole payment history, not just the current month: the summary metrics
-    total it per month to chart the preceding ones.
-    """
-    repo = supabase_repos.payment_repository(
         *_repo_deps(),
         ownership,
     )
@@ -297,6 +268,26 @@ def contribute_to_joint_use_case() -> contribute_to_joint.ContributeToJointUseCa
             entities.OwnershipType.PERSONAL,
         ),
         joint_account_repo=supabase_repos.joint_account_repository(*deps),
+    )
+
+
+def summarise_finances_use_case(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> summarise_finances.SummariseFinancesUseCase:
+    """Build SummariseFinancesUseCase wired to Supabase repositories.
+
+    The repositories satisfy the ``ViewSource`` read port directly, and each
+    resolves a cache key the page's grids already populate, so the summary
+    costs no extra fetches.
+    """
+    deps = _repo_deps()
+    return summarise_finances.SummariseFinancesUseCase(
+        bank_account_source=supabase_repos.bank_account_repository(*deps, ownership),
+        budget_tracker_source=supabase_repos.budget_tracker_repository(
+            *deps,
+            ownership,
+        ),
+        payment_source=supabase_repos.payment_repository(*deps, ownership),
     )
 
 

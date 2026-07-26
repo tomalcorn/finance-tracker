@@ -4,18 +4,14 @@ from typing import TYPE_CHECKING
 
 import streamlit as st
 
-from domain import summary
-
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from domain import read_models
+    from use_cases import summarise_finances
 
 # Applied to each card's value and to any numeric delta.
 _MONEY = "£%,.2f"
 
 
-def _budget_caption(figures: summary.FinanceSummary) -> str:
+def _budget_caption(figures: "summarise_finances.FinanceSummary") -> str:
     """Describe how much of the total budget is left.
 
     A string delta, so it is exempt from the numeric ``format`` above and
@@ -27,7 +23,7 @@ def _budget_caption(figures: summary.FinanceSummary) -> str:
     return f"{share:.0f}% of £{figures.total_budget:,.2f}"
 
 
-def _expenditure_delta(figures: summary.FinanceSummary) -> float | None:
+def _expenditure_delta(figures: "summarise_finances.FinanceSummary") -> float | None:
     """Return the month-on-month change in spend, if there is one to show.
 
     An unchanged (or unknown) figure returns ``None`` rather than zero: a delta
@@ -37,22 +33,15 @@ def _expenditure_delta(figures: summary.FinanceSummary) -> float | None:
     return figures.expenditure_delta or None
 
 
-def render(
-    bank_accounts: "Sequence[read_models.BankAccountView]",
-    budget_trackers: "Sequence[read_models.BudgetTrackerView]",
-    payments: "Sequence[read_models.PaymentView]",
-) -> None:
+def render(figures: "summarise_finances.FinanceSummary") -> None:
     """Render the summary metric cards.
 
     Args:
-        bank_accounts: The page's bank account view rows.
-        budget_trackers: The page's budget tracker view rows.
-        payments: The page's payment rows, over their whole history.
+        figures: The headline figures for the page.
 
     """
     # Only two of the three cards carry a chart, so each is stretched to the
     # row's height — left to size themselves the row comes out ragged.
-    figures = summary.summarise(bank_accounts, budget_trackers, payments)
     balance_col, budget_col, expenditure_col = st.columns(3)
 
     with balance_col:

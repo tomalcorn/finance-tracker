@@ -1,4 +1,4 @@
-"""Unit tests for the finance summary calculation."""
+"""Unit tests for the summarise_finances use case."""
 
 import datetime
 import uuid
@@ -6,10 +6,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from domain import entities, read_models, summary
+from domain import entities, read_models
+from ports import errors as port_errors
+from use_cases import errors, summarise_finances
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+    import pydantic
 
 _USER_ID = "auth0|test-user-1"
 _TODAY = datetime.date(2026, 7, 26)
@@ -30,7 +34,26 @@ _JULY_SPEND = 30.0
 type _BankAccountBuilder = Callable[..., read_models.BankAccountView]
 type _BudgetTrackerBuilder = Callable[..., read_models.BudgetTrackerView]
 type _PaymentBuilder = Callable[..., read_models.PaymentView]
-type _Summariser = Callable[..., summary.FinanceSummary]
+type _UseCaseBuilder = Callable[..., summarise_finances.SummariseFinancesUseCase]
+
+
+class StubViewSource[ViewT: "pydantic.BaseModel"]:
+    """``ViewSource`` stub answering one fixed set of rows."""
+
+    def __init__(self, rows: "Sequence[ViewT] | None" = None) -> None:
+        """Fix the rows this stub returns."""
+        self._rows = list(rows or [])
+
+    def rows(self) -> "list[ViewT]":
+        return list(self._rows)
+
+
+class FailingViewSource[ViewT: "pydantic.BaseModel"]:
+    """``ViewSource`` stub whose read always fails at the port boundary."""
+
+    def rows(self) -> "list[ViewT]":
+        msg = "the backend is down"
+        raise port_errors.RepositoryError(msg)
 
 
 @pytest.fixture(name="build_bank_account")
@@ -96,64 +119,76 @@ def _build_payment() -> "_PaymentBuilder":
     return _build
 
 
-@pytest.fixture(name="summarise")
-def _summarise() -> "_Summariser":
-    """Return a summariser fixed to a known "today", varying only its rows."""
+@pytest.fixture(name="build_use_case")
+def _build_use_case() -> "_UseCaseBuilder":
+    """Return a builder for the use case, fixed to a known "today".
 
-    def _summarise(
+    A test overrides only the source it varies and inherits empty ones for the
+    rest.
+    """
+
+    def _build(
         bank_accounts: "Sequence[read_models.BankAccountView] | None" = None,
         budget_trackers: "Sequence[read_models.BudgetTrackerView] | None" = None,
         payments: "Sequence[read_models.PaymentView] | None" = None,
         today: datetime.date = _TODAY,
         months: int = 3,
-    ) -> summary.FinanceSummary:
-        return summary.summarise(
-            bank_accounts or [],
-            budget_trackers or [],
-            payments or [],
-            today,
-            months,
+    ) -> summarise_finances.SummariseFinancesUseCase:
+        return summarise_finances.SummariseFinancesUseCase(
+            bank_account_source=StubViewSource[read_models.BankAccountView](
+                bank_accounts,
+            ),
+            budget_tracker_source=StubViewSource[read_models.BudgetTrackerView](
+                budget_trackers,
+            ),
+            payment_source=StubViewSource[read_models.PaymentView](payments),
+            today=today,
+            months=months,
         )
 
-    return _summarise
+    return _build
 
 
 def test_total_balance_sums_every_account(
-    summarise: "_Summariser",
+    build_use_case: "_UseCaseBuilder",
     build_bank_account: "_BankAccountBuilder",
 ) -> None:
     # Arrange
-    accounts = [
-        build_bank_account(_CURRENT_ACCOUNT),
-        build_bank_account(_SAVINGS_ACCOUNT),
-    ]
+    use_case = build_use_case(
+        bank_accounts=[
+            build_bank_account(_CURRENT_ACCOUNT),
+            build_bank_account(_SAVINGS_ACCOUNT),
+        ],
+    )
 
     # Act
-    figures = summarise(bank_accounts=accounts)
+    figures = use_case.execute()
 
     # Assert
     assert figures.total_balance == _CURRENT_ACCOUNT + _SAVINGS_ACCOUNT
 
 
 def test_budget_totals_sum_every_tracker(
-    summarise: "_Summariser",
+    build_use_case: "_UseCaseBuilder",
     build_budget_tracker: "_BudgetTrackerBuilder",
 ) -> None:
     # Arrange
-    trackers = [
-        build_budget_tracker(
-            total_budget=_EXPENSES_BUDGET,
-            remaining=_EXPENSES_REMAINING,
-        ),
-        build_budget_tracker(
-            total_budget=_SAVINGS_BUDGET,
-            remaining=_SAVINGS_REMAINING,
-            name=entities.BudgetTrackerName.SAVINGS,
-        ),
-    ]
+    use_case = build_use_case(
+        budget_trackers=[
+            build_budget_tracker(
+                total_budget=_EXPENSES_BUDGET,
+                remaining=_EXPENSES_REMAINING,
+            ),
+            build_budget_tracker(
+                total_budget=_SAVINGS_BUDGET,
+                remaining=_SAVINGS_REMAINING,
+                name=entities.BudgetTrackerName.SAVINGS,
+            ),
+        ],
+    )
 
     # Act
-    figures = summarise(budget_trackers=trackers)
+    figures = use_case.execute()
 
     # Assert
     assert all(
@@ -165,113 +200,130 @@ def test_budget_totals_sum_every_tracker(
 
 
 def test_expenditure_counts_only_the_current_month(
-    summarise: "_Summariser",
+    build_use_case: "_UseCaseBuilder",
     build_payment: "_PaymentBuilder",
 ) -> None:
     # Arrange
-    payments = [
-        build_payment(datetime.date(2026, 7, 1), expense=_EARLY_EXPENSE),
-        build_payment(datetime.date(2026, 7, 26), expense=_LATE_EXPENSE),
-        build_payment(datetime.date(2026, 6, 30), expense=999.0),
-        build_payment(datetime.date(2026, 7, 5), income=500.0),
-    ]
+    use_case = build_use_case(
+        payments=[
+            build_payment(datetime.date(2026, 7, 1), expense=_EARLY_EXPENSE),
+            build_payment(datetime.date(2026, 7, 26), expense=_LATE_EXPENSE),
+            build_payment(datetime.date(2026, 6, 30), expense=999.0),
+            build_payment(datetime.date(2026, 7, 5), income=500.0),
+        ],
+    )
 
     # Act
-    figures = summarise(payments=payments)
+    figures = use_case.execute()
 
     # Assert
     assert figures.expenditure == _EARLY_EXPENSE + _LATE_EXPENSE
 
 
 def test_expenditure_history_runs_oldest_to_newest(
-    summarise: "_Summariser",
+    build_use_case: "_UseCaseBuilder",
     build_payment: "_PaymentBuilder",
 ) -> None:
     # Arrange - May is left empty so a month with no payments still gets a slot.
-    payments = [
-        build_payment(datetime.date(2026, 6, 15), expense=60.0),
-        build_payment(datetime.date(2026, 7, 15), expense=70.0),
-    ]
+    use_case = build_use_case(
+        payments=[
+            build_payment(datetime.date(2026, 6, 15), expense=60.0),
+            build_payment(datetime.date(2026, 7, 15), expense=70.0),
+        ],
+    )
 
     # Act
-    figures = summarise(payments=payments)
+    figures = use_case.execute()
 
     # Assert
     assert figures.expenditure_history == [0.0, 60.0, 70.0]
 
 
 def test_history_rolls_back_across_the_year_boundary(
-    summarise: "_Summariser",
+    build_use_case: "_UseCaseBuilder",
     build_payment: "_PaymentBuilder",
 ) -> None:
     # Arrange
-    payments = [build_payment(datetime.date(2025, 12, 3), expense=25.0)]
+    use_case = build_use_case(
+        payments=[build_payment(datetime.date(2025, 12, 3), expense=25.0)],
+        today=datetime.date(2026, 1, 15),
+    )
 
     # Act
-    figures = summarise(payments=payments, today=datetime.date(2026, 1, 15))
+    figures = use_case.execute()
 
     # Assert - December of the preceding year sits directly before January.
     assert figures.expenditure_history == [0.0, 25.0, 0.0]
 
 
 def test_balance_history_undoes_each_months_net_movement(
-    summarise: "_Summariser",
+    build_use_case: "_UseCaseBuilder",
     build_bank_account: "_BankAccountBuilder",
     build_payment: "_PaymentBuilder",
 ) -> None:
     # Arrange - only the current balance is stored, so June's close is today's
     # balance less July's net (+100 income, -30 expense = +70), and May's is
     # June's less June's net (-50), which puts it back up at 480.
-    accounts = [build_bank_account(500.0)]
-    payments = [
-        build_payment(datetime.date(2026, 7, 10), income=100.0),
-        build_payment(datetime.date(2026, 7, 20), expense=30.0),
-        build_payment(datetime.date(2026, 6, 10), expense=50.0),
-    ]
+    use_case = build_use_case(
+        bank_accounts=[build_bank_account(500.0)],
+        payments=[
+            build_payment(datetime.date(2026, 7, 10), income=100.0),
+            build_payment(datetime.date(2026, 7, 20), expense=30.0),
+            build_payment(datetime.date(2026, 6, 10), expense=50.0),
+        ],
+    )
 
     # Act
-    figures = summarise(bank_accounts=accounts, payments=payments)
+    figures = use_case.execute()
 
     # Assert
     assert figures.balance_history == [480.0, 430.0, 500.0]
 
 
 def test_expenditure_delta_compares_against_last_month(
-    summarise: "_Summariser",
+    build_use_case: "_UseCaseBuilder",
     build_payment: "_PaymentBuilder",
 ) -> None:
     # Arrange
-    payments = [
-        build_payment(datetime.date(2026, 6, 15), expense=_JUNE_SPEND),
-        build_payment(datetime.date(2026, 7, 15), expense=_JULY_SPEND),
-    ]
+    use_case = build_use_case(
+        payments=[
+            build_payment(datetime.date(2026, 6, 15), expense=_JUNE_SPEND),
+            build_payment(datetime.date(2026, 7, 15), expense=_JULY_SPEND),
+        ],
+    )
 
     # Act
-    figures = summarise(payments=payments)
+    figures = use_case.execute()
 
     # Assert
     assert figures.expenditure_delta == _JULY_SPEND - _JUNE_SPEND
 
 
 def test_expenditure_delta_is_unknown_without_a_prior_month(
-    summarise: "_Summariser",
+    build_use_case: "_UseCaseBuilder",
     build_payment: "_PaymentBuilder",
 ) -> None:
     # Arrange
-    payments = [build_payment(datetime.date(2026, 7, 15), expense=30.0)]
+    use_case = build_use_case(
+        payments=[build_payment(datetime.date(2026, 7, 15), expense=30.0)],
+        months=1,
+    )
 
     # Act
-    figures = summarise(payments=payments, months=1)
+    figures = use_case.execute()
 
     # Assert
     assert figures.expenditure_delta is None
 
 
-def test_summarising_nothing_reports_zeroes(summarise: "_Summariser") -> None:
+def test_summarising_nothing_reports_zeroes(
+    build_use_case: "_UseCaseBuilder",
+) -> None:
     # Arrange - a brand-new workspace has no accounts, trackers, or payments.
+    use_case = build_use_case()
 
     # Act
-    figures = summarise()
+    figures = use_case.execute()
 
     # Assert
     assert all(
@@ -282,3 +334,20 @@ def test_summarising_nothing_reports_zeroes(summarise: "_Summariser") -> None:
             figures.balance_history == [0.0, 0.0, 0.0],
         ],
     )
+
+
+def test_a_failed_read_is_reported_as_a_use_case_error() -> None:
+    # Arrange - a RepositoryError must not escape the use case untranslated,
+    # and the error should name which read failed.
+    use_case = summarise_finances.SummariseFinancesUseCase(
+        bank_account_source=StubViewSource[read_models.BankAccountView](),
+        budget_tracker_source=FailingViewSource[read_models.BudgetTrackerView](),
+        payment_source=StubViewSource[read_models.PaymentView](),
+    )
+
+    # Act
+    with pytest.raises(errors.SummaryReadError) as raised:
+        use_case.execute()
+
+    # Assert
+    assert raised.value.aggregate == "budget trackers"
