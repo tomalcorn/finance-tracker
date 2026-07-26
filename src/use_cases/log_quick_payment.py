@@ -118,7 +118,9 @@ class LogQuickPaymentUseCase:
         self._check_complete(button, expense, bank_account_id)
 
         row: entities.RawRow = {
-            "name": supplied.name or button.name,
+            # Three names, most specific first: what the form typed, what the
+            # button presets, and failing both the button's own label.
+            "name": supplied.name or button.payment_name or button.name,
             "expense": expense,
             "payment_date": (supplied.payment_date or _today()).isoformat(),
             "checked": False,

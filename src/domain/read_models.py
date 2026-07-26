@@ -255,6 +255,10 @@ class QuickButtonView(_ViewBase):
         entities.QuickButtonMode,
         pydantic.Field(description="Whether a tap logs the preset or asks first."),
     ]
+    payment_name: Annotated[
+        str | None,
+        pydantic.Field(description="The name to log the payment under, if preset."),
+    ] = None
     expense: Annotated[
         float | None,
         pydantic.Field(description="The expense amount a tap logs."),

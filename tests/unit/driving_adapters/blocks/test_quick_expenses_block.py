@@ -151,6 +151,7 @@ def _inputs() -> quick_expenses_block._ButtonInputs:
     return quick_expenses_block._ButtonInputs(
         name="Lunch",
         mode=entities.QuickButtonMode.LOG,
+        payment_name=None,
         expense=8.0,
         bank_account_id=str(BANK_ACCOUNT_ID),
         expense_source_id=None,
@@ -171,6 +172,7 @@ def test_button_row_carries_the_values_the_dialog_collected(
     assert row == {
         "name": "Lunch",
         "mode": "log",
+        "payment_name": None,
         "expense": 8.0,
         "bank_account_id": str(BANK_ACCOUNT_ID),
         "expense_source_id": None,
@@ -356,54 +358,37 @@ def test_tapping_a_tile_while_editing_logs_nothing(
     assert payment_repo.saved == []
 
 
+_LOG = entities.QuickButtonMode.LOG
+_PROMPT = entities.QuickButtonMode.PROMPT
+
+
 @pytest.mark.parametrize(
-    ("mode", "expense", "bank_account_id", "expected"),
+    ("overrides", "expected"),
     [
-        (entities.QuickButtonMode.LOG, 3.5, str(BANK_ACCOUNT_ID), True),
-        (entities.QuickButtonMode.LOG, None, str(BANK_ACCOUNT_ID), False),
-        (entities.QuickButtonMode.LOG, 3.5, None, False),
-        (entities.QuickButtonMode.PROMPT, None, None, True),
-        (entities.QuickButtonMode.PROMPT, 3.5, str(BANK_ACCOUNT_ID), True),
+        ({"mode": _LOG}, True),
+        ({"mode": _LOG, "name": ""}, False),
+        ({"mode": _LOG, "expense": None}, False),
+        ({"mode": _LOG, "bank_account_id": None}, False),
+        ({"mode": _PROMPT, "expense": None, "bank_account_id": None}, True),
+        ({"mode": _PROMPT, "name": ""}, False),
+        ({"mode": _PROMPT}, True),
     ],
 )
-def test_can_log_requires_a_payment_only_from_a_log_button(
+def test_can_save_requires_a_whole_payment_only_from_a_log_button(
     inputs: quick_expenses_block._ButtonInputs,
-    mode: entities.QuickButtonMode,
-    expense: float | None,
-    bank_account_id: str | None,
+    overrides: dict[str, object],
     *,
     expected: bool,
 ) -> None:
-    # Arrange - a prompt button may defer what a log button must hold now
-    collected = dataclasses.replace(
-        inputs,
-        mode=mode,
-        expense=expense,
-        bank_account_id=bank_account_id,
-    )
+    # Arrange - a prompt button presets nothing it cannot ask for later, but
+    # every button needs the label its tile shows
+    collected = dataclasses.replace(inputs, **overrides)
 
     # Act
-    can_save = quick_expenses_block._can_log(collected)
+    can_save = quick_expenses_block._can_save(collected)
 
     # Assert
     assert can_save is expected
-
-
-def test_can_log_always_needs_a_name(
-    inputs: quick_expenses_block._ButtonInputs,
-) -> None:
-    # Arrange - the name is the tile's label, so no button can go without one
-    unnamed = dataclasses.replace(
-        inputs,
-        name="",
-        mode=entities.QuickButtonMode.PROMPT,
-    )
-
-    # Act
-    can_save = quick_expenses_block._can_log(unnamed)
-
-    # Assert
-    assert can_save is False
 
 
 def test_tapping_a_prompt_tile_logs_nothing_until_the_form_is_submitted(

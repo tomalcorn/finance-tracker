@@ -365,3 +365,65 @@ def test_execute_logs_the_name_the_tap_supplied(
 
     # Assert
     assert _saved_expense(payment_repo).name == "Tesco big shop"
+
+
+def test_execute_prefers_the_buttons_payment_name_over_its_label(
+    build_use_case: UseCaseBuilder,
+    build_repo: "conftest.RepoBuilder",
+    payment_repo: PaymentRepo,
+) -> None:
+    # Arrange - the tile says "Coffee", the payment it books is "Flat white"
+    button = entities.QuickButtonModel(
+        user_id=USER_ID,
+        name="Coffee",
+        payment_name="Flat white",
+        expense=COFFEE_PRICE,
+        bank_account_id=BANK_ACCOUNT_ID,
+    )
+    use_case = build_use_case(buttons=build_repo([button]))
+
+    # Act
+    use_case.execute(button.id)
+
+    # Assert
+    assert _saved_expense(payment_repo).name == "Flat white"
+
+
+def test_execute_falls_back_to_the_buttons_label_for_the_payment_name(
+    use_case: LogQuickPaymentUseCase,
+    quick_button: entities.QuickButtonModel,
+    payment_repo: PaymentRepo,
+) -> None:
+    # Arrange - the fixture button presets no payment name of its own
+
+    # Act
+    use_case.execute(quick_button.id)
+
+    # Assert
+    assert _saved_expense(payment_repo).name == quick_button.name
+
+
+def test_execute_lets_the_tap_override_a_preset_payment_name(
+    build_use_case: UseCaseBuilder,
+    build_repo: "conftest.RepoBuilder",
+    payment_repo: PaymentRepo,
+) -> None:
+    # Arrange - what the form typed beats both the preset and the label
+    button = entities.QuickButtonModel(
+        user_id=USER_ID,
+        name="Groceries",
+        payment_name="Weekly shop",
+        mode=entities.QuickButtonMode.PROMPT,
+    )
+    use_case = build_use_case(buttons=build_repo([button]))
+    details = log_quick_payment.QuickPaymentDetails(
+        name="Corner shop milk",
+        expense=SHOP_TOTAL,
+        bank_account_id=BANK_ACCOUNT_ID,
+    )
+
+    # Act
+    use_case.execute(button.id, details)
+
+    # Assert
+    assert _saved_expense(payment_repo).name == "Corner shop milk"

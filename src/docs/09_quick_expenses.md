@@ -46,21 +46,32 @@ button no longer logs anything — it opens that button's settings instead.
   gone and confirm. Removing a button does not touch the payments it has
   already logged.
 
-Each button has:
+The form comes in two halves. The top half is the button itself:
 
 | Field | What it does |
 | --- | --- |
-| Ask for details when tapped | Off: a tap logs the payment immediately. On: a tap opens a form pre-filled with the fields below. |
+| Button name | Required. What the tile says — the thing you tap. |
 | Icon | An optional emoji shown before the name. |
-| Name | The name the payment is logged under. |
-| Amount | The expense amount a tap logs. |
-| Bank account | The account the money leaves. |
-| Expense source | Optional. The budget the spend counts against. |
 | Position | Lower numbers appear first in the grid. |
+| Ask for details when tapped | Off: a tap logs the payment immediately. On: a tap opens a form pre-filled with the half below. |
 
-With **Ask for details** turned on, every field except the name is optional —
-anything you leave blank is simply what the form waits for. With it off, the
-amount and the bank account are required, because a tap gets no chance to ask.
+Below the divider is the payment it creates:
+
+| Field | What it does |
+| --- | --- |
+| Payment name | The name the payment is logged under. Defaults to the button name. |
+| Amount | The expense amount. |
+| Bank account | The account the money leaves. |
+| Expense source | The budget the spend counts against. |
+
+With **Ask for details** turned on, that whole lower half is optional —
+anything you leave blank is simply what the form asks for at the till. With it
+off, the amount and the bank account are required, because a tap gets no chance
+to ask.
+
+The two names are separate on purpose. A "Groceries" button can log "Weekly
+shop" every time, or leave the payment name to be typed in at the till, without
+the tile itself ever changing.
 
 Turn **Edit buttons** back off when you are done, and the page returns to
 one-tap logging.

@@ -70,12 +70,14 @@ class _EditContext:
 class _ButtonInputs:
     """The values the configuration dialog collected.
 
-    Everything but the name and the mode is optional, because a ``PROMPT``
-    button is allowed to leave the payment fields blank until it is tapped.
+    ``name`` labels the button and is always required; the payment fields below
+    the dialog's divider are the preset, which a ``PROMPT`` button is allowed to
+    leave blank until it is tapped.
     """
 
     name: str
     mode: entities.QuickButtonMode
+    payment_name: str | None
     expense: float | None
     bank_account_id: str | None
     expense_source_id: str | None
@@ -137,13 +139,15 @@ def _flush_toast() -> None:
         st.toast(str(message), icon=":material/check_circle:")
 
 
-def _can_log(inputs: _ButtonInputs) -> bool:
+def _can_save(inputs: _ButtonInputs) -> bool:
     """Return whether the collected values make a saveable button.
 
-    A name is always needed. A ``LOG`` button additionally needs everything a
-    payment cannot be written without, because a tap gives it no second chance
-    to ask — the same rule the entity enforces, applied here so the dialog can
-    disable Save rather than let the write fail.
+    Every button needs a label. Beyond that a ``PROMPT`` button needs nothing —
+    its form is where the payment is completed, so the whole preset is a
+    convenience — while a ``LOG`` button needs everything a payment cannot be
+    written without, because a tap gives it no second chance to ask. That is the
+    same rule the entity enforces, applied here so the dialog can disable Save
+    rather than let the write fail.
     """
     if not inputs.name:
         return False
@@ -165,6 +169,7 @@ def _button_row(
     row: dict[str, object] = {
         "name": inputs.name,
         "mode": inputs.mode.value,
+        "payment_name": inputs.payment_name,
         "expense": inputs.expense,
         "bank_account_id": inputs.bank_account_id,
         "expense_source_id": inputs.expense_source_id,
@@ -235,7 +240,13 @@ def _prompt_dialog(
     expense_source_ids = list(context.expense_source_map)
     key = f"quick_prompt_{button.id}"
 
-    name = st.text_input("Name", value=button.name, key=f"{key}_name")
+    # The payment's name, not the button's: the preset if it has one, else the
+    # tile's label as a sensible starting point.
+    name = st.text_input(
+        "Name",
+        value=button.payment_name or button.name,
+        key=f"{key}_name",
+    )
     expense = st.number_input(
         "Amount",
         min_value=0.0,
@@ -301,32 +312,59 @@ def _config_dialog(
     expense_source_ids = list(context.expense_source_map)
     key = f"quick_button_form_{existing.id if existing else 'new'}"
 
+    # The button itself: what the tile says and how it behaves.
+    name = st.text_input(
+        "Button name",
+        value=existing.name if existing else "",
+        help="Shown on the tile. This is what you tap, not what gets logged.",
+        key=f"{key}_name",
+    )
+    icon = st.text_input(
+        "Icon (optional)",
+        value=existing.icon if existing else "",
+        max_chars=2,
+        help="An emoji, shown before the name.",
+        key=f"{key}_icon",
+    )
+    display_order = st.number_input(
+        "Position",
+        min_value=0,
+        step=1,
+        value=existing.display_order
+        if existing
+        else _next_display_order(context.buttons),
+        help="Lower numbers appear first.",
+        key=f"{key}_display_order",
+    )
     asks_first = st.toggle(
         "Ask for details when tapped",
         value=existing is not None and existing.mode is entities.QuickButtonMode.PROMPT,
         help=(
-            "On: a tap opens this form pre-filled, so anything left blank here "
-            "can be filled in at the till. Off: a tap logs the payment straight "
-            "away, so the amount and bank account are needed now."
+            "On: a tap opens a payment form pre-filled with whatever you set "
+            "below, so all of it is optional — anything left blank is filled in "
+            "at the till. Off: a tap logs the payment straight away, so it needs "
+            "an amount and a bank account now."
         ),
         key=f"{key}_asks_first",
     )
     mode = (
         entities.QuickButtonMode.PROMPT if asks_first else entities.QuickButtonMode.LOG
     )
-    optional = " (optional)" if asks_first else ""
 
-    icon = st.text_input(
-        "Icon",
-        value=existing.icon if existing else "",
-        max_chars=2,
-        help="An optional emoji, shown before the name.",
-        key=f"{key}_icon",
+    st.divider()
+
+    # The payment it creates. Optional throughout for a prompt button, which
+    # asks for whatever is left blank; a log button must preset what it needs.
+    optional = " (optional)" if asks_first else ""
+    st.caption(
+        "The payment this logs"
+        + (" — fill in as much or as little as you like." if asks_first else ""),
     )
-    name = st.text_input(
-        "Name",
-        value=existing.name if existing else "",
-        key=f"{key}_name",
+    payment_name = st.text_input(
+        "Payment name (optional)",
+        value=(existing.payment_name or "") if existing else "",
+        help="Defaults to the button name. Editable at the till when asking first.",
+        key=f"{key}_payment_name",
     )
     expense = st.number_input(
         f"Amount{optional}",
@@ -354,27 +392,18 @@ def _config_dialog(
         help="Leave empty to log the payment uncategorised.",
         key=f"{key}_expense_source",
     )
-    display_order = st.number_input(
-        "Position",
-        min_value=0,
-        step=1,
-        value=existing.display_order
-        if existing
-        else _next_display_order(context.buttons),
-        help="Lower numbers appear first.",
-        key=f"{key}_display_order",
-    )
 
     inputs = _ButtonInputs(
         name=name,
         mode=mode,
+        payment_name=payment_name or None,
         expense=float(expense) if expense else None,
         bank_account_id=bank_account_id,
         expense_source_id=expense_source_id,
         icon=icon,
         display_order=int(display_order),
     )
-    if st.button("Save", disabled=not _can_log(inputs), key=f"{key}_submit"):
+    if st.button("Save", disabled=not _can_save(inputs), key=f"{key}_submit"):
         row = _button_row(inputs, existing)
         try:
             context.repo.save_entities(context.repo.build_entities([row]))

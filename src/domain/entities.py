@@ -282,16 +282,28 @@ class QuickButtonMode(enum.StrEnum):
 class QuickButtonModel(FinanceTrackerBaseModel):
     """Model representing a preset expense behind a quick-entry button.
 
-    Every field but the label is optional, because a ``PROMPT`` button exists
-    precisely to leave the varying parts blank until it is tapped. A ``LOG``
-    button has no such second chance, so the fields a payment cannot be written
-    without are required of it — see :meth:`_check_loggable`.
+    Two things are named here, and they are not the same thing. ``name`` labels
+    the *button* and is always required — a tile has to say what it is. The
+    payment fields below are the preset it fills a payment in with, and are
+    optional, because a ``PROMPT`` button exists precisely to leave the varying
+    parts blank until it is tapped. A ``LOG`` button has no such second chance,
+    so the fields a payment cannot be written without are required of it — see
+    :meth:`_check_loggable`.
     """
 
     name: Annotated[
         str,
         pydantic.Field(description="The label shown on the button.", min_length=1),
     ]
+    payment_name: Annotated[
+        str | None,
+        pydantic.Field(
+            description=(
+                "The name to log the payment under. Defaults to the button's own "
+                "label when unset."
+            ),
+        ),
+    ] = None
     mode: Annotated[
         QuickButtonMode,
         pydantic.Field(description="Whether a tap logs the preset or asks first."),
