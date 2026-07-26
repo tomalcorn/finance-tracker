@@ -129,6 +129,36 @@ def bank_account_views(
     return repo.rows()
 
 
+def budget_tracker_views(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "list[read_models.BudgetTrackerView]":
+    """Return the current user's budget trackers as typed view rows.
+
+    Carries the computed ``remaining`` column, so it is the read the summary
+    metrics use.
+    """
+    repo = supabase_repos.budget_tracker_repository(
+        *_repo_deps(),
+        ownership,
+    )
+    return repo.rows()
+
+
+def payment_views(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "list[read_models.PaymentView]":
+    """Return the current user's payments as typed view rows.
+
+    The whole payment history, not just the current month: the summary metrics
+    total it per month to chart the preceding ones.
+    """
+    repo = supabase_repos.payment_repository(
+        *_repo_deps(),
+        ownership,
+    )
+    return repo.rows()
+
+
 def bank_account_id_name_map(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
 ) -> dict[str, str]:
