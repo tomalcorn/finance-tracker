@@ -11,5 +11,6 @@ class SSKeys(enum.StrEnum):
     AUTH_CREDENTIALS_EXP = enum.auto()
     COL_CONFIGS = enum.auto()
     QUICK_BUTTONS_REMOVE_ARMED = enum.auto()
+    QUICK_BUTTONS_TOAST = enum.auto()
     DELETED_ROWS = enum.auto()
     EDITED_ROWS = enum.auto()

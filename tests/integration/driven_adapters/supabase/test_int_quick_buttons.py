@@ -98,6 +98,42 @@ def test_a_saved_button_reads_back_with_its_preset(
     assert preset_survived
 
 
+def test_a_prompt_button_stores_without_the_fields_it_defers(
+    quick_button_repo: QuickButtonRepo,
+    connection: st_supabase_connection.SupabaseConnection,
+) -> None:
+    """The columns 0012 made nullable really do accept a row without them."""
+    # Arrange
+    cache._get_data_cached.clear()
+    built = quick_button_repo.build_entities(
+        [
+            {
+                "name": "Groceries",
+                "mode": entities.QuickButtonMode.PROMPT.value,
+            },
+        ],
+    )
+
+    # Act
+    quick_button_repo.save_entities(built)
+    cache._get_data_cached.clear()
+    stored = _get_by_id(quick_button_repo, built[0].id)
+
+    # Clean up
+    connection.table("quick_buttons").delete().eq("id", str(built[0].id)).execute()
+    cache._get_data_cached.clear()
+
+    # Assert
+    deferred_fields_are_empty = stored is not None and all(
+        [
+            stored.mode is entities.QuickButtonMode.PROMPT,
+            stored.expense is None,
+            stored.bank_account_id is None,
+        ],
+    )
+    assert deferred_fields_are_empty
+
+
 def test_apply_deletions_removes_a_button(
     quick_button_repo: QuickButtonRepo,
     stored_button: entities.QuickButtonModel,

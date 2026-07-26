@@ -70,3 +70,35 @@ class TestOwnershipSerialisation:
         dumped = account.model_dump(mode="json")
         # Assert
         assert {"ownership_type", "joint_account_id"} <= dumped.keys()
+
+
+class TestQuickButtonLoggableValidator:
+    """A button that logs on tap must hold everything a payment needs."""
+
+    def test_log_button_rejects_a_missing_amount(self) -> None:
+        # Arrange / Act / Assert
+        with pytest.raises(errors.IncompleteQuickButtonError):
+            entities.QuickButtonModel(
+                user_id="test-user",
+                name="Coffee",
+                bank_account_id=uuid.uuid4(),
+            )
+
+    def test_log_button_names_every_field_it_is_missing(self) -> None:
+        # Arrange / Act
+        with pytest.raises(errors.IncompleteQuickButtonError) as exc_info:
+            entities.QuickButtonModel(user_id="test-user", name="Coffee")
+
+        # Assert
+        assert exc_info.value.missing == ["expense", "bank_account_id"]
+
+    def test_prompt_button_may_leave_the_payment_fields_blank(self) -> None:
+        # Arrange - the varying part is exactly what a prompt button defers
+        button = entities.QuickButtonModel(
+            user_id="test-user",
+            name="Groceries",
+            mode=entities.QuickButtonMode.PROMPT,
+        )
+
+        # Act / Assert
+        assert button.expense is None

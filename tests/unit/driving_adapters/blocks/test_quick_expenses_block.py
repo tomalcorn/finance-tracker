@@ -27,15 +27,22 @@ def _build_button() -> Callable[..., entities.QuickButtonModel]:
 
     def _build(
         name: str = "Coffee",
-        expense: float = 3.5,
+        expense: float | None = 3.5,
         icon: str | None = "☕",
         display_order: int = 0,
+        mode: entities.QuickButtonMode = entities.QuickButtonMode.LOG,
     ) -> entities.QuickButtonModel:
         return entities.QuickButtonModel(
             user_id=USER_ID,
             name=name,
+            mode=mode,
             expense=expense,
-            bank_account_id=BANK_ACCOUNT_ID,
+            # A prompt button is allowed to preset no account; a log one is not.
+            bank_account_id=(
+                None
+                if mode is entities.QuickButtonMode.PROMPT and expense is None
+                else BANK_ACCOUNT_ID
+            ),
             icon=icon,
             display_order=display_order,
         )
@@ -54,6 +61,37 @@ def test_tile_label_shows_the_icon_name_and_amount(
 
     # Assert
     assert label == "☕ Coffee — £3.50"
+
+
+def test_tile_label_marks_a_button_that_asks_first(
+    build_button: Callable[..., entities.QuickButtonModel],
+) -> None:
+    # Arrange - an ellipsis is the sign that tapping opens a form
+    button = build_button(
+        name="Groceries",
+        expense=None,
+        icon=None,
+        mode=entities.QuickButtonMode.PROMPT,
+    )
+
+    # Act
+    label = quick_expenses_block._tile_label(button)
+
+    # Assert
+    assert label == "Groceries …"
+
+
+def test_tile_label_shows_a_prompt_buttons_preset_amount(
+    build_button: Callable[..., entities.QuickButtonModel],
+) -> None:
+    # Arrange - a prompt button may still preset an amount to be corrected
+    button = build_button(mode=entities.QuickButtonMode.PROMPT)
+
+    # Act
+    label = quick_expenses_block._tile_label(button)
+
+    # Assert
+    assert label == "☕ Coffee — £3.50 …"
 
 
 def test_tile_label_omits_a_missing_icon(
@@ -112,6 +150,7 @@ def _inputs() -> quick_expenses_block._ButtonInputs:
     """Return the values a completed configuration dialog holds."""
     return quick_expenses_block._ButtonInputs(
         name="Lunch",
+        mode=entities.QuickButtonMode.LOG,
         expense=8.0,
         bank_account_id=str(BANK_ACCOUNT_ID),
         expense_source_id=None,
@@ -131,6 +170,7 @@ def test_button_row_carries_the_values_the_dialog_collected(
     # Assert
     assert row == {
         "name": "Lunch",
+        "mode": "log",
         "expense": 8.0,
         "bank_account_id": str(BANK_ACCOUNT_ID),
         "expense_source_id": None,
@@ -308,6 +348,76 @@ def test_tapping_a_tile_while_editing_logs_nothing(
     button = build_button()
     app_tester = build_app_tester([button]).run()
     app_tester.toggle[0].set_value(True).run()
+
+    # Act
+    app_tester.button(key=f"quick_button_{button.id}").click().run()
+
+    # Assert
+    assert payment_repo.saved == []
+
+
+@pytest.mark.parametrize(
+    ("mode", "expense", "bank_account_id", "expected"),
+    [
+        (entities.QuickButtonMode.LOG, 3.5, str(BANK_ACCOUNT_ID), True),
+        (entities.QuickButtonMode.LOG, None, str(BANK_ACCOUNT_ID), False),
+        (entities.QuickButtonMode.LOG, 3.5, None, False),
+        (entities.QuickButtonMode.PROMPT, None, None, True),
+        (entities.QuickButtonMode.PROMPT, 3.5, str(BANK_ACCOUNT_ID), True),
+    ],
+)
+def test_can_log_requires_a_payment_only_from_a_log_button(
+    inputs: quick_expenses_block._ButtonInputs,
+    mode: entities.QuickButtonMode,
+    expense: float | None,
+    bank_account_id: str | None,
+    *,
+    expected: bool,
+) -> None:
+    # Arrange - a prompt button may defer what a log button must hold now
+    collected = dataclasses.replace(
+        inputs,
+        mode=mode,
+        expense=expense,
+        bank_account_id=bank_account_id,
+    )
+
+    # Act
+    can_save = quick_expenses_block._can_log(collected)
+
+    # Assert
+    assert can_save is expected
+
+
+def test_can_log_always_needs_a_name(
+    inputs: quick_expenses_block._ButtonInputs,
+) -> None:
+    # Arrange - the name is the tile's label, so no button can go without one
+    unnamed = dataclasses.replace(
+        inputs,
+        name="",
+        mode=entities.QuickButtonMode.PROMPT,
+    )
+
+    # Act
+    can_save = quick_expenses_block._can_log(unnamed)
+
+    # Assert
+    assert can_save is False
+
+
+def test_tapping_a_prompt_tile_logs_nothing_until_the_form_is_submitted(
+    build_app_tester: Callable[..., st_test.AppTest],
+    build_button: Callable[..., entities.QuickButtonModel],
+    payment_repo: "PaymentRepo",
+) -> None:
+    # Arrange - the tap opens the form rather than writing straight away
+    button = build_button(
+        name="Groceries",
+        expense=None,
+        mode=entities.QuickButtonMode.PROMPT,
+    )
+    app_tester = build_app_tester([button]).run()
 
     # Act
     app_tester.button(key=f"quick_button_{button.id}").click().run()

@@ -251,14 +251,18 @@ class QuickButtonView(_ViewBase):
     so it carries no computed columns.
     """
 
+    mode: Annotated[
+        entities.QuickButtonMode,
+        pydantic.Field(description="Whether a tap logs the preset or asks first."),
+    ]
     expense: Annotated[
-        float,
-        pydantic.Field(description="The expense amount logged by a tap."),
-    ]
+        float | None,
+        pydantic.Field(description="The expense amount a tap logs."),
+    ] = None
     bank_account_id: Annotated[
-        uuid.UUID,
+        uuid.UUID | None,
         pydantic.Field(description="The bank account the payment comes from."),
-    ]
+    ] = None
     expense_source_id: Annotated[
         uuid.UUID | None,
         pydantic.Field(description="The expense source the payment is booked to."),

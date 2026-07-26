@@ -16,9 +16,18 @@ count towards your budget, and can be edited or deleted there like any other.
 
 ## Logging A Payment
 
-Tap a button. That is the whole flow — a confirmation appears at the bottom of
-the screen and the payment is saved immediately, dated today and left unchecked
-so you can tick it off later when you reconcile the account.
+Tap a button. What happens next depends on how that button is set up:
+
+- **Log straight away** — the payment is saved immediately, dated today and left
+  unchecked so you can tick it off later when you reconcile the account. A
+  confirmation appears at the bottom of the screen.
+- **Ask first** — a form opens, already filled in with everything the button
+  knows. Type the part that varies, usually the amount, and log it. These
+  buttons end in `…` so you can tell them apart at a glance.
+
+The second kind is for the spends you repeat at a price that changes — a weekly
+shop, a tank of fuel. You still skip choosing the account and the budget every
+time; you only fill in what actually differs.
 
 If you belong to a joint account, a **Personal / Joint** selector appears at the
 top of the page. It decides both which buttons you see and which side of your
@@ -41,6 +50,7 @@ Each button has:
 
 | Field | What it does |
 | --- | --- |
+| Ask for details when tapped | Off: a tap logs the payment immediately. On: a tap opens a form pre-filled with the fields below. |
 | Icon | An optional emoji shown before the name. |
 | Name | The name the payment is logged under. |
 | Amount | The expense amount a tap logs. |
@@ -48,13 +58,17 @@ Each button has:
 | Expense source | Optional. The budget the spend counts against. |
 | Position | Lower numbers appear first in the grid. |
 
+With **Ask for details** turned on, every field except the name is optional —
+anything you leave blank is simply what the form waits for. With it off, the
+amount and the bank account are required, because a tap gets no chance to ask.
+
 Turn **Edit buttons** back off when you are done, and the page returns to
 one-tap logging.
 
 ## Tips
 
-- Make buttons for the spends you repeat at the same price — a coffee, a bus
-  fare, a regular lunch. Anything variable is better added on the dashboard.
+- Log straight away for the spends you repeat at the same price — a coffee, a
+  bus fare, a regular lunch. Ask first when only the amount moves.
 - Give every button an expense source, so the spend lands in the right budget
   without a later tidy-up.
 - If an amount drifts, edit the button rather than making a second one — the
