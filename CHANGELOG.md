@@ -1,3 +1,9 @@
+## v1.2.0 (2026-07-26)
+
+### Feat
+
+- **summary**: add a top-level summary block (#203) (#206)
+
 ## v1.1.0 (2026-07-25)
 
 ### Feat
