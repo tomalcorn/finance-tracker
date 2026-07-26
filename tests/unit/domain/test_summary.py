@@ -1,4 +1,4 @@
-"""Unit tests for the dashboard summary calculation."""
+"""Unit tests for the finance summary calculation."""
 
 import datetime
 import uuid
@@ -30,7 +30,7 @@ _JULY_SPEND = 30.0
 type _BankAccountBuilder = Callable[..., read_models.BankAccountView]
 type _BudgetTrackerBuilder = Callable[..., read_models.BudgetTrackerView]
 type _PaymentBuilder = Callable[..., read_models.PaymentView]
-type _Summariser = Callable[..., summary.DashboardSummary]
+type _Summariser = Callable[..., summary.FinanceSummary]
 
 
 @pytest.fixture(name="build_bank_account")
@@ -106,7 +106,7 @@ def _summarise() -> "_Summariser":
         payments: "Sequence[read_models.PaymentView] | None" = None,
         today: datetime.date = _TODAY,
         months: int = 3,
-    ) -> summary.DashboardSummary:
+    ) -> summary.FinanceSummary:
         return summary.summarise(
             bank_accounts or [],
             budget_trackers or [],
@@ -197,7 +197,7 @@ def test_expenditure_history_runs_oldest_to_newest(
     figures = summarise(payments=payments)
 
     # Assert
-    assert figures.expenditure_history == (0.0, 60.0, 70.0)
+    assert figures.expenditure_history == [0.0, 60.0, 70.0]
 
 
 def test_history_rolls_back_across_the_year_boundary(
@@ -211,7 +211,7 @@ def test_history_rolls_back_across_the_year_boundary(
     figures = summarise(payments=payments, today=datetime.date(2026, 1, 15))
 
     # Assert - December of the preceding year sits directly before January.
-    assert figures.expenditure_history == (0.0, 25.0, 0.0)
+    assert figures.expenditure_history == [0.0, 25.0, 0.0]
 
 
 def test_balance_history_undoes_each_months_net_movement(
@@ -233,7 +233,7 @@ def test_balance_history_undoes_each_months_net_movement(
     figures = summarise(bank_accounts=accounts, payments=payments)
 
     # Assert
-    assert figures.balance_history == (480.0, 430.0, 500.0)
+    assert figures.balance_history == [480.0, 430.0, 500.0]
 
 
 def test_expenditure_delta_compares_against_last_month(
@@ -279,6 +279,6 @@ def test_summarising_nothing_reports_zeroes(summarise: "_Summariser") -> None:
             figures.total_balance == 0.0,
             figures.remaining_budget == 0.0,
             figures.expenditure == 0.0,
-            figures.balance_history == (0.0, 0.0, 0.0),
+            figures.balance_history == [0.0, 0.0, 0.0],
         ],
     )

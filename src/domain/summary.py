@@ -1,8 +1,7 @@
-"""Headline figures derived from the dashboard's view read models.
+"""Headline figures derived from the view read models.
 
-Pure aggregation over ``read_models``: no ports, no framework, no display
-formatting. The UI turns a :class:`DashboardSummary` into metric cards; the
-arithmetic lives here so it is testable without Streamlit.
+Pure aggregation: the figures are folded out of the view rows, unformatted, so
+a caller decides how to present them.
 """
 
 import collections
@@ -18,11 +17,14 @@ if TYPE_CHECKING:
 
 HISTORY_MONTHS = 6
 
+# A change is only meaningful once a month has one to be compared against.
+_MONTHS_NEEDED_FOR_A_DELTA = 2
+
 type _MonthKey = tuple[int, int]
 
 
-class DashboardSummary(pydantic.BaseModel):
-    """The headline figures for one dashboard page.
+class FinanceSummary(pydantic.BaseModel):
+    """The headline figures for one set of accounts.
 
     The ``*_history`` series run oldest to newest and always end on the current
     month, so the last entry of each is the figure the matching headline field
@@ -36,7 +38,7 @@ class DashboardSummary(pydantic.BaseModel):
         pydantic.Field(description="Combined current balance of every account."),
     ]
     balance_history: Annotated[
-        tuple[float, ...],
+        list[float],
         pydantic.Field(description="Combined balance at each month's end."),
     ]
     total_budget: Annotated[
@@ -52,16 +54,26 @@ class DashboardSummary(pydantic.BaseModel):
         pydantic.Field(description="Expense payments dated in the current month."),
     ]
     expenditure_history: Annotated[
-        tuple[float, ...],
+        list[float],
         pydantic.Field(description="Expense payments totalled per month."),
     ]
 
     @property
     def expenditure_delta(self) -> float | None:
         """Return the change in expenditure against last month, if it is known."""
-        if len(self.expenditure_history) < 2:  # noqa: PLR2004 — needs a prior month
+        if len(self.expenditure_history) < _MONTHS_NEEDED_FOR_A_DELTA:
             return None
         return self.expenditure - self.expenditure_history[-2]
+
+
+def _today() -> datetime.date:
+    """Return the current UTC date.
+
+    Deliberately read per call rather than fixed at import: the app process
+    outlives a day, and a stale date would report the wrong month's figures
+    until it restarted.
+    """
+    return datetime.datetime.now(tz=datetime.UTC).date()
 
 
 def _month_key(day: datetime.date) -> _MonthKey:
@@ -96,7 +108,7 @@ def _balance_history(
     total_balance: float,
     nets: dict[_MonthKey, float],
     keys: "Sequence[_MonthKey]",
-) -> tuple[float, ...]:
+) -> list[float]:
     """Return the closing balance of each month, oldest first.
 
     Only the *current* balance is stored, so earlier months are reconstructed by
@@ -108,7 +120,7 @@ def _balance_history(
     for key in reversed(keys):
         balances.append(running)
         running -= nets.get(key, 0.0)
-    return tuple(reversed(balances))
+    return list(reversed(balances))
 
 
 def summarise(
@@ -117,31 +129,31 @@ def summarise(
     payments: "Sequence[read_models.PaymentView]",
     today: datetime.date | None = None,
     months: int = HISTORY_MONTHS,
-) -> DashboardSummary:
-    """Summarise one dashboard's views into its headline figures.
+) -> FinanceSummary:
+    """Summarise one set of views into its headline figures.
 
     Args:
-        bank_accounts: The page's bank account view rows.
-        budget_trackers: The page's budget tracker view rows.
-        payments: The page's payment rows, over their whole history — earlier
-            months are what the trailing series are built from.
+        bank_accounts: The bank account view rows.
+        budget_trackers: The budget tracker view rows.
+        payments: The payment rows, over their whole history — earlier months
+            are what the trailing series are built from.
         today: The date the current month is taken from. Defaults to today.
         months: How many months each trailing series covers, current included.
 
     Returns:
-        The figures for this page, unformatted.
+        The figures, unformatted.
 
     """
-    today = today or datetime.datetime.now(tz=datetime.UTC).date()
+    today = today or _today()
     keys = _trailing_months(today, months)
     expenses, nets = _totals_by_month(payments)
     total_balance = sum(account.current_balance for account in bank_accounts)
 
-    return DashboardSummary(
+    return FinanceSummary(
         total_balance=total_balance,
         balance_history=_balance_history(total_balance, nets, keys),
         total_budget=sum(tracker.total_budget for tracker in budget_trackers),
         remaining_budget=sum(tracker.remaining for tracker in budget_trackers),
         expenditure=expenses.get(_month_key(today), 0.0),
-        expenditure_history=tuple(expenses.get(key, 0.0) for key in keys),
+        expenditure_history=[expenses.get(key, 0.0) for key in keys],
     )

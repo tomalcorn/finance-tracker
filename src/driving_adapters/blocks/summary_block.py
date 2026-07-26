@@ -11,36 +11,30 @@ if TYPE_CHECKING:
 
     from domain import read_models
 
+# Applied to each card's value and to any numeric delta.
+_MONEY = "£%,.2f"
 
-def _money(amount: float) -> str:
-    """Format an amount as pounds, keeping the sign ahead of the symbol.
 
-    A leading ``-`` is what ``st.metric`` reads to point a delta downwards, so
-    the sign cannot sit between the symbol and the digits.
+def _budget_caption(figures: summary.FinanceSummary) -> str:
+    """Describe how much of the total budget is left.
+
+    A string delta, so it is exempt from the numeric ``format`` above and
+    carries its own.
     """
-    sign = "-" if amount < 0 else ""
-    return f"{sign}£{abs(amount):,.2f}"
-
-
-def _budget_caption(figures: summary.DashboardSummary) -> str:
-    """Describe how much of the total budget is left."""
     if figures.total_budget <= 0:
         return "no budget set"
     share = figures.remaining_budget / figures.total_budget * 100
-    return f"{share:.0f}% of {_money(figures.total_budget)}"
+    return f"{share:.0f}% of £{figures.total_budget:,.2f}"
 
 
-def _expenditure_caption(figures: summary.DashboardSummary) -> str | None:
-    """Describe the month-on-month change in spend, if there is one to show.
+def _expenditure_delta(figures: summary.FinanceSummary) -> float | None:
+    """Return the month-on-month change in spend, if there is one to show.
 
-    An unchanged (or unknown) figure returns ``None`` rather than "£0.00": a
-    delta of zero still draws an arrow, which reads as movement where there is
-    none — most visibly on a workspace with no payments at all.
+    An unchanged (or unknown) figure returns ``None`` rather than zero: a delta
+    of zero still draws an arrow, which reads as movement where there is none —
+    most visibly on a workspace with no payments at all.
     """
-    delta = figures.expenditure_delta
-    if not delta:
-        return None
-    return _money(delta)
+    return figures.expenditure_delta or None
 
 
 def render(
@@ -64,8 +58,9 @@ def render(
     with balance_col:
         st.metric(
             label="Total Balance",
-            value=_money(figures.total_balance),
-            chart_data=list(figures.balance_history),
+            value=figures.total_balance,
+            format=_MONEY,
+            chart_data=figures.balance_history,
             chart_type="area",
             help="Combined current balance across every bank account.",
             border=True,
@@ -75,7 +70,8 @@ def render(
     with budget_col:
         st.metric(
             label="Remaining Budget",
-            value=_money(figures.remaining_budget),
+            value=figures.remaining_budget,
+            format=_MONEY,
             delta=_budget_caption(figures),
             delta_color="off",
             # A caption, not a movement — an arrow would imply one.
@@ -88,11 +84,12 @@ def render(
     with expenditure_col:
         st.metric(
             label="Spent This Month",
-            value=_money(figures.expenditure),
-            delta=_expenditure_caption(figures),
+            value=figures.expenditure,
+            format=_MONEY,
+            delta=_expenditure_delta(figures),
             # Inverse: spending more than last month is the unwelcome direction.
             delta_color="inverse",
-            chart_data=list(figures.expenditure_history),
+            chart_data=figures.expenditure_history,
             chart_type="bar",
             help="Expense payments dated in the current calendar month.",
             border=True,

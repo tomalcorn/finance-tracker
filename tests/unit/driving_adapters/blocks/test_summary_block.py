@@ -123,7 +123,7 @@ def test_render_shows_a_card_per_headline_figure(
     ]
 
 
-def test_render_formats_the_figures_as_pounds(
+def test_render_reports_each_figure(
     build_app_tester: "_AppTesterBuilder",
     bank_accounts: "list[read_models.BankAccountView]",
     budget_trackers: "list[read_models.BudgetTrackerView]",
@@ -135,12 +135,29 @@ def test_render_formats_the_figures_as_pounds(
     # Act
     app_tester.run()
 
-    # Assert
+    # Assert - the raw figure is handed over; st.metric applies the format.
     assert [metric.value for metric in app_tester.metric] == [
-        "£1,234.56",
-        "£200.00",
-        "£42.00",
+        "1234.56",
+        "200.0",
+        "42.0",
     ]
+
+
+def test_render_asks_for_pounds_on_every_card(
+    build_app_tester: "_AppTesterBuilder",
+    bank_accounts: "list[read_models.BankAccountView]",
+    budget_trackers: "list[read_models.BudgetTrackerView]",
+    payments: "list[read_models.PaymentView]",
+) -> None:
+    # Arrange - formatting happens client-side, so the contract worth pinning
+    # is the format string each card is given.
+    app_tester = build_app_tester(bank_accounts, budget_trackers, payments)
+
+    # Act
+    app_tester.run()
+
+    # Assert
+    assert {metric.proto.format for metric in app_tester.metric} == {"£%,.2f"}
 
 
 def test_render_survives_an_empty_workspace(
