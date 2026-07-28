@@ -325,8 +325,8 @@ class QuickButtonModel(FinanceTrackerBaseModel):
         pydantic.Field(description="An optional emoji shown before the name."),
     ] = None
     display_order: Annotated[
-        int,
-        pydantic.Field(description="Position of the button in the grid.", ge=0),
+        pydantic.NonNegativeInt,
+        pydantic.Field(description="Position of the button in the grid."),
     ] = 0
 
     @pydantic.model_validator(mode="after")

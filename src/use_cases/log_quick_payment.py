@@ -1,16 +1,15 @@
 """Use case for logging the expense a quick-entry button stands for."""
 
 import datetime
-import uuid
-from typing import TYPE_CHECKING, Annotated
-
-import pydantic
+from typing import TYPE_CHECKING
 
 from domain import entities
 from ports import errors as port_errors
 from use_cases import errors
 
 if TYPE_CHECKING:
+    import uuid
+
     from ports import repository
 
 
@@ -21,39 +20,6 @@ def _today() -> datetime.date:
     and a stale date would file every later tap under the wrong day.
     """
     return datetime.datetime.now(tz=datetime.UTC).date()
-
-
-class QuickPaymentDetails(pydantic.BaseModel):
-    """What a tap supplies on top of the button's preset.
-
-    Every field is optional and each one set wins over the preset — a ``PROMPT``
-    button's form fills in what the button deliberately left blank, and may
-    correct what it did not. A field left ``None`` means "not supplied", so the
-    preset stands; it is not a way to clear a preset value.
-    """
-
-    model_config = pydantic.ConfigDict(frozen=True)
-
-    name: Annotated[
-        str | None,
-        pydantic.Field(description="The name to log the payment under."),
-    ] = None
-    expense: Annotated[
-        float | None,
-        pydantic.Field(description="The expense amount.", gt=0),
-    ] = None
-    bank_account_id: Annotated[
-        uuid.UUID | None,
-        pydantic.Field(description="The bank account the money leaves."),
-    ] = None
-    expense_source_id: Annotated[
-        uuid.UUID | None,
-        pydantic.Field(description="The expense source to book against."),
-    ] = None
-    payment_date: Annotated[
-        datetime.date | None,
-        pydantic.Field(description="The date to file the payment under."),
-    ] = None
 
 
 class LogQuickPaymentUseCase:
@@ -87,16 +53,17 @@ class LogQuickPaymentUseCase:
 
     def execute(
         self,
-        button_id: uuid.UUID,
-        details: QuickPaymentDetails | None = None,
+        button_id: "uuid.UUID",
+        overrides: entities.RawRow | None = None,
     ) -> entities.ExpensePaymentModel:
         """Log the payment the given button stands for.
 
         Args:
             button_id: The button that was tapped.
-            details: What the tap supplied on top of the preset. A ``LOG``
-                button needs none; a ``PROMPT`` button's form passes what the
-                user filled in.
+            overrides: Payment fields the tap supplied, laid over the button's
+                preset. A ``LOG`` button passes none; a ``PROMPT`` button's form
+                passes what the user filled in. Same shape as any other raw row
+                on its way to the gate.
 
         Returns:
             The payment that was written, so a caller can confirm what it logged.
@@ -111,53 +78,31 @@ class LogQuickPaymentUseCase:
 
         """
         button = self._resolve_button(button_id)
-        supplied = details or QuickPaymentDetails()
-
-        name = self._resolve_name(button, supplied)
-        expense = supplied.expense if supplied.expense is not None else button.expense
-        bank_account_id = supplied.bank_account_id or button.bank_account_id
-        self._check_complete(button, name, expense, bank_account_id)
-
-        row: entities.RawRow = {
-            "name": name,
-            "expense": expense,
-            "payment_date": (supplied.payment_date or _today()).isoformat(),
-            "checked": False,
-            "bank_account_id": str(bank_account_id),
-            "expense_source_id": _optional_id(
-                supplied.expense_source_id or button.expense_source_id,
-            ),
-            "payment_type": "expense",
-        }
+        row = {**self._preset_row(button), **dict(overrides or {})}
+        self._check_complete(button, row)
         return self._write(row, button)
 
     @staticmethod
-    def _resolve_name(
-        button: entities.QuickButtonModel,
-        supplied: QuickPaymentDetails,
-    ) -> str:
-        """Return the name to log the payment under, most specific first.
+    def _preset_row(button: entities.QuickButtonModel) -> dict[str, object]:
+        """Return the payment row the button fills in on its own.
 
-        What the form typed wins, then the button's own preset. Only a ``LOG``
-        button falls back to its *label*: it has no form in which to be told a
-        name, so borrowing the tile's is the best it can do. A ``PROMPT`` button
-        that presets none is asking to be given one, and a label like "Groceries"
-        is not an answer to that question.
+        Complete for a ``LOG`` button, and deliberately full of holes for a
+        ``PROMPT`` one — its form supplies the rest.
         """
-        if supplied.name:
-            return supplied.name
-        if button.payment_name:
-            return button.payment_name
-        if button.mode is entities.QuickButtonMode.LOG:
-            return button.name
-        return ""
+        return {
+            "name": _preset_name(button),
+            "expense": button.expense,
+            "payment_date": _today().isoformat(),
+            "checked": False,
+            "bank_account_id": _optional_id(button.bank_account_id),
+            "expense_source_id": _optional_id(button.expense_source_id),
+            "payment_type": "expense",
+        }
 
     @staticmethod
     def _check_complete(
         button: entities.QuickButtonModel,
-        name: str,
-        expense: float | None,
-        bank_account_id: uuid.UUID | None,
+        row: dict[str, object],
     ) -> None:
         """Reject a tap that cannot produce a whole payment.
 
@@ -167,22 +112,21 @@ class LogQuickPaymentUseCase:
         there to collect.
 
         Raises:
-            IncompleteQuickPaymentError: Any of the three is still missing.
+            IncompleteQuickPaymentError: A required field is still missing.
 
         """
-        missing = [
-            field
-            for field, is_set in (
-                ("a name", bool(name)),
-                ("an amount", expense is not None),
-                ("a bank account", bank_account_id is not None),
-            )
-            if not is_set
-        ]
+        missing: list[str] = []
+        if not row["name"]:
+            missing.append("a name")
+        if row["expense"] is None:
+            missing.append("an amount")
+        if row["bank_account_id"] is None:
+            missing.append("a bank account")
+
         if missing:
             raise errors.IncompleteQuickPaymentError(button.name, missing)
 
-    def _resolve_button(self, button_id: uuid.UUID) -> entities.QuickButtonModel:
+    def _resolve_button(self, button_id: "uuid.UUID") -> entities.QuickButtonModel:
         """Return the button that was tapped.
 
         Raises:
@@ -231,6 +175,21 @@ class LogQuickPaymentUseCase:
         return payment
 
 
-def _optional_id(value: uuid.UUID | None) -> str | None:
+def _optional_id(value: "uuid.UUID | None") -> str | None:
     """Return an id as a raw-row string, passing None straight through."""
     return str(value) if value is not None else None
+
+
+def _preset_name(button: entities.QuickButtonModel) -> str:
+    """Return the name the button presets for its payment, if it presets one.
+
+    Only a ``LOG`` button falls back to its *label*: it has no form in which to
+    be told a name, so borrowing the tile's is the best it can do. A ``PROMPT``
+    button that presets none is asking to be given one, and a label like
+    "Groceries" is not an answer to that question.
+    """
+    if button.payment_name:
+        return button.payment_name
+    if button.mode is entities.QuickButtonMode.LOG:
+        return button.name
+    return ""

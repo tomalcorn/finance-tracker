@@ -19,7 +19,6 @@ belong to.
 import dataclasses
 import datetime
 import logging
-import uuid
 from typing import TYPE_CHECKING
 
 import streamlit as st
@@ -184,21 +183,21 @@ def _button_row(
 def _log_payment(
     log_use_case: "log_quick_payment.LogQuickPaymentUseCase",
     button: entities.QuickButtonModel,
-    details: log_quick_payment.QuickPaymentDetails | None = None,
+    overrides: dict[str, object] | None = None,
 ) -> bool:
     """Log a button's payment, reporting whether it was written.
 
     Args:
         log_use_case: The use case that writes the payment.
         button: The button that was tapped.
-        details: What a prompt button's form collected, if any.
+        overrides: Payment fields a prompt button's form collected, if any.
 
     Returns:
         Whether the payment was logged.
 
     """
     try:
-        payment = log_use_case.execute(button.id, details)
+        payment = log_use_case.execute(button.id, overrides)
     except use_case_errors.QuickButtonNotFoundError:
         logger.exception("Quick button %s no longer exists.", button.id)
         st.error("That button no longer exists. Refresh the page to see the rest.")
@@ -282,18 +281,17 @@ def _prompt_dialog(
         # button is unclickable unless can_submit held.
         if not (name and expense and bank_account_id):
             return
-        details = log_quick_payment.QuickPaymentDetails(
-            name=name,
-            expense=float(expense),
-            bank_account_id=uuid.UUID(bank_account_id),
-            expense_source_id=(
-                uuid.UUID(expense_source_id) if expense_source_id else None
-            ),
-            payment_date=(
-                payment_date if isinstance(payment_date, datetime.date) else None
-            ),
-        )
-        if _log_payment(log_use_case, button, details):
+        # The form shows every field, so what it submits is the whole truth:
+        # these are laid straight over the button's preset.
+        overrides: dict[str, object] = {
+            "name": name,
+            "expense": float(expense),
+            "bank_account_id": bank_account_id,
+            "expense_source_id": expense_source_id or None,
+        }
+        if isinstance(payment_date, datetime.date):
+            overrides["payment_date"] = payment_date.isoformat()
+        if _log_payment(log_use_case, button, overrides):
             st.rerun()
 
 

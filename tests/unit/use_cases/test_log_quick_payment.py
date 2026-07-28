@@ -9,7 +9,7 @@ import pytest
 
 from domain import entities
 from ports import errors as port_errors
-from use_cases import errors, log_quick_payment
+from use_cases import errors
 from use_cases.log_quick_payment import LogQuickPaymentUseCase
 
 if TYPE_CHECKING:
@@ -98,7 +98,7 @@ def test_execute_writes_the_preset_the_button_holds(
     # Act
     use_case.execute(
         quick_button.id,
-        log_quick_payment.QuickPaymentDetails(payment_date=PAYMENT_DATE),
+        {"payment_date": PAYMENT_DATE.isoformat()},
     )
 
     # Assert - the payment carries the button's name, amount, and references
@@ -259,7 +259,7 @@ def test_execute_logs_what_the_tap_supplied_over_the_preset(
     payment_repo: PaymentRepo,
 ) -> None:
     # Arrange - the form corrects the amount the button presets
-    details = log_quick_payment.QuickPaymentDetails(expense=CORRECTED_PRICE)
+    details = {"expense": CORRECTED_PRICE}
 
     # Act
     use_case.execute(quick_button.id, details)
@@ -275,7 +275,7 @@ def test_execute_keeps_the_preset_a_tap_did_not_supply(
 ) -> None:
     # Arrange - only the amount was typed in, so the rest still comes from the
     # button
-    details = log_quick_payment.QuickPaymentDetails(expense=CORRECTED_PRICE)
+    details = {"expense": CORRECTED_PRICE}
 
     # Act
     use_case.execute(quick_button.id, details)
@@ -300,11 +300,11 @@ def test_execute_logs_a_prompt_button_from_the_details_alone(
     # Arrange - the button presets no name, no amount and no account at all, so
     # the form it opens is where the whole payment comes from
     use_case = build_use_case(buttons=build_repo([prompt_button]))
-    details = log_quick_payment.QuickPaymentDetails(
-        name="Big shop",
-        expense=SHOP_TOTAL,
-        bank_account_id=BANK_ACCOUNT_ID,
-    )
+    details = {
+        "name": "Big shop",
+        "expense": SHOP_TOTAL,
+        "bank_account_id": str(BANK_ACCOUNT_ID),
+    }
 
     # Act
     use_case.execute(prompt_button.id, details)
@@ -360,7 +360,7 @@ def test_execute_logs_the_name_the_tap_supplied(
 ) -> None:
     # Arrange - the button's name is a label for the tile, not a fixed payment
     # name: one "Groceries" tap is a big shop, the next is a pint of milk
-    details = log_quick_payment.QuickPaymentDetails(name="Tesco big shop")
+    details = {"name": "Tesco big shop"}
 
     # Act
     use_case.execute(quick_button.id, details)
@@ -418,11 +418,11 @@ def test_execute_lets_the_tap_override_a_preset_payment_name(
         mode=entities.QuickButtonMode.PROMPT,
     )
     use_case = build_use_case(buttons=build_repo([button]))
-    details = log_quick_payment.QuickPaymentDetails(
-        name="Corner shop milk",
-        expense=SHOP_TOTAL,
-        bank_account_id=BANK_ACCOUNT_ID,
-    )
+    details = {
+        "name": "Corner shop milk",
+        "expense": SHOP_TOTAL,
+        "bank_account_id": str(BANK_ACCOUNT_ID),
+    }
 
     # Act
     use_case.execute(button.id, details)
@@ -439,10 +439,10 @@ def test_execute_does_not_lend_a_prompt_buttons_label_to_its_payment(
     # Arrange - "Groceries" names the button; a payment logged through its form
     # is told its own name, and the label is not an answer to that question
     use_case = build_use_case(buttons=build_repo([prompt_button]))
-    details = log_quick_payment.QuickPaymentDetails(
-        expense=SHOP_TOTAL,
-        bank_account_id=BANK_ACCOUNT_ID,
-    )
+    details = {
+        "expense": SHOP_TOTAL,
+        "bank_account_id": str(BANK_ACCOUNT_ID),
+    }
 
     # Act / Assert
     with pytest.raises(errors.IncompleteQuickPaymentError) as exc_info:
@@ -464,10 +464,10 @@ def test_execute_uses_a_prompt_buttons_preset_payment_name(
         mode=entities.QuickButtonMode.PROMPT,
     )
     use_case = build_use_case(buttons=build_repo([button]))
-    details = log_quick_payment.QuickPaymentDetails(
-        expense=SHOP_TOTAL,
-        bank_account_id=BANK_ACCOUNT_ID,
-    )
+    details = {
+        "expense": SHOP_TOTAL,
+        "bank_account_id": str(BANK_ACCOUNT_ID),
+    }
 
     # Act
     use_case.execute(button.id, details)
