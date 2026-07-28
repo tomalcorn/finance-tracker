@@ -1,3 +1,9 @@
+## v1.3.0 (2026-07-28)
+
+### Feat
+
+- **quick-expenses**: mobile quick-entry page with configurable buttons (#60) (#207)
+
 ## v1.2.0 (2026-07-26)
 
 ### Feat
