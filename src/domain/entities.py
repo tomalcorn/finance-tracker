@@ -353,6 +353,35 @@ class QuickButtonModel(FinanceTrackerBaseModel):
         return self
 
 
+class IncomeRollUpPeriod(enum.StrEnum):
+    """Which month's income payments an income source totals up.
+
+    The expense side is always the current month; this moves only the income
+    window, so ``PREVIOUS_MONTH`` means "budget this month against last month's
+    pay" — the shape of it for anyone paid at the end of the month.
+    """
+
+    CURRENT_MONTH = enum.auto()
+    PREVIOUS_MONTH = enum.auto()
+
+
+class UserSettingsModel(FinanceTrackerBaseModel):
+    """Model representing the preferences for one half of a user's finances.
+
+    One row per configurable scope, not per user: ``PERSONAL`` settings belong
+    to the user, ``JOINT`` settings to the account they share, so the two halves
+    are configured independently. ``name`` is inherited but unused — a settings
+    row is not a named thing — and stays empty.
+    """
+
+    income_roll_up_period: Annotated[
+        IncomeRollUpPeriod,
+        pydantic.Field(
+            description="The month income sources total their payments over.",
+        ),
+    ] = IncomeRollUpPeriod.CURRENT_MONTH
+
+
 class JointAccountModel(pydantic.BaseModel):
     """Model representing a joint (shared) account.
 

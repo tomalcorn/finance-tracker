@@ -16,6 +16,7 @@ from use_cases import (
     initialise_joint_workspace,
     initialise_workspace,
     log_quick_payment,
+    manage_user_settings,
     reconcile_subscriptions,
     summarise_finances,
 )
@@ -110,6 +111,13 @@ def quick_button_repository(
     every other aggregate is written with.
     """
     return supabase_repos.quick_button_repository(*_repo_deps(), ownership)
+
+
+def user_settings_repository(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "repository.Repository[entities.UserSettingsModel]":
+    """Repository for the preferences of one half of the user's finances."""
+    return supabase_repos.user_settings_repository(*_repo_deps(), ownership)
 
 
 def joint_account_repository() -> "repository.Repository[entities.JointAccountModel]":
@@ -319,6 +327,35 @@ def log_quick_payment_use_case(
         quick_button_repo=supabase_repos.quick_button_repository(*deps, ownership),
         payment_repo=supabase_repos.payment_repository(*deps, ownership),
     )
+
+
+def manage_user_settings_use_case(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> manage_user_settings.ManageUserSettingsUseCase:
+    """Build ManageUserSettingsUseCase for one half's preferences.
+
+    The ownership argument is the whole of what separates the personal and
+    joint settings: the settings page builds one of these per half and each
+    reads and writes only its own row.
+    """
+    return manage_user_settings.ManageUserSettingsUseCase(
+        settings_repo=supabase_repos.user_settings_repository(
+            *_repo_deps(),
+            ownership,
+        ),
+    )
+
+
+def income_roll_up_period(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> entities.IncomeRollUpPeriod:
+    """Return the month income sources roll up over in this half.
+
+    The dashboards need it only to label the income column, so this hands back
+    the one setting rather than the whole row. It reads through the same cache
+    entry the settings page fills, so it costs no extra fetch after the first.
+    """
+    return manage_user_settings_use_case(ownership).load().income_roll_up_period
 
 
 def bank_one_offs_use_case(

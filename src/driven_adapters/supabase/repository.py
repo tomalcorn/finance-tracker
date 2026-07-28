@@ -491,6 +491,34 @@ def quick_button_repository(
     )
 
 
+def user_settings_repository(
+    user_id: str,
+    cache: "cache_mod.CacheGateway",
+    connection: "st_supabase_connection.SupabaseConnection",
+    ownership: entities.OwnershipType,
+) -> SupabaseRepository[entities.UserSettingsModel, read_models.UserSettingsView]:
+    """Build the user-settings repository.
+
+    Settings have no SQL view, so reads hit the raw table. Ownership-scoped like
+    every other owned aggregate, which is exactly what keeps the personal and
+    joint preferences apart: a ``JOINT`` repository reads and writes the one row
+    belonging to the account, under the account-derived cache key both members
+    resolve, so either member's change reaches the other.
+    """
+    return SupabaseRepository(
+        user_id,
+        RepoSpec(
+            parse=entities.UserSettingsModel.model_validate,
+            view_model=read_models.UserSettingsView,
+            read_table=table_names.TableNames.USER_SETTINGS,
+            write_table=table_names.TableNames.USER_SETTINGS,
+        ),
+        cache,
+        connection,
+        ownership,
+    )
+
+
 def joint_account_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
