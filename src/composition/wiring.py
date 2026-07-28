@@ -15,6 +15,7 @@ from use_cases import (
     contribute_to_joint,
     initialise_joint_workspace,
     initialise_workspace,
+    log_quick_payment,
     reconcile_subscriptions,
     summarise_finances,
 )
@@ -96,6 +97,19 @@ def subscription_data_source(
 ) -> "data_source_mod.GridDataSource":
     """GridDataSource for the subscriptions DFE."""
     return supabase_repos.subscription_repository(*_repo_deps(), ownership)
+
+
+def quick_button_repository(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> "repository.Repository[entities.QuickButtonModel]":
+    """Repository for the current user's quick-entry buttons.
+
+    Handed to the UI as the plain ``Repository`` port rather than a
+    ``GridDataSource``: the quick-expenses page renders tiles, not a grid, and
+    manages its buttons through the same read / build / save / delete surface
+    every other aggregate is written with.
+    """
+    return supabase_repos.quick_button_repository(*_repo_deps(), ownership)
 
 
 def joint_account_repository() -> "repository.Repository[entities.JointAccountModel]":
@@ -288,6 +302,22 @@ def summarise_finances_use_case(
             ownership,
         ),
         payment_source=supabase_repos.payment_repository(*deps, ownership),
+    )
+
+
+def log_quick_payment_use_case(
+    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+) -> log_quick_payment.LogQuickPaymentUseCase:
+    """Build LogQuickPaymentUseCase wired to Supabase repositories.
+
+    Both repositories are built in the same ownership mode, so a tap on the
+    joint half of the page writes a joint payment and a tap on the personal half
+    a personal one.
+    """
+    deps = _repo_deps()
+    return log_quick_payment.LogQuickPaymentUseCase(
+        quick_button_repo=supabase_repos.quick_button_repository(*deps, ownership),
+        payment_repo=supabase_repos.payment_repository(*deps, ownership),
     )
 
 

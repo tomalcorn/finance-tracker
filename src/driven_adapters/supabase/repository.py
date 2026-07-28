@@ -467,6 +467,30 @@ def subscription_repository(
     )
 
 
+def quick_button_repository(
+    user_id: str,
+    cache: "cache_mod.CacheGateway",
+    connection: "st_supabase_connection.SupabaseConnection",
+    ownership: entities.OwnershipType,
+) -> SupabaseRepository[entities.QuickButtonModel, read_models.QuickButtonView]:
+    """Build the quick-buttons repository.
+
+    Quick buttons have no SQL view, so reads hit the raw table.
+    """
+    return SupabaseRepository(
+        user_id,
+        RepoSpec(
+            parse=entities.QuickButtonModel.model_validate,
+            view_model=read_models.QuickButtonView,
+            read_table=table_names.TableNames.QUICK_BUTTONS,
+            write_table=table_names.TableNames.QUICK_BUTTONS,
+        ),
+        cache,
+        connection,
+        ownership,
+    )
+
+
 def joint_account_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",

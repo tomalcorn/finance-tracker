@@ -64,6 +64,7 @@ pg = st.navigation(
         "": [
             constants.Pages.PERSONAL.value,
             constants.Pages.JOINT.value,
+            constants.Pages.QUICK_EXPENSES.value,
             constants.Pages.LOGIN.value,
         ],
         ":material/docs: Docs": docs_ui.build_pages(),

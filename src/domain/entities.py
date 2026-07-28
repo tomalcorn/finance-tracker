@@ -269,6 +269,90 @@ class IncomePaymentModel(_PaymentBaseModel):
     ] = None
 
 
+class QuickButtonMode(enum.StrEnum):
+    """What tapping a quick button does."""
+
+    LOG = enum.auto()
+    """Log the preset immediately."""
+
+    PROMPT = enum.auto()
+    """Open a payment form pre-filled with whatever the preset holds."""
+
+
+class QuickButtonModel(FinanceTrackerBaseModel):
+    """Model representing a preset expense behind a quick-entry button.
+
+    Two things are named here, and they are not the same thing. ``name`` labels
+    the *button* and is always required — a tile has to say what it is. The
+    payment fields below are the preset it fills a payment in with, and are
+    optional, because a ``PROMPT`` button exists precisely to leave the varying
+    parts blank until it is tapped. A ``LOG`` button has no such second chance,
+    so the fields a payment cannot be written without are required of it — see
+    :meth:`_check_loggable`.
+    """
+
+    name: Annotated[
+        str,
+        pydantic.Field(description="The label shown on the button.", min_length=1),
+    ]
+    payment_name: Annotated[
+        str | None,
+        pydantic.Field(
+            description=(
+                "The name to log the payment under. Defaults to the button's own "
+                "label when unset."
+            ),
+        ),
+    ] = None
+    mode: Annotated[
+        QuickButtonMode,
+        pydantic.Field(description="Whether a tap logs the preset or asks first."),
+    ] = QuickButtonMode.LOG
+    expense: Annotated[
+        float | None,
+        pydantic.Field(description="The expense amount a tap logs.", gt=0),
+    ] = None
+    bank_account_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The bank account the payment comes from."),
+    ] = None
+    expense_source_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The expense source the payment is booked to."),
+    ] = None
+    icon: Annotated[
+        str | None,
+        pydantic.Field(description="An optional emoji shown before the name."),
+    ] = None
+    display_order: Annotated[
+        pydantic.NonNegativeInt,
+        pydantic.Field(description="Position of the button in the grid."),
+    ] = 0
+
+    @pydantic.model_validator(mode="after")
+    def _check_loggable(self) -> Self:
+        """Ensure a one-tap button holds everything a payment needs.
+
+        Raises:
+            IncompleteQuickButtonError: The button logs on tap but is missing a
+                field the payment cannot be written without.
+
+        """
+        if self.mode is not QuickButtonMode.LOG:
+            return self
+        missing = [
+            field
+            for field, value in (
+                ("expense", self.expense),
+                ("bank_account_id", self.bank_account_id),
+            )
+            if value is None
+        ]
+        if missing:
+            raise errors.IncompleteQuickButtonError(self.name, missing)
+        return self
+
+
 class JointAccountModel(pydantic.BaseModel):
     """Model representing a joint (shared) account.
 

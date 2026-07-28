@@ -97,3 +97,33 @@ class SummaryReadError(SummaryError):
         """Construct SummaryReadError."""
         self.aggregate = aggregate
         super().__init__(f"Could not read {aggregate} to summarise.")
+
+
+class QuickPaymentError(UseCaseError):
+    """Base error for the log_quick_payment use case."""
+
+
+class QuickButtonNotFoundError(QuickPaymentError):
+    """Error when the tapped quick button no longer exists."""
+
+    def __init__(self, button_id: str) -> None:
+        """Construct QuickButtonNotFoundError."""
+        self.button_id = button_id
+        super().__init__(f"No quick button with id {button_id!r}.")
+
+
+class IncompleteQuickPaymentError(QuickPaymentError):
+    """Error when a tap leaves a payment field neither preset nor supplied."""
+
+    def __init__(self, button_name: str, missing: list[str]) -> None:
+        """Construct IncompleteQuickPaymentError."""
+        self.button_name = button_name
+        self.missing = missing
+        joined = ", ".join(missing)
+        super().__init__(
+            f"Quick button {button_name!r} cannot log a payment without {joined}.",
+        )
+
+
+class QuickPaymentWriteError(QuickPaymentError):
+    """Error when a repository operation in the quick-payment flow fails."""

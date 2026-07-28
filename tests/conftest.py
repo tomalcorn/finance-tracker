@@ -133,15 +133,22 @@ class FakeRepository[E: pydantic.BaseModel](repository.Repository[E]):
         self.edits: list[entities.EditedRows] = []
         self.deleted: list[str] = []
         self.save_error: Exception | None = None
+        # The read counterpart of save_error: set it to make every read fail the
+        # way a repository does at the port boundary.
+        self.read_error: Exception | None = None
 
     def seed(self, *items: E) -> None:
         """Pre-load rows without recording them as saves."""
         self._items.extend(items)
 
     def get_all(self) -> list[E]:
+        if self.read_error is not None:
+            raise self.read_error
         return list(self._items)
 
     def get_by_ids(self, ids: list[uuid.UUID]) -> list[E]:
+        if self.read_error is not None:
+            raise self.read_error
         wanted = {str(i) for i in ids}
         return [item for item in self._items if str(getattr(item, "id", "")) in wanted]
 

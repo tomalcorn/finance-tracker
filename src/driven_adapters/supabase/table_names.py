@@ -17,6 +17,7 @@ class TableNames(enum.StrEnum):
     ONE_OFFS = enum.auto()
     INCOME_SOURCES = enum.auto()
     SUBSCRIPTIONS = enum.auto()
+    QUICK_BUTTONS = enum.auto()
     JOINT_ACCOUNTS = enum.auto()
     JOINT_ACCOUNT_MEMBERS = enum.auto()
 
@@ -59,6 +60,9 @@ VIEWS_AFFECTED_BY: dict[TableNames, list[ViewNames]] = {
         ViewNames.EXPENSE_SOURCES,
         ViewNames.BUDGET_TRACKER,
     ],
+    # QUICK_BUTTONS feeds no views: a button is a preset, not a transaction, so
+    # nothing is computed from one until a tap writes the payment it describes.
+    #
     # JOINT_ACCOUNTS and JOINT_ACCOUNT_MEMBERS feed no views: the aggregate
     # views surface each row's own ownership_type / joint_account_id columns but
     # never join the joint tables, so a write to them invalidates no view.

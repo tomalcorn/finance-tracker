@@ -10,5 +10,7 @@ class SSKeys(enum.StrEnum):
     JOINT_WORKSPACE_INITIALISED = enum.auto()
     AUTH_CREDENTIALS_EXP = enum.auto()
     COL_CONFIGS = enum.auto()
+    QUICK_BUTTONS_REMOVE_ARMED = enum.auto()
+    QUICK_BUTTONS_TOAST = enum.auto()
     DELETED_ROWS = enum.auto()
     EDITED_ROWS = enum.auto()
