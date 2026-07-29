@@ -66,7 +66,7 @@ def _build_app_tester(
     return _build
 
 
-def test_the_radio_opens_on_the_stored_period(
+def test_the_selectbox_opens_on_the_stored_period(
     build_app_tester: "AppTesterBuilder",
 ) -> None:
     # Arrange
@@ -80,32 +80,31 @@ def test_the_radio_opens_on_the_stored_period(
     app_tester.run()
 
     # Assert
-    assert app_tester.radio[0].value is _PREVIOUS
+    assert app_tester.selectbox[0].value is _PREVIOUS
 
 
-def test_save_is_disabled_until_something_changes(
+def test_the_stored_period_is_not_rewritten_on_load(
     build_app_tester: "AppTesterBuilder",
 ) -> None:
     # Arrange
-    app_tester, _ = build_app_tester()
+    app_tester, repo = build_app_tester()
 
     # Act
     app_tester.run()
 
-    # Assert
-    assert app_tester.button[0].disabled
+    # Assert - merely rendering the block writes nothing.
+    assert repo.saved == []
 
 
-def test_saving_writes_the_chosen_period(
+def test_changing_the_period_writes_it(
     build_app_tester: "AppTesterBuilder",
 ) -> None:
     # Arrange
     app_tester, repo = build_app_tester()
     app_tester.run()
 
-    # Act
-    app_tester.radio[0].set_value(_PREVIOUS).run()
-    app_tester.button[0].click().run()
+    # Act - no Save button; changing the selection is the write.
+    app_tester.selectbox[0].set_value(_PREVIOUS).run()
 
     # Assert
     assert [row.income_roll_up_period for row in repo.saved] == [_PREVIOUS]
@@ -124,7 +123,7 @@ def test_the_two_halves_do_not_share_widget_state(
     joint.run()
 
     # Assert
-    assert personal.radio[0].key != joint.radio[0].key
+    assert personal.selectbox[0].key != joint.selectbox[0].key
 
 
 def test_a_failed_save_is_reported_rather_than_raised(
@@ -138,19 +137,18 @@ def test_a_failed_save_is_reported_rather_than_raised(
     repo.save_error = port_errors.RepositoryError("boom")
 
     # Act
-    app_tester.radio[0].set_value(_PREVIOUS).run()
-    app_tester.button[0].click().run()
+    app_tester.selectbox[0].set_value(_PREVIOUS).run()
 
     # Assert
     assert not app_tester.exception
     assert app_tester.error
 
 
-def test_a_period_that_is_already_set_is_not_rewritten(
+def test_reselecting_the_stored_period_writes_nothing(
     build_app_tester: "AppTesterBuilder",
 ) -> None:
-    # Arrange - selecting away and back leaves Save enabled only while the
-    # choice differs, so the write path is never reached for a no-op.
+    # Arrange - selecting the value that is already stored is a no-op the write
+    # path must never reach.
     stored = entities.UserSettingsModel(
         user_id=USER_ID,
         income_roll_up_period=_CURRENT,
@@ -159,9 +157,7 @@ def test_a_period_that_is_already_set_is_not_rewritten(
     app_tester.run()
 
     # Act
-    app_tester.radio[0].set_value(_PREVIOUS).run()
-    app_tester.radio[0].set_value(_CURRENT).run()
+    app_tester.selectbox[0].set_value(_CURRENT).run()
 
     # Assert
-    assert app_tester.button[0].disabled
     assert repo.saved == []

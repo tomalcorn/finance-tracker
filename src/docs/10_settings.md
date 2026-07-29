@@ -57,6 +57,5 @@ one-offs are all untouched.
 
 ## Saving
 
-A change takes effect when you press **Save**, which stays greyed out until
-there is something to save. The dashboards pick it up the next time you open
-them.
+A change takes effect as soon as you pick a different month — there's no Save
+button. The dashboards pick it up the next time you open them.

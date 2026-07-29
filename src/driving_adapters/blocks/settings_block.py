@@ -5,9 +5,9 @@ it twice — once with a personal use case, once with a joint one — so the two
 halves are independent all the way down: separate rows, separate cache entries,
 separate controls.
 
-A change is applied only when Save is pressed. The alternative, writing on every
-radio click, would restate the income and budget-tracker figures mid-thought for
-someone who is only reading the options.
+A change is written as soon as the selection differs from what is stored; there
+is no explicit Save. The use case guards the no-op, so reselecting the current
+value writes nothing.
 """
 
 import logging
@@ -26,16 +26,6 @@ _PERIOD_LABELS: dict[entities.IncomeRollUpPeriod, str] = {
     entities.IncomeRollUpPeriod.PREVIOUS_MONTH: "Last month",
 }
 
-_PERIOD_CAPTIONS: dict[entities.IncomeRollUpPeriod, str] = {
-    entities.IncomeRollUpPeriod.CURRENT_MONTH: (
-        "Income sources total the payments dated in the current month."
-    ),
-    entities.IncomeRollUpPeriod.PREVIOUS_MONTH: (
-        "Income sources total the payments dated in the month before this one — "
-        "for pay that arrives at the end of the month and funds the next."
-    ),
-}
-
 _INCOME_HELP = (
     "The budget tracker's Split is each tracker's budget as a share of the "
     "income feeding it. This chooses which month's income that is. Spending is "
@@ -44,7 +34,7 @@ _INCOME_HELP = (
 
 
 def _period_label(period: entities.IncomeRollUpPeriod | str) -> str:
-    """Return the radio label for a period."""
+    """Return the selectbox label for a period."""
     return _PERIOD_LABELS[entities.IncomeRollUpPeriod(period)]
 
 
@@ -97,25 +87,22 @@ def render(
     settings = use_case.load()
     key = f"settings_{ownership.value}_income_roll_up_period"
 
-    st.markdown("**Income roll-up month**")
-    selected = st.radio(
+    label_col, control_col = st.columns(2, vertical_alignment="center")
+    label_col.markdown("**Income roll-up month**")
+    selected = control_col.selectbox(
         "Income roll-up month",
         options=list(entities.IncomeRollUpPeriod),
         index=list(entities.IncomeRollUpPeriod).index(settings.income_roll_up_period),
         format_func=_period_label,
-        horizontal=True,
         label_visibility="collapsed",
         help=_INCOME_HELP,
         key=key,
     )
     period = entities.IncomeRollUpPeriod(selected)
-    st.caption(_PERIOD_CAPTIONS[period])
 
-    unchanged = period is settings.income_roll_up_period
-    if st.button(
-        "Save",
-        type="primary",
-        disabled=unchanged,
-        key=f"{key}_save",
-    ) and _save(use_case, period, ownership):
+    if period is not settings.income_roll_up_period and _save(
+        use_case,
+        period,
+        ownership,
+    ):
         st.rerun()
