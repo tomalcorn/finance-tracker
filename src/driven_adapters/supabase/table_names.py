@@ -18,6 +18,7 @@ class TableNames(enum.StrEnum):
     INCOME_SOURCES = enum.auto()
     SUBSCRIPTIONS = enum.auto()
     QUICK_BUTTONS = enum.auto()
+    USER_SETTINGS = enum.auto()
     JOINT_ACCOUNTS = enum.auto()
     JOINT_ACCOUNT_MEMBERS = enum.auto()
 
@@ -58,6 +59,13 @@ VIEWS_AFFECTED_BY: dict[TableNames, list[ViewNames]] = {
     TableNames.BUDGET_TRACKER: [
         ViewNames.ONE_OFFS,
         ViewNames.EXPENSE_SOURCES,
+        ViewNames.BUDGET_TRACKER,
+    ],
+    # A settings row is not summed into anything, but it decides which month
+    # income_sources_view rolls its payments up over — and budget_tracker_view's
+    # `split` divides by that total — so changing one restates both.
+    TableNames.USER_SETTINGS: [
+        ViewNames.INCOME_SOURCES,
         ViewNames.BUDGET_TRACKER,
     ],
     # QUICK_BUTTONS feeds no views: a button is a preset, not a transaction, so
