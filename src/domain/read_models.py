@@ -123,8 +123,31 @@ class IncomeSourceView(_ViewBase):
     ]
     current_month: Annotated[
         float,
-        pydantic.Field(description="Sum of income payments in the current month."),
+        pydantic.Field(
+            description="Sum of income payments in the rolled-up month.",
+        ),
     ]
+    income_roll_up_period: Annotated[
+        entities.IncomeRollUpPeriod,
+        pydantic.Field(
+            description="The month ``current_month`` was totalled over.",
+        ),
+    ] = entities.IncomeRollUpPeriod.CURRENT_MONTH
+
+
+class UserSettingsView(_ViewBase):
+    """Read model for user_settings rows.
+
+    Settings have no SQL view — this reads the raw ``user_settings`` table, so
+    it carries no computed columns.
+    """
+
+    income_roll_up_period: Annotated[
+        entities.IncomeRollUpPeriod,
+        pydantic.Field(
+            description="The month income sources total their payments over.",
+        ),
+    ] = entities.IncomeRollUpPeriod.CURRENT_MONTH
 
 
 class SubscriptionView(_ViewBase):
