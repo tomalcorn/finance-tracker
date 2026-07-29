@@ -1,3 +1,9 @@
+## v1.6.0 (2026-07-29)
+
+### Feat
+
+- **settings**: add ManageUserSettingsUseCase and its wiring (#216)
+
 ## v1.5.0 (2026-07-29)
 
 ### Feat
