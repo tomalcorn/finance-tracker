@@ -19,6 +19,7 @@ class PagePaths(enum.StrEnum):
     PERSONAL = "personal"
     JOINT = "joint"
     QUICK_EXPENSES = "quick"
+    SETTINGS = "settings"
     LOGIN = "login"
 
 
@@ -42,6 +43,12 @@ class Pages(enum.Enum):
         title="Quick Expenses",
         icon=":material/bolt:",
         url_path=PagePaths.QUICK_EXPENSES,
+    )
+    SETTINGS = st.Page(
+        "driving_adapters/pages/settings.py",
+        title="Settings",
+        icon=":material/settings:",
+        url_path=PagePaths.SETTINGS,
     )
     LOGIN = st.Page(
         "driving_adapters/pages/login.py",
