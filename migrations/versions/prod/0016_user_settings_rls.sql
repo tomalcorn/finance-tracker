@@ -1,6 +1,6 @@
--- 0015_user_settings_rls
+-- 0016_user_settings_rls
 --
--- Row-level security for user_settings, the table added in 0014.
+-- Row-level security for user_settings, the table added in 0015.
 --
 -- The same joint-aware shape every owned table carries (see
 -- versions/prod/0005_enable_rls.sql): a row is admitted when it is the caller's

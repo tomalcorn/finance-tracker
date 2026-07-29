@@ -1,4 +1,4 @@
--- 0014_user_settings
+-- 0015_user_settings
 --
 -- Per-user preferences, and the first one: which month an income source rolls
 -- its payments up over.
@@ -23,8 +23,13 @@
 -- No view of its own: a settings row has no computed columns, so reads hit the
 -- table directly (like payments, quick_buttons, and the joint tables).
 --
+-- Every existing scope is backfilled with a row at the default, so a settings
+-- row is something that always exists rather than something a first edit brings
+-- into existence. The app seeds one for every scope created afterwards.
+--
 -- Statements are idempotent (CREATE TABLE IF NOT EXISTS / DROP ... IF EXISTS
--- before ADD / CREATE OR REPLACE VIEW) so a partial or repeated apply is safe.
+-- before ADD / CREATE OR REPLACE VIEW / guarded INSERT) so a partial or
+-- repeated apply is safe.
 
 CREATE TABLE IF NOT EXISTS user_settings (
     id UUID PRIMARY KEY,
@@ -65,6 +70,59 @@ CREATE UNIQUE INDEX user_settings_joint_account_unique
     ON user_settings (joint_account_id)
     WHERE ownership_type = 'joint';
 
+-- Backfill one row per existing scope, at the default. `income_roll_up_period`
+-- is left to the column default deliberately: the backfill's job is to make the
+-- default explicit, not to choose anything, so every row it writes says exactly
+-- what a missing row would have said and no figure moves.
+--
+-- Both statements are guarded by NOT EXISTS and carry a bare ON CONFLICT DO
+-- NOTHING — no conflict target, so it covers the partial unique indexes above,
+-- which an inferred target cannot. Re-applying, or applying after the app has
+-- already seeded a scope, changes nothing.
+--
+-- There is no users table: the roster is the distinct owners of personal budget
+-- tracker rows, which workspace initialisation has created for every user who
+-- has ever logged in.
+INSERT INTO user_settings (id, user_id, ownership_type)
+SELECT gen_random_uuid(), owners.user_id, 'personal'
+FROM (
+    SELECT DISTINCT user_id
+    FROM budget_tracker
+    WHERE ownership_type = 'personal'
+) owners
+WHERE NOT EXISTS (
+    SELECT 1 FROM user_settings us
+    WHERE us.ownership_type = 'personal'
+      AND us.user_id = owners.user_id
+)
+ON CONFLICT DO NOTHING;
+
+-- The joint row belongs to the *account*; `user_id` on it is only ever the
+-- member who stamped it, so any member will do — the earliest, for determinism.
+-- An account with no members is skipped rather than inserting a NULL user_id.
+INSERT INTO user_settings (id, user_id, ownership_type, joint_account_id)
+SELECT
+    gen_random_uuid(),
+    (
+        SELECT m.user_id
+        FROM joint_account_members m
+        WHERE m.joint_account_id = ja.id
+        ORDER BY m._created_at, m.id
+        LIMIT 1
+    ),
+    'joint',
+    ja.id
+FROM joint_accounts ja
+WHERE EXISTS (
+    SELECT 1 FROM joint_account_members m WHERE m.joint_account_id = ja.id
+)
+AND NOT EXISTS (
+    SELECT 1 FROM user_settings us
+    WHERE us.ownership_type = 'joint'
+      AND us.joint_account_id = ja.id
+)
+ON CONFLICT DO NOTHING;
+
 -- Replace income_sources_view so its month window is the configured one.
 --
 -- The existing columns keep their names, types, and order — CREATE OR REPLACE
@@ -72,9 +130,11 @@ CREATE UNIQUE INDEX user_settings_joint_account_unique
 -- this view's `current_month`. `income_roll_up_period` is appended so a reader
 -- can tell which window produced the number without a second query.
 --
--- A user with no settings row (everyone, until they change something) falls
--- through the LEFT JOIN as NULL and is COALESCEd to 'current_month', so this
--- migration changes no existing figure.
+-- A scope with no settings row falls through the LEFT JOIN as NULL and is
+-- COALESCEd to 'current_month'. The backfill above means that is rare rather
+-- than universal, but it must stay: a joint account created after this ran has
+-- no row until its next login seeds one. Either way the figure is the same, so
+-- this migration changes nothing.
 CREATE OR REPLACE VIEW income_sources_view WITH (security_invoker = on) AS
 SELECT
     "income_sources".id,
