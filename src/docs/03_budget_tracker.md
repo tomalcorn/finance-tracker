@@ -35,7 +35,14 @@ usually the place where you model categories like groceries, transport, rent, or
 ### Income Sources Tab
 
 Income sources are the mirror image for inflows. They show how much income was
-received this month and which budget tracker rows that income supports.
+received in the roll-up month and which budget tracker rows that income
+supports.
+
+By default the roll-up month is the current one. If you are paid at the end of
+the month, so that each month runs on the previous month's pay, you can move the
+income roll-up back a month in [Settings](/user_settings) — the column then reads
+`Previous Month` and the `Split` below is worked out against it. Spending stays
+on the current month either way. Personal and joint are set separately.
 
 ## Schema
 
@@ -63,7 +70,7 @@ received this month and which budget tracker rows that income supports.
 
 | Column | Meaning |
 | --- | --- |
-| `Current Month` | The sum of income payments linked to that source. |
+| `Current Month` / `Previous Month` | The sum of income payments linked to that source, over whichever month the [income roll-up setting](/user_settings) selects. |
 | `Budget Tracker IDs` | The tracker rows that this income supports. |
 
 ## How The Links Work
