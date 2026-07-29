@@ -1,3 +1,9 @@
+## v1.4.0 (2026-07-29)
+
+### Feat
+
+- **settings**: add user_settings and window income_sources_view by it (#214)
+
 ## v1.3.0 (2026-07-28)
 
 ### Feat
