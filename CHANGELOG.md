@@ -1,3 +1,9 @@
+## v1.5.0 (2026-07-29)
+
+### Feat
+
+- **settings**: add the user settings entity, read models, and repository (#215)
+
 ## v1.4.0 (2026-07-29)
 
 ### Feat
