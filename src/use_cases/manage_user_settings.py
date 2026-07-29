@@ -1,9 +1,10 @@
 """Use case for reading and changing one half's preferences.
 
-A settings row is created lazily: until something is changed there is nothing
-stored, and every read answers with the defaults. That keeps the workspace
-initialisers out of it — no migration or seeding step has to invent a row for
-every existing user — at the cost of the small dance in :meth:`load`.
+Workspace init seeds a settings row at the default (#220), so in practice a row
+is already there. :meth:`load` keeps its no-row fallback defensively all the
+same: seeding runs once per session, so an account created mid-session has no
+row until the next login, and the value seeded *is* the default, so a missing
+row and a seeded-but-unchanged one answer identically.
 
 The repository is ownership-scoped, so which half is being configured is
 decided once, at wiring time: a ``PERSONAL`` repository loads and saves the

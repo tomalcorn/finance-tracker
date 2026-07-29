@@ -33,6 +33,7 @@ JOINT_HIDDEN_BT_NAMES = {
 
 type BtRepo = conftest.FakeRepository[entities.BudgetTrackerItemModel]
 type EsRepo = conftest.FakeRepository[entities.ExpenseSourceModel]
+type SettingsRepo = conftest.FakeRepository[entities.UserSettingsModel]
 UseCaseBuilder = Callable[..., InitialiseJointWorkspaceUseCase]
 
 
@@ -46,6 +47,24 @@ def bt_repo(build_repo: "conftest.RepoBuilder") -> BtRepo:
 def es_repo(build_repo: "conftest.RepoBuilder") -> EsRepo:
     """Return the expense sources repository in joint mode."""
     return build_repo()
+
+
+@pytest.fixture
+def settings_repo(build_repo: "conftest.RepoBuilder") -> SettingsRepo:
+    """Return the settings repository in joint mode.
+
+    Given the real parser and joint ownership context so its ``build_entities``
+    gate stamps the account id on the default row, as the live joint repository
+    resolves and stamps it itself.
+    """
+    return build_repo(
+        parse=entities.UserSettingsModel.model_validate,
+        context={
+            "user_id": USER_ID,
+            "ownership_type": entities.OwnershipType.JOINT,
+            "joint_account_id": JOINT_ACCOUNT_ID,
+        },
+    )
 
 
 @pytest.fixture
@@ -73,13 +92,15 @@ def build_use_case(
     build_repo: "conftest.RepoBuilder",
     bt_repo: BtRepo,
     es_repo: EsRepo,
+    settings_repo: SettingsRepo,
     joint_account: entities.JointAccountModel,
 ) -> UseCaseBuilder:
     """Return a builder for the use case wired to the standard collaborators.
 
     A test overrides exactly the collaborator it wants to vary (an empty
     account list, or a repository that fails on write) and inherits the rest,
-    including the ``bt_repo``/``es_repo`` fixtures the test seeds and inspects.
+    including the ``bt_repo``/``es_repo``/``settings_repo`` fixtures the test
+    seeds and inspects.
     """
 
     def _build(
@@ -94,6 +115,7 @@ def build_use_case(
             joint_account_repo=build_repo(
                 [joint_account] if accounts is None else accounts,
             ),
+            settings_repo=settings_repo,
         )
 
     return _build
@@ -289,6 +311,92 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set_and_persisted(
 
 
 # ---------------------------------------------------------------------------
+# Settings seeding
+# ---------------------------------------------------------------------------
+
+
+def test_default_settings_row_created_for_the_account(
+    use_case: InitialiseJointWorkspaceUseCase,
+    settings_repo: SettingsRepo,
+) -> None:
+    # Arrange / Act
+    use_case.execute()
+
+    # Assert
+    rows = settings_repo.get_all()
+    assert all(
+        [
+            len(rows) == 1,
+            rows[0].income_roll_up_period is entities.IncomeRollUpPeriod.CURRENT_MONTH,
+        ],
+    )
+
+
+def test_created_settings_row_is_joint_stamped(
+    use_case: InitialiseJointWorkspaceUseCase,
+    settings_repo: SettingsRepo,
+) -> None:
+    # Arrange / Act
+    use_case.execute()
+
+    # Assert
+    row = settings_repo.get_all()[0]
+    assert all(
+        [
+            row.ownership_type is entities.OwnershipType.JOINT,
+            row.joint_account_id == JOINT_ACCOUNT_ID,
+        ],
+    )
+
+
+def test_no_settings_row_created_when_one_already_exists(
+    use_case: InitialiseJointWorkspaceUseCase,
+    settings_repo: SettingsRepo,
+) -> None:
+    # Arrange
+    settings_repo.seed(
+        entities.UserSettingsModel(
+            user_id=USER_ID,
+            ownership_type=entities.OwnershipType.JOINT,
+            joint_account_id=JOINT_ACCOUNT_ID,
+        ),
+    )
+
+    # Act
+    use_case.execute()
+
+    # Assert - the write list is empty and the single row is untouched
+    assert all([settings_repo.saved == [], len(settings_repo.get_all()) == 1])
+
+
+def test_existing_non_default_settings_row_is_not_overwritten(
+    use_case: InitialiseJointWorkspaceUseCase,
+    settings_repo: SettingsRepo,
+) -> None:
+    # Arrange - a row carrying a non-default period must survive create-if-missing
+    settings_repo.seed(
+        entities.UserSettingsModel(
+            user_id=USER_ID,
+            ownership_type=entities.OwnershipType.JOINT,
+            joint_account_id=JOINT_ACCOUNT_ID,
+            income_roll_up_period=entities.IncomeRollUpPeriod.PREVIOUS_MONTH,
+        ),
+    )
+
+    # Act
+    use_case.execute()
+
+    # Assert
+    rows = settings_repo.get_all()
+    assert all(
+        [
+            settings_repo.saved == [],
+            rows[0].income_roll_up_period is entities.IncomeRollUpPeriod.PREVIOUS_MONTH,
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
 # Error handling
 # ---------------------------------------------------------------------------
 
@@ -297,6 +405,7 @@ def test_no_joint_account_seeds_nothing(
     build_use_case: UseCaseBuilder,
     bt_repo: BtRepo,
     es_repo: EsRepo,
+    settings_repo: SettingsRepo,
 ) -> None:
     # Arrange - a user in no joint account has nothing to seed, so this is a
     # no-op rather than a failure: the entry point runs it for every user.
@@ -306,7 +415,9 @@ def test_no_joint_account_seeds_nothing(
     use_case.execute()
 
     # Assert
-    assert all([bt_repo.saved == [], es_repo.saved == []])
+    assert all(
+        [bt_repo.saved == [], es_repo.saved == [], settings_repo.saved == []],
+    )
 
 
 def test_repository_failure_raises_joint_data_access_error(

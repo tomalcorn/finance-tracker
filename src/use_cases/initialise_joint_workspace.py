@@ -1,10 +1,10 @@
 """Joint workspace initialisation.
 
-Seeds default budget trackers and hidden expense sources for a joint account,
-stamping joint ownership on every row it creates. The personal-side "Joint"
-budget tracker and its hidden expense source are deliberately absent: they are
-the personal-side anchor for contributions, meaningless inside the joint account
-itself (see #191).
+Seeds default budget trackers, hidden expense sources, and the settings row for
+a joint account, stamping joint ownership on every row it creates. The
+personal-side "Joint" budget tracker and its hidden expense source are
+deliberately absent: they are the personal-side anchor for contributions,
+meaningless inside the joint account itself (see #191).
 """
 
 from typing import TYPE_CHECKING
@@ -44,6 +44,7 @@ class InitialiseJointWorkspaceUseCase:
         budget_tracker_repo: "repository.Repository[entities.BudgetTrackerItemModel]",
         expense_source_repo: "repository.Repository[entities.ExpenseSourceModel]",
         joint_account_repo: "repository.Repository[entities.JointAccountModel]",
+        settings_repo: "repository.Repository[entities.UserSettingsModel]",
     ) -> None:
         """Construct InitialiseJointWorkspaceUseCase.
 
@@ -54,12 +55,15 @@ class InitialiseJointWorkspaceUseCase:
             expense_source_repo: Expense sources repository in joint mode.
             joint_account_repo: The joint accounts the user belongs to, used to
                 resolve the account id stamped on every created row.
+            settings_repo: The account's settings repository in joint mode; it
+                resolves the account id it stamps on the row it seeds.
 
         """
         self._user_id = user_id
         self._bt_repo = budget_tracker_repo
         self._es_repo = expense_source_repo
         self._joint_account_repo = joint_account_repo
+        self._settings_repo = settings_repo
 
     def execute(self) -> None:
         """Ensure the user's joint account has its default trackers and sources.
@@ -84,6 +88,7 @@ class InitialiseJointWorkspaceUseCase:
             bt_id_by_name = {bt.name: bt.id for bt in all_bts}
 
             self._ensure_hidden_expense_sources(account.id, bt_id_by_name)
+            self._ensure_default_settings()
 
         except port_errors.RepositoryError as e:
             # Wrap a persistence failure; a genuine bug propagates untouched.
@@ -161,3 +166,15 @@ class InitialiseJointWorkspaceUseCase:
                 )
 
         self._es_repo.save_entities(to_save)
+
+    def _ensure_default_settings(self) -> None:
+        """Create the account's settings row at the default when none exists.
+
+        Reached only after :meth:`_resolve_joint_account` returns an account, so
+        the joint gate can resolve the id it stamps. Create-if-missing like the
+        seeds above, and the joint mode of the repository stamps ownership on the
+        row it builds, so the account id is not assembled here.
+        """
+        if self._settings_repo.get_all():
+            return
+        self._settings_repo.save_entities(self._settings_repo.build_entities([{}]))

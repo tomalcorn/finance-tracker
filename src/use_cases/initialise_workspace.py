@@ -1,6 +1,7 @@
 """Workspace initialisation.
 
-Seeds default budget trackers and hidden expense sources for a user.
+Seeds default budget trackers, hidden expense sources, and the settings row for
+a user.
 """
 
 from typing import TYPE_CHECKING
@@ -23,21 +24,23 @@ _HIDDEN_EXPENSE_SOURCE_BT_NAMES = (
 
 
 class InitialiseUserWorkspaceUseCase:
-    """Seeds default budget trackers and hidden expense sources for a user."""
+    """Seeds a user's default budget trackers, expense sources, and settings."""
 
     def __init__(
         self,
         user_id: str,
         budget_tracker_repo: "repository.Repository[entities.BudgetTrackerItemModel]",
         expense_source_repo: "repository.Repository[entities.ExpenseSourceModel]",
+        settings_repo: "repository.Repository[entities.UserSettingsModel]",
     ) -> None:
         """Construct InitialiseUserWorkspaceUseCase."""
         self._user_id = user_id
         self._bt_repo = budget_tracker_repo
         self._es_repo = expense_source_repo
+        self._settings_repo = settings_repo
 
     def execute(self) -> None:
-        """Ensure the user has default budget tracker rows and linked expense sources.
+        """Ensure the user has default trackers, expense sources, and settings.
 
         Raises:
             WorkspaceInitializationError: If any repository operation fails.
@@ -51,6 +54,7 @@ class InitialiseUserWorkspaceUseCase:
             bt_id_by_name = {bt.name: bt.id for bt in all_bts}
 
             self._ensure_hidden_expense_sources(bt_id_by_name)
+            self._ensure_default_settings()
 
         except port_errors.RepositoryError as e:
             # Wrap a persistence failure; a genuine bug propagates untouched.
@@ -116,3 +120,16 @@ class InitialiseUserWorkspaceUseCase:
                 )
 
         self._es_repo.save_entities(to_save)
+
+    def _ensure_default_settings(self) -> None:
+        """Create the user's settings row at the default when none exists.
+
+        Create-if-missing like the trackers above: a row already carrying a
+        non-default period is left untouched, and the value seeded is the
+        default, so a user who has changed nothing sees no difference. The
+        default is built through the repository's gate, so ownership is stamped
+        there rather than assembled here.
+        """
+        if self._settings_repo.get_all():
+            return
+        self._settings_repo.save_entities(self._settings_repo.build_entities([{}]))

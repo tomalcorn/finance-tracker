@@ -28,34 +28,45 @@ HIDDEN_BT_NAMES = {
 
 type BtRepo = conftest.FakeRepository[entities.BudgetTrackerItemModel]
 type EsRepo = conftest.FakeRepository[entities.ExpenseSourceModel]
+type SettingsRepo = conftest.FakeRepository[entities.UserSettingsModel]
 UseCaseBundle = tuple[
     initialise_workspace.InitialiseUserWorkspaceUseCase,
     BtRepo,
     EsRepo,
+    SettingsRepo,
 ]
 type UseCaseBuilder = Callable[..., UseCaseBundle]
 
 
 @pytest.fixture(name="build_use_case")
 def _build_use_case(build_repo: "conftest.RepoBuilder") -> "UseCaseBuilder":
-    """Return a builder for the use case plus its two repositories.
+    """Return a builder for the use case plus its three repositories.
 
-    A test overrides only what it seeds — existing trackers, existing sources —
-    and inherits empty repositories for the rest.
+    A test overrides only what it seeds — existing trackers, sources, settings —
+    and inherits empty repositories for the rest. The settings repo is given the
+    real parser and personal ownership context so its ``build_entities`` gate
+    stamps a saveable default row, as the live repository does.
     """
 
     def _build(
         existing_trackers: list[entities.BudgetTrackerItemModel] | None = None,
         existing_sources: list[entities.ExpenseSourceModel] | None = None,
+        existing_settings: list[entities.UserSettingsModel] | None = None,
     ) -> UseCaseBundle:
         bt_repo = build_repo(existing_trackers)
         es_repo = build_repo(existing_sources)
+        settings_repo = build_repo(
+            existing_settings,
+            parse=entities.UserSettingsModel.model_validate,
+            context={"user_id": USER_ID},
+        )
         use_case = initialise_workspace.InitialiseUserWorkspaceUseCase(
             user_id=USER_ID,
             budget_tracker_repo=bt_repo,
             expense_source_repo=es_repo,
+            settings_repo=settings_repo,
         )
-        return use_case, bt_repo, es_repo
+        return use_case, bt_repo, es_repo, settings_repo
 
     return _build
 
@@ -77,7 +88,7 @@ def test_all_budget_tracker_names_are_created_for_a_fresh_user_with_correct_user
     build_use_case: "UseCaseBuilder",
 ):
     # Arrange
-    use_case, bt_repo, _ = build_use_case()
+    use_case, bt_repo, _, _ = build_use_case()
 
     # Act
     use_case.execute()
@@ -97,7 +108,7 @@ def test_no_budget_trackers_are_duplicated_when_all_already_exist(
 ):
     # Arrange
     existing = make_all_trackers()
-    use_case, bt_repo, _ = build_use_case(existing_trackers=existing)
+    use_case, bt_repo, _, _ = build_use_case(existing_trackers=existing)
 
     # Act
     use_case.execute()
@@ -118,7 +129,7 @@ def test_missing_budget_tracker_is_created_when_others_exist(
     existing = [
         make_tracker(n) for n in entities.BudgetTrackerName if n != missing_name
     ]
-    use_case, bt_repo, _ = build_use_case(existing_trackers=existing)
+    use_case, bt_repo, _, _ = build_use_case(existing_trackers=existing)
 
     # Act
     use_case.execute()
@@ -137,7 +148,7 @@ def test_hidden_expense_sources_created_for_each_hidden_bt_name_with_right_user_
     build_use_case: "UseCaseBuilder",
 ):
     # Arrange
-    use_case, _, es_repo = build_use_case()
+    use_case, _, es_repo, _ = build_use_case()
 
     # Act
     use_case.execute()
@@ -156,7 +167,7 @@ def test_hidden_expense_source_is_linked_to_its_budget_tracker(
     build_use_case: "UseCaseBuilder",
 ):
     # Arrange
-    use_case, bt_repo, es_repo = build_use_case()
+    use_case, bt_repo, es_repo, _ = build_use_case()
 
     # Act
     use_case.execute()
@@ -185,7 +196,7 @@ def test_no_expense_sources_are_duplicated_when_all_already_exist(
         )
         for bt_name in HIDDEN_BT_NAMES
     ]
-    use_case, _, es_repo = build_use_case(
+    use_case, _, es_repo, _ = build_use_case(
         existing_trackers=trackers,
         existing_sources=existing_sources,
     )
@@ -211,7 +222,7 @@ def test_existing_expense_source_with_missing_bt_id_gets_it_added(
         name=target_bt_name.value,
         budget_tracker_ids=[],
     )
-    use_case, _, es_repo = build_use_case(
+    use_case, _, es_repo, _ = build_use_case(
         existing_trackers=trackers,
         existing_sources=[existing_source],
     )
@@ -237,7 +248,7 @@ def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set(
         name=target_bt_name.value,
         budget_tracker_ids=None,
     )
-    use_case, bt_repo, es_repo = build_use_case(
+    use_case, bt_repo, es_repo, _ = build_use_case(
         existing_trackers=trackers,
         existing_sources=[existing_source],
     )
@@ -263,7 +274,7 @@ def test_existing_expense_source_with_none_bt_ids_is_persisted(
         name=target_bt_name.value,
         budget_tracker_ids=None,
     )
-    use_case, _, es_repo = build_use_case(
+    use_case, _, es_repo, _ = build_use_case(
         existing_trackers=trackers,
         existing_sources=[existing_source],
     )
@@ -277,6 +288,71 @@ def test_existing_expense_source_with_none_bt_ids_is_persisted(
 
 
 # ---------------------------------------------------------------------------
+# Settings seeding
+# ---------------------------------------------------------------------------
+
+
+def make_settings(
+    period: entities.IncomeRollUpPeriod,
+) -> entities.UserSettingsModel:
+    return entities.UserSettingsModel(user_id=USER_ID, income_roll_up_period=period)
+
+
+def test_default_settings_row_created_for_a_fresh_user(
+    build_use_case: "UseCaseBuilder",
+):
+    # Arrange
+    use_case, _, _, settings_repo = build_use_case()
+
+    # Act
+    use_case.execute()
+
+    # Assert
+    rows = settings_repo.get_all()
+    assert all(
+        [
+            len(rows) == 1,
+            rows[0].user_id == USER_ID,
+            rows[0].income_roll_up_period is entities.IncomeRollUpPeriod.CURRENT_MONTH,
+        ],
+    )
+
+
+def test_no_settings_row_created_when_one_already_exists(
+    build_use_case: "UseCaseBuilder",
+):
+    # Arrange
+    existing = make_settings(entities.IncomeRollUpPeriod.CURRENT_MONTH)
+    use_case, _, _, settings_repo = build_use_case(existing_settings=[existing])
+
+    # Act
+    use_case.execute()
+
+    # Assert - the write list is empty and the single row is untouched
+    assert all([settings_repo.saved == [], len(settings_repo.get_all()) == 1])
+
+
+def test_existing_non_default_settings_row_is_not_overwritten(
+    build_use_case: "UseCaseBuilder",
+):
+    # Arrange - a row carrying a non-default period must survive create-if-missing
+    existing = make_settings(entities.IncomeRollUpPeriod.PREVIOUS_MONTH)
+    use_case, _, _, settings_repo = build_use_case(existing_settings=[existing])
+
+    # Act
+    use_case.execute()
+
+    # Assert
+    rows = settings_repo.get_all()
+    assert all(
+        [
+            settings_repo.saved == [],
+            rows[0].income_roll_up_period is entities.IncomeRollUpPeriod.PREVIOUS_MONTH,
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
 # Error handling
 # ---------------------------------------------------------------------------
 
@@ -285,7 +361,7 @@ def test_repository_failure_raises_data_access_error(
     build_use_case: "UseCaseBuilder",
 ):
     # Arrange
-    use_case, bt_repo, _ = build_use_case()
+    use_case, bt_repo, _, _ = build_use_case()
     bt_repo.save_error = port_errors.RepositoryError("backend unavailable")
 
     # Act
@@ -306,7 +382,7 @@ def test_unexpected_error_is_not_wrapped_as_data_access_error(
 ):
     # Arrange - a genuine bug (not a RepositoryError) must propagate untouched
     # rather than being masked as a workspace-init failure.
-    use_case, bt_repo, _ = build_use_case()
+    use_case, bt_repo, _, _ = build_use_case()
     boom = ValueError("genuine bug")
     bt_repo.save_error = boom
 
