@@ -1,3 +1,9 @@
+## v1.8.0 (2026-07-29)
+
+### Feat
+
+- **budget-tracker**: name the income column for the month in force (#218)
+
 ## v1.7.0 (2026-07-29)
 
 ### Feat
