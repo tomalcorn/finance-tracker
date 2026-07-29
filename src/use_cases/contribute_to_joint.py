@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from domain import entities
 from ports import errors as port_errors
-from use_cases import errors
+from use_cases import errors, linked_payments
 
 if TYPE_CHECKING:
     import datetime
@@ -160,27 +160,19 @@ class ContributeToJointUseCase:
         expense: entities.ExpensePaymentModel,
         income: entities.IncomePaymentModel,
     ) -> None:
-        """Write the expense/income pair and cross-link the two rows.
-
-        ``linked_payment_id`` is a foreign key onto ``payments``, so the pair
-        cannot be cross-linked in two inserts: the expense is written unlinked,
-        the income is written pointing back at it, and only then is the expense
-        updated to point forward.
+        """Write the expense/income pair, translating a write failure.
 
         Raises:
-            ContributionWriteError: If any of the three writes fails.
+            ContributionWriteError: If any of the writes fails.
 
         """
         try:
-            self._personal_payment_repo.save_entities([expense])
-            self._joint_payment_repo.save_entities([income])
-
-            # Entities are frozen, so the forward link is a new copy of the
-            # expense, upserted over the row just written.
-            linked = entities.ExpensePaymentModel.model_validate(
-                expense.model_copy(update={"linked_payment_id": income.id}),
+            linked_payments.write_linked_pair(
+                self._personal_payment_repo,
+                self._joint_payment_repo,
+                expense,
+                income,
             )
-            self._personal_payment_repo.save_entities([linked])
         except port_errors.RepositoryError as e:
             msg = (
                 f"Failed to record a contribution of {expense.expense} to joint "
