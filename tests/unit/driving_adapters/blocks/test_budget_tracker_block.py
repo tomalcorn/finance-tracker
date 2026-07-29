@@ -1,10 +1,11 @@
-"""Unit tests for the budget tracker block's contribute-button wiring."""
+"""Unit tests for the budget tracker block's contribute button and income tab."""
 
 from typing import TYPE_CHECKING
 
 import pytest
 import streamlit.testing.v1 as st_test
 
+from domain import entities
 from driving_adapters.components.buttons import contribute_button
 from use_cases.contribute_to_joint import ContributeToJointUseCase
 
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
     from tests import conftest
 
     from driving_adapters.components.dfes import data_source as data_source_mod
+    from driving_adapters.models import frontend_models
 
 
 @pytest.fixture(name="contribute_btn")
@@ -39,31 +41,40 @@ def _contribute_btn(
 def _render_wrapper(
     button: "contribute_button.ContributeButton | None",
     source: "data_source_mod.GridDataSource",
+    period: "entities.IncomeRollUpPeriod",
 ) -> None:
     """Render the budget tracker block for AppTest.
 
-    ``button`` and ``source`` are injected via AppTest ``kwargs`` because
-    from_function re-runs this body in a fresh namespace where module-level
-    names aren't visible.
+    The arguments are injected via AppTest ``kwargs`` because from_function
+    re-runs this body in a fresh namespace where module-level names aren't
+    visible. One stub source stands in for all three tabs.
     """
     from driving_adapters.blocks import budget_tracker_block
 
-    budget_tracker_block.render(source, source, source, {}, button)
+    sources = budget_tracker_block.BudgetTrackerSources(source, source, source)
+    budget_tracker_block.render(sources, {}, button, period)
 
 
 @pytest.fixture(name="build_app_tester")
 def _build_app_tester(
     build_stub_data_source: "conftest.StubDataSourceBuilder",
-) -> "Callable[[contribute_button.ContributeButton | None], st_test.AppTest]":
+) -> "Callable[..., st_test.AppTest]":
     """Return a builder for an AppTest rendering the block, button or not."""
 
     def _build(
         button: contribute_button.ContributeButton | None,
+        period: entities.IncomeRollUpPeriod = (
+            entities.IncomeRollUpPeriod.CURRENT_MONTH
+        ),
     ) -> st_test.AppTest:
         return st_test.AppTest.from_function(
             _render_wrapper,
             default_timeout=120,
-            kwargs={"button": button, "source": build_stub_data_source()},
+            kwargs={
+                "button": button,
+                "source": build_stub_data_source(),
+                "period": period,
+            },
         )
 
     return _build
@@ -116,3 +127,79 @@ def test_render_omits_contribute_button_when_absent(
 
     # Assert
     assert not any(btn.key == "contribute_button" for btn in app_tester.button)
+
+
+@pytest.mark.parametrize(
+    ("period", "expected_label"),
+    [
+        (entities.IncomeRollUpPeriod.CURRENT_MONTH, "Current Month"),
+        (entities.IncomeRollUpPeriod.PREVIOUS_MONTH, "Previous Month"),
+    ],
+)
+def test_income_roll_up_column_is_labelled_for_the_configured_month(
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+    period: entities.IncomeRollUpPeriod,
+    expected_label: str,
+) -> None:
+    # Arrange - the column is always `current_month`; the view moves its window,
+    # so only the heading says which month is being shown.
+    from driving_adapters.blocks import budget_tracker_block
+
+    source = build_stub_data_source()
+    sources = budget_tracker_block.BudgetTrackerSources(source, source, source)
+
+    # Act
+    _, _, income_config = budget_tracker_block._configs(sources, {}, period)
+
+    # Assert
+    roll_up_column = next(
+        column
+        for column in income_config.display.columns
+        if column.column_name == "current_month"
+    )
+    assert roll_up_column.column_config["label"] == expected_label
+
+
+def _income_roll_up_column(
+    period: entities.IncomeRollUpPeriod,
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+) -> "frontend_models.DFEColumnConfig":
+    """Return the income tab's roll-up column config for a period."""
+    from driving_adapters.blocks import budget_tracker_block
+
+    source = build_stub_data_source()
+    sources = budget_tracker_block.BudgetTrackerSources(source, source, source)
+    _, _, income_config = budget_tracker_block._configs(sources, {}, period)
+    return next(
+        column
+        for column in income_config.display.columns
+        if column.column_name == "current_month"
+    )
+
+
+def test_income_column_tooltip_explains_a_moved_roll_up_window(
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+) -> None:
+    # Arrange / Act
+    column = _income_roll_up_column(
+        entities.IncomeRollUpPeriod.PREVIOUS_MONTH,
+        build_stub_data_source,
+    )
+
+    # Assert
+    assert "previous" in column.column_config["help"].lower()
+
+
+def test_income_column_has_no_tooltip_on_the_default_window(
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+) -> None:
+    # Arrange - the current month is what the tab has always shown, so a tooltip
+    # explaining it would be noise on every dashboard.
+    # Act
+    column = _income_roll_up_column(
+        entities.IncomeRollUpPeriod.CURRENT_MONTH,
+        build_stub_data_source,
+    )
+
+    # Assert
+    assert column.column_config.get("help") is None

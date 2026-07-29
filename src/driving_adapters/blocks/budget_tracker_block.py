@@ -1,5 +1,6 @@
 """Block for the budget tracker section."""
 
+import dataclasses
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -17,6 +18,21 @@ if TYPE_CHECKING:
         contribute_button as contribute_button_component,
     )
     from driving_adapters.components.dfes import data_source as data_source_mod
+
+
+@dataclasses.dataclass(frozen=True)
+class BudgetTrackerSources:
+    """The three grid data sources behind this block's tabs.
+
+    Bundled rather than threaded through each call: the tabs are three views of
+    one budget, so every entry point here needs all three, and always the same
+    three.
+    """
+
+    budget_trackers: "data_source_mod.GridDataSource"
+    expense_sources: "data_source_mod.GridDataSource"
+    income_sources: "data_source_mod.GridDataSource"
+
 
 _BUDGET_TRACKER_TABLE = "budget_tracker"
 
@@ -52,6 +68,20 @@ _INCOME_SOURCES_SAMPLE_DATA = pd.DataFrame(
         "current_month": [0],
         "budget_tracker_ids": [[]],
     },
+)
+
+# The income roll-up column is one column showing one of two months, so it is
+# labelled for whichever month the settings put it on. The underlying column is
+# always `current_month` — the view moves its window, not its name.
+_INCOME_COLUMN_LABELS: dict[entities.IncomeRollUpPeriod, str] = {
+    entities.IncomeRollUpPeriod.CURRENT_MONTH: "Current Month",
+    entities.IncomeRollUpPeriod.PREVIOUS_MONTH: "Previous Month",
+}
+
+_PREVIOUS_MONTH_HELP = (
+    "Income is rolled up over the **previous** month, so this month's budget "
+    "splits against last month's pay. Change this in "
+    "[Settings](/settings)."
 )
 
 
@@ -270,8 +300,17 @@ def _build_income_sources_config(
     data_source: "data_source_mod.GridDataSource",
     budget_tracker_ids: list[str],
     get_budget_tracker_name: "Callable[[str | float], str]",
+    income_roll_up_period: entities.IncomeRollUpPeriod,
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the income sources tab."""
+    roll_up_label = _INCOME_COLUMN_LABELS[income_roll_up_period]
+    # Quiet on the default: only a moved window needs explaining, so the tooltip
+    # is attached to the column just for the previous-month case.
+    roll_up_help = (
+        _PREVIOUS_MONTH_HELP
+        if income_roll_up_period is entities.IncomeRollUpPeriod.PREVIOUS_MONTH
+        else None
+    )
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table=_INCOME_SOURCES_TABLE,
@@ -293,11 +332,12 @@ def _build_income_sources_config(
                     editable=False,
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
-                        "Current Month",
+                        roll_up_label,
                         format="£%.2f",
                         disabled=True,
+                        help=roll_up_help,
                     ),
-                    button_label="Current Month",
+                    button_label=roll_up_label,
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                 ),
@@ -323,10 +363,9 @@ def _build_income_sources_config(
 
 
 def _configs(
-    budget_tracker_data_source: "data_source_mod.GridDataSource",
-    expense_source_data_source: "data_source_mod.GridDataSource",
-    income_source_data_source: "data_source_mod.GridDataSource",
+    sources: BudgetTrackerSources,
     budget_tracker_map: dict[str, str],
+    income_roll_up_period: entities.IncomeRollUpPeriod,
 ) -> tuple[
     frontend_models.DFEConfig,
     frontend_models.DFEConfig,
@@ -348,28 +387,35 @@ def _configs(
         return budget_tracker_map.get(str(bt_id), "Unknown Budget Tracker")
 
     return (
-        _build_budget_tracker_config(budget_tracker_data_source),
-        _build_expense_sources_config(expense_source_data_source, expenses_bt_id),
+        _build_budget_tracker_config(sources.budget_trackers),
+        _build_expense_sources_config(sources.expense_sources, expenses_bt_id),
         _build_income_sources_config(
-            income_source_data_source,
+            sources.income_sources,
             budget_tracker_ids,
             get_budget_tracker_name,
+            income_roll_up_period,
         ),
     )
 
 
 def commit(
-    budget_tracker_data_source: "data_source_mod.GridDataSource",
-    expense_source_data_source: "data_source_mod.GridDataSource",
-    income_source_data_source: "data_source_mod.GridDataSource",
+    sources: BudgetTrackerSources,
     budget_tracker_map: dict[str, str],
+    income_roll_up_period: entities.IncomeRollUpPeriod = (
+        entities.IncomeRollUpPeriod.CURRENT_MONTH
+    ),
 ) -> None:
-    """Apply any pending backend updates for this block."""
+    """Apply any pending backend updates for this block.
+
+    The roll-up period only labels a read-only column, so it makes no difference
+    to what is written here — it is taken so the configs this builds match the
+    ones ``render`` builds, which is what keeps the editor's widget deltas
+    lining up with the columns they came from.
+    """
     bt_config, es_config, is_config = _configs(
-        budget_tracker_data_source,
-        expense_source_data_source,
-        income_source_data_source,
+        sources,
         budget_tracker_map,
+        income_roll_up_period,
     )
     grid.commit(bt_config)
     grid.commit(es_config)
@@ -402,30 +448,32 @@ def _render_with_contribute(
 
 
 def render(
-    budget_tracker_data_source: "data_source_mod.GridDataSource",
-    expense_source_data_source: "data_source_mod.GridDataSource",
-    income_source_data_source: "data_source_mod.GridDataSource",
+    sources: BudgetTrackerSources,
     budget_tracker_map: dict[str, str],
     contribute_button: "contribute_button_component.ContributeButton | None" = None,
+    income_roll_up_period: entities.IncomeRollUpPeriod = (
+        entities.IncomeRollUpPeriod.CURRENT_MONTH
+    ),
 ) -> None:
     """Render the budget tracker block.
 
     Args:
-        budget_tracker_data_source: Grid data source for the budget tracker tab.
-        expense_source_data_source: Grid data source for the expense sources tab.
-        income_source_data_source: Grid data source for the income sources tab.
+        sources: The grid data sources behind the three tabs.
         budget_tracker_map: ``{id: name}`` of the user's budget trackers.
         contribute_button: The personal→joint contribution button, rendered
             above the budget tracker grid. Passed only by the personal page for a
             user who belongs to a joint account; ``None`` (the joint page and
             non-members) hides it, since contributing funds joint from personal.
+        income_roll_up_period: The month the income sources tab totals payments
+            over, from this half's settings. The figures themselves are windowed
+            by the view; this only tells the tab what to call the column and,
+            when the window has been moved, to explain it via the column tooltip.
 
     """
     bt_config, es_config, is_config = _configs(
-        budget_tracker_data_source,
-        expense_source_data_source,
-        income_source_data_source,
+        sources,
         budget_tracker_map,
+        income_roll_up_period,
     )
 
     budget_tracker_tab, expense_tab, income_tab = st.tabs(

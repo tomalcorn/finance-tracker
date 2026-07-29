@@ -53,9 +53,11 @@ with error_boundary.boundary("loading your joint dashboard"):
 
     # Grid data sources, one per aggregate grid.
     bank_account_data_source = wiring.bank_account_data_source(_JOINT)
-    budget_tracker_data_source = wiring.budget_tracker_data_source(_JOINT)
-    expense_source_data_source = wiring.expense_source_data_source(_JOINT)
-    income_source_data_source = wiring.income_source_data_source(_JOINT)
+    budget_tracker_sources = budget_tracker_block.BudgetTrackerSources(
+        budget_trackers=wiring.budget_tracker_data_source(_JOINT),
+        expense_sources=wiring.expense_source_data_source(_JOINT),
+        income_sources=wiring.income_source_data_source(_JOINT),
+    )
     one_off_data_source = wiring.one_off_data_source(_JOINT)
     payment_data_source = wiring.payment_data_source(_JOINT)
     subscription_data_source = wiring.subscription_data_source(_JOINT)
@@ -68,6 +70,12 @@ with error_boundary.boundary("loading your joint dashboard"):
 
     # Use cases.
     bank_one_offs_use_case = wiring.bank_one_offs_use_case(_JOINT)
+
+    # Which month the income sources tab rolls its payments up over, from the
+    # *account's* settings rather than either member's own, so both members see
+    # the same figures. The view has already applied it; the block takes it only
+    # to label the column.
+    income_roll_up_period = wiring.income_roll_up_period(_JOINT)
 
 summary_container = st.container(border=True)
 one_offs_container = st.container(border=True)
@@ -85,10 +93,9 @@ with error_boundary.boundary("saving your latest changes"):
         income_source_map,
     )
     budget_tracker_block.commit(
-        budget_tracker_data_source,
-        expense_source_data_source,
-        income_source_data_source,
+        budget_tracker_sources,
         budget_tracker_map,
+        income_roll_up_period,
     )
     one_offs_block.commit(one_off_data_source, budget_tracker_map)
     subscriptions_block.commit(
@@ -118,10 +125,9 @@ with one_offs_container, error_boundary.boundary("loading your one-offs"):
 with budget_tracker_container, error_boundary.boundary("loading your budget tracker"):
     st.subheader(":material/pie_chart: :orange[Budget Tracker]")
     budget_tracker_block.render(
-        budget_tracker_data_source,
-        expense_source_data_source,
-        income_source_data_source,
+        budget_tracker_sources,
         budget_tracker_map,
+        income_roll_up_period=income_roll_up_period,
     )
 
 with payments_container, error_boundary.boundary("loading your payments"):
