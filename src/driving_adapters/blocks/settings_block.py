@@ -88,14 +88,13 @@ def render(
     key = f"settings_{ownership.value}_income_roll_up_period"
 
     label_col, control_col = st.columns(2, vertical_alignment="center")
-    label_col.markdown("**Income roll-up month**")
+    label_col.markdown("**Income roll-up month**", help=_INCOME_HELP)
     selected = control_col.selectbox(
         "Income roll-up month",
         options=list(entities.IncomeRollUpPeriod),
         index=list(entities.IncomeRollUpPeriod).index(settings.income_roll_up_period),
         format_func=_period_label,
         label_visibility="collapsed",
-        help=_INCOME_HELP,
         key=key,
     )
     period = entities.IncomeRollUpPeriod(selected)
