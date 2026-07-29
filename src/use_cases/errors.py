@@ -127,3 +127,15 @@ class IncompleteQuickPaymentError(QuickPaymentError):
 
 class QuickPaymentWriteError(QuickPaymentError):
     """Error when a repository operation in the quick-payment flow fails."""
+
+
+class UserSettingsError(UseCaseError):
+    """Base error for the manage_user_settings use case."""
+
+
+class UserSettingsReadError(UserSettingsError):
+    """Error when the settings row could not be read or defaulted."""
+
+
+class UserSettingsWriteError(UserSettingsError):
+    """Error when a settings change could not be persisted."""
