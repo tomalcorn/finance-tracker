@@ -1,3 +1,9 @@
+## v1.7.0 (2026-07-29)
+
+### Feat
+
+- **settings**: add the Settings page, personal and joint sections (#217)
+
 ## v1.6.0 (2026-07-29)
 
 ### Feat
