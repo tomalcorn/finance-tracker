@@ -199,8 +199,20 @@ def budget_tracker_id_name_map(
 def reconcile_subscriptions_use_case(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
 ) -> reconcile_subscriptions.ReconcileSubscriptionsUseCase:
-    """Build ReconcileSubscriptionsUseCase wired to Supabase repositories."""
+    """Build ReconcileSubscriptionsUseCase wired to Supabase repositories.
+
+    The joint payments repository is handed over only in ``PERSONAL`` mode: a
+    joint contribution is a personal standing order, so the joint instance must
+    not be able to book one. It is built unconditionally for that mode — the
+    repository resolves its account lazily, and a user with no joint account can
+    have no contribution subscription for it to write.
+    """
     deps = _repo_deps()
+    joint_payment_repo = (
+        supabase_repos.payment_repository(*deps, entities.OwnershipType.JOINT)
+        if ownership is entities.OwnershipType.PERSONAL
+        else None
+    )
     return reconcile_subscriptions.ReconcileSubscriptionsUseCase(
         subscription_repo=supabase_repos.subscription_repository(
             *deps,
@@ -210,6 +222,7 @@ def reconcile_subscriptions_use_case(
             *deps,
             ownership,
         ),
+        joint_payment_repo=joint_payment_repo,
     )
 
 

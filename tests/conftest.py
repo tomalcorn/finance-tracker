@@ -270,11 +270,15 @@ def _build_payment_repo() -> "PaymentRepoBuilder":
     def _build(
         user_id: str,
         items: "Sequence[entities.AnyPaymentModel] | None" = None,
+        *,
+        context: "entities.RawRow | None" = None,
     ) -> "FakeRepository[entities.AnyPaymentModel]":
         return FakeRepository(
             items,
             parse=_PAYMENT_ADAPTER.validate_python,
-            context={"user_id": user_id},
+            # context adds to the owner every payments repo writes under, so a
+            # joint-mode fake can carry the ownership its gate stamps on.
+            context={"user_id": user_id, **(context or {})},
         )
 
     return _build
