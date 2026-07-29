@@ -1,3 +1,9 @@
+## v1.9.0 (2026-07-29)
+
+### Feat
+
+- **settings**: seed a user_settings row on workspace init (#220) (#222)
+
 ## v1.8.0 (2026-07-29)
 
 ### Feat
