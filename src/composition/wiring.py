@@ -233,6 +233,10 @@ def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUse
             *deps,
             entities.OwnershipType.PERSONAL,
         ),
+        settings_repo=supabase_repos.user_settings_repository(
+            *deps,
+            entities.OwnershipType.PERSONAL,
+        ),
     )
 
 
@@ -262,6 +266,10 @@ def joint_workspace_init_use_case() -> (
             entities.OwnershipType.JOINT,
         ),
         joint_account_repo=supabase_repos.joint_account_repository(*deps),
+        settings_repo=supabase_repos.user_settings_repository(
+            *deps,
+            entities.OwnershipType.JOINT,
+        ),
     )
 
 
