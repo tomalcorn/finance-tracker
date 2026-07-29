@@ -170,7 +170,15 @@ class IncomeSourceModel(FinanceTrackerBaseModel):
 
 
 class SubscriptionModel(FinanceTrackerBaseModel):
-    """Model representing a recurring subscription."""
+    """Model representing a recurring subscription.
+
+    A subscription with ``joint_income_source_id`` set is a *joint
+    contribution*: a standing instruction that books a linked pair of payments
+    each cadence — the personal expense every subscription books, plus a
+    matching income owned by the joint account. The two joint fields are the
+    income leg's own source and destination account, so they are set together or
+    not at all.
+    """
 
     amount: Annotated[
         float,
@@ -200,6 +208,49 @@ class SubscriptionModel(FinanceTrackerBaseModel):
         bool,
         pydantic.Field(description="Whether the subscription is currently active."),
     ] = True
+    joint_income_source_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(
+            description=(
+                "The joint income source the contribution's income leg is booked "
+                "against. Set means this subscription is a joint contribution."
+            ),
+        ),
+    ] = None
+    joint_bank_account_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(
+            description="The joint bank account the contribution arrives in.",
+        ),
+    ] = None
+
+    @property
+    def is_joint_contribution(self) -> bool:
+        """Whether each cadence books a joint contribution as well as an expense."""
+        return self.joint_income_source_id is not None
+
+    @pydantic.model_validator(mode="after")
+    def _check_joint_contribution(self) -> Self:
+        """Ensure a contribution is complete, and is one a personal row may book.
+
+        Raises:
+            IncompleteJointContributionError: A joint field is set without the
+                other, so the income leg could not be written.
+            JointOwnedContributionError: A joint-owned subscription claims to be
+                a contribution. Only the personal side contributes; a joint row
+                doing so would book an expense with no counterpart.
+
+        """
+        joint_fields = {
+            "joint_income_source_id": self.joint_income_source_id,
+            "joint_bank_account_id": self.joint_bank_account_id,
+        }
+        missing = [field for field, value in joint_fields.items() if value is None]
+        if missing and len(missing) < len(joint_fields):
+            raise errors.IncompleteJointContributionError(self.name, missing)
+        if self.is_joint_contribution and self.ownership_type is OwnershipType.JOINT:
+            raise errors.JointOwnedContributionError(self.name)
+        return self
 
 
 class _PaymentBaseModel(FinanceTrackerBaseModel):
