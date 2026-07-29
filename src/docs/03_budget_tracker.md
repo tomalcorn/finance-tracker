@@ -40,7 +40,7 @@ supports.
 
 By default the roll-up month is the current one. If you are paid at the end of
 the month, so that each month runs on the previous month's pay, you can move the
-income roll-up back a month in [Settings](/user_settings) — the column then reads
+income roll-up back a month in [Settings](/settings) — the column then reads
 `Previous Month` and the `Split` below is worked out against it. Spending stays
 on the current month either way. Personal and joint are set separately.
 
@@ -70,7 +70,7 @@ on the current month either way. Personal and joint are set separately.
 
 | Column | Meaning |
 | --- | --- |
-| `Current Month` / `Previous Month` | The sum of income payments linked to that source, over whichever month the [income roll-up setting](/user_settings) selects. |
+| `Current Month` / `Previous Month` | The sum of income payments linked to that source, over whichever month the [income roll-up setting](/settings) selects. |
 | `Budget Tracker IDs` | The tracker rows that this income supports. |
 
 ## How The Links Work

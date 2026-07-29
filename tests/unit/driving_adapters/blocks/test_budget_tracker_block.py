@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from tests import conftest
 
     from driving_adapters.components.dfes import data_source as data_source_mod
+    from driving_adapters.models import frontend_models
 
 
 @pytest.fixture(name="contribute_btn")
@@ -159,30 +160,46 @@ def test_income_roll_up_column_is_labelled_for_the_configured_month(
     assert roll_up_column.column_config["label"] == expected_label
 
 
-def test_income_tab_explains_a_moved_roll_up_window(
-    build_app_tester: "Callable[..., st_test.AppTest]",
-) -> None:
-    # Arrange
-    app_tester = build_app_tester(None, entities.IncomeRollUpPeriod.PREVIOUS_MONTH)
+def _income_roll_up_column(
+    period: entities.IncomeRollUpPeriod,
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+) -> "frontend_models.DFEColumnConfig":
+    """Return the income tab's roll-up column config for a period."""
+    from driving_adapters.blocks import budget_tracker_block
 
-    # Act
-    app_tester.run()
-
-    # Assert
-    assert any("previous" in caption.value.lower() for caption in app_tester.caption)
-
-
-def test_income_tab_stays_quiet_on_the_default_window(
-    build_app_tester: "Callable[..., st_test.AppTest]",
-) -> None:
-    # Arrange - the current month is what the tab has always shown, so saying so
-    # would be noise on every dashboard.
-    app_tester = build_app_tester(None, entities.IncomeRollUpPeriod.CURRENT_MONTH)
-
-    # Act
-    app_tester.run()
-
-    # Assert
-    assert not any(
-        "previous" in caption.value.lower() for caption in app_tester.caption
+    source = build_stub_data_source()
+    sources = budget_tracker_block.BudgetTrackerSources(source, source, source)
+    _, _, income_config = budget_tracker_block._configs(sources, {}, period)
+    return next(
+        column
+        for column in income_config.display.columns
+        if column.column_name == "current_month"
     )
+
+
+def test_income_column_tooltip_explains_a_moved_roll_up_window(
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+) -> None:
+    # Arrange / Act
+    column = _income_roll_up_column(
+        entities.IncomeRollUpPeriod.PREVIOUS_MONTH,
+        build_stub_data_source,
+    )
+
+    # Assert
+    assert "previous" in column.column_config["help"].lower()
+
+
+def test_income_column_has_no_tooltip_on_the_default_window(
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+) -> None:
+    # Arrange - the current month is what the tab has always shown, so a tooltip
+    # explaining it would be noise on every dashboard.
+    # Act
+    column = _income_roll_up_column(
+        entities.IncomeRollUpPeriod.CURRENT_MONTH,
+        build_stub_data_source,
+    )
+
+    # Assert
+    assert column.column_config.get("help") is None

@@ -78,7 +78,7 @@ _INCOME_COLUMN_LABELS: dict[entities.IncomeRollUpPeriod, str] = {
     entities.IncomeRollUpPeriod.PREVIOUS_MONTH: "Previous Month",
 }
 
-_PREVIOUS_MONTH_CAPTION = (
+_PREVIOUS_MONTH_HELP = (
     "Income is rolled up over the **previous** month, so this month's budget "
     "splits against last month's pay. Change this in "
     "[Settings](/settings)."
@@ -304,6 +304,13 @@ def _build_income_sources_config(
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the income sources tab."""
     roll_up_label = _INCOME_COLUMN_LABELS[income_roll_up_period]
+    # Quiet on the default: only a moved window needs explaining, so the tooltip
+    # is attached to the column just for the previous-month case.
+    roll_up_help = (
+        _PREVIOUS_MONTH_HELP
+        if income_roll_up_period is entities.IncomeRollUpPeriod.PREVIOUS_MONTH
+        else None
+    )
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table=_INCOME_SOURCES_TABLE,
@@ -328,6 +335,7 @@ def _build_income_sources_config(
                         roll_up_label,
                         format="£%.2f",
                         disabled=True,
+                        help=roll_up_help,
                     ),
                     button_label=roll_up_label,
                     input_widget=st.number_input,
@@ -458,8 +466,8 @@ def render(
             non-members) hides it, since contributing funds joint from personal.
         income_roll_up_period: The month the income sources tab totals payments
             over, from this half's settings. The figures themselves are windowed
-            by the view; this only tells the tab what to call the column and
-            whether to say the window has been moved.
+            by the view; this only tells the tab what to call the column and,
+            when the window has been moved, to explain it via the column tooltip.
 
     """
     bt_config, es_config, is_config = _configs(
@@ -486,6 +494,4 @@ def render(
         grid.render(es_config)
 
     with income_tab:
-        if income_roll_up_period is entities.IncomeRollUpPeriod.PREVIOUS_MONTH:
-            st.caption(_PREVIOUS_MONTH_CAPTION)
         grid.render(is_config)
