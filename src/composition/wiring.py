@@ -22,6 +22,8 @@ from use_cases import (
 )
 
 if TYPE_CHECKING:
+    import uuid
+
     from domain import read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
     from ports import authentication, repository
@@ -183,6 +185,28 @@ def income_source_id_name_map(
         ownership,
     )
     return {str(model.id): str(model.name) for model in repo.get_all()}
+
+
+def joint_expense_source_id() -> "uuid.UUID | None":
+    """Return the id of the hidden personal "Joint" expense source, if it exists.
+
+    The anchor every contribution's personal leg is booked against, so a
+    contribution subscription's ``expense_source_id`` is derived from it rather
+    than chosen. Reads the same cached personal slice
+    :func:`expense_source_id_name_map` does, so it costs no extra fetch.
+    """
+    repo = supabase_repos.expense_source_repository(
+        *_repo_deps(),
+        entities.OwnershipType.PERSONAL,
+    )
+    return next(
+        (
+            source.id
+            for source in repo.get_all()
+            if source.name == entities.BudgetTrackerName.JOINT
+        ),
+        None,
+    )
 
 
 def budget_tracker_id_name_map(

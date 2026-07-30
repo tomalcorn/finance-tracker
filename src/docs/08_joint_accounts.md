@@ -66,6 +66,12 @@ contribution show up in the joint budget's income figures. You need a joint bank
 account and a joint income source first — the dialog will tell you if either
 does not exist yet.
 
+Most contributions are standing orders rather than one-offs. For those, use the
+**Joint Contributions** tab in the subscriptions block on the same Personal
+page: say the amount, the cadence, and the same from/to/income-source choices
+once, and the pair of payments is booked for you every cadence. See the
+[Subscriptions guide](/subscriptions) for the details.
+
 ## Seeing Each Other's Changes
 
 When your partner changes something in the joint account, it appears for you the

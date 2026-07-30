@@ -57,13 +57,28 @@ with error_boundary.boundary("loading your personal dashboard"):
     # the block takes it only to label the column.
     income_roll_up_period = wiring.income_roll_up_period()
 
+    # The joint half of this page: the one-off Contribute button and the
+    # standing-order tab beside the subscriptions grid. Both exist only for a
+    # member of a joint account — there is nothing to contribute to otherwise.
     contribute_button = None
+    joint_contributions = None
     if wiring.joint_account_repository().get_all():
+        joint_bank_account_map = wiring.bank_account_id_name_map(
+            entities.OwnershipType.JOINT,
+        )
+        joint_income_source_map = wiring.income_source_id_name_map(
+            entities.OwnershipType.JOINT,
+        )
         contribute_button = contribute_button_mod.ContributeButton(
             wiring.contribute_to_joint_use_case(),
             bank_account_map,
-            wiring.bank_account_id_name_map(entities.OwnershipType.JOINT),
-            wiring.income_source_id_name_map(entities.OwnershipType.JOINT),
+            joint_bank_account_map,
+            joint_income_source_map,
+        )
+        joint_contributions = subscriptions_block.JointContributionLookups(
+            bank_account_map=joint_bank_account_map,
+            income_source_map=joint_income_source_map,
+            expense_source_id=wiring.joint_expense_source_id(),
         )
 
 summary_container = st.container(border=True)
@@ -91,6 +106,7 @@ with error_boundary.boundary("saving your latest changes"):
         subscription_data_source,
         bank_account_map,
         expense_source_map,
+        joint_contributions,
     )
 
 with error_boundary.boundary("reconciling your subscriptions"):
@@ -141,4 +157,5 @@ with subscriptions_container, error_boundary.boundary("loading your subscription
         subscription_data_source,
         bank_account_map,
         expense_source_map,
+        joint_contributions,
     )

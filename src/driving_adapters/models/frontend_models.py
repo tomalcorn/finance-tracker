@@ -169,6 +169,17 @@ class GridSource(pydantic.BaseModel):
             description="Fixed values merged into every row added via the dialog.",
         ),
     ] = None
+    row_predicate: Annotated[
+        Callable[[Any], bool] | None,
+        pydantic.Field(
+            description=(
+                "Keeps only the display rows it accepts. For two grids sharing "
+                "one table, each showing a different slice of it — the column "
+                "filters are the user's, this is the grid's own. Applied to the "
+                "typed view models, before the frame is built."
+            ),
+        ),
+    ] = None
     data_source: data_source_mod.GridDataSource | None = pydantic.Field(
         default=None,
         description=(
