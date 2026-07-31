@@ -1,3 +1,9 @@
+## v1.10.0 (2026-07-31)
+
+### Feat
+
+- **subscriptions**: recurring joint contributions that book both legs (#223)
+
 ## v1.9.0 (2026-07-29)
 
 ### Feat
