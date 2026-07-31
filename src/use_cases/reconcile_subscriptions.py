@@ -1,6 +1,5 @@
 """Use case for reconciling subscription-generated payments."""
 
-import dataclasses
 import datetime
 import enum
 from typing import TYPE_CHECKING
@@ -41,16 +40,6 @@ def _as_income(payment: entities.AnyPaymentModel) -> entities.IncomePaymentModel
         msg = f"expected an income payment, got {type(payment).__name__}"
         raise TypeError(msg)
     return payment
-
-
-@dataclasses.dataclass(frozen=True)
-class _ContributionPlan:
-    """What one joint-contribution subscription needs settled on both sides."""
-
-    sub: entities.SubscriptionModel
-    due: list[entities.RawRow]
-    superseded: set[str]
-    current_payments: list[entities.ExpensePaymentModel]
 
 
 class ReconcileSubscriptionsUseCase:
@@ -116,10 +105,10 @@ class ReconcileSubscriptionsUseCase:
         payments_by_subscription = self._group_payments_by_subscription(
             existing_payments,
         )
+        joint_incomes = self._joint_incomes_by_expense(subscriptions)
 
         new_rows: list[entities.RawRow] = []
         deleted_ids: list[str] = []
-        contributions: list[_ContributionPlan] = []
 
         for sub in subscriptions:
             sub_id = str(sub.id)
@@ -129,8 +118,12 @@ class ReconcileSubscriptionsUseCase:
             except domain_errors.InvalidSubscriptionCadenceError as e:
                 raise errors.InvalidCadenceError(e.cadence) from e
             if sub.is_joint_contribution:
-                contributions.append(
-                    _ContributionPlan(sub, due, set(superseded), current_payments),
+                self._settle_contribution(
+                    sub,
+                    current_payments,
+                    due,
+                    set(superseded),
+                    joint_incomes,
                 )
                 continue
             new_rows.extend(due)
@@ -138,44 +131,26 @@ class ReconcileSubscriptionsUseCase:
 
         self._payment_repo.save_entities(self._payment_repo.build_entities(new_rows))
         self._payment_repo.apply_deletions(deleted_ids)
-        self._settle_contributions(contributions)
 
-    def _settle_contributions(self, plans: list[_ContributionPlan]) -> None:
-        """Settle each contribution subscription on both sides of the ledger.
-
-        Kept out of the batched personal write above because a contribution is
-        three ordered writes per payment, not one row in a batch — and because
-        both of its legs have to move together: deleting only the expense would
-        leave an orphaned income sitting in the shared books
-        (``linked_payment_id`` is ``ON DELETE SET NULL``, so nothing else would
-        remove it).
-
-        The joint incomes are read once, keyed by the expense each points back
-        at, and answer every question this pass asks: which income to delete
-        alongside a superseded expense, and whether a future expense already has
-        the income it is supposed to have.
-        """
-        joint_repo = self._joint_payment_repo
-        if not plans or joint_repo is None:
-            return
-
-        incomes_by_expense = self._joint_incomes_by_expense(joint_repo)
-        for plan in plans:
-            self._delete_contribution_pairs(plan, incomes_by_expense, joint_repo)
-            for row in plan.due:
-                self._book_contribution(plan.sub, row, joint_repo)
-            self._repair_contribution(plan, incomes_by_expense, joint_repo)
-
-    @staticmethod
     def _joint_incomes_by_expense(
-        joint_repo: "PaymentRepository",
+        self,
+        subscriptions: list[entities.SubscriptionModel],
     ) -> dict[str, entities.IncomePaymentModel]:
-        """Return the subscription-generated joint incomes, keyed by their expense.
+        """Return the joint income legs already in the books, keyed by their expense.
+
+        Read once for the whole pass, and not at all unless this instance can
+        settle a contribution and some subscription is one — a personal user with
+        no contributions pays nothing for this.
 
         An income leg carries ``subscription_id`` too, but it lives in the joint
         slice the personal repository cannot see, so it is never mistaken for the
         expense leg's "already done" marker.
         """
+        joint_repo = self._joint_payment_repo
+        if joint_repo is None or not any(
+            sub.is_joint_contribution for sub in subscriptions
+        ):
+            return {}
         return {
             str(payment.linked_payment_id): payment
             for payment in joint_repo.get_all()
@@ -184,30 +159,71 @@ class ReconcileSubscriptionsUseCase:
             and payment.linked_payment_id is not None
         }
 
-    def _delete_contribution_pairs(
+    def _settle_contribution(
         self,
-        plan: _ContributionPlan,
-        incomes_by_expense: dict[str, entities.IncomePaymentModel],
+        sub: entities.SubscriptionModel,
+        current_payments: list[entities.ExpensePaymentModel],
+        due: list[entities.RawRow],
+        superseded: set[str],
+        joint_incomes: dict[str, entities.IncomePaymentModel],
+    ) -> None:
+        """Settle one contribution subscription on both sides of the ledger.
+
+        Settled here rather than folded into the batched personal write above,
+        because a contribution is three ordered writes per payment rather than
+        one row in a batch, and because both of its legs must move together:
+        deleting only the expense would strand an income in the shared books
+        (``linked_payment_id`` is ``ON DELETE SET NULL``, so nothing else would
+        remove it).
+
+        This subscription's payments fall into three **disjoint** groups, each
+        needing a different thing done to it:
+
+        * the ones this run supersedes — remove both legs;
+        * the one now due, if any — book a fresh pair;
+        * the future ones that survive — finish any that is only half written.
+
+        A joint instance is handed no joint repository, so it leaves the
+        contribution untouched rather than booking half of it.
+        """
+        joint_repo = self._joint_payment_repo
+        if joint_repo is None:
+            return
+        self._remove_superseded_pairs(superseded, joint_incomes, joint_repo)
+        for row in due:
+            self._book_due_pair(sub, row, joint_repo)
+        self._complete_half_written_pairs(
+            sub,
+            current_payments,
+            superseded,
+            joint_incomes,
+            joint_repo,
+        )
+
+    def _remove_superseded_pairs(
+        self,
+        superseded: set[str],
+        joint_incomes: dict[str, entities.IncomePaymentModel],
         joint_repo: "PaymentRepository",
     ) -> None:
         """Delete both legs of every payment this subscription supersedes."""
-        if not plan.superseded:
+        if not superseded:
             return
         income_ids = [
             str(income.id)
-            for expense_id in sorted(plan.superseded)
-            if (income := incomes_by_expense.get(expense_id)) is not None
+            for expense_id in sorted(superseded)
+            if (income := joint_incomes.get(expense_id)) is not None
         ]
         joint_repo.apply_deletions(income_ids)
-        self._payment_repo.apply_deletions(sorted(plan.superseded))
+        self._payment_repo.apply_deletions(sorted(superseded))
 
-    def _book_contribution(
+    def _book_due_pair(
         self,
         sub: entities.SubscriptionModel,
         row: entities.RawRow,
         joint_repo: "PaymentRepository",
     ) -> None:
-        """Book a due contribution as a cross-linked pair of payments."""
+        """Book a newly due contribution as a cross-linked pair of payments."""
         expense = _as_expense(self._payment_repo.build_entities([row])[0])
         income = self._build_income_leg(sub, expense, joint_repo)
         linked_payments.write_linked_pair(
@@ -217,26 +233,30 @@ class ReconcileSubscriptionsUseCase:
             income,
         )
 
-    def _repair_contribution(
+    def _complete_half_written_pairs(
         self,
-        plan: _ContributionPlan,
-        incomes_by_expense: dict[str, entities.IncomePaymentModel],
+        sub: entities.SubscriptionModel,
+        current_payments: list[entities.ExpensePaymentModel],
+        superseded: set[str],
+        joint_incomes: dict[str, entities.IncomePaymentModel],
         joint_repo: "PaymentRepository",
     ) -> None:
-        """Finish any pair whose expense landed but whose income did not.
+        """Finish any surviving pair whose expense landed but whose income did not.
 
-        Without this a partial write is permanent: the next run sees a future
-        expense for the subscription, treats it as already booked, and the joint
-        leg is never written. Each surviving future expense is checked against
-        the incomes actually in the joint books, so a pair that is merely missing
-        its forward link is linked rather than written again.
+        Operates only on the future payments left standing — never on the ones
+        just superseded, and never on past payments. Without it a partial write
+        is permanent: the next run sees a future expense for the subscription,
+        treats it as already booked, and the joint leg is never written. Each
+        expense is checked against the incomes actually in the joint books, so a
+        pair that is merely missing its forward link is linked rather than
+        written a second time.
         """
-        for expense in plan.current_payments:
-            if expense.payment_date < self._today or str(expense.id) in plan.superseded:
+        for expense in current_payments:
+            if expense.payment_date < self._today or str(expense.id) in superseded:
                 continue
-            income = incomes_by_expense.get(str(expense.id))
+            income = joint_incomes.get(str(expense.id))
             if income is None:
-                income = self._build_income_leg(plan.sub, expense, joint_repo)
+                income = self._build_income_leg(sub, expense, joint_repo)
                 linked_payments.complete_linked_pair(
                     self._payment_repo,
                     joint_repo,

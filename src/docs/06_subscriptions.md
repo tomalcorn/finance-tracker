@@ -54,7 +54,7 @@ contribution off, or give it an end date, and any future pair is removed from
 both sets of books together.
 
 You do not pick an expense source for these. The personal side is always booked
-against your hidden "Joint" expense source, the same one the Contribute button
+against your "Joint" expense source, the same one the Contribute button
 uses, so all your contributions land in one place in your own budget.
 
 ## Important Behaviour
