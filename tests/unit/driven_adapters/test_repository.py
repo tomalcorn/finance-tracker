@@ -606,3 +606,60 @@ class TestCascadeInvalidation:
                 table_names.ViewNames.BUDGET_TRACKER,
             )
         )
+
+
+class TestCascadeAcrossOwnership:
+    """A cascade that crosses the ownership split busts the other half too."""
+
+    def test_deleting_a_subscription_busts_the_joint_payments_key(self) -> None:
+        # Arrange
+        account = uuid.uuid4()
+        cache = KeyedFakeCache({_JOINT_ACCOUNTS_KEY: [{"id": str(account)}]})
+        repo = repository.subscription_repository(
+            _USER_ID,
+            cache,
+            mock.MagicMock(),
+            _PERSONAL,
+        )
+
+        # Act
+        repo.apply_deletions([str(uuid.uuid4())])
+
+        # Assert - a contribution's income leg is a joint payment carrying this
+        # personal subscription's id, so the cascade took it; without this the
+        # co-member reads it back until the TTL.
+        assert f"joint:{account}:{table_names.TableNames.PAYMENTS}" in cache.invalidated
+
+    def test_a_user_with_no_joint_account_busts_no_joint_keys(self) -> None:
+        # Arrange - no joint account rows, so no cascade can cross
+        cache = KeyedFakeCache({})
+        repo = repository.subscription_repository(
+            _USER_ID,
+            cache,
+            mock.MagicMock(),
+            _PERSONAL,
+        )
+
+        # Act
+        repo.apply_deletions([str(uuid.uuid4())])
+
+        # Assert
+        assert not any(key.startswith("joint:") for key in cache.invalidated)
+
+    def test_a_table_without_a_crossing_cascade_busts_no_joint_keys(self) -> None:
+        # Arrange - bank_accounts has no cascade onto a joint-owned table, so
+        # the "only your own half" rule still holds for it
+        account = uuid.uuid4()
+        cache = KeyedFakeCache({_JOINT_ACCOUNTS_KEY: [{"id": str(account)}]})
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            cache,
+            mock.MagicMock(),
+            _PERSONAL,
+        )
+
+        # Act
+        repo.apply_deletions([str(uuid.uuid4())])
+
+        # Assert
+        assert not any(key.startswith("joint:") for key in cache.invalidated)

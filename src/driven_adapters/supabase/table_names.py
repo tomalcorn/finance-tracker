@@ -88,3 +88,16 @@ CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
     # views surface each row's own ownership_type / joint_account_id columns but
     # never join the joint tables, so a write to them invalidates no view.
 }
+
+
+CASCADES_ACROSS_OWNERSHIP: dict[TableNames, list[ViewNames | TableNames]] = {
+    # Deleting a personal subscription cascades away *joint* payment rows: a
+    # joint contribution's income leg is owned by the joint account but carries
+    # the personal subscription's id, so the FK reaches across the ownership
+    # split that normally keeps one repository inside one half.
+    #
+    # This is the one place a personal write moves a joint row, so it is the one
+    # place a personal repository has to bust a joint key — otherwise the other
+    # member's page serves an income whose subscription is gone until the TTL.
+    TableNames.SUBSCRIPTIONS: [TableNames.PAYMENTS, *_PAYMENT_DERIVED_VIEWS],
+}

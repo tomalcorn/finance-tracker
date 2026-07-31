@@ -158,6 +158,14 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         account_id = self._joint_account_id()
         if account_id is None:
             raise errors.NoJointAccountError(self._user_id)
+        return self._joint_cache_key(account_id, table)
+
+    @staticmethod
+    def _joint_cache_key(
+        account_id: uuid.UUID,
+        table: "table_names.ViewNames | table_names.TableNames",
+    ) -> str:
+        """Return the account-scoped key every member of an account computes."""
         return f"joint:{account_id}:{table}"
 
     def _eq_filters(self) -> dict[str, str]:
@@ -217,7 +225,36 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         member of it.
         """
         affected = table_names.CACHE_KEYS_AFFECTED_BY.get(self._spec.write_table, [])
-        return [self._cache_key(t) for t in (self._spec.write_table, *affected)]
+        own = [self._cache_key(t) for t in (self._spec.write_table, *affected)]
+        return own + self._cascaded_joint_keys()
+
+    def _cascaded_joint_keys(self) -> list[str]:
+        """Return the joint keys a cascade from this write reaches, if any.
+
+        The one exception to "a repository busts only its own half". A cascade
+        is the database writing rows on this repository's behalf, and
+        ``CASCADES_ACROSS_OWNERSHIP`` names the cascades that land on the other
+        side of the ownership split — so the rows really are moved, and the key
+        holding them really must be busted, by the only repository that knows
+        the write happened.
+
+        Empty unless this is a personal repository whose table has such a
+        cascade and the user has a joint account. The account id comes from the
+        same memoised, cache-backed read every joint key already uses, so this
+        costs no extra fetch.
+        """
+        if self._ownership is not entities.OwnershipType.PERSONAL:
+            return []
+        crossing = table_names.CASCADES_ACROSS_OWNERSHIP.get(
+            self._spec.write_table,
+            [],
+        )
+        if not crossing:
+            return []
+        account_id = self._joint_account_id()
+        if account_id is None:
+            return []
+        return [self._joint_cache_key(account_id, t) for t in crossing]
 
     def get_all(self) -> list[EntityT]:
         """Return all records for the current user."""
