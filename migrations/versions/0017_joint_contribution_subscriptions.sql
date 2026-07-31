@@ -1,4 +1,4 @@
--- 0016_joint_contribution_subscriptions
+-- 0017_joint_contribution_subscriptions
 --
 -- A standing order into the joint account (#205). Contributing is a one-off act
 -- today (the Contribute button, #200): it books a personal expense and a
