@@ -28,6 +28,32 @@ class IncompleteQuickButtonError(DomainError):
         )
 
 
+class IncompleteJointContributionError(DomainError):
+    """Error when a joint-contribution subscription is missing a joint field."""
+
+    def __init__(self, name: str, missing: list[str]) -> None:
+        """Construct IncompleteJointContributionError."""
+        self.name = name
+        self.missing = missing
+        joined = ", ".join(missing)
+        super().__init__(
+            f"Subscription {name!r} contributes to a joint account, so it needs "
+            f"{joined}.",
+        )
+
+
+class JointOwnedContributionError(DomainError):
+    """Error when a joint-owned subscription claims to be a contribution."""
+
+    def __init__(self, name: str) -> None:
+        """Construct JointOwnedContributionError."""
+        self.name = name
+        super().__init__(
+            f"Subscription {name!r} is owned by the joint account, so it cannot "
+            "also contribute to one.",
+        )
+
+
 class MissingJointAccountError(DomainError):
     """Error when a joint-owned item has no joint account reference."""
 

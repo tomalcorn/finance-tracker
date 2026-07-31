@@ -38,13 +38,17 @@ class ViewNames(enum.StrEnum):
     SUBSCRIPTIONS = "subscriptions_view"
 
 
-VIEWS_AFFECTED_BY: dict[TableNames, list[ViewNames]] = {
-    TableNames.PAYMENTS: [
-        ViewNames.BANK_ACCOUNTS,
-        ViewNames.EXPENSE_SOURCES,
-        ViewNames.INCOME_SOURCES,
-        ViewNames.BUDGET_TRACKER,
-    ],
+_PAYMENT_DERIVED_VIEWS: list[ViewNames] = [
+    ViewNames.BANK_ACCOUNTS,
+    ViewNames.EXPENSE_SOURCES,
+    ViewNames.INCOME_SOURCES,
+    ViewNames.BUDGET_TRACKER,
+]
+"""The views that sum payments, so any write to them restates all four."""
+
+
+CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
+    TableNames.PAYMENTS: [*_PAYMENT_DERIVED_VIEWS],
     TableNames.BANK_ACCOUNTS: [ViewNames.BANK_ACCOUNTS],
     TableNames.EXPENSE_SOURCES: [
         ViewNames.EXPENSE_SOURCES,
@@ -54,7 +58,16 @@ VIEWS_AFFECTED_BY: dict[TableNames, list[ViewNames]] = {
         ViewNames.INCOME_SOURCES,
         ViewNames.BUDGET_TRACKER,
     ],
-    TableNames.SUBSCRIPTIONS: [ViewNames.SUBSCRIPTIONS],
+    # payments.subscription_id is ON DELETE CASCADE (0001), so deleting a
+    # subscription deletes its generated payments too — a write to `payments`
+    # this repository never issues and would otherwise never bust. The payments
+    # key and everything computed from it therefore hang off subscriptions as
+    # well, or a deleted subscription's payments linger until the TTL.
+    TableNames.SUBSCRIPTIONS: [
+        ViewNames.SUBSCRIPTIONS,
+        TableNames.PAYMENTS,
+        *_PAYMENT_DERIVED_VIEWS,
+    ],
     TableNames.ONE_OFFS: [ViewNames.ONE_OFFS],
     TableNames.BUDGET_TRACKER: [
         ViewNames.ONE_OFFS,
@@ -74,4 +87,17 @@ VIEWS_AFFECTED_BY: dict[TableNames, list[ViewNames]] = {
     # JOINT_ACCOUNTS and JOINT_ACCOUNT_MEMBERS feed no views: the aggregate
     # views surface each row's own ownership_type / joint_account_id columns but
     # never join the joint tables, so a write to them invalidates no view.
+}
+
+
+CASCADES_ACROSS_OWNERSHIP: dict[TableNames, list[ViewNames | TableNames]] = {
+    # Deleting a personal subscription cascades away *joint* payment rows: a
+    # joint contribution's income leg is owned by the joint account but carries
+    # the personal subscription's id, so the FK reaches across the ownership
+    # split that normally keeps one repository inside one half.
+    #
+    # This is the one place a personal write moves a joint row, so it is the one
+    # place a personal repository has to bust a joint key — otherwise the other
+    # member's page serves an income whose subscription is gone until the TTL.
+    TableNames.SUBSCRIPTIONS: [TableNames.PAYMENTS, *_PAYMENT_DERIVED_VIEWS],
 }

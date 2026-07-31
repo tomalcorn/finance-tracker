@@ -35,6 +35,28 @@ can compare them against your budget on the same scale.
 - Link it to the right expense source so the spending lands in the right budget.
 - Mark it inactive when it no longer applies.
 
+## Joint Contributions
+
+If you belong to a joint account, the Personal page's subscriptions block has a
+second tab: **Joint Contributions**. A row there is a standing order into the
+joint account — the same transfer the **Contribute to Joint** button makes, but
+repeating on a cadence instead of happening once.
+
+| Column | Meaning |
+| --- | --- |
+| `From (personal)` | The personal bank account the money leaves. |
+| `To (joint)` | The joint bank account the money arrives in. |
+| `Joint Income Source` | What the arriving money counts towards in the joint budget. |
+
+Each time one falls due it books **two** payments: an expense on your personal
+side and a matching income on the joint side, linked to each other. Switch the
+contribution off, or give it an end date, and any future pair is removed from
+both sets of books together.
+
+You do not pick an expense source for these. The personal side is always booked
+against your "Joint" expense source, the same one the Contribute button
+uses, so all your contributions land in one place in your own budget.
+
 ## Important Behaviour
 
 The dashboard runs the subscription reconciler as part of the page flow. That

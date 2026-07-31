@@ -102,3 +102,64 @@ class TestQuickButtonLoggableValidator:
 
         # Act / Assert
         assert button.expense is None
+
+
+class TestJointContributionValidator:
+    """A contribution subscription must be complete, and must be personal."""
+
+    @staticmethod
+    def _subscription(
+        *,
+        ownership_type: entities.OwnershipType = entities.OwnershipType.PERSONAL,
+        joint_account_id: uuid.UUID | None = None,
+        joint_income_source_id: uuid.UUID | None = None,
+        joint_bank_account_id: uuid.UUID | None = None,
+    ) -> entities.SubscriptionModel:
+        """Return a subscription varying only its ownership and joint fields."""
+        return entities.SubscriptionModel(
+            user_id="test-user",
+            name="Joint standing order",
+            bank_account_id=uuid.uuid4(),
+            ownership_type=ownership_type,
+            joint_account_id=joint_account_id,
+            joint_income_source_id=joint_income_source_id,
+            joint_bank_account_id=joint_bank_account_id,
+        )
+
+    def test_a_contribution_without_its_destination_is_rejected(self) -> None:
+        # Arrange / Act
+        with pytest.raises(errors.IncompleteJointContributionError) as exc_info:
+            self._subscription(joint_income_source_id=uuid.uuid4())
+
+        # Assert
+        assert exc_info.value.missing == ["joint_bank_account_id"]
+
+    def test_a_destination_without_an_income_source_is_rejected(self) -> None:
+        # Arrange / Act
+        with pytest.raises(errors.IncompleteJointContributionError) as exc_info:
+            self._subscription(joint_bank_account_id=uuid.uuid4())
+
+        # Assert
+        assert exc_info.value.missing == ["joint_income_source_id"]
+
+    def test_a_joint_owned_subscription_cannot_contribute(self) -> None:
+        # Arrange / Act / Assert
+        # Only the personal side contributes; a joint row doing so would book an
+        # expense in the shared books with no counterpart anywhere.
+        with pytest.raises(errors.JointOwnedContributionError):
+            self._subscription(
+                ownership_type=entities.OwnershipType.JOINT,
+                joint_account_id=uuid.uuid4(),
+                joint_income_source_id=uuid.uuid4(),
+                joint_bank_account_id=uuid.uuid4(),
+            )
+
+    def test_a_complete_contribution_is_accepted(self) -> None:
+        # Arrange
+        sub = self._subscription(
+            joint_income_source_id=uuid.uuid4(),
+            joint_bank_account_id=uuid.uuid4(),
+        )
+
+        # Act / Assert
+        assert sub.is_joint_contribution

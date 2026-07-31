@@ -54,14 +54,19 @@ def _convert_cols_to_datetime(
 def build_working_df(config: "frontend_models.DFEConfig") -> pd.DataFrame:
     """Build the display frame from the port, applying the active filters.
 
-    Reads display rows from ``source.data_source.rows()`` (Path A) and filters
-    them in Python, falling back to the display's sample data when the read is
-    empty. Rebuilt every run — there is no cached working frame in session state.
+    Reads display rows from ``source.data_source.rows()`` (Path A), narrows them
+    to the grid's own slice (``row_predicate``), and applies the user's active
+    column filters — all in Python, falling back to the display's sample data
+    when nothing is left. Rebuilt every run — there is no cached working frame in
+    session state.
     """
     display, key_prefix = config.display, config.key_prefix
     active_columns = _active_columns(display, key_prefix)
     if config.source.data_source is not None:
         rows = config.source.data_source.rows()
+        predicate = config.source.row_predicate
+        if predicate is not None:
+            rows = [row for row in rows if predicate(row)]
         working_df = pd.DataFrame([row.model_dump(mode="json") for row in rows])
         working_df = grid_sync.apply_active_filters(working_df, active_columns)
     else:

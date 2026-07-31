@@ -185,6 +185,21 @@ class SubscriptionView(_ViewBase):
         float,
         pydantic.Field(description="amount normalised to a monthly equivalent."),
     ]
+    joint_income_source_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(
+            description=(
+                "The joint income source a contribution's income leg is booked "
+                "against. Set means this row is a joint contribution."
+            ),
+        ),
+    ] = None
+    joint_bank_account_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(
+            description="The joint bank account a contribution arrives in.",
+        ),
+    ] = None
 
 
 class PaymentView(_ViewBase):
