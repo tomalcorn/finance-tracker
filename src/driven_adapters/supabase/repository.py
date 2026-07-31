@@ -208,14 +208,16 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
     def _affected_keys(self) -> list[str]:
         """Return the cache keys a write to this aggregate busts.
 
-        The written table plus every view that depends on it (Supabase schema
-        knowledge that belongs on the driven side), each under this repository's
-        own key. A repository only ever writes rows of its own ownership, so it
-        only ever has to bust its own entries — and because a joint key is
-        derived from the account, busting it reaches every member of it.
+        The written table plus everything that depends on it — the views
+        computed from it, and any table an ``ON DELETE CASCADE`` writes on its
+        behalf (Supabase schema knowledge that belongs on the driven side) —
+        each under this repository's own key. A repository only ever writes rows
+        of its own ownership, so it only ever has to bust its own entries — and
+        because a joint key is derived from the account, busting it reaches every
+        member of it.
         """
-        views = table_names.VIEWS_AFFECTED_BY.get(self._spec.write_table, [])
-        return [self._cache_key(t) for t in (self._spec.write_table, *views)]
+        affected = table_names.CACHE_KEYS_AFFECTED_BY.get(self._spec.write_table, [])
+        return [self._cache_key(t) for t in (self._spec.write_table, *affected)]
 
     def get_all(self) -> list[EntityT]:
         """Return all records for the current user."""

@@ -560,3 +560,49 @@ class TestPaymentRepository:
             entities.ExpensePaymentModel,
             entities.IncomePaymentModel,
         }
+
+
+class TestCascadeInvalidation:
+    """A cascade writes rows this repository never issued, and must still bust."""
+
+    def test_deleting_a_subscription_busts_the_payments_key(self) -> None:
+        # Arrange
+        cache = FakeCache([])
+        repo = repository.subscription_repository(
+            _USER_ID,
+            cache,
+            mock.MagicMock(),
+            _PERSONAL,
+        )
+
+        # Act
+        repo.apply_deletions([str(uuid.uuid4())])
+
+        # Assert - payments.subscription_id is ON DELETE CASCADE, so the row
+        # went with it; without this key the payments grid keeps showing a
+        # deleted subscription's payments until the TTL expires.
+        assert f"{_USER_ID}:{table_names.TableNames.PAYMENTS}" in cache.invalidated
+
+    def test_deleting_a_subscription_busts_the_views_that_sum_payments(self) -> None:
+        # Arrange
+        cache = FakeCache([])
+        repo = repository.subscription_repository(
+            _USER_ID,
+            cache,
+            mock.MagicMock(),
+            _PERSONAL,
+        )
+
+        # Act
+        repo.apply_deletions([str(uuid.uuid4())])
+
+        # Assert
+        assert all(
+            f"{_USER_ID}:{view}" in cache.invalidated
+            for view in (
+                table_names.ViewNames.BANK_ACCOUNTS,
+                table_names.ViewNames.EXPENSE_SOURCES,
+                table_names.ViewNames.INCOME_SOURCES,
+                table_names.ViewNames.BUDGET_TRACKER,
+            )
+        )
