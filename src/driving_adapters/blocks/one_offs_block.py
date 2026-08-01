@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import streamlit as st
 
-from domain import entities, query
+from domain import entities, query, read_models
 from driving_adapters.components.buttons import add_button, bank_button, filter_button
 from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
@@ -166,6 +166,22 @@ def commit(
     grid.commit(_build_config(data_source, budget_tracker_map))
 
 
+def _bankable_items(
+    data_source: "data_source_mod.GridDataSource",
+) -> list[read_models.OneOffView]:
+    """Return the one-offs with an amount pledged for the current month.
+
+    Read through the port rather than off the grid's display frame: banking acts
+    on the aggregate, so neither an active column filter nor the sample data an
+    empty frame falls back to gets to decide what is bankable.
+    """
+    return [
+        row
+        for row in data_source.rows()
+        if isinstance(row, read_models.OneOffView) and row.current_month > 0
+    ]
+
+
 def render(
     data_source: "data_source_mod.GridDataSource",
     budget_tracker_map: dict[str, str],
@@ -176,24 +192,13 @@ def render(
     config = _build_config(data_source, budget_tracker_map)
     working_df = grid.build_working_df(config)
 
-    bankable_items = []
-    if not working_df.empty:
-        bankable_df = working_df[working_df["current_month"] > 0]
-        if not bankable_df.empty:
-            bankable_items = bankable_df.to_dict("records")
-
-    # Compose buttons: add, filter, and bank-it in one row
     add_col, filter_col, bank_col, _ = st.columns([0.05, 0.05, 0.05, 0.85])
     with add_col:
         add_button.render_add_button(config.source, config.display)
     with filter_col:
         filter_button.render_filter_button(config.source, config.display)
     with bank_col:
-        if bankable_items:
-            bank_btn = bank_button.BankButton(
-                bank_one_offs_use_case,
-                bank_account_map,
-            )
-            bank_btn(bankable_items)
+        bank_btn = bank_button.BankButton(bank_one_offs_use_case, bank_account_map)
+        bank_btn(_bankable_items(data_source))
 
     grid.render_editor(config.display, config.key_prefix, working_df)
