@@ -1,3 +1,9 @@
+## v1.10.1 (2026-08-01)
+
+### Fix
+
+- **one-offs**: stop the Bank It button vanishing with the display frame (#225)
+
 ## v1.10.0 (2026-07-31)
 
 ### Feat
