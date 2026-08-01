@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import typing
 import uuid
 
 import streamlit as st
@@ -9,6 +10,11 @@ import streamlit as st
 from driving_adapters import lookups
 from driving_adapters.components.buttons import constants
 from use_cases import bank_one_offs, errors
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from domain import read_models
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +38,27 @@ class BankButton:
     @st.dialog("Bank It")
     def _bank_it_dialog(
         self,
-        bankable_items: list[dict],
+        bankable_items: "Sequence[read_models.OneOffView]",
         bank_account_map: dict[str, str],
     ) -> None:
         """Render the Bank It dialog."""
-        item_options = {str(item["id"]): item for item in bankable_items}
+        if not bankable_items:
+            st.warning(
+                "Nothing to bank yet. Give a one-off a current-month amount "
+                "first, then come back to move it into Banked.",
+            )
+            return
+
+        if not bank_account_map:
+            st.warning(
+                "You need a bank account to bank into. Add one below, then come "
+                "back to bank your one-offs.",
+            )
+            return
+
+        item_options = {str(item.id): item for item in bankable_items}
         item_labels = {
-            str(item["id"]): f"{item['name']} — £{float(item['current_month']):,.2f}"
+            str(item.id): f"{item.name} — £{item.current_month:,.2f}"
             for item in bankable_items
         }
 
@@ -58,9 +78,7 @@ class BankButton:
         )
 
         if selected_ids:
-            total = sum(
-                float(item_options[sid]["current_month"]) for sid in selected_ids
-            )
+            total = sum(item_options[sid].current_month for sid in selected_ids)
             st.markdown(f"**Total to bank: £{total:,.2f}**")
 
         can_submit = bool(selected_ids) and selected_bank_account is not None
@@ -77,11 +95,15 @@ class BankButton:
                 st.stop()
             st.rerun()
 
-    def __call__(self, bankable_items: list[dict]) -> None:
-        """Render the Bank It button.
+    def __call__(self, bankable_items: "Sequence[read_models.OneOffView]") -> None:
+        """Render the Bank It button, opening the dialog when clicked.
+
+        The button renders whether or not there is anything to bank; an empty
+        ``bankable_items`` is explained inside the dialog rather than by the
+        button silently disappearing.
 
         Args:
-            bankable_items: List of one-off item dicts with current_month > 0.
+            bankable_items: The one-off views with ``current_month`` > 0.
 
         """
         if st.button(
