@@ -21,6 +21,15 @@ type Cadence = typing.Literal[
     "yearly",
 ]
 
+type SubscriptionBuilder = Callable[..., entities.SubscriptionModel]
+type PaymentBuilder = Callable[..., entities.ExpensePaymentModel]
+type UseCaseBuilder = Callable[..., ReconcileSubscriptionsUseCase]
+
+_TODAY = datetime.date(2026, 5, 4)
+_FUTURE = _TODAY + datetime.timedelta(days=30)
+_DEFAULT_AMOUNT = 15.99
+_DEFAULT_NAME = "Netflix"
+
 
 @pytest.fixture(name="user_id")
 def _user_id() -> str:
@@ -47,84 +56,88 @@ def _mock_payment_repo() -> mock.MagicMock:
     return mock.MagicMock()
 
 
-_DEFAULT_AMOUNT = 15.99
-_DEFAULT_NAME = "Netflix"
-
-
-def _make_subscription(  # noqa: PLR0913
+@pytest.fixture(name="build_subscription")
+def _build_subscription(
     user_id: str,
     bank_account_id: uuid.UUID,
-    *,
-    name: str = _DEFAULT_NAME,
-    amount: float = _DEFAULT_AMOUNT,
-    cadence: Cadence = "monthly",
-    start_date: datetime.date = datetime.date(2026, 1, 1),
-    end_date: datetime.date | None = None,
-    is_active: bool = True,
-    expense_source_id: uuid.UUID | None = None,
-    sub_id: uuid.UUID | None = None,
-) -> entities.SubscriptionModel:
-    return entities.SubscriptionModel(
-        id=sub_id or uuid.uuid4(),
-        user_id=user_id,
-        name=name,
-        amount=amount,
-        cadence=cadence,
-        bank_account_id=bank_account_id,
-        expense_source_id=expense_source_id,
-        start_date=start_date,
-        end_date=end_date,
-        is_active=is_active,
-    )
+) -> SubscriptionBuilder:
+    """Return a builder for subscriptions, overridable field by field."""
+
+    def _build(  # noqa: PLR0913
+        *,
+        name: str = _DEFAULT_NAME,
+        amount: float = _DEFAULT_AMOUNT,
+        cadence: Cadence = "monthly",
+        start_date: datetime.date = datetime.date(2026, 1, 1),
+        end_date: datetime.date | None = None,
+        is_active: bool = True,
+        expense_source_id: uuid.UUID | None = None,
+        sub_id: uuid.UUID | None = None,
+    ) -> entities.SubscriptionModel:
+        return entities.SubscriptionModel(
+            id=sub_id or uuid.uuid4(),
+            user_id=user_id,
+            name=name,
+            amount=amount,
+            cadence=cadence,
+            bank_account_id=bank_account_id,
+            expense_source_id=expense_source_id,
+            start_date=start_date,
+            end_date=end_date,
+            is_active=is_active,
+        )
+
+    return _build
 
 
-def _make_payment(
-    sub: entities.SubscriptionModel,
-    payment_date: datetime.date,
-    *,
-    payment_id: uuid.UUID | None = None,
-) -> entities.ExpensePaymentModel:
-    return entities.ExpensePaymentModel(
-        id=payment_id or uuid.uuid4(),
-        user_id=sub.user_id,
-        name=f"Sub: {sub.name}",
-        expense=sub.amount,
-        payment_date=payment_date,
-        bank_account_id=sub.bank_account_id,
-        expense_source_id=sub.expense_source_id,
-        subscription_id=sub.id,
-    )
+@pytest.fixture(name="build_payment")
+def _build_payment() -> PaymentBuilder:
+    """Return a builder for the payments a subscription has already generated."""
+
+    def _build(
+        sub: entities.SubscriptionModel,
+        payment_date: datetime.date,
+        *,
+        payment_id: uuid.UUID | None = None,
+    ) -> entities.ExpensePaymentModel:
+        return entities.ExpensePaymentModel(
+            id=payment_id or uuid.uuid4(),
+            user_id=sub.user_id,
+            name=f"Sub: {sub.name}",
+            expense=sub.amount,
+            payment_date=payment_date,
+            bank_account_id=sub.bank_account_id,
+            expense_source_id=sub.expense_source_id,
+            subscription_id=sub.id,
+        )
+
+    return _build
 
 
-def _use_case(
+@pytest.fixture(name="build_use_case")
+def _build_use_case(
     mock_subscription_repo: mock.MagicMock,
     mock_payment_repo: mock.MagicMock,
-    *,
-    today: datetime.date | None = None,
-) -> ReconcileSubscriptionsUseCase:
-    return ReconcileSubscriptionsUseCase(
-        subscription_repo=mock_subscription_repo,
-        payment_repo=mock_payment_repo,
-        today=today,
-    )
+) -> UseCaseBuilder:
+    """Return a builder for the use case, letting a test move its reference date."""
+
+    def _build(*, today: datetime.date = _TODAY) -> ReconcileSubscriptionsUseCase:
+        return ReconcileSubscriptionsUseCase(
+            subscription_repo=mock_subscription_repo,
+            payment_repo=mock_payment_repo,
+            today=today,
+        )
+
+    return _build
+
+
+@pytest.fixture(name="use_case")
+def _use_case(build_use_case: UseCaseBuilder) -> ReconcileSubscriptionsUseCase:
+    return build_use_case()
 
 
 class TestReconcileSubscription:
     """Tests for _reconcile_subscription."""
-
-    _TODAY = datetime.date(2026, 5, 4)
-
-    @pytest.fixture(autouse=True)
-    def _setup_use_case(
-        self,
-        mock_subscription_repo: mock.MagicMock,
-        mock_payment_repo: mock.MagicMock,
-    ) -> None:
-        self.use_case = _use_case(
-            mock_subscription_repo,
-            mock_payment_repo,
-            today=self._TODAY,
-        )
 
     @pytest.mark.parametrize(
         ("cadence", "start_date", "expected_date"),
@@ -163,20 +176,19 @@ class TestReconcileSubscription:
     )
     def test_active_sub_no_future_payment_creates_one(
         self,
-        user_id: str,
-        bank_account_id: uuid.UUID,
+        use_case: ReconcileSubscriptionsUseCase,
+        build_subscription: SubscriptionBuilder,
         cadence: Cadence,
         start_date: datetime.date,
         expected_date: datetime.date,
     ) -> None:
-        sub = _make_subscription(
-            user_id,
-            bank_account_id,
-            cadence=cadence,
-            start_date=start_date,
-        )
-        new_rows, _ = self.use_case._reconcile_subscription(sub, [])
+        # Arrange
+        sub = build_subscription(cadence=cadence, start_date=start_date)
 
+        # Act
+        new_rows, _ = use_case._reconcile_subscription(sub, [])
+
+        # Assert
         assert all(
             [
                 len(new_rows) == 1,
@@ -199,15 +211,20 @@ class TestReconcileSubscription:
     )
     def test_valid_future_payment_is_kept(
         self,
-        user_id: str,
-        bank_account_id: uuid.UUID,
+        use_case: ReconcileSubscriptionsUseCase,
+        build_subscription: SubscriptionBuilder,
+        build_payment: PaymentBuilder,
         sub_kwargs: dict,
         payment_date: datetime.date,
     ) -> None:
-        sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
-        payment = _make_payment(sub, payment_date)
-        new_rows, deleted_ids = self.use_case._reconcile_subscription(sub, [payment])
+        # Arrange
+        sub = build_subscription(**sub_kwargs)
+        payment = build_payment(sub, payment_date)
 
+        # Act
+        new_rows, deleted_ids = use_case._reconcile_subscription(sub, [payment])
+
+        # Assert
         assert all(
             [
                 len(new_rows) == 0,
@@ -232,15 +249,20 @@ class TestReconcileSubscription:
     )
     def test_invalid_future_payment_is_deleted(
         self,
-        user_id: str,
-        bank_account_id: uuid.UUID,
+        use_case: ReconcileSubscriptionsUseCase,
+        build_subscription: SubscriptionBuilder,
+        build_payment: PaymentBuilder,
         sub_kwargs: dict,
         payment_date: datetime.date,
     ) -> None:
-        sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
-        payment = _make_payment(sub, payment_date)
-        _, deleted_ids = self.use_case._reconcile_subscription(sub, [payment])
+        # Arrange
+        sub = build_subscription(**sub_kwargs)
+        payment = build_payment(sub, payment_date)
 
+        # Act
+        _, deleted_ids = use_case._reconcile_subscription(sub, [payment])
+
+        # Assert
         assert all(
             [
                 len(deleted_ids) == 1,
@@ -249,11 +271,11 @@ class TestReconcileSubscription:
         )
 
     @pytest.mark.parametrize(
-        ("sub_kwargs", "payments_factory"),
+        ("sub_kwargs", "payment_dates"),
         [
             pytest.param(
                 {"is_active": False},
-                lambda sub: [_make_payment(sub, datetime.date(2020, 1, 1))],
+                [datetime.date(2020, 1, 1)],
                 id="inactive_sub_past_payment",
             ),
             pytest.param(
@@ -261,25 +283,27 @@ class TestReconcileSubscription:
                     "start_date": datetime.date(2025, 1, 1),
                     "end_date": datetime.date(2025, 6, 1),
                 },
-                lambda _sub: [],
+                [],
                 id="expired_sub_no_payments",
             ),
         ],
     )
     def test_no_action_taken(
         self,
-        user_id: str,
-        bank_account_id: uuid.UUID,
+        use_case: ReconcileSubscriptionsUseCase,
+        build_subscription: SubscriptionBuilder,
+        build_payment: PaymentBuilder,
         sub_kwargs: dict,
-        payments_factory: Callable[
-            [entities.SubscriptionModel],
-            list[entities.ExpensePaymentModel],
-        ],
+        payment_dates: list[datetime.date],
     ) -> None:
-        sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
-        payments = payments_factory(sub)
-        new_rows, deleted_ids = self.use_case._reconcile_subscription(sub, payments)
+        # Arrange
+        sub = build_subscription(**sub_kwargs)
+        payments = [build_payment(sub, date) for date in payment_dates]
 
+        # Act
+        new_rows, deleted_ids = use_case._reconcile_subscription(sub, payments)
+
+        # Assert
         assert all(
             [
                 len(new_rows) == 0,
@@ -289,17 +313,18 @@ class TestReconcileSubscription:
 
     def test_created_payment_has_correct_subscription_id(
         self,
-        user_id: str,
+        use_case: ReconcileSubscriptionsUseCase,
+        build_subscription: SubscriptionBuilder,
         bank_account_id: uuid.UUID,
         expense_source_id: uuid.UUID,
     ) -> None:
-        sub = _make_subscription(
-            user_id,
-            bank_account_id,
-            expense_source_id=expense_source_id,
-        )
-        new_rows, _ = self.use_case._reconcile_subscription(sub, [])
+        # Arrange
+        sub = build_subscription(expense_source_id=expense_source_id)
 
+        # Act
+        new_rows, _ = use_case._reconcile_subscription(sub, [])
+
+        # Assert
         added = new_rows[0]
         assert all(
             [
@@ -311,24 +336,108 @@ class TestReconcileSubscription:
         )
 
 
-class TestComputeNextDate:
-    """Tests for _compute_next_date."""
+class TestSettledCycleScheduling:
+    """A payment re-dated to when the money actually moved still settles its cycle.
 
-    _TODAY = datetime.date(2026, 5, 4)
-    _FUTURE = _TODAY + datetime.timedelta(days=30)
+    Each payment is attributed to the scheduled date it lies closest to, so a
+    charge nudged either side of its due date neither duplicates that cycle nor
+    swallows the following one.
+    """
 
-    @pytest.fixture(autouse=True)
-    def _setup_use_case(
+    @pytest.mark.parametrize(
+        ("sub_kwargs", "today", "payment_date", "expected_dates"),
+        [
+            pytest.param(
+                {"start_date": datetime.date(2026, 1, 6)},
+                datetime.date(2026, 5, 4),
+                datetime.date(2026, 5, 3),
+                [datetime.date(2026, 6, 6)],
+                id="redated_earlier_rolls_on_instead_of_duplicating",
+            ),
+            pytest.param(
+                {"start_date": datetime.date(2026, 1, 6)},
+                datetime.date(2026, 5, 4),
+                datetime.date(2026, 4, 6),
+                [datetime.date(2026, 5, 6)],
+                id="previous_cycle_payment_leaves_current_due",
+            ),
+            pytest.param(
+                {"start_date": datetime.date(2026, 1, 6)},
+                datetime.date(2026, 5, 12),
+                datetime.date(2026, 5, 9),
+                [datetime.date(2026, 6, 6)],
+                id="redated_later_settles_its_own_cycle_only",
+            ),
+            pytest.param(
+                {"start_date": datetime.date(2026, 4, 29), "cadence": "weekly"},
+                datetime.date(2026, 5, 4),
+                datetime.date(2026, 5, 3),
+                [datetime.date(2026, 5, 13)],
+                id="tolerance_scales_to_a_weekly_cadence",
+            ),
+            pytest.param(
+                {
+                    "start_date": datetime.date(2026, 1, 6),
+                    "end_date": datetime.date(2026, 5, 31),
+                },
+                datetime.date(2026, 5, 4),
+                datetime.date(2026, 5, 3),
+                [],
+                id="settled_cycle_past_end_date_creates_nothing",
+            ),
+        ],
+    )
+    def test_schedules_from_the_first_unsettled_cycle(  # noqa: PLR0913
         self,
+        build_use_case: UseCaseBuilder,
+        build_subscription: SubscriptionBuilder,
+        build_payment: PaymentBuilder,
+        sub_kwargs: dict,
+        today: datetime.date,
+        payment_date: datetime.date,
+        expected_dates: list[datetime.date],
+    ) -> None:
+        # Arrange
+        use_case = build_use_case(today=today)
+        sub = build_subscription(**sub_kwargs)
+        payment = build_payment(sub, payment_date)
+
+        # Act
+        new_rows, deleted_ids = use_case._reconcile_subscription(sub, [payment])
+
+        # Assert
+        assert all(
+            [
+                [row["payment_date"] for row in new_rows] == expected_dates,
+                len(deleted_ids) == 0,
+            ],
+        )
+
+    def test_execute_does_not_duplicate_a_redated_payment(
+        self,
+        build_use_case: UseCaseBuilder,
+        build_subscription: SubscriptionBuilder,
+        build_payment: PaymentBuilder,
         mock_subscription_repo: mock.MagicMock,
         mock_payment_repo: mock.MagicMock,
     ) -> None:
-        """Set use case's reference date to a fixed value for deterministic tests."""
-        self.use_case = _use_case(
-            mock_subscription_repo,
-            mock_payment_repo,
-            today=self._TODAY,
-        )
+        # Arrange - the payment due on the 6th, moved back to the 3rd it left on
+        sub = build_subscription(start_date=datetime.date(2026, 1, 6))
+        payment = build_payment(sub, datetime.date(2026, 5, 3))
+        mock_subscription_repo.get_all.return_value = [sub]
+        mock_payment_repo.get_all.return_value = [payment]
+        use_case = build_use_case(today=datetime.date(2026, 5, 4))
+
+        # Act
+        use_case.execute()
+
+        # Assert - the settled cycle is not rebooked on the 6th
+        written = mock_payment_repo.build_entities.call_args.args[0]
+        assert [row["payment_date"] for row in written] == [datetime.date(2026, 6, 6)]
+
+
+class TestComputeNextDate:
+    """Tests for _compute_next_date."""
 
     @pytest.mark.parametrize(
         ("sub_kwargs", "expected"),
@@ -364,13 +473,16 @@ class TestComputeNextDate:
     )
     def test_returns_expected_date(
         self,
-        user_id: str,
-        bank_account_id: uuid.UUID,
+        use_case: ReconcileSubscriptionsUseCase,
+        build_subscription: SubscriptionBuilder,
         sub_kwargs: dict,
         expected: datetime.date,
     ) -> None:
-        sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
-        assert self.use_case._compute_next_date(sub) == expected
+        # Arrange
+        sub = build_subscription(**sub_kwargs)
+
+        # Act / Assert
+        assert use_case._compute_next_date(sub) == expected
 
     @pytest.mark.parametrize(
         "sub_kwargs",
@@ -394,12 +506,15 @@ class TestComputeNextDate:
     )
     def test_returns_none(
         self,
-        user_id: str,
-        bank_account_id: uuid.UUID,
+        use_case: ReconcileSubscriptionsUseCase,
+        build_subscription: SubscriptionBuilder,
         sub_kwargs: dict,
     ) -> None:
-        sub = _make_subscription(user_id, bank_account_id, **sub_kwargs)
-        assert self.use_case._compute_next_date(sub) is None
+        # Arrange
+        sub = build_subscription(**sub_kwargs)
+
+        # Act / Assert
+        assert use_case._compute_next_date(sub) is None
 
 
 class TestGroupPaymentsBySubscription:
@@ -407,19 +522,22 @@ class TestGroupPaymentsBySubscription:
 
     def test_groups_by_subscription_id(
         self,
-        user_id: str,
-        bank_account_id: uuid.UUID,
+        build_subscription: SubscriptionBuilder,
+        build_payment: PaymentBuilder,
     ) -> None:
-        sub1 = _make_subscription(user_id, bank_account_id, name="Sub1")
-        sub2 = _make_subscription(user_id, bank_account_id, name="Sub2")
+        # Arrange
+        sub1 = build_subscription(name="Sub1")
+        sub2 = build_subscription(name="Sub2")
         payments = [
-            _make_payment(sub1, datetime.date(2026, 6, 1)),
-            _make_payment(sub1, datetime.date(2026, 7, 1)),
-            _make_payment(sub2, datetime.date(2026, 6, 1)),
+            build_payment(sub1, datetime.date(2026, 6, 1)),
+            build_payment(sub1, datetime.date(2026, 7, 1)),
+            build_payment(sub2, datetime.date(2026, 6, 1)),
         ]
 
+        # Act
         result = ReconcileSubscriptionsUseCase._group_payments_by_subscription(payments)
 
+        # Assert
         expected_sub1_count = 2
         expected_sub2_count = 1
         assert all(
@@ -434,6 +552,7 @@ class TestGroupPaymentsBySubscription:
         user_id: str,
         bank_account_id: uuid.UUID,
     ) -> None:
+        # Arrange
         payment = entities.ExpensePaymentModel(
             user_id=user_id,
             name="Manual payment",
@@ -443,10 +562,12 @@ class TestGroupPaymentsBySubscription:
             subscription_id=None,
         )
 
+        # Act
         result = ReconcileSubscriptionsUseCase._group_payments_by_subscription(
             [payment],
         )
 
+        # Assert
         assert len(result) == 0
 
 
@@ -455,23 +576,17 @@ class TestCadenceTranslation:
 
     def test_unknown_cadence_becomes_invalid_cadence_error_with_metadata(
         self,
+        build_use_case: UseCaseBuilder,
+        build_subscription: SubscriptionBuilder,
         mock_subscription_repo: mock.MagicMock,
         mock_payment_repo: mock.MagicMock,
-        user_id: str,
-        bank_account_id: uuid.UUID,
     ) -> None:
         # Arrange - model_copy bypasses validation to drive a bad cadence into
         # the reconcile logic (the field itself is a validated Literal).
-        sub = _make_subscription(user_id, bank_account_id).model_copy(
-            update={"cadence": "fortnightly"},
-        )
+        sub = build_subscription().model_copy(update={"cadence": "fortnightly"})
         mock_subscription_repo.get_all.return_value = [sub]
         mock_payment_repo.get_all.return_value = []
-        use_case = _use_case(
-            mock_subscription_repo,
-            mock_payment_repo,
-            today=datetime.date(2026, 5, 4),
-        )
+        use_case = build_use_case()
 
         # Act
         with pytest.raises(InvalidCadenceError) as exc_info:

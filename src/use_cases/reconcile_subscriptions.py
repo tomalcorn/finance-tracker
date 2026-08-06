@@ -46,7 +46,8 @@ class ReconcileSubscriptionsUseCase:
     """Ensures each active subscription has a future payment entry.
 
     On app load, for each subscription:
-    - If active and no future payment exists, creates one for the next cadence date.
+    - If active and no future payment exists, creates one for the next cadence
+      date whose cycle a past payment has not already settled.
     - If a future payment already exists, leaves it untouched.
     - For inactive subscriptions, deletes any future payments.
 
@@ -338,7 +339,7 @@ class ReconcileSubscriptionsUseCase:
         if future_payments:
             return [], deleted_ids
 
-        next_date = self._compute_next_date(sub)
+        next_date = self._next_due_date(sub, current_payments)
         if next_date is None:
             return [], deleted_ids
 
@@ -355,21 +356,100 @@ class ReconcileSubscriptionsUseCase:
         ]
         return due, deleted_ids
 
-    def _compute_next_date(
+    def _next_due_date(
         self,
         sub: entities.SubscriptionModel,
+        current_payments: list[entities.ExpensePaymentModel],
     ) -> datetime.date | None:
-        """Compute the next payment date for a subscription from today onward.
+        """Return the date of the next payment a subscription still owes.
+
+        The scheduled date falling on or after today is the candidate. When a
+        payment already in the books settles that cycle, the candidate moves on
+        to the following one.
+
+        Args:
+            sub: The subscription to schedule.
+            current_payments: Its existing subscription-generated payments.
+
+        Returns:
+            The date the next payment falls due, or None if the subscription
+            ends before it.
 
         Raises:
             InvalidSubscriptionCadenceError: if the provided cadence is not known.
 
         """
+        scheduled_date = self._compute_next_date(sub)
+        if scheduled_date is None:
+            return None
+
+        delta = self._cadence_delta(sub)
+        settled_dates = [
+            payment.payment_date
+            for payment in current_payments
+            if payment.payment_date < self._today
+        ]
+        if not self._settles_cycle(settled_dates, scheduled_date, delta):
+            return scheduled_date
+
+        following = scheduled_date + delta
+        if sub.end_date and following > sub.end_date:
+            return None
+        return following
+
+    @staticmethod
+    def _settles_cycle(
+        payment_dates: list[datetime.date],
+        scheduled_date: datetime.date,
+        delta: relativedelta.relativedelta,
+    ) -> bool:
+        """Report whether an existing payment already covers a scheduled cycle.
+
+        A payment belongs to whichever scheduled date it lies closest to, so one
+        re-dated to when the money actually moved still settles the cycle it was
+        raised for rather than leaving that cycle looking unpaid.
+
+        Args:
+            payment_dates: Dates of payments already in the books.
+            scheduled_date: The cycle date being tested.
+            delta: The step between the subscription's scheduled dates.
+
+        Returns:
+            True if the most recent payment belongs to scheduled_date's cycle.
+
+        """
+        if not payment_dates:
+            return False
+        latest = max(payment_dates)
+        return abs(latest - scheduled_date) < abs(latest - (scheduled_date - delta))
+
+    @staticmethod
+    def _cadence_delta(
+        sub: entities.SubscriptionModel,
+    ) -> relativedelta.relativedelta:
+        """Return the step between a subscription's scheduled dates.
+
+        Raises:
+            InvalidSubscriptionCadenceError: if the provided cadence is not known.
+
+        """
+        cadence = sub.cadence.upper()
         try:
-            cadence = sub.cadence.upper()
-            delta = CadenceDelta[sub.cadence.upper()].value
+            return CadenceDelta[cadence].value
         except KeyError as e:
             raise domain_errors.InvalidSubscriptionCadenceError(cadence) from e
+
+    def _compute_next_date(
+        self,
+        sub: entities.SubscriptionModel,
+    ) -> datetime.date | None:
+        """Compute the next scheduled date for a subscription from today onward.
+
+        Raises:
+            InvalidSubscriptionCadenceError: if the provided cadence is not known.
+
+        """
+        delta = self._cadence_delta(sub)
 
         if sub.end_date and sub.end_date < self._today:
             return None
