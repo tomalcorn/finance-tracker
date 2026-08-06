@@ -384,12 +384,7 @@ class ReconcileSubscriptionsUseCase:
             return None
 
         delta = self._cadence_delta(sub)
-        settled_dates = [
-            payment.payment_date
-            for payment in current_payments
-            if payment.payment_date < self._today
-        ]
-        if not self._settles_cycle(settled_dates, scheduled_date, delta):
+        if not self._cycle_already_paid(scheduled_date, delta, current_payments):
             return scheduled_date
 
         following = scheduled_date + delta
@@ -397,31 +392,33 @@ class ReconcileSubscriptionsUseCase:
             return None
         return following
 
-    @staticmethod
-    def _settles_cycle(
-        payment_dates: list[datetime.date],
+    def _cycle_already_paid(
+        self,
         scheduled_date: datetime.date,
         delta: relativedelta.relativedelta,
+        current_payments: list[entities.ExpensePaymentModel],
     ) -> bool:
-        """Report whether an existing payment already covers a scheduled cycle.
+        """Report whether a payment already in the books covers a scheduled cycle.
 
-        A payment belongs to whichever scheduled date it lies closest to, so one
-        re-dated to when the money actually moved still settles the cycle it was
-        raised for rather than leaving that cycle looking unpaid.
+        A cycle claims every payment falling nearer to its own date than to the
+        previous cycle's, so a charge re-dated to when the money actually moved
+        still counts as that cycle's rather than leaving it looking unpaid.
 
         Args:
-            payment_dates: Dates of payments already in the books.
             scheduled_date: The cycle date being tested.
             delta: The step between the subscription's scheduled dates.
+            current_payments: The subscription's existing payments.
 
         Returns:
-            True if the most recent payment belongs to scheduled_date's cycle.
+            True if a payment made before today falls inside the cycle.
 
         """
-        if not payment_dates:
-            return False
-        latest = max(payment_dates)
-        return abs(latest - scheduled_date) < abs(latest - (scheduled_date - delta))
+        previous_date = scheduled_date - delta
+        claims_from = previous_date + (scheduled_date - previous_date) / 2
+        return any(
+            claims_from < payment.payment_date < self._today
+            for payment in current_payments
+        )
 
     @staticmethod
     def _cadence_delta(
