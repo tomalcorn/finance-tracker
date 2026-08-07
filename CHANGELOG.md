@@ -1,3 +1,9 @@
+## v1.12.1 (2026-08-07)
+
+### Fix
+
+- **tests**: isolate each integration run on the shared testing database (#234)
+
 ## v1.12.0 (2026-08-07)
 
 ### Feat
