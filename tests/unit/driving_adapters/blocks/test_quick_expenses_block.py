@@ -1,6 +1,7 @@
 """Unit tests for the quick expenses block."""
 
 import dataclasses
+import sys
 import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -105,6 +106,28 @@ def test_tile_label_omits_a_missing_icon(
 
     # Assert
     assert label == "Coffee — £3.50"
+
+
+@pytest.mark.parametrize(
+    ("amount", "expected"),
+    [
+        (3.5, "£3.50"),
+        (1234.5, "£1,234.50"),
+        (0.0, "£0.00"),
+        (-12.5, "-£12.50"),
+    ],
+)
+def test_money_keeps_the_sign_outside_the_symbol(
+    amount: float,
+    expected: str,
+) -> None:
+    # Arrange - a refund logs as a negative expense, and "£-12.50" reads as a typo
+
+    # Act
+    formatted = quick_expenses_block._money(amount)
+
+    # Assert
+    assert formatted == expected
 
 
 def test_ordered_sorts_by_display_order_then_name(
@@ -429,3 +452,43 @@ def test_prompt_form_opens_with_an_empty_name_when_none_is_preset(
 
     # Assert
     assert app_tester.text_input(key=f"quick_prompt_{button.id}_name").value == ""
+
+
+def test_prompt_form_accepts_a_negative_amount(
+    build_app_tester: Callable[..., st_test.AppTest],
+    build_button: Callable[..., entities.QuickButtonModel],
+) -> None:
+    # Arrange - a repayment is a negative expense against the source the original
+    # spend came from (#230), so the at-the-till amount cannot be clamped at zero
+    button = build_button(
+        name="Dinner",
+        expense=None,
+        mode=entities.QuickButtonMode.PROMPT,
+    )
+    app_tester = build_app_tester([button]).run()
+
+    # Act
+    app_tester.button(key=f"quick_button_{button.id}").click().run()
+
+    # Assert - unbounded below rather than None: with no min_value Streamlit
+    # advertises the float minimum
+    lower_bound = app_tester.number_input(key=f"quick_prompt_{button.id}_expense").min
+    assert lower_bound == -sys.float_info.max
+
+
+def test_button_preset_amount_stays_positive(
+    build_app_tester: Callable[..., st_test.AppTest],
+    build_button: Callable[..., entities.QuickButtonModel],
+) -> None:
+    # Arrange - the preset is what the tile advertises and what a LOG button
+    # commits on one tap, so a standing negative is not offered (#230)
+    button = build_button()
+    app_tester = build_app_tester([button]).run()
+    app_tester.toggle(key="quick_expenses_edit_mode").set_value(True).run()
+
+    # Act
+    app_tester.button(key=f"quick_button_{button.id}").click().run()
+
+    # Assert
+    amount = app_tester.number_input(key=f"quick_button_form_{button.id}_expense")
+    assert amount.min == 0.0

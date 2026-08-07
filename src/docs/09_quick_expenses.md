@@ -23,7 +23,9 @@ Tap a button. What happens next depends on how that button is set up:
   confirmation appears at the bottom of the screen.
 - **Ask first** — a form opens, already filled in with everything the button
   knows. Type the part that varies, usually the amount, and log it. These
-  buttons end in `…` so you can tell them apart at a glance.
+  buttons end in `…` so you can tell them apart at a glance. The amount here may
+  be **negative**, which is how you log being paid back — see
+  [Payments](/payments).
 
 The second kind is for the spends you repeat at a price that changes — a weekly
 shop, a tank of fuel. You still skip choosing the account and the budget every
@@ -60,7 +62,7 @@ Below the divider is the payment it creates:
 | Field | What it does |
 | --- | --- |
 | Payment name | The name the payment is logged under. Defaults to the button name. |
-| Amount | The expense amount. |
+| Amount | The expense amount. A preset is always positive; a negative is typed at the till. |
 | Bank account | The account the money leaves. |
 | Expense source | The budget the spend counts against. |
 
@@ -79,7 +81,8 @@ one-tap logging.
 ## Tips
 
 - Log straight away for the spends you repeat at the same price — a coffee, a
-  bus fare, a regular lunch. Ask first when only the amount moves.
+  bus fare, a regular lunch. Ask first when only the amount moves — or when the
+  amount might be a repayment coming back to you.
 - Give every button an expense source, so the spend lands in the right budget
   without a later tidy-up.
 - If an amount drifts, edit the button rather than making a second one — the
