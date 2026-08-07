@@ -104,6 +104,59 @@ class TestQuickButtonLoggableValidator:
         assert button.expense is None
 
 
+class TestQuickButtonAmountValidator:
+    """A preset amount must move money, in either direction (#230)."""
+
+    def test_a_negative_preset_is_allowed(self) -> None:
+        # Arrange - a standing reimbursement button logs money coming back
+        refund = -12.5
+
+        # Act
+        button = entities.QuickButtonModel(
+            user_id="test-user",
+            name="Dinner refund",
+            expense=refund,
+            bank_account_id=uuid.uuid4(),
+        )
+
+        # Assert
+        assert button.expense == refund
+
+    @pytest.mark.parametrize(
+        "mode",
+        [entities.QuickButtonMode.LOG, entities.QuickButtonMode.PROMPT],
+    )
+    def test_a_zero_preset_is_refused(
+        self,
+        mode: entities.QuickButtonMode,
+    ) -> None:
+        # Arrange - zero would log a payment that moves nothing, whichever way the
+        # button is set up
+
+        # Act / Assert
+        with pytest.raises(errors.ZeroQuickButtonAmountError):
+            entities.QuickButtonModel(
+                user_id="test-user",
+                name="Coffee",
+                mode=mode,
+                expense=0.0,
+                bank_account_id=uuid.uuid4(),
+            )
+
+    def test_the_error_names_the_button(self) -> None:
+        # Arrange / Act
+        with pytest.raises(errors.ZeroQuickButtonAmountError) as exc_info:
+            entities.QuickButtonModel(
+                user_id="test-user",
+                name="Coffee",
+                expense=0.0,
+                bank_account_id=uuid.uuid4(),
+            )
+
+        # Assert
+        assert exc_info.value.name == "Coffee"
+
+
 class TestJointContributionValidator:
     """A contribution subscription must be complete, and must be personal."""
 

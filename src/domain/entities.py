@@ -340,6 +340,10 @@ class QuickButtonModel(FinanceTrackerBaseModel):
     parts blank until it is tapped. A ``LOG`` button has no such second chance,
     so the fields a payment cannot be written without are required of it — see
     :meth:`_check_loggable`.
+
+    The preset amount may be negative, which logs money coming back rather than
+    going out. Zero is the one amount refused: it would log a payment that moves
+    nothing.
     """
 
     name: Annotated[
@@ -361,7 +365,12 @@ class QuickButtonModel(FinanceTrackerBaseModel):
     ] = QuickButtonMode.LOG
     expense: Annotated[
         float | None,
-        pydantic.Field(description="The expense amount a tap logs.", gt=0),
+        pydantic.Field(
+            description=(
+                "The expense amount a tap logs. Negative for a button that logs "
+                "money coming back, such as a recurring reimbursement."
+            ),
+        ),
     ] = None
     bank_account_id: Annotated[
         uuid.UUID | None,
@@ -401,6 +410,21 @@ class QuickButtonModel(FinanceTrackerBaseModel):
         ]
         if missing:
             raise errors.IncompleteQuickButtonError(self.name, missing)
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def _check_amount_moves_money(self) -> Self:
+        """Reject a preset amount of zero, in either mode.
+
+        A field constraint cannot say "anything but zero", and the old ``gt=0``
+        said too much: it also ruled out the negative a reimbursement button needs.
+
+        Raises:
+            ZeroQuickButtonAmountError: The button presets an amount of zero.
+
+        """
+        if self.expense == 0:
+            raise errors.ZeroQuickButtonAmountError(self.name)
         return self
 
 

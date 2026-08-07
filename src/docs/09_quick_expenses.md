@@ -60,7 +60,7 @@ Below the divider is the payment it creates:
 | Field | What it does |
 | --- | --- |
 | Payment name | The name the payment is logged under. Defaults to the button name. |
-| Amount | The expense amount. |
+| Amount | The expense amount. Negative for money coming back. |
 | Bank account | The account the money leaves. |
 | Expense source | The budget the spend counts against. |
 
@@ -79,7 +79,8 @@ one-tap logging.
 ## Tips
 
 - Log straight away for the spends you repeat at the same price — a coffee, a
-  bus fare, a regular lunch. Ask first when only the amount moves.
+  bus fare, a regular lunch, a repayment that is always the same. Ask first when
+  only the amount moves.
 - Give every button an expense source, so the spend lands in the right budget
   without a later tidy-up.
 - If an amount drifts, edit the button rather than making a second one — the

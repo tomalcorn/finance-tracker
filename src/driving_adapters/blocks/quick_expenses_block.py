@@ -84,6 +84,15 @@ class _ButtonInputs:
     display_order: int
 
 
+def _money(amount: float) -> str:
+    """Format an amount as sterling, with the sign outside the symbol.
+
+    A refund logged at the till is a negative expense, and ``£-12.50`` reads as
+    a typo where ``-£12.50`` reads as money coming back.
+    """
+    return f"-£{abs(amount):,.2f}" if amount < 0 else f"£{amount:,.2f}"
+
+
 def _tile_label(button: entities.QuickButtonModel) -> str:
     """Return the label shown on a button's tile.
 
@@ -93,7 +102,7 @@ def _tile_label(button: entities.QuickButtonModel) -> str:
     """
     label = f"{button.icon} {button.name}" if button.icon else button.name
     if button.expense is not None:
-        label = f"{label} — £{button.expense:,.2f}"
+        label = f"{label} — {_money(button.expense)}"
     if button.mode is entities.QuickButtonMode.PROMPT:
         label = f"{label} …"
     return label
@@ -152,6 +161,8 @@ def _can_save(inputs: _ButtonInputs) -> bool:
         return False
     if inputs.mode is entities.QuickButtonMode.PROMPT:
         return True
+    # Truthiness rejects only a blank or zero amount; a negative refund preset is
+    # a perfectly good thing for a tap to log.
     return bool(inputs.expense) and bool(inputs.bank_account_id)
 
 
@@ -210,7 +221,7 @@ def _log_payment(
         logger.exception("Failed to log quick payment for button %s.", button.id)
         st.error("Could not log that payment. Please try again or contact support.")
         return False
-    _queue_toast(f"{payment.name} — £{payment.expense:,.2f} logged")
+    _queue_toast(f"{payment.name} — {_money(payment.expense)} logged")
     return True
 
 
@@ -248,11 +259,15 @@ def _prompt_dialog(
         value=button.payment_name or "",
         key=f"{key}_name",
     )
+    # No lower bound: a negative amount against the original expense source is
+    # one of the two supported ways to record being paid back (see the payments
+    # docs), and a reimbursement is exactly the small repetitive entry this page
+    # exists for. The button's *preset* stays positive — see `_config_dialog`.
     expense = st.number_input(
         "Amount",
-        min_value=0.0,
         value=button.expense,
         format="%.2f",
+        help="A refund or reimbursement goes in as a negative, e.g. -12.50.",
         key=f"{key}_expense",
     )
     payment_date = st.date_input(
@@ -275,6 +290,8 @@ def _prompt_dialog(
         key=f"{key}_expense_source",
     )
 
+    # Truthiness rejects only a blank or zero amount; a negative is a refund and
+    # passes.
     can_submit = bool(name) and bool(expense) and bool(bank_account_id)
     if st.button("Log payment", disabled=not can_submit, key=f"{key}_submit"):
         # The re-checks narrow the widget outputs for the type checker; the
@@ -368,9 +385,9 @@ def _config_dialog(
     )
     expense = st.number_input(
         f"Amount{optional}",
-        min_value=0.0,
         value=existing.expense if existing else None,
         format="%.2f",
+        help="Negative for money coming back, e.g. -12.50 for a standing refund.",
         key=f"{key}_expense",
     )
     bank_account_id = st.selectbox(
@@ -397,6 +414,8 @@ def _config_dialog(
         name=name,
         mode=mode,
         payment_name=payment_name or None,
+        # Truthiness keeps a negative and reads a zero as "no preset", which is
+        # what the entity wants: it refuses a stored zero outright.
         expense=float(expense) if expense else None,
         bank_account_id=bank_account_id,
         expense_source_id=expense_source_id,

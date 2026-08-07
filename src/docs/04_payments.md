@@ -72,14 +72,15 @@ Rather than inventing new income, this offsets that category directly: its
 reads as though you only ever spent your own share. Choose this for one-off
 reimbursements of something you already logged as an expense.
 
-Two things to know about Option B:
+One thing to know about Option B: **it only works within one calendar month.**
+Expense source rollups count payments from the current month only, so a negative
+dated in a later month reduces *that* month's total instead — overstating the
+month you spent in and understating the month you were repaid. Across a month
+boundary, use Option A.
 
-- **It only works within one calendar month.** Expense source rollups count
-  payments from the current month only, so a negative dated in a later month
-  reduces *that* month's total instead — overstating the month you spent in and
-  understating the month you were repaid. Across a month boundary, use Option A.
-- **Enter it on this page.** [Quick Expenses](/quick_expenses) will not accept a
-  negative amount.
+You can enter it in the payments block or on [Quick Expenses](/quick_expenses) —
+type the minus sign at the till, or give a button a negative preset if the repayment is
+always the same amount.
 
 ### Moving Money Between Your Own Accounts
 
