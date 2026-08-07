@@ -1,3 +1,9 @@
+## v1.10.2 (2026-08-07)
+
+### Fix
+
+- **reconcile**: attribute a re-dated payment to the cycle it settles (#227)
+
 ## v1.10.1 (2026-08-01)
 
 ### Fix
