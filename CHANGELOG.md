@@ -1,3 +1,9 @@
+## v1.11.0 (2026-08-07)
+
+### Feat
+
+- **payments**: make Income Source optional on income payments (#232)
+
 ## v1.10.2 (2026-08-07)
 
 ### Fix
