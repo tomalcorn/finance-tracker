@@ -32,10 +32,13 @@ The `Expense` amount feeds the computed views that update:
 Income entries record money arriving into a bank account. They link together:
 
 - a bank account
-- an income source
+- an income source (optional)
 - a payment date
 
-The `Income` amount feeds the income source and budget tracker rollups.
+The `Income` amount feeds the income source and budget tracker rollups. An entry
+left without an income source still moves the bank account balance, but rolls up
+nowhere — which is what you want for an inflow that isn't really income, such as
+money moved in from another of your own accounts.
 
 ## Practical Workflow
 
@@ -87,14 +90,13 @@ Record it as **two** entries:
 1. An **expense** entry on the account the money leaves.
 2. An **income** entry on the account the money arrives in, same date and amount.
 
-Leave the outgoing entry **without an `Expense Source`**. The incoming entry has
-to be given an `Income Source` for now, so make one source for this — call it
-`Transfers` — and link it to **no budget tracker rows**. An income source with no
-tracker links stays out of the rollups, so the transfer moves your balances and
-counts for nothing else.
+Leave **both** entries without a source: no `Expense Source` on the outgoing one,
+no `Income Source` on the incoming one. A payment with no source moves its bank
+account balance and counts for nothing else, which is exactly what a transfer is.
 
 Attach an expense source and the transfer would be counted as real spending
-against that category.
+against that category; attach an income source and it would be counted as real
+income.
 
 ## Tips
 
@@ -103,7 +105,8 @@ against that category.
 - Use income entries for salary, refunds, and other inflows.
 - Keep the `checked` flag up to date so you can tell which rows still need
   reconciliation.
-- In general, do not assign an `Expense Source` to a payment that doesn't
-  contribute to your monthly outgoings — moving money between your own accounts
-  being the usual case. This can be a bit tricky to get used to at first, but
-  you'll get the hang of it!
+- In general, leave a payment's source blank when it doesn't belong in your
+  monthly figures — no `Expense Source` on something that isn't real spending, no
+  `Income Source` on something that isn't real income. Moving money between your
+  own accounts is the usual case. This can be a bit tricky to get used to at
+  first, but you'll get the hang of it!

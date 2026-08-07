@@ -262,6 +262,7 @@ def _build_income_config(
                         "format_func": get_income_source_name,
                     },
                     format_func=get_income_source_name,
+                    required=False,
                 ),
                 frontend_models.DFEColumnConfig(
                     column_name="payment_type",
