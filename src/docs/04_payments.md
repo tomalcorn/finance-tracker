@@ -87,13 +87,14 @@ Record it as **two** entries:
 1. An **expense** entry on the account the money leaves.
 2. An **income** entry on the account the money arrives in, same date and amount.
 
-Leave **both** without a source — no `Expense Source`, no `Income Source`.
+Leave the outgoing entry **without an `Expense Source`**. The incoming entry has
+to be given an `Income Source` for now, so make one source for this — call it
+`Transfers` — and link it to **no budget tracker rows**. An income source with no
+tracker links stays out of the rollups, so the transfer moves your balances and
+counts for nothing else.
 
-This works because bank account balances are worked out per account from the
-payments on it, and never look at sources at all. Both balances move by the
-right amount, while the transfer stays out of every expense source and budget
-tracker rollup. Attach an expense source and the transfer would be counted as
-real spending against that category.
+Attach an expense source and the transfer would be counted as real spending
+against that category.
 
 ## Tips
 
