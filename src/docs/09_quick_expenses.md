@@ -25,11 +25,6 @@ Tap a button. What happens next depends on how that button is set up:
   knows. Type the part that varies, usually the amount, and log it. These
   buttons end in `…` so you can tell them apart at a glance.
 
-Either kind can log a **negative** amount, which is how you record being paid
-back — see [Payments](/payments). Type it at the till when the sum varies, or set
-it as a button's preset for a repayment that is always the same. A negative
-preset shows its sign on the tile: `Dinner refund — -£12.50`.
-
 The second kind is for the spends you repeat at a price that changes — a weekly
 shop, a tank of fuel. You still skip choosing the account and the budget every
 time; you only fill in what actually differs.
