@@ -23,6 +23,8 @@ from driving_adapters.components.dfes import data_source as data_source_mod
 
 type StreamlitColumnConfig = Any
 
+_TOTALLABLE_COLUMN_TYPES = frozenset({"number", "progress"})
+
 
 class DFEColumnConfig(pydantic.BaseModel):
     """Configuration for a single column in the DataFrame editor."""
@@ -82,6 +84,16 @@ class DFEColumnConfig(pydantic.BaseModel):
             description="Whether this field must be filled in the add dialog.",
         ),
     ] = True
+    total: Annotated[
+        bool,
+        pydantic.Field(
+            description=(
+                "Whether the column is summed in the totals strip beneath the grid. "
+                "Only numeric (number/progress) columns can be, and a hidden column "
+                "is skipped — it has no column above the strip to sit under."
+            ),
+        ),
+    ] = False
 
     @pydantic.field_serializer("input_widget", "format_func", mode="plain")
     @classmethod
@@ -106,6 +118,22 @@ class DFEColumnConfig(pydantic.BaseModel):
             else:
                 serialised_kwargs[key] = value
         return serialised_kwargs
+
+    @pydantic.model_validator(mode="after")
+    def check_totalled_column_is_numeric(self) -> Self:
+        """Validate that a totalled column holds numbers the strip can sum."""
+        if not self.total or not isinstance(self.column_config, dict):
+            return self
+        column_config_dict = typing.cast("dict", self.column_config)
+        column_type = column_config_dict.get("type_config", {}).get("type")
+        if column_type not in _TOTALLABLE_COLUMN_TYPES:
+            msg = (
+                f"Column '{self.column_name}' cannot be totalled: its column_config "
+                f"is of type '{column_type}', not one of "
+                f"{sorted(_TOTALLABLE_COLUMN_TYPES)}."
+            )
+            raise ValueError(msg)
+        return self
 
     @pydantic.model_validator(mode="after")
     def check_read_only_is_disabled(self) -> Self:

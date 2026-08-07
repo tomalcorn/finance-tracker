@@ -122,6 +122,7 @@ def _build_budget_tracker_config(
                     button_label="Split",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     column_name="total_budget",
@@ -134,6 +135,7 @@ def _build_budget_tracker_config(
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                     sorting=query.SortingValues.DESC,
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -146,6 +148,7 @@ def _build_budget_tracker_config(
                     button_label="Current Month",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -173,6 +176,7 @@ def _build_budget_tracker_config(
                     button_label="Remaining",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                    total=True,
                 ),
             ],
             sample_data=_BUDGET_TRACKER_SAMPLE_DATA,
@@ -221,6 +225,7 @@ def _build_expense_sources_config(
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                     sorting=query.SortingValues.DESC,
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -236,6 +241,7 @@ def _build_expense_sources_config(
                     button_label="Split",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -248,6 +254,7 @@ def _build_expense_sources_config(
                     button_label="Current Month",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -275,6 +282,7 @@ def _build_expense_sources_config(
                     button_label="Remaining",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                    total=True,
                 ),
                 *(
                     [

@@ -189,6 +189,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
             button_label="Monthly Cost",
             input_widget=st.number_input,
             input_kwargs={"value": None, "format": "%.2f"},
+            total=True,
         ),
     ]
 

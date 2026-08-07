@@ -73,6 +73,7 @@ def _build_config(
                     button_label="Cost",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     column_name="current_month",
@@ -84,6 +85,7 @@ def _build_config(
                     button_label="Current Month",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -99,6 +101,7 @@ def _build_config(
                     button_label="Split",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
