@@ -17,7 +17,7 @@ import streamlit as st
 
 from driving_adapters import ss_keys
 from driving_adapters.components.buttons import add_button, constants, filter_button
-from driving_adapters.components.dfes import grid_sync
+from driving_adapters.components.dfes import grid_sync, totals
 
 if TYPE_CHECKING:
     from driving_adapters.models import frontend_models
@@ -82,11 +82,15 @@ def render_editor(
     key_prefix: str,
     working_df: pd.DataFrame,
 ) -> None:
-    """Render the ``st.data_editor`` widget for a grid.
+    """Render the ``st.data_editor`` widget for a grid, and its totals strip.
 
     No ``on_change`` callback: the widget records its edits in
     ``st.session_state[key]`` and triggers a rerun; ``commit`` reads those
     deltas at the top of that run.
+
+    The totals strip follows the editor here rather than in ``render``, so a
+    block composing its own button row still gets it. It is a no-op unless a
+    column asks to be totalled.
     """
     st.data_editor(
         working_df,
@@ -98,6 +102,7 @@ def render_editor(
         num_rows=grid_display.num_rows,
         hide_index=True,
     )
+    totals.render(grid_display, key_prefix, working_df)
 
 
 def render_buttons(config: "frontend_models.DFEConfig") -> None:

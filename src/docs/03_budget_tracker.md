@@ -82,6 +82,10 @@ on the current month either way. Personal and joint are set separately.
 | `Current Month` / `Previous Month` | The sum of income payments linked to that source, over whichever month the [income roll-up setting](/settings) selects. |
 | `Budget Tracker IDs` | The tracker rows that this income supports. |
 
+The Budget Tracker and Expense Sources tabs both total `Split`, `Budget`,
+`Current Month`, and `Remaining` in the bold row beneath the grid — see
+[column totals](/getting_started).
+
 ## How The Links Work
 
 Income sources say which budget tracker rows the income contributes toward. Expense sources work the other way round, except that they all link to the `Expenses` row of `Budget Tracker` and so that link is hidden.
