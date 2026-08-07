@@ -11,12 +11,13 @@ from collections.abc import Generator
 
 import pytest
 import st_supabase_connection
+from tests import run_scope
 
 from domain import entities, read_models
 from driven_adapters.supabase import repository as supabase_repos
 from driving_adapters import cache
 
-_USER_ID = "auth0|test-user-1"
+_USER_ID = run_scope.TEST_USER_ID
 
 type JointAccountRepo = supabase_repos.SupabaseRepository[
     entities.JointAccountModel,
