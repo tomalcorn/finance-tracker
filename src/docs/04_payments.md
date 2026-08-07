@@ -75,9 +75,9 @@ dated in a later month reduces *that* month's total instead — overstating the
 month you spent in and understating the month you were repaid. Across a month
 boundary, use Option A.
 
-You can enter it here or on [Quick Expenses](/quick_expenses) — type the minus
-sign at the till, or give a button a negative preset if the repayment is always
-the same amount.
+You can enter it in the payments block or on [Quick Expenses](/quick_expenses) —
+type the minus sign at the till, or give a button a negative preset if the repayment is
+always the same amount.
 
 ### Moving Money Between Your Own Accounts
 
