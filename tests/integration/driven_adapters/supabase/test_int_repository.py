@@ -15,8 +15,6 @@ from domain import entities, read_models
 from driven_adapters.supabase import repository as supabase_repos
 from driving_adapters import cache
 
-_USER_ID = "auth0|test-user-1"
-
 type BankRepo = supabase_repos.SupabaseRepository[
     entities.BankAccountModel,
     read_models.BankAccountView,
@@ -26,10 +24,11 @@ type BankRepo = supabase_repos.SupabaseRepository[
 @pytest.fixture(name="bank_repo")
 def _bank_repo(
     connection: st_supabase_connection.SupabaseConnection,
+    test_user_id: str,
 ) -> BankRepo:
     """Return a bank repository wired to the test connection and seed user."""
     return supabase_repos.bank_account_repository(
-        _USER_ID,
+        test_user_id,
         cache.StreamlitCache(),
         connection,
         entities.OwnershipType.PERSONAL,

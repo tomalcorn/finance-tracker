@@ -16,16 +16,15 @@ from domain import entities
 from driven_adapters.supabase import repository as supabase_repos
 from driving_adapters import cache
 
-_USER_ID = "auth0|test-user-1"
-
 
 @pytest.fixture(name="payment_repo")
 def _payment_repo(
     connection: st_supabase_connection.SupabaseConnection,
+    test_user_id: str,
 ) -> supabase_repos.SupabaseRepository:
     """Return a personal payments repository wired to the test connection."""
     return supabase_repos.payment_repository(
-        _USER_ID,
+        test_user_id,
         cache.StreamlitCache(),
         connection,
         entities.OwnershipType.PERSONAL,
@@ -37,6 +36,7 @@ def _linked_pair(
     connection: st_supabase_connection.SupabaseConnection,
     payment_repo: supabase_repos.SupabaseRepository,
     yield_sample_bank_account: entities.BankAccountModel,
+    test_user_id: str,
 ) -> Generator[tuple[entities.ExpensePaymentModel, entities.IncomePaymentModel]]:
     """Seed a cross-linked payment pair, as a contribution writes it.
 
@@ -45,7 +45,7 @@ def _linked_pair(
     to point forward — the FK cannot be satisfied in two inserts.
     """
     expense = entities.ExpensePaymentModel(
-        user_id=_USER_ID,
+        user_id=test_user_id,
         name="Linked expense",
         expense=25.0,
         bank_account_id=yield_sample_bank_account.id,
@@ -53,7 +53,7 @@ def _linked_pair(
     payment_repo.save_entities([expense])
 
     income = entities.IncomePaymentModel(
-        user_id=_USER_ID,
+        user_id=test_user_id,
         name="Linked income",
         income=25.0,
         bank_account_id=yield_sample_bank_account.id,
@@ -121,11 +121,12 @@ def test_an_unlinked_payment_still_deletes(
     connection: st_supabase_connection.SupabaseConnection,
     payment_repo: supabase_repos.SupabaseRepository,
     yield_sample_bank_account: entities.BankAccountModel,
+    test_user_id: str,
 ) -> None:
     """The constraint swap leaves ordinary deletes untouched."""
     # Arrange
     payment = entities.ExpensePaymentModel(
-        user_id=_USER_ID,
+        user_id=test_user_id,
         name="Unlinked",
         expense=5.0,
         bank_account_id=yield_sample_bank_account.id,

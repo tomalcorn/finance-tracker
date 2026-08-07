@@ -48,6 +48,20 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     needs: [lock_file]
+    # The integration suite hits one shared "testing" Supabase project, and reads
+    # there are not user-filtered (RLS is disabled so the fixtures can insert
+    # freely), so two runs overlapping in time can see and write against each
+    # other's rows — the flaky foreign-key failures in #221. This group lets only
+    # one run reach the database at a time.
+    #
+    # Note: GitHub keeps only one *pending* run per group, cancelling any earlier
+    # pending one, so in a stack of three or more PRs a middle run's job may need
+    # a re-run. A cancelled job that goes green on a click beats a foreign-key
+    # error that looks like a code bug. An ephemeral database per run is the
+    # durable fix, and needs the infrastructure work #221 describes.
+    concurrency:
+      group: integration-testing-db
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup

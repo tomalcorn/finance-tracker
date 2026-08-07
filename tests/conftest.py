@@ -1,13 +1,11 @@
 """Helper functions and fixtures for tests."""
 
-import typing
 import uuid
 from collections.abc import Callable, Sequence
 from typing import Any
 
 import pydantic
 import pytest
-import st_supabase_connection
 import streamlit as st
 import streamlit.testing.v1 as st_test
 
@@ -19,73 +17,6 @@ from ports import repository
 def _clear_session_state() -> None:
     """Clear streamlit session state before each test."""
     st.session_state.clear()
-
-
-@pytest.fixture(name="connection")
-def _connection() -> st_supabase_connection.SupabaseConnection:
-    """Provide a Supabase connection for tests."""
-    return st.connection(
-        "testing",
-        type=st_supabase_connection.SupabaseConnection,
-    )
-
-
-@pytest.fixture(name="sample_bank_account")
-def _sample_bank_account() -> entities.BankAccountModel:
-    """Provide a sample bank account model for tests."""
-    return entities.BankAccountModel(
-        user_id="auth0|test-user-1",
-        name="Test Account 1",
-        starting_balance=100.0,
-    )
-
-
-@pytest.fixture(name="yield_sample_bank_account")
-def _yield_sample_bank_account(
-    connection: st_supabase_connection.SupabaseConnection,
-    sample_bank_account: entities.BankAccountModel,
-) -> typing.Generator[entities.BankAccountModel, None, None]:
-    """Set up a sample bank account for tests."""
-    connection.table("bank_accounts").insert(
-        sample_bank_account.model_dump(mode="json"),
-    ).execute()
-
-    yield sample_bank_account
-
-    # Clean up the bank account from the test database
-    connection.table("bank_accounts").delete().eq(
-        "id",
-        str(sample_bank_account.id),
-    ).execute()
-
-
-@pytest.fixture(name="yield_sample_bank_accounts")
-def _yield_sample_bank_accounts(
-    sample_bank_account: entities.BankAccountModel,
-    connection: st_supabase_connection.SupabaseConnection,
-) -> typing.Generator[list[entities.BankAccountModel], None, None]:
-    """Set up multiple sample bank accounts for tests."""
-    sample_bank_accounts = [
-        sample_bank_account,
-        sample_bank_account.model_copy(
-            update={"id": uuid.uuid4(), "name": "Test Account 2"},
-            deep=True,
-        ),
-    ]
-    # Insert bank accounts into the test database
-    for account in sample_bank_accounts:
-        connection.table("bank_accounts").insert(
-            account.model_dump(mode="json"),
-        ).execute()
-
-    yield sample_bank_accounts
-
-    # Clean up the bank accounts from the test database
-    for account in sample_bank_accounts:
-        connection.table("bank_accounts").delete().eq(
-            "id",
-            str(account.id),
-        ).execute()
 
 
 def get_rendered_texts(app_tester: st_test.AppTest) -> list[str]:
@@ -342,19 +273,3 @@ def _app_tester_getter() -> Callable[..., st_test.AppTest]:
         )
 
     return _app_tester
-
-
-# == auth fixtures ==
-
-
-@pytest.fixture(autouse=True, scope="module")
-def _clean_bank_accounts_table() -> None:
-    """Remove any rows left over from a previous failed test run."""
-    connection: st_supabase_connection.SupabaseConnection = st.connection(
-        "testing",
-        type=st_supabase_connection.SupabaseConnection,
-    )
-    connection.table("bank_accounts").delete().neq(
-        "id",
-        "00000000-0000-0000-0000-000000000000",
-    ).execute()
