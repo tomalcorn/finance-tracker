@@ -38,6 +38,22 @@ _BOLD = "font-weight: bold"
 
 _KEY_SUFFIX = "_totals"
 
+_HEADER_HEIGHT_PX = 34
+"""How much of the strip to crop away to lose its header row.
+
+A table's header and its rows are both 35px tall, so cropping 34 takes the
+header and leaves its bottom rule to read as the top border of the totals row.
+"""
+
+_CROP_HEADER_CSS = """
+<style>
+.st-key-{container_key} [data-testid="stDataFrame"] {{
+    margin-top: -{crop}px;
+    clip-path: inset({crop}px 0 0 0);
+}}
+</style>
+"""
+
 
 def _visible_columns(
     grid_display: "frontend_models.GridDisplay",
@@ -150,21 +166,39 @@ def render(
     key_prefix: str,
     working_df: pd.DataFrame,
 ) -> None:
-    """Render the totals strip beneath a grid, when the grid has one."""
+    """Render the totals strip beneath a grid, when the grid has one.
+
+    The strip's own header is cropped away: it would only repeat the labels of
+    the columns it sits under, and Streamlit draws a table's header inside its
+    canvas, so there is no option to leave it off. The columns keep their labels
+    all the same — if a future Streamlit renames the hooks this rule targets, the
+    strip goes back to showing a labelled header rather than breaking.
+    """
     totals_df = build_totals_df(grid_display, working_df)
     if totals_df.empty:
         return
     key = f"{key_prefix}{_KEY_SUFFIX}"
+    container_key = f"{key}_container"
     # The strip is display, not input, so it keeps no state between runs. Its
     # widget state is dropped rather than read: an editor still lets a row be
     # deleted however disabled its columns are, and that deletion would
     # otherwise persist in session state and hide the totals for the session.
     st.session_state.pop(key, None)
-    st.data_editor(
-        totals_df.style.map(lambda _cell: _BOLD),
-        key=key,
-        column_config=build_column_config(grid_display),
-        column_order=[column.column_name for column in _visible_columns(grid_display)],
-        num_rows=strip_num_rows(grid_display),
-        hide_index=True,
+    with st.container(key=container_key):
+        st.data_editor(
+            totals_df.style.map(lambda _cell: _BOLD),
+            key=key,
+            column_config=build_column_config(grid_display),
+            column_order=[
+                column.column_name for column in _visible_columns(grid_display)
+            ],
+            num_rows=strip_num_rows(grid_display),
+            hide_index=True,
+        )
+    st.markdown(
+        _CROP_HEADER_CSS.format(
+            container_key=container_key,
+            crop=_HEADER_HEIGHT_PX,
+        ),
+        unsafe_allow_html=True,
     )
