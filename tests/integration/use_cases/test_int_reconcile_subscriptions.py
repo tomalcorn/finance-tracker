@@ -6,7 +6,6 @@ import uuid
 
 import pytest
 import st_supabase_connection
-from tests import run_scope
 
 from domain import entities
 from driven_adapters.supabase import repository as supabase_repos
@@ -21,6 +20,7 @@ _BANK_ACCOUNTS = "bank_accounts"
 @pytest.fixture(name="user_and_bank")
 def _user_and_bank(
     connection: st_supabase_connection.SupabaseConnection,
+    test_user_id: str,
 ) -> typing.Generator[tuple[str, uuid.UUID], None, None]:
     """Create a bank account for FK constraints, clean up after.
 
@@ -28,7 +28,7 @@ def _user_and_bank(
     which is only safe because that identity is unique to this run (#221) — with
     the old fixed identity it emptied a concurrent run's rows mid-test.
     """
-    user_id = run_scope.TEST_USER_ID
+    user_id = test_user_id
     bank = entities.BankAccountModel(user_id=user_id, name="Test Account")
 
     connection.table(_BANK_ACCOUNTS).insert(bank.model_dump(mode="json")).execute()

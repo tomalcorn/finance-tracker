@@ -11,13 +11,10 @@ from collections.abc import Generator
 
 import pytest
 import st_supabase_connection
-from tests import run_scope
 
 from domain import entities, read_models
 from driven_adapters.supabase import repository as supabase_repos
 from driving_adapters import cache
-
-_USER_ID = run_scope.TEST_USER_ID
 
 type JointAccountRepo = supabase_repos.SupabaseRepository[
     entities.JointAccountModel,
@@ -32,10 +29,11 @@ type MembershipRepo = supabase_repos.SupabaseRepository[
 @pytest.fixture(name="joint_account_repo")
 def _joint_account_repo(
     connection: st_supabase_connection.SupabaseConnection,
+    test_user_id: str,
 ) -> JointAccountRepo:
     """Return a joint-accounts repository wired to the test connection."""
     return supabase_repos.joint_account_repository(
-        _USER_ID,
+        test_user_id,
         cache.StreamlitCache(),
         connection,
     )
@@ -44,10 +42,11 @@ def _joint_account_repo(
 @pytest.fixture(name="membership_repo")
 def _membership_repo(
     connection: st_supabase_connection.SupabaseConnection,
+    test_user_id: str,
 ) -> MembershipRepo:
     """Return a membership repository wired to the test connection."""
     return supabase_repos.joint_account_member_repository(
-        _USER_ID,
+        test_user_id,
         cache.StreamlitCache(),
         connection,
     )
@@ -118,12 +117,13 @@ class TestMembershipRepository:
         self,
         membership_repo: MembershipRepo,
         yield_joint_account: entities.JointAccountModel,
+        test_user_id: str,
     ) -> None:
         """A membership added via save appears in get_all for the account."""
         # Arrange
         member = entities.JointAccountMemberModel(
             joint_account_id=yield_joint_account.id,
-            user_id=_USER_ID,
+            user_id=test_user_id,
         )
 
         # Act
