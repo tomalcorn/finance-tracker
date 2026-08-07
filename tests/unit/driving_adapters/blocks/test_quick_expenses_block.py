@@ -476,12 +476,12 @@ def test_prompt_form_accepts_a_negative_amount(
     assert lower_bound == -sys.float_info.max
 
 
-def test_button_preset_amount_stays_positive(
+def test_config_form_accepts_a_negative_preset(
     build_app_tester: Callable[..., st_test.AppTest],
     build_button: Callable[..., entities.QuickButtonModel],
 ) -> None:
-    # Arrange - the preset is what the tile advertises and what a LOG button
-    # commits on one tap, so a standing negative is not offered (#230)
+    # Arrange - a standing "half of dinner back" button is an ordinary thing to
+    # want, so the preset is not clamped either (#230)
     button = build_button()
     app_tester = build_app_tester([button]).run()
     app_tester.toggle(key="quick_expenses_edit_mode").set_value(True).run()
@@ -490,5 +490,18 @@ def test_button_preset_amount_stays_positive(
     app_tester.button(key=f"quick_button_{button.id}").click().run()
 
     # Assert
-    amount = app_tester.number_input(key=f"quick_button_form_{button.id}_expense")
-    assert amount.min == 0.0
+    key = f"quick_button_form_{button.id}_expense"
+    assert app_tester.number_input(key=key).min == -sys.float_info.max
+
+
+def test_a_negative_preset_shows_its_sign_on_the_tile(
+    build_button: Callable[..., entities.QuickButtonModel],
+) -> None:
+    # Arrange - the sign sits outside the symbol, so the tile reads as money back
+    button = build_button(name="Dinner refund", expense=-12.5, icon=None)
+
+    # Act
+    label = quick_expenses_block._tile_label(button)
+
+    # Assert
+    assert label == "Dinner refund — -£12.50"

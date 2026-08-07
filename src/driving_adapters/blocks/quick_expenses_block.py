@@ -161,6 +161,8 @@ def _can_save(inputs: _ButtonInputs) -> bool:
         return False
     if inputs.mode is entities.QuickButtonMode.PROMPT:
         return True
+    # Truthiness rejects only a blank or zero amount; a negative refund preset is
+    # a perfectly good thing for a tap to log.
     return bool(inputs.expense) and bool(inputs.bank_account_id)
 
 
@@ -381,16 +383,11 @@ def _config_dialog(
         help="Defaults to the button name. Editable at the till when asking first.",
         key=f"{key}_payment_name",
     )
-    # Clamped, unlike the at-the-till form: a preset is what the tile advertises
-    # and what a LOG button commits on a single tap with nothing to confirm, so a
-    # standing negative would be a misfire waiting to happen. The entity's `gt=0`
-    # and the `log_button_is_loggable` CHECK say the same. A repayment is the
-    # varying part of a spend, which is what a PROMPT button leaves to the till.
     expense = st.number_input(
         f"Amount{optional}",
-        min_value=0.0,
         value=existing.expense if existing else None,
         format="%.2f",
+        help="Negative for money coming back, e.g. -12.50 for a standing refund.",
         key=f"{key}_expense",
     )
     bank_account_id = st.selectbox(
@@ -417,6 +414,8 @@ def _config_dialog(
         name=name,
         mode=mode,
         payment_name=payment_name or None,
+        # Truthiness keeps a negative and reads a zero as "no preset", which is
+        # what the entity wants: it refuses a stored zero outright.
         expense=float(expense) if expense else None,
         bank_account_id=bank_account_id,
         expense_source_id=expense_source_id,

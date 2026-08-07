@@ -28,6 +28,19 @@ class IncompleteQuickButtonError(DomainError):
         )
 
 
+class ZeroQuickButtonAmountError(DomainError):
+    """Error when a quick button presets an amount of zero."""
+
+    def __init__(self, name: str) -> None:
+        """Construct ZeroQuickButtonAmountError."""
+        self.name = name
+        super().__init__(
+            f"Quick button {name!r} presets an amount of zero, which would log a "
+            "payment that moves no money. Set an amount, or leave it blank for a "
+            "button that asks at the till.",
+        )
+
+
 class IncompleteJointContributionError(DomainError):
     """Error when a joint-contribution subscription is missing a joint field."""
 

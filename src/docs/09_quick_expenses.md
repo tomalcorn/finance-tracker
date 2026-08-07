@@ -23,9 +23,12 @@ Tap a button. What happens next depends on how that button is set up:
   confirmation appears at the bottom of the screen.
 - **Ask first** — a form opens, already filled in with everything the button
   knows. Type the part that varies, usually the amount, and log it. These
-  buttons end in `…` so you can tell them apart at a glance. The amount here may
-  be **negative**, which is how you log being paid back — see
-  [Payments](/payments).
+  buttons end in `…` so you can tell them apart at a glance.
+
+Either kind can log a **negative** amount, which is how you record being paid
+back — see [Payments](/payments). Type it at the till when the sum varies, or set
+it as a button's preset for a repayment that is always the same. A negative
+preset shows its sign on the tile: `Dinner refund — -£12.50`.
 
 The second kind is for the spends you repeat at a price that changes — a weekly
 shop, a tank of fuel. You still skip choosing the account and the budget every
@@ -62,7 +65,7 @@ Below the divider is the payment it creates:
 | Field | What it does |
 | --- | --- |
 | Payment name | The name the payment is logged under. Defaults to the button name. |
-| Amount | The expense amount. A preset is always positive; a negative is typed at the till. |
+| Amount | The expense amount. Negative for money coming back. |
 | Bank account | The account the money leaves. |
 | Expense source | The budget the spend counts against. |
 
@@ -81,8 +84,8 @@ one-tap logging.
 ## Tips
 
 - Log straight away for the spends you repeat at the same price — a coffee, a
-  bus fare, a regular lunch. Ask first when only the amount moves — or when the
-  amount might be a repayment coming back to you.
+  bus fare, a regular lunch, a repayment that is always the same. Ask first when
+  only the amount moves.
 - Give every button an expense source, so the spend lands in the right budget
   without a later tidy-up.
 - If an amount drifts, edit the button rather than making a second one — the
