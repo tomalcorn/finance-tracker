@@ -1,19 +1,17 @@
 """Tests for the payments block's grid configuration."""
 
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
 from driving_adapters.blocks import payments_block
 from driving_adapters.models import frontend_models
 
-if TYPE_CHECKING:
-    from tests import conftest
-
 
 @pytest.fixture(name="income_config")
 def _income_config(
-    build_stub_data_source: "conftest.StubDataSourceBuilder",
+    build_stub_data_source: Callable[..., Any],
 ) -> frontend_models.DFEConfig:
     """Return the income grid config, built over an empty data source."""
     _, income_config, _, _ = payments_block._configs(
@@ -27,7 +25,7 @@ def _income_config(
 
 @pytest.fixture(name="expense_config")
 def _expense_config(
-    build_stub_data_source: "conftest.StubDataSourceBuilder",
+    build_stub_data_source: Callable[..., Any],
 ) -> frontend_models.DFEConfig:
     """Return the expense grid config, built over an empty data source."""
     expense_config, _, _, _ = payments_block._configs(

@@ -262,9 +262,6 @@ def _build_income_config(
                         "format_func": get_income_source_name,
                     },
                     format_func=get_income_source_name,
-                    # As on the expense side: not every inflow belongs to a
-                    # source. The incoming leg of a transfer between your own
-                    # accounts is the case that needs it.
                     required=False,
                 ),
                 frontend_models.DFEColumnConfig(
