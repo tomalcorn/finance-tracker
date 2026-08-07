@@ -26,6 +26,13 @@ type StreamlitColumnConfig = Any
 _TOTALLABLE_COLUMN_TYPES = frozenset({"number", "progress"})
 
 
+def _declared_width(column: "DFEColumnConfig") -> object:
+    """Return the width a column's Streamlit config declares, if any."""
+    if not isinstance(column.column_config, dict):
+        return None
+    return typing.cast("dict", column.column_config).get("width")
+
+
 class DFEColumnConfig(pydantic.BaseModel):
     """Configuration for a single column in the DataFrame editor."""
 
@@ -242,6 +249,32 @@ class GridDisplay(pydantic.BaseModel):
     def writable_columns(self) -> list[DFEColumnConfig]:
         """The visible, editable columns (used by the add dialog)."""
         return [c for c in self.columns if c.editable and c.visible]
+
+    @pydantic.model_validator(mode="after")
+    def check_totalled_grid_declares_widths(self) -> Self:
+        """Validate that a grid with totals gives every visible column a width.
+
+        The totals strip is a second table rendered beneath the grid, and the
+        two only line up if both compute the same column widths — which they do
+        only when told. Left to itself Streamlit sizes a column to its content,
+        and the strip's content is never the grid's, so the strip would sit
+        visibly out of step with the columns it totals.
+        """
+        if not any(column.total for column in self.columns):
+            return self
+        unsized = [
+            column.column_name
+            for column in self.columns
+            if column.visible and not _declared_width(column)
+        ]
+        if unsized:
+            msg = (
+                f"Columns {unsized} must declare a width: a grid with a totals "
+                f"strip needs an explicit width on every visible column, so the "
+                f"strip lines up with the columns it totals."
+            )
+            raise ValueError(msg)
+        return self
 
 
 class DFEConfig(pydantic.BaseModel):

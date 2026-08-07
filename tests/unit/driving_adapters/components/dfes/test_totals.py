@@ -13,6 +13,10 @@ from driving_adapters.models import frontend_models
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+_NAME_WIDTH = 160
+
+_MONEY_WIDTH = 115
+
 
 @pytest.fixture(name="build_column")
 def _build_column() -> "Callable[..., frontend_models.DFEColumnConfig]":
@@ -32,7 +36,11 @@ def _build_column() -> "Callable[..., frontend_models.DFEColumnConfig]":
         return frontend_models.DFEColumnConfig(
             column_name=column_name,
             column_config=column_config
-            or st.column_config.NumberColumn(column_name.title(), format="£%.2f"),
+            or st.column_config.NumberColumn(
+                column_name.title(),
+                format="£%.2f",
+                width=_MONEY_WIDTH,
+            ),
             input_widget=st.number_input,
             total=total,
             visible=visible,
@@ -50,15 +58,17 @@ def _build_display(
     def _build(
         *columns: frontend_models.DFEColumnConfig,
         show_name: bool = True,
+        num_rows: Any = "delete",  # noqa: ANN401 - Streamlit's own literal type
     ) -> frontend_models.GridDisplay:
         name_column = build_column(
             "name",
-            st.column_config.TextColumn("Name"),
+            st.column_config.TextColumn("Name", width=_NAME_WIDTH),
             visible=show_name,
         )
         return frontend_models.GridDisplay(
             columns=[name_column, *columns],
             sample_data=pd.DataFrame({"name": ["Example"]}),
+            num_rows=num_rows,
         )
 
     return _build
@@ -166,7 +176,9 @@ def test_a_summed_column_keeps_the_grids_own_config(
     build_display: "Callable[..., frontend_models.GridDisplay]",
     build_column: "Callable[..., frontend_models.DFEColumnConfig]",
 ) -> None:
-    # Arrange - the figure is formatted and sized like the column above it.
+    # Arrange - the figure is formatted and sized like the column above it, but
+    # is not editable: Streamlit styles only non-editable columns, which is what
+    # lets the strip be bold.
     cost = build_column("cost", total=True)
     display = build_display(cost)
 
@@ -174,7 +186,13 @@ def test_a_summed_column_keeps_the_grids_own_config(
     column_config = totals.build_column_config(display)
 
     # Assert
-    assert column_config["cost"] == cost.column_config
+    assert all(
+        [
+            column_config["cost"]["type_config"] == cost.column_config["type_config"],
+            column_config["cost"]["width"] == cost.column_config["width"],
+            column_config["cost"]["disabled"] is True,
+        ],
+    )
 
 
 def test_a_blank_column_is_re_declared_as_text(
@@ -189,7 +207,29 @@ def test_a_blank_column_is_re_declared_as_text(
     column_config = totals.build_column_config(display)
 
     # Assert
-    assert column_config["banked"] == st.column_config.TextColumn("Banked")
+    expected = st.column_config.TextColumn("Banked", width=_MONEY_WIDTH, disabled=True)
+    assert column_config["banked"] == expected
+
+
+@pytest.mark.parametrize(
+    ("grid_num_rows", "expected"),
+    [("fixed", "fixed"), ("delete", "delete"), ("dynamic", "delete")],
+)
+def test_the_strip_mirrors_the_grids_row_marker_gutter(
+    build_display: "Callable[..., frontend_models.GridDisplay]",
+    build_column: "Callable[..., frontend_models.DFEColumnConfig]",
+    grid_num_rows: str,
+    expected: str,
+) -> None:
+    # Arrange - a grid that allows row deletion draws a fixed row-marker gutter
+    # ahead of its first column, so the strip only lines up if it draws one too.
+    display = build_display(build_column("cost", total=True), num_rows=grid_num_rows)
+
+    # Act
+    num_rows = totals.strip_num_rows(display)
+
+    # Assert
+    assert num_rows == expected
 
 
 def _render_wrapper(grid_display, working_df) -> None:  # noqa: ANN001

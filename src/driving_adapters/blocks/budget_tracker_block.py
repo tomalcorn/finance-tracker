@@ -8,7 +8,7 @@ import streamlit as st
 
 from domain import entities, query
 from driving_adapters.components.buttons import constants, filter_button
-from driving_adapters.components.dfes import grid
+from driving_adapters.components.dfes import column_widths, grid
 from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
@@ -103,6 +103,7 @@ def _build_budget_tracker_config(
                         "Name",
                         required=True,
                         disabled=True,
+                        width=column_widths.NAME,
                     ),
                     button_label="Name",
                     input_widget=st.text_input,
@@ -116,7 +117,7 @@ def _build_budget_tracker_config(
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
-                        width="small",
+                        width=column_widths.PROGRESS,
                         color="blue",
                     ),
                     button_label="Split",
@@ -130,6 +131,7 @@ def _build_budget_tracker_config(
                         "Budget",
                         format="£%.2f",
                         required=True,
+                        width=column_widths.MONEY,
                     ),
                     button_label="Budget",
                     input_widget=st.number_input,
@@ -144,6 +146,7 @@ def _build_budget_tracker_config(
                         "Current Month",
                         format="£%.2f",
                         disabled=True,
+                        width=column_widths.MONEY,
                     ),
                     button_label="Current Month",
                     input_widget=st.number_input,
@@ -158,7 +161,7 @@ def _build_budget_tracker_config(
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
-                        width="small",
+                        width=column_widths.PROGRESS,
                         color="auto-inverse",
                     ),
                     button_label="Progress",
@@ -172,6 +175,7 @@ def _build_budget_tracker_config(
                         "Remaining",
                         format="£%.2f",
                         disabled=True,
+                        width=column_widths.MONEY,
                     ),
                     button_label="Remaining",
                     input_widget=st.number_input,
@@ -209,6 +213,7 @@ def _build_expense_sources_config(
                     column_config=st.column_config.TextColumn(
                         "Name",
                         required=True,
+                        width=column_widths.NAME,
                     ),
                     button_label="Name",
                     input_widget=st.text_input,
@@ -220,6 +225,7 @@ def _build_expense_sources_config(
                         "Budget",
                         format="£%.2f",
                         required=True,
+                        width=column_widths.MONEY,
                     ),
                     button_label="Budget",
                     input_widget=st.number_input,
@@ -235,7 +241,7 @@ def _build_expense_sources_config(
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
-                        width="small",
+                        width=column_widths.PROGRESS,
                         color="blue",
                     ),
                     button_label="Split",
@@ -250,6 +256,7 @@ def _build_expense_sources_config(
                         "Current Month",
                         format="£%.2f",
                         disabled=True,
+                        width=column_widths.MONEY,
                     ),
                     button_label="Current Month",
                     input_widget=st.number_input,
@@ -264,7 +271,7 @@ def _build_expense_sources_config(
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
-                        width="small",
+                        width=column_widths.PROGRESS,
                         color="auto-inverse",
                     ),
                     button_label="Progress",
@@ -278,6 +285,7 @@ def _build_expense_sources_config(
                         "Remaining",
                         format="£%.2f",
                         disabled=True,
+                        width=column_widths.MONEY,
                     ),
                     button_label="Remaining",
                     input_widget=st.number_input,

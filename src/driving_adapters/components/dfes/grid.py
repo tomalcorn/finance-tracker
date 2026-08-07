@@ -102,7 +102,7 @@ def render_editor(
         num_rows=grid_display.num_rows,
         hide_index=True,
     )
-    totals.render(grid_display, working_df)
+    totals.render(grid_display, key_prefix, working_df)
 
 
 def render_buttons(config: "frontend_models.DFEConfig") -> None:

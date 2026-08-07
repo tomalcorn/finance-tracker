@@ -19,7 +19,7 @@ import pandas as pd
 import streamlit as st
 
 from driving_adapters import lookups
-from driving_adapters.components.dfes import grid
+from driving_adapters.components.dfes import column_widths, grid
 from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
@@ -110,6 +110,7 @@ def _core_columns(
             column_config=st.column_config.TextColumn(
                 "Name",
                 required=True,
+                width=column_widths.NAME,
             ),
             button_label="Name",
             input_widget=st.text_input,
@@ -120,6 +121,7 @@ def _core_columns(
             column_config=st.column_config.NumberColumn(
                 "Amount",
                 format="£%.2f",
+                width=column_widths.MONEY,
             ),
             button_label="Amount",
             input_widget=st.number_input,
@@ -130,6 +132,7 @@ def _core_columns(
             column_config=st.column_config.SelectboxColumn(
                 "Cadence",
                 options=_CADENCE_OPTIONS,
+                width=column_widths.CADENCE,
             ),
             button_label="Cadence",
             input_widget=st.selectbox,
@@ -156,6 +159,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
             column_config=st.column_config.DateColumn(
                 "Start Date",
                 format="localized",
+                width=column_widths.DATE,
             ),
             button_label="Start Date",
             input_widget=st.date_input,
@@ -165,6 +169,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
             column_config=st.column_config.DateColumn(
                 "End Date",
                 format="localized",
+                width=column_widths.DATE,
             ),
             button_label="End Date",
             input_widget=st.date_input,
@@ -173,7 +178,10 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
         ),
         frontend_models.DFEColumnConfig(
             column_name="is_active",
-            column_config=st.column_config.CheckboxColumn("Active"),
+            column_config=st.column_config.CheckboxColumn(
+                "Active",
+                width=column_widths.FLAG,
+            ),
             button_label="Active",
             input_widget=st.checkbox,
             input_kwargs={"value": True},
@@ -185,6 +193,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
                 "Monthly Cost",
                 format="£%.2f",
                 disabled=True,
+                width=column_widths.MONEY,
             ),
             button_label="Monthly Cost",
             input_widget=st.number_input,
@@ -209,6 +218,7 @@ def _selectbox_column(
             help=help_text,
             options=ids,
             format_func=get_name,
+            width=column_widths.SELECT,
         ),
         button_label=label,
         input_widget=st.selectbox,
