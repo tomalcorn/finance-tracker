@@ -1,3 +1,9 @@
+## v1.12.0 (2026-08-07)
+
+### Feat
+
+- **quick-expenses**: let the at-the-till form log a negative amount (#233)
+
 ## v1.11.0 (2026-08-07)
 
 ### Feat
