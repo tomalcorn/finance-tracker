@@ -32,11 +32,20 @@ income sources point at them, and other views roll up into them.
 Expense sources are the detailed buckets beneath the budget tracker. They are
 usually the place where you model categories like groceries, transport, rent, or other regular monthly payments.
 
+A payment only counts toward a source if you attribute it to one, so leaving a
+payment sourceless keeps it out of these totals — see
+[getting paid back and moving money between accounts](/payments) for the two
+cases where that matters.
+
 ### Income Sources Tab
 
 Income sources are the mirror image for inflows. They show how much income was
 received in the roll-up month and which budget tracker rows that income
 supports.
+
+Not every inflow belongs here. Money someone owes you back can be recorded as
+income against its own source *or* as a negative expense that offsets the
+original category — [Payments](/payments) explains when to reach for each.
 
 By default the roll-up month is the current one. If you are paid at the end of
 the month, so that each month runs on the previous month's pay, you can move the
