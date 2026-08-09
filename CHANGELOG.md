@@ -1,3 +1,9 @@
+## v1.13.0 (2026-08-09)
+
+### Feat
+
+- **grids**: total the money columns beneath each grid (#235)
+
 ## v1.12.1 (2026-08-07)
 
 ### Fix
