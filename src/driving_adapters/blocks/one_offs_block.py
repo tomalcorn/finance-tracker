@@ -7,7 +7,7 @@ import streamlit as st
 
 from domain import entities, query, read_models
 from driving_adapters.components.buttons import add_button, bank_button, filter_button
-from driving_adapters.components.dfes import grid
+from driving_adapters.components.dfes import column_widths, grid
 from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
@@ -58,6 +58,7 @@ def _build_config(
                     column_config=st.column_config.TextColumn(
                         "Name",
                         required=True,
+                        width=column_widths.NAME,
                     ),
                     button_label="Name",
                     input_widget=st.text_input,
@@ -69,10 +70,12 @@ def _build_config(
                         "Cost",
                         format="£%.2f",
                         required=True,
+                        width=column_widths.MONEY,
                     ),
                     button_label="Cost",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     column_name="current_month",
@@ -80,10 +83,12 @@ def _build_config(
                         "Current Month",
                         format="£%.2f",
                         required=True,
+                        width=column_widths.MONEY,
                     ),
                     button_label="Current Month",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -93,12 +98,13 @@ def _build_config(
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
-                        width="small",
+                        width=column_widths.PROGRESS,
                         color="blue",
                     ),
                     button_label="Split",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -107,6 +113,7 @@ def _build_config(
                         "Remaining",
                         format="£%.2f",
                         disabled=True,
+                        width=column_widths.MONEY,
                     ),
                     button_label="Remaining",
                     input_widget=st.number_input,
@@ -118,6 +125,7 @@ def _build_config(
                         "Banked",
                         format="£%.2f",
                         required=True,
+                        width=column_widths.MONEY,
                     ),
                     button_label="Banked",
                     input_widget=st.number_input,
@@ -131,7 +139,7 @@ def _build_config(
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
-                        width="small",
+                        width=column_widths.PROGRESS,
                         color="blue",
                     ),
                     button_label="Progress",
