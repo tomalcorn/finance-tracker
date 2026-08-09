@@ -26,9 +26,6 @@ but not as part of your normal monthly spending. Examples include:
 | `Progress` | How much of the goal has already been banked. |
 | `Split` | How much of the parent one-offs budget tracker this item is using. |
 
-`Cost`, `Current Month`, and `Split` are totalled in the bold row beneath the
-grid — see [column totals](/getting_started).
-
 ## How To Use It
 
 - Add a new item when a savings goal starts.

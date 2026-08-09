@@ -28,10 +28,6 @@ insurance, or other repeat charges.
 weekly, quarterly, yearly, and similar cadences into a monthly equivalent so you
 can compare them against your budget on the same scale.
 
-It is totalled in the bold row beneath the grid, so you can read off what your
-subscriptions cost you in a month — see [column totals](/getting_started). The
-Joint Contributions tab totals its own the same way.
-
 ## How To Use It
 
 - Create a subscription when a payment repeats regularly.

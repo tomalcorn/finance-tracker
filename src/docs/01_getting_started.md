@@ -30,20 +30,6 @@ The usual setup order is:
 5. Use the one-offs block for savings goals like holidays, gifts, large purchases, or
    anything that isn't regular monthly spending.
 
-## Column Totals
-
-Some grids show a **totals row** underneath them, in bold, with the sum of the
-money columns worth adding up — `Cost`, `Budget`, `Current Month`, `Remaining`,
-`Split`, `Monthly Cost`, depending on the grid. It sits below the grid rather
-than inside it, so it stays put while you scroll the rows.
-
-Two things to know about it:
-
-- it totals **what you are looking at**, so a column filter narrows the totals
-  with the rows
-- it is hidden while a grid is empty, because the example row it shows then is
-  not your money
-
 ## A Good First Check
 
 If you are new to the app, start by checking these three things:
