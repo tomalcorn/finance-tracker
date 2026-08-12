@@ -34,6 +34,14 @@ _CONTRIBUTIONS_KEY_PREFIX = "joint_contributions"
 
 _CADENCE_OPTIONS = ["weekly", "monthly", "quarterly", "biannually", "yearly"]
 
+_NON_NULLABLE_FKS = frozenset({"bank_account_id"})
+"""The foreign-key columns ``SubscriptionView`` declares non-nullable.
+
+A cell edit is a raw column patch that skips the entity gate, so a cleared cell
+saves ``null`` and the next read fails to validate it. The joint pair and the
+expense source are nullable on the view and so stay clearable.
+"""
+
 _TODAY = datetime.datetime.now(tz=datetime.UTC).date().isoformat()
 
 _SAMPLE_DATA = pd.DataFrame(
@@ -121,6 +129,7 @@ def _core_columns(
             column_config=st.column_config.NumberColumn(
                 "Amount",
                 format="£%.2f",
+                required=True,
                 width=column_widths.MONEY,
             ),
             button_label="Amount",
@@ -132,6 +141,7 @@ def _core_columns(
             column_config=st.column_config.SelectboxColumn(
                 "Cadence",
                 options=_CADENCE_OPTIONS,
+                required=True,
                 width=column_widths.CADENCE,
             ),
             button_label="Cadence",
@@ -159,6 +169,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
             column_config=st.column_config.DateColumn(
                 "Start Date",
                 format="localized",
+                required=True,
                 width=column_widths.DATE,
             ),
             button_label="Start Date",
@@ -180,6 +191,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
             column_name="is_active",
             column_config=st.column_config.CheckboxColumn(
                 "Active",
+                required=True,
                 width=column_widths.FLAG,
             ),
             button_label="Active",
@@ -210,7 +222,19 @@ def _selectbox_column(
     ids: list[str],
     get_name: "Callable[[str | float], str]",
 ) -> frontend_models.DFEColumnConfig:
-    """Build a foreign-key selectbox column shown as its target's name."""
+    """Build a foreign-key selectbox column shown as its target's name.
+
+    Args:
+        column_name: The row key the column reads and writes.
+        label: The column header.
+        help_text: The column's tooltip.
+        ids: The selectable target ids.
+        get_name: Formats an id as its target's display name.
+
+    Returns:
+        The configured column.
+
+    """
     return frontend_models.DFEColumnConfig(
         column_name=column_name,
         column_config=st.column_config.SelectboxColumn(
@@ -218,6 +242,7 @@ def _selectbox_column(
             help=help_text,
             options=ids,
             format_func=get_name,
+            required=column_name in _NON_NULLABLE_FKS,
             width=column_widths.SELECT,
         ),
         button_label=label,

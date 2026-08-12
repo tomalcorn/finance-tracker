@@ -98,6 +98,7 @@ def _build_expense_config(
                     column_config=st.column_config.DateColumn(
                         "Date",
                         format="localized",
+                        required=True,
                     ),
                     button_label="Payment Date",
                     input_widget=st.date_input,
@@ -109,6 +110,7 @@ def _build_expense_config(
                     column_config=st.column_config.NumberColumn(
                         "Expense",
                         format="£%.2f",
+                        required=True,
                     ),
                     button_label="Expense",
                     input_widget=st.number_input,
@@ -118,6 +120,7 @@ def _build_expense_config(
                     column_name="checked",
                     column_config=st.column_config.CheckboxColumn(
                         "Checked",
+                        required=True,
                     ),
                     button_label="Checked",
                     input_widget=st.checkbox,
@@ -130,6 +133,7 @@ def _build_expense_config(
                         help="Select a bank account",
                         options=bank_account_ids,
                         format_func=get_bank_account_name,
+                        required=True,
                     ),
                     button_label="Bank Account",
                     input_widget=st.selectbox,
@@ -204,6 +208,7 @@ def _build_income_config(
                     column_config=st.column_config.DateColumn(
                         "Date",
                         format="localized",
+                        required=True,
                     ),
                     button_label="Payment Date",
                     input_widget=st.date_input,
@@ -215,6 +220,7 @@ def _build_income_config(
                     column_config=st.column_config.NumberColumn(
                         "Income",
                         format="£%.2f",
+                        required=True,
                     ),
                     button_label="Income",
                     input_widget=st.number_input,
@@ -224,6 +230,7 @@ def _build_income_config(
                     column_name="checked",
                     column_config=st.column_config.CheckboxColumn(
                         "Checked",
+                        required=True,
                     ),
                     button_label="Checked",
                     input_widget=st.checkbox,
@@ -236,6 +243,7 @@ def _build_income_config(
                         help="Select a bank account",
                         options=bank_account_ids,
                         format_func=get_bank_account_name,
+                        required=True,
                     ),
                     button_label="Bank Account",
                     input_widget=st.selectbox,

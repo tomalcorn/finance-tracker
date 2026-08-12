@@ -84,3 +84,75 @@ class TestPaymentSourcesAreOptional:
 
         # Assert
         assert column.required is True
+
+
+class TestNonNullableCellsCannotBeCleared:
+    """``DFEColumnConfig.required`` guards the add dialog; this guards the cell.
+
+    Clearing a cell of a stored row is an edit, and an edit is a raw column
+    patch that never passes the entity gate — so a blank one reached the
+    database as ``null`` and crashed the next read, which validates it against
+    a ``PaymentView`` field that does not admit one (#237).
+    """
+
+    @pytest.mark.parametrize(
+        "column_name",
+        ["name", "payment_date", "expense", "checked", "bank_account_id"],
+    )
+    def test_expense_columns_are_required(
+        self,
+        expense_config: frontend_models.DFEConfig,
+        column_name: str,
+    ) -> None:
+        """The editor refuses to submit an emptied non-nullable expense cell."""
+        # Arrange / Act
+        column = _column(expense_config, column_name)
+
+        # Assert
+        assert column.column_config["required"] is True
+
+    @pytest.mark.parametrize(
+        "column_name",
+        ["name", "payment_date", "income", "checked", "bank_account_id"],
+    )
+    def test_income_columns_are_required(
+        self,
+        income_config: frontend_models.DFEConfig,
+        column_name: str,
+    ) -> None:
+        """The editor refuses to submit an emptied non-nullable income cell."""
+        # Arrange / Act
+        column = _column(income_config, column_name)
+
+        # Assert
+        assert column.column_config["required"] is True
+
+
+class TestNullableCellsStayClearable:
+    """The guard tracks the read model, so a nullable column must not get it.
+
+    The source columns are the ones a transfer between your own accounts leaves
+    empty (#231); making them required would break that.
+    """
+
+    def test_the_expense_source_cell_is_not_required(
+        self,
+        expense_config: frontend_models.DFEConfig,
+    ) -> None:
+        """An expense source can still be cleared."""
+        # Arrange / Act
+        column = _column(expense_config, "expense_source_id")
+
+        # Assert
+        assert not column.column_config.get("required")
+
+    def test_the_income_source_cell_is_not_required(
+        self,
+        income_config: frontend_models.DFEConfig,
+    ) -> None:
+        """An income source can still be cleared."""
+        # Arrange / Act
+        column = _column(income_config, "income_source_id")
+
+        # Assert
+        assert not column.column_config.get("required")
