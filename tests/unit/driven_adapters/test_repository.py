@@ -162,6 +162,22 @@ class TestGetAll:
             ],
         )
 
+    def test_a_malformed_stored_row_becomes_a_repository_error(self) -> None:
+        # Arrange - get_all validates into the write model, and must translate a
+        # malformed stored row the same way rows() does.
+        row = _bank_view_row()
+        row["starting_balance"] = None
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache([row]),
+            _CONN,
+            _PERSONAL,
+        )
+
+        # Act / Assert
+        with pytest.raises(errors.RepositoryError, match="Malformed row"):
+            repo.get_all()
+
     def test_programming_error_on_fetch_is_not_translated(self) -> None:
         # Arrange - a genuine bug in the read path must not be masked as a
         # RepositoryError; it should propagate untouched so it stays diagnosable.
@@ -221,6 +237,41 @@ class TestRows:
 
         # Assert
         assert result[0].current_balance == balance
+
+    def test_a_malformed_stored_row_becomes_a_repository_error(self) -> None:
+        # Arrange - a stored row whose non-nullable column has gone null. Reading
+        # is a port boundary too, so this must arrive as a RepositoryError the
+        # page's error boundary can catch, not as a raw pydantic ValidationError.
+        row = _bank_view_row()
+        row["starting_balance"] = None
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache([row]),
+            _CONN,
+            _PERSONAL,
+        )
+
+        # Act / Assert
+        with pytest.raises(errors.RepositoryError, match="Malformed row"):
+            repo.rows()
+
+    def test_a_malformed_stored_row_names_the_table_it_came_from(self) -> None:
+        # Arrange
+        row = _bank_view_row()
+        row["starting_balance"] = None
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache([row]),
+            _CONN,
+            _PERSONAL,
+        )
+
+        # Act
+        with pytest.raises(errors.RepositoryError) as exc_info:
+            repo.rows()
+
+        # Assert - the read table, so the message says where to go looking
+        assert str(table_names.ViewNames.BANK_ACCOUNTS) in str(exc_info.value)
 
 
 class TestUniqueValues:
