@@ -1,3 +1,9 @@
+## v1.13.1 (2026-08-13)
+
+### Fix
+
+- **grids**: stop a cleared cell saving null over a non-nullable column (#238)
+
 ## v1.13.0 (2026-08-09)
 
 ### Feat
