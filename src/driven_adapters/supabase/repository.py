@@ -256,13 +256,46 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
             return []
         return [self._joint_cache_key(account_id, t) for t in crossing]
 
+    def _validated[ParsedT](
+        self,
+        rows: "Sequence[entities.RawRow]",
+        parse: "Callable[[entities.RawRow], ParsedT]",
+    ) -> list[ParsedT]:
+        """Validate fetched rows, translating a malformed one at the boundary.
+
+        The read counterpart of ``build_entities``' gate. A stored row that no
+        longer satisfies its model is a persistence failure like any other, so
+        it leaves as a ``RepositoryError`` rather than as the raw pydantic
+        ``ValidationError``, which would cross the port untranslated and reach
+        the user as a traceback instead of the page's error boundary.
+
+        Args:
+            rows: The raw rows just fetched.
+            parse: Validates one raw row into its model.
+
+        Returns:
+            The validated rows.
+
+        Raises:
+            RepositoryError: Any row failed to validate.
+
+        """
+        try:
+            return [parse(row) for row in rows]
+        except (pydantic.ValidationError, domain_errors.DomainError) as e:
+            # A model validator raising a DomainError is not wrapped by pydantic
+            # (DomainError is not a ValueError), so catch it too — as the write
+            # gate does.
+            msg = f"Malformed row read from {self._spec.read_table}: {e}"
+            raise errors.RepositoryError(msg) from e
+
     def get_all(self) -> list[EntityT]:
         """Return all records for the current user."""
-        return [self._spec.parse(row) for row in self._fetch_rows()]
+        return self._validated(self._fetch_rows(), self._spec.parse)
 
     def get_by_ids(self, ids: list["uuid.UUID"]) -> list[EntityT]:
         """Return the records matching the given IDs."""
-        return [self._spec.parse(row) for row in self._fetch_by_ids(ids)]
+        return self._validated(self._fetch_by_ids(ids), self._spec.parse)
 
     def build_entities(self, rows: "Sequence[entities.RawRow]") -> list[EntityT]:
         """Complete raw rows with this repository's write context, then validate.
@@ -359,7 +392,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
 
     def rows(self) -> list[ViewT]:
         """Return all display rows as typed view models."""
-        return [self._spec.view_model.model_validate(row) for row in self._fetch_rows()]
+        return self._validated(self._fetch_rows(), self._spec.view_model.model_validate)
 
     def unique_values(self, column_name: str) -> set[object]:
         """Return the set of unique non-null values for a column.
