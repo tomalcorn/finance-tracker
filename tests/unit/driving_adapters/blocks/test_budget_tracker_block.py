@@ -132,8 +132,8 @@ def test_render_omits_contribute_button_when_absent(
 @pytest.mark.parametrize(
     ("period", "expected_label"),
     [
-        (entities.IncomeRollUpPeriod.CURRENT_MONTH, "Current Month"),
-        (entities.IncomeRollUpPeriod.PREVIOUS_MONTH, "Previous Month"),
+        (entities.IncomeRollUpPeriod.CURRENT_MONTH, "Received This Month"),
+        (entities.IncomeRollUpPeriod.PREVIOUS_MONTH, "Received Last Month"),
     ],
 )
 def test_income_roll_up_column_is_labelled_for_the_configured_month(
