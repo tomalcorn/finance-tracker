@@ -91,6 +91,22 @@ def _build_config(
                     total=True,
                 ),
                 frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="split",
+                    column_config=st.column_config.ProgressColumn(
+                        "Split",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width=column_widths.PROGRESS,
+                        color="blue",
+                    ),
+                    button_label="Split",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.1f"},
+                    total=True,
+                ),
+                frontend_models.DFEColumnConfig(
                     column_name="banked",
                     column_config=st.column_config.NumberColumn(
                         "Banked",
@@ -101,19 +117,6 @@ def _build_config(
                     button_label="Banked",
                     input_widget=st.number_input,
                     input_kwargs={"value": 0.0, "format": "%.2f"},
-                ),
-                frontend_models.DFEColumnConfig(
-                    editable=False,
-                    column_name="remaining",
-                    column_config=st.column_config.NumberColumn(
-                        "Remaining",
-                        format="£%.2f",
-                        disabled=True,
-                        width=column_widths.MONEY,
-                    ),
-                    button_label="Remaining",
-                    input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -132,19 +135,16 @@ def _build_config(
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
-                    column_name="split",
-                    column_config=st.column_config.ProgressColumn(
-                        "Split",
-                        format="%.1f%%",
-                        min_value=0,
-                        max_value=100,
-                        width=column_widths.PROGRESS,
-                        color="blue",
+                    column_name="remaining",
+                    column_config=st.column_config.NumberColumn(
+                        "Remaining",
+                        format="£%.2f",
+                        disabled=True,
+                        width=column_widths.MONEY,
                     ),
-                    button_label="Split",
+                    button_label="Remaining",
                     input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.1f"},
-                    total=True,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
                 *(
                     [
