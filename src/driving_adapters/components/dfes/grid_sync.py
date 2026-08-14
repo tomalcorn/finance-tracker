@@ -22,8 +22,12 @@ if typing.TYPE_CHECKING:
 UniqueChecker = Callable[[str], set[object]]
 """Returns the set of existing values for a column (user-scoped)."""
 
-_ID_COLUMN = "id"
-"""The sort key of last resort. Absent only from the sample-data empty state."""
+_TIEBREAK_COLUMNS = ("created_at", "id")
+"""Trailing sort keys: insertion order, then a unique key to settle the rest.
+
+Absent only from the sample-data empty state, which is why each is applied
+only when the frame actually carries it.
+"""
 
 _TO_PANDAS_OPERATOR = {
     "eq": "==",
@@ -103,14 +107,14 @@ def apply_active_sorting(
 
     Path A reads unordered rows from the port, so the ``sorting`` a column
     config declares is applied here in Python (it used to ride along on the
-    SQL query). Columns are sorted in config order, then by ``id``, so the
-    result depends only on the rows themselves and never on the order they
-    were fetched in.
+    SQL query). Columns are sorted in config order, then by ``created_at`` and
+    ``id``, so the result depends only on the rows themselves and never on the
+    order they were fetched in.
 
-    The ``id`` tiebreak is load-bearing rather than cosmetic: the editor
-    records its deltas by position, and ``compute_deltas`` resolves them by
-    position against a frame rebuilt on a later run. Two fetches of the same
-    rows have to order them the same way, or a delta lands on the wrong row.
+    The tiebreak is load-bearing rather than cosmetic: the editor records its
+    deltas by position, and ``compute_deltas`` resolves them by position
+    against a frame rebuilt on a later run. Two fetches of the same rows have
+    to order them the same way, or a delta lands on the wrong row.
     """
     sort_configs = [
         config
@@ -119,9 +123,10 @@ def apply_active_sorting(
     ]
     sort_columns = [config.column_name for config in sort_configs]
     ascending = [config.sorting == query.SortingValues.ASC for config in sort_configs]
-    if _ID_COLUMN in dataframe.columns:
-        sort_columns.append(_ID_COLUMN)
-        ascending.append(True)
+    for column in _TIEBREAK_COLUMNS:
+        if column in dataframe.columns:
+            sort_columns.append(column)
+            ascending.append(True)
     if not sort_columns:
         return dataframe
     return dataframe.sort_values(

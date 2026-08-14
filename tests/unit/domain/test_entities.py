@@ -1,5 +1,6 @@
 """Unit tests for the entities module."""
 
+import datetime
 import uuid
 
 import pytest
@@ -54,6 +55,7 @@ class TestJointOwnershipValidator:
             "starting_balance": 0.0,
             "current_balance": 0.0,
             "ownership_type": entities.OwnershipType.JOINT,
+            "_created_at": datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC),
         }
         # Act / Assert
         with pytest.raises(errors.MissingJointAccountError):

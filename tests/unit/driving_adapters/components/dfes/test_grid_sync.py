@@ -156,6 +156,32 @@ class TestSortingIsIndependentOfFetchOrder:
         # Assert
         assert result["payment_date"].tolist() == ["2026-03-01", "2026-01-01"]
 
+    def test_ties_are_broken_by_insertion_order_not_by_id(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
+        """Tied rows read oldest-first, which id order alone would not give."""
+        # Arrange - the id order is deliberately the reverse of the created order
+        rows = [
+            {
+                "id": "zzz",
+                "created_at": "2026-01-01T00:00:00Z",
+                "payment_date": "2026-01-01",
+            },
+            {
+                "id": "aaa",
+                "created_at": "2026-02-01T00:00:00Z",
+                "payment_date": "2026-01-01",
+            },
+        ]
+        configs = [make_column_config("payment_date", sorting=query.SortingValues.DESC)]
+
+        # Act
+        result = grid_sync.apply_active_sorting(pd.DataFrame(rows), configs)
+
+        # Assert
+        assert result["id"].tolist() == ["zzz", "aaa"]
+
 
 class TestApplyColumnFilter:
     """Tests for apply_column_filter."""

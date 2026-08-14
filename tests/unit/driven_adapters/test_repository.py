@@ -6,6 +6,7 @@ read isolation is the cache key's job now (``{user_id}:{table}`` plus row-level
 security), so the repository no longer filters rows itself.
 """
 
+import datetime
 import uuid
 from collections.abc import Callable, Iterable
 from unittest import mock
@@ -20,6 +21,7 @@ from driving_adapters import cache as ui_cache
 from ports import errors
 
 _USER_ID = "auth0|test-user-123"
+_CREATED_AT = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
 _PERSONAL = entities.OwnershipType.PERSONAL
 _JOINT = entities.OwnershipType.JOINT
 _CONN = mock.MagicMock(spec=st_supabase_connection.SupabaseConnection)
@@ -70,8 +72,14 @@ def _bank_view_row(  # noqa: PLR0913 - keyword-only test row builder; each field
     current_balance: float = 250.0,
     ownership_type: entities.OwnershipType = entities.OwnershipType.PERSONAL,
     joint_account_id: uuid.UUID | None = None,
+    created_at: datetime.datetime = _CREATED_AT,
 ) -> dict:
-    """Return a bank_accounts_view-shaped row (carries the computed column)."""
+    """Return a bank_accounts_view-shaped row (carries the computed column).
+
+    Dumped ``by_alias`` so the keys match what the view actually returns —
+    ``_created_at``, not the model's field name — and the repository's
+    validation is exercised against the production row shape.
+    """
     return read_models.BankAccountView(
         id=row_id or uuid.uuid4(),
         user_id=user_id,
@@ -80,7 +88,8 @@ def _bank_view_row(  # noqa: PLR0913 - keyword-only test row builder; each field
         current_balance=current_balance,
         ownership_type=ownership_type,
         joint_account_id=joint_account_id,
-    ).model_dump(mode="json")
+        created_at=created_at,
+    ).model_dump(mode="json", by_alias=True)
 
 
 class KeyedFakeCache:
@@ -221,6 +230,40 @@ class TestGetByIds:
 
 
 class TestRows:
+    def test_reads_the_creation_timestamp_under_its_column_name(self) -> None:
+        # Arrange - a row spelled out as the view returns it, deliberately not
+        # built from the model: the column is `_created_at` and the field is
+        # `created_at`, so a row derived from the model would agree with it
+        # whichever way the alias went and prove nothing. Nothing else fails
+        # loudly if the mapping breaks — the grid just loses its final sort key.
+        row = {
+            "id": str(uuid.uuid4()),
+            "user_id": _USER_ID,
+            "name": "Current",
+            "starting_balance": 250.0,
+            "current_balance": 250.0,
+            "ownership_type": "personal",
+            "joint_account_id": None,
+            "_created_at": "2025-06-01T00:00:00Z",
+        }
+        repo = repository.bank_account_repository(
+            _USER_ID,
+            FakeCache([row]),
+            _CONN,
+            _PERSONAL,
+        )
+
+        # Act
+        result = repo.rows()
+
+        # Assert
+        assert result[0].created_at == datetime.datetime(
+            2025,
+            6,
+            1,
+            tzinfo=datetime.UTC,
+        )
+
     def test_returns_view_models_with_computed_columns(self) -> None:
         # Arrange
         balance = 999.0
