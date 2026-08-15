@@ -160,6 +160,61 @@ class TestQuickButtonAmountValidator:
         assert exc_info.value.name == "Coffee"
 
 
+class TestCategoryAccrual:
+    """A pot fills up over months; everything else resets monthly (#248)."""
+
+    @staticmethod
+    def _pot(
+        *,
+        parent_id: uuid.UUID | None,
+        starting_balance: float = 150.0,
+    ) -> entities.CategoryModel:
+        """Build a multi-month pot."""
+        return entities.CategoryModel(
+            user_id="test-user",
+            name="Festival tickets",
+            parent_id=parent_id,
+            accrual=entities.AccrualPeriod.MULTI_MONTH,
+            cost=200.0,
+            starting_balance=starting_balance,
+        )
+
+    def test_a_multi_month_child_is_a_pot(self) -> None:
+        # Arrange / Act
+        pot = self._pot(parent_id=uuid.uuid4())
+
+        # Assert
+        assert pot.is_pot
+
+    def test_a_monthly_category_is_not_a_pot(self) -> None:
+        # Arrange / Act
+        category = entities.CategoryModel(user_id="test-user", name="Groceries")
+
+        # Assert
+        assert not category.is_pot
+
+    def test_a_pot_may_start_below_zero(self) -> None:
+        # Arrange - a starting balance is unconstrained in sign, like a bank
+        # account's, which is what lets money be moved out of a pot that was
+        # filled by payments
+        moved_out = -20.0
+
+        # Act
+        pot = self._pot(parent_id=uuid.uuid4(), starting_balance=moved_out)
+
+        # Assert
+        assert pot.starting_balance == moved_out
+
+    def test_a_root_cannot_be_a_pot(self) -> None:
+        # Arrange - a root is a monthly allowance, and the roll-up reads its
+        # children's monthly figures, so an accruing root would total two
+        # different windows at once
+
+        # Act / Assert
+        with pytest.raises(errors.MultiMonthRootCategoryError):
+            self._pot(parent_id=None)
+
+
 class TestCategoryTree:
     """A category is a root or a child of one, and never its own parent (#246)."""
 

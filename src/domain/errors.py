@@ -67,6 +67,18 @@ class JointOwnedContributionError(DomainError):
         )
 
 
+class MultiMonthRootCategoryError(DomainError):
+    """Error when a top-level category is set to accrue across months."""
+
+    def __init__(self, name: str) -> None:
+        """Construct MultiMonthRootCategoryError."""
+        self.name = name
+        super().__init__(
+            f"Category {name!r} is top-level, so it is a monthly allowance and "
+            "cannot accrue across months. Only a subcategory can be a pot.",
+        )
+
+
 class SelfParentedCategoryError(DomainError):
     """Error when a category names itself as its own parent."""
 

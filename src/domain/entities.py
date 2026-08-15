@@ -126,17 +126,24 @@ class BudgetTrackerItemModel(FinanceTrackerBaseModel):
     ] = 0.0
 
 
+class AccrualPeriod(enum.StrEnum):
+    """The window a category totals its payments over.
+
+    Only a window. ``MULTI_MONTH`` does not make a category a different kind of
+    thing — it is still a name with an amount that payments are attributed to,
+    counted since it opened rather than since the 1st.
+    """
+
+    MONTHLY = enum.auto()
+    MULTI_MONTH = enum.auto()
+
+
 class CategoryModel(FinanceTrackerBaseModel):
     """Model representing a category money can be attributed to.
 
-    Categories are a two-level tree. A **root** (``parent_id is None``) is one of
-    the fixed :class:`BudgetTrackerName` names and is seeded, not created; its
-    **children** are the user's own subcategories. A payment may be attributed to
-    either level, so ``budget`` is the same number at both: what this category is
-    allowed, whether or not it has children.
-
-    Depth is enforced in the database — a category cannot see its siblings from
-    here, so only the self-parent half of the rule is checkable on the entity.
+    A two-level tree: a root (``parent_id is None``) holds subcategories, and a
+    payment may be attributed to either level. A ``MULTI_MONTH`` child is a pot,
+    filling towards ``cost`` over several months instead of resetting.
     """
 
     parent_id: Annotated[
@@ -149,11 +156,30 @@ class CategoryModel(FinanceTrackerBaseModel):
         pydantic.NonNegativeFloat,
         pydantic.Field(description="What this category is allowed each month."),
     ] = 0.0
+    accrual: Annotated[
+        AccrualPeriod,
+        pydantic.Field(description="The window this category totals payments over."),
+    ] = AccrualPeriod.MONTHLY
+    cost: Annotated[
+        pydantic.NonNegativeFloat,
+        pydantic.Field(description="What a pot needs to reach; unused if monthly."),
+    ] = 0.0
+    starting_balance: Annotated[
+        float,
+        pydantic.Field(
+            description="What a pot held before payments could reach it.",
+        ),
+    ] = 0.0
 
     @property
     def is_root(self) -> bool:
         """Whether this is a top-level category rather than a subcategory."""
         return self.parent_id is None
+
+    @property
+    def is_pot(self) -> bool:
+        """Whether this category fills up over months rather than resetting."""
+        return self.accrual is AccrualPeriod.MULTI_MONTH
 
     @pydantic.model_validator(mode="after")
     def _check_not_self_parented(self) -> Self:
@@ -166,6 +192,20 @@ class CategoryModel(FinanceTrackerBaseModel):
         """
         if self.parent_id is not None and self.parent_id == self.id:
             raise errors.SelfParentedCategoryError(self.name)
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def _check_accrual(self) -> Self:
+        """Reject a top-level category set to accrue across months.
+
+        Raises:
+            MultiMonthRootCategoryError: A root claims to be a pot. A root is a
+                monthly allowance whose roll-up reads its children's monthly
+                figures, so an accruing one would total two different windows.
+
+        """
+        if self.is_pot and self.is_root:
+            raise errors.MultiMonthRootCategoryError(self.name)
         return self
 
 
