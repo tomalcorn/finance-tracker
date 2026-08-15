@@ -1,3 +1,9 @@
+## v1.16.1 (2026-08-15)
+
+### Refactor
+
+- rename expense_source_id to category_id (#257)
+
 ## v1.16.0 (2026-08-15)
 
 ### Feat
