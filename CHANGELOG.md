@@ -1,3 +1,9 @@
+## v1.13.4 (2026-08-15)
+
+### Refactor
+
+- **grids**: give each column a label that says what it holds, and a tooltip that explains it (#245)
+
 ## v1.13.3 (2026-08-15)
 
 ### Refactor
