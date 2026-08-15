@@ -18,11 +18,20 @@ from domain import entities
 class _ViewBase(pydantic.BaseModel):
     """Shared base for all view read models."""
 
-    model_config = pydantic.ConfigDict(frozen=True)
+    # populate_by_name: rows arrive from the database keyed by the physical
+    # column name, but a caller constructing one directly uses the field name.
+    model_config = pydantic.ConfigDict(frozen=True, populate_by_name=True)
 
     id: Annotated[uuid.UUID, pydantic.Field(description="Unique row identifier.")]
     user_id: Annotated[str, pydantic.Field(description="Owning user's ID.")]
     name: Annotated[str, pydantic.Field(description="Display name.")]
+    created_at: Annotated[
+        datetime.datetime,
+        pydantic.Field(
+            alias="_created_at",
+            description="When the row was inserted; the grid's final sort key.",
+        ),
+    ]
     ownership_type: Annotated[
         entities.OwnershipType,
         pydantic.Field(

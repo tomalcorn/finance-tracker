@@ -1,5 +1,6 @@
 """Unit tests for the one-offs block's Bank It button."""
 
+import datetime
 import uuid
 from typing import TYPE_CHECKING
 
@@ -41,6 +42,7 @@ def _build_one_off() -> "Callable[..., read_models.OneOffView]":
                 "remaining": 1000.0,
                 "progress": 0.0,
                 "split": 100.0,
+                "_created_at": datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC),
             },
         )
 

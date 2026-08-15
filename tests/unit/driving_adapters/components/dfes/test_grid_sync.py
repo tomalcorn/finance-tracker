@@ -89,6 +89,100 @@ class TestApplyActiveSorting:
         pd.testing.assert_frame_equal(result, df)
 
 
+class TestSortingIsIndependentOfFetchOrder:
+    """The editor maps its deltas by position, so order must not drift (#236).
+
+    A delta is recorded against a row index on one run and resolved against a
+    frame rebuilt on the next. If the same rows can come back in a different
+    order, an edit or a deletion lands on the wrong row.
+    """
+
+    def test_rows_tied_on_the_sorted_column_keep_one_order(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
+        """Two fetches of the same tied rows sort into the same order."""
+        # Arrange - identical rows, opposite arrival order, tied on the sort key
+        rows = [
+            {"id": "aaa", "payment_date": "2026-01-01"},
+            {"id": "bbb", "payment_date": "2026-01-01"},
+        ]
+        configs = [make_column_config("payment_date", sorting=query.SortingValues.DESC)]
+
+        # Act
+        first = grid_sync.apply_active_sorting(pd.DataFrame(rows), configs)
+        second = grid_sync.apply_active_sorting(
+            pd.DataFrame(list(reversed(rows))),
+            configs,
+        )
+
+        # Assert
+        pd.testing.assert_frame_equal(first, second)
+
+    def test_an_unsorted_frame_is_ordered_too(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
+        """A grid with no sort config is still not left in fetch order."""
+        # Arrange - no column declares a sort, so today's order is the fetch's
+        rows = [{"id": "aaa", "name": "One"}, {"id": "bbb", "name": "Two"}]
+        configs = [make_column_config("name")]
+
+        # Act
+        first = grid_sync.apply_active_sorting(pd.DataFrame(rows), configs)
+        second = grid_sync.apply_active_sorting(
+            pd.DataFrame(list(reversed(rows))),
+            configs,
+        )
+
+        # Assert
+        pd.testing.assert_frame_equal(first, second)
+
+    def test_the_configured_sort_still_wins_over_the_tiebreak(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
+        """The tiebreak orders ties only; it never reorders distinct values."""
+        # Arrange - the id order is the opposite of the wanted date order
+        rows = [
+            {"id": "aaa", "payment_date": "2026-01-01"},
+            {"id": "bbb", "payment_date": "2026-03-01"},
+        ]
+        configs = [make_column_config("payment_date", sorting=query.SortingValues.DESC)]
+
+        # Act
+        result = grid_sync.apply_active_sorting(pd.DataFrame(rows), configs)
+
+        # Assert
+        assert result["payment_date"].tolist() == ["2026-03-01", "2026-01-01"]
+
+    def test_ties_are_broken_by_insertion_order_not_by_id(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
+        """Tied rows read oldest-first, which id order alone would not give."""
+        # Arrange - the id order is deliberately the reverse of the created order
+        rows = [
+            {
+                "id": "zzz",
+                "created_at": "2026-01-01T00:00:00Z",
+                "payment_date": "2026-01-01",
+            },
+            {
+                "id": "aaa",
+                "created_at": "2026-02-01T00:00:00Z",
+                "payment_date": "2026-01-01",
+            },
+        ]
+        configs = [make_column_config("payment_date", sorting=query.SortingValues.DESC)]
+
+        # Act
+        result = grid_sync.apply_active_sorting(pd.DataFrame(rows), configs)
+
+        # Assert
+        assert result["id"].tolist() == ["zzz", "aaa"]
+
+
 class TestApplyColumnFilter:
     """Tests for apply_column_filter."""
 

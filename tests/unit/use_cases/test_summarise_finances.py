@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 _USER_ID = "auth0|test-user-1"
 _TODAY = datetime.date(2026, 7, 26)
+_CREATED_AT = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
 
 # Named so each assertion can state the arithmetic it expects rather than a
 # magic total.
@@ -67,6 +68,7 @@ def _build_bank_account() -> "_BankAccountBuilder":
             name="Current Account",
             starting_balance=0.0,
             current_balance=current_balance,
+            created_at=_CREATED_AT,
         )
 
     return _build
@@ -90,6 +92,7 @@ def _build_budget_tracker() -> "_BudgetTrackerBuilder":
             remaining=remaining,
             progress=0.0,
             split=0.0,
+            created_at=_CREATED_AT,
         )
 
     return _build
@@ -114,6 +117,7 @@ def _build_payment() -> "_PaymentBuilder":
             income=income,
             checked=False,
             bank_account_id=uuid.uuid4(),
+            created_at=_CREATED_AT,
         )
 
     return _build
