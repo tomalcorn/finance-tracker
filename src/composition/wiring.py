@@ -60,18 +60,16 @@ def bank_account_data_source(
     return supabase_repos.bank_account_repository(*_repo_deps(), ownership)
 
 
-def budget_tracker_data_source(
+def category_data_source(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
 ) -> "data_source_mod.GridDataSource":
-    """GridDataSource for the budget tracker DFE."""
-    return supabase_repos.budget_tracker_repository(*_repo_deps(), ownership)
+    """GridDataSource for every categories DFE.
 
-
-def expense_source_data_source(
-    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> "data_source_mod.GridDataSource":
-    """GridDataSource for the expense sources DFE."""
-    return supabase_repos.expense_source_repository(*_repo_deps(), ownership)
+    One source for all of them: the budget tracker grid, the subcategories grid
+    and the one-offs grid are three views of one table, told apart by
+    ``parent_id`` and ``accrual`` rather than by which repository they came from.
+    """
+    return supabase_repos.category_repository(*_repo_deps(), ownership)
 
 
 def income_source_data_source(
@@ -79,13 +77,6 @@ def income_source_data_source(
 ) -> "data_source_mod.GridDataSource":
     """GridDataSource for the income sources DFE."""
     return supabase_repos.income_source_repository(*_repo_deps(), ownership)
-
-
-def one_off_data_source(
-    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> "data_source_mod.GridDataSource":
-    """GridDataSource for the one-offs DFE."""
-    return supabase_repos.one_off_repository(*_repo_deps(), ownership)
 
 
 def payment_data_source(
@@ -170,10 +161,10 @@ def category_id_name_map(
 ) -> dict[str, str]:
     """Return an ``{id: name}`` map of the categories a payment can be booked to.
 
-    Still read from ``expense_sources``, whose ids are the categories' own
-    (preserved in migration 0020). #251 reads the tree itself.
+    Flat for now, roots and children alike. #251 prefixes each child with its
+    parent so the two levels can be told apart in the picker.
     """
-    repo = supabase_repos.expense_source_repository(
+    repo = supabase_repos.category_repository(
         *_repo_deps(),
         ownership,
     )
@@ -191,23 +182,23 @@ def income_source_id_name_map(
     return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
-def joint_expense_source_id() -> "uuid.UUID | None":
-    """Return the id of the hidden personal "Joint" expense source, if it exists.
+def joint_category_id() -> "uuid.UUID | None":
+    """Return the id of the personal "Joint" root category, if it exists.
 
     The anchor every contribution's personal leg is booked against, so a
-    contribution subscription's ``category_id`` is derived from it rather
-    than chosen. Reads the same cached personal slice
-    :func:`category_id_name_map` does, so it costs no extra fetch.
+    contribution's ``category_id`` is derived from it rather than chosen. Reads
+    the same cached personal slice :func:`category_id_name_map` does, so it
+    costs no extra fetch.
     """
-    repo = supabase_repos.expense_source_repository(
+    repo = supabase_repos.category_repository(
         *_repo_deps(),
         entities.OwnershipType.PERSONAL,
     )
     return next(
         (
-            source.id
-            for source in repo.get_all()
-            if source.name == entities.BudgetTrackerName.JOINT
+            category.id
+            for category in repo.get_all()
+            if category.is_root and category.name == entities.BudgetTrackerName.JOINT
         ),
         None,
     )
@@ -216,12 +207,14 @@ def joint_expense_source_id() -> "uuid.UUID | None":
 def budget_tracker_id_name_map(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
 ) -> dict[str, str]:
-    """Return an ``{id: name}`` map of the current user's budget tracker items."""
-    repo = supabase_repos.budget_tracker_repository(
+    """Return an ``{id: name}`` map of the current user's root categories."""
+    repo = supabase_repos.category_repository(
         *_repo_deps(),
         ownership,
     )
-    return {str(model.id): str(model.name) for model in repo.get_all()}
+    return {
+        str(model.id): str(model.name) for model in repo.get_all() if model.is_root
+    }
 
 
 def reconcile_subscriptions_use_case(
