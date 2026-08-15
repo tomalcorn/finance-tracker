@@ -168,7 +168,6 @@ class TestCategoryAccrual:
         *,
         parent_id: uuid.UUID | None,
         cost: float | None = 200.0,
-        banked: float | None = 150.0,
     ) -> entities.CategoryModel:
         """Build a multi-month pot, complete unless a test breaks it."""
         return entities.CategoryModel(
@@ -177,7 +176,6 @@ class TestCategoryAccrual:
             parent_id=parent_id,
             accrual=entities.AccrualPeriod.MULTI_MONTH,
             cost=cost,
-            banked=banked,
         )
 
     def test_a_complete_pot_is_accepted(self) -> None:
@@ -194,34 +192,17 @@ class TestCategoryAccrual:
         # Assert
         assert not category.is_pot
 
-    @pytest.mark.parametrize(("cost", "banked"), [(None, 150.0), (200.0, None)])
-    def test_a_pot_needs_both_amounts(
-        self,
-        cost: float | None,
-        banked: float | None,
-    ) -> None:
-        # Arrange - the DB CHECK holds the same rule, since a grid edit reaches
-        # the columns through apply_edits without passing through this model
+    def test_a_pot_needs_a_cost(self) -> None:
+        # Arrange - with no cost there is nothing to measure how full it is
+        # against. The DB CHECK holds the same rule, since a grid edit reaches
+        # the column through apply_edits without passing through this model
 
         # Act / Assert
         with pytest.raises(errors.IncompleteMultiMonthCategoryError):
-            self._pot(parent_id=uuid.uuid4(), cost=cost, banked=banked)
-
-    def test_the_incomplete_error_names_the_missing_field(self) -> None:
-        # Arrange / Act
-        with pytest.raises(errors.IncompleteMultiMonthCategoryError) as exc_info:
             self._pot(parent_id=uuid.uuid4(), cost=None)
 
-        # Assert
-        assert exc_info.value.missing == ["cost"]
-
-    @pytest.mark.parametrize(("cost", "banked"), [(10.0, None), (None, 10.0)])
-    def test_a_monthly_category_may_not_carry_pot_amounts(
-        self,
-        cost: float | None,
-        banked: float | None,
-    ) -> None:
-        # Arrange - nothing would ever read them, so holding one is a mistake
+    def test_a_monthly_category_may_not_carry_a_cost(self) -> None:
+        # Arrange - nothing would ever read it, so carrying one is a mistake
         # rather than a harmless extra
 
         # Act / Assert
@@ -230,8 +211,7 @@ class TestCategoryAccrual:
                 user_id="test-user",
                 name="Groceries",
                 parent_id=uuid.uuid4(),
-                cost=cost,
-                banked=banked,
+                cost=10.0,
             )
 
     def test_a_root_cannot_be_a_pot(self) -> None:

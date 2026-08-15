@@ -5,12 +5,12 @@
 -- The branch is ONLY a payment window:
 --
 --   * `monthly`     — payments in the current calendar month, as before.
---   * `multi_month` — payments over all time, on top of the `banked` opening
---                     balance brought forward from before pots took payments.
+--   * `multi_month` — payments over all time.
 --
 -- Everything else follows from that. A pot's `current_month` is what has gone
 -- into it since it opened, `remaining` is what is left to put in, and
--- `progress` is how full it is.
+-- `progress` is how full it is — all three from the payments alone, with no
+-- stored balance beside them to drift out of step.
 --
 -- Two things that are deliberately NOT how one_offs_view worked:
 --
@@ -19,10 +19,10 @@
 --     pledge — so planning to spend money made the pot read as already emptier.
 --     Planned Spend is a plan for the month and nothing decrements it; only
 --     money actually attributed to the pot moves `remaining`.
---   * **`progress` counts the opening balance AND payments since**
---     (`(banked + spend) / cost`), where the old view counted `banked` alone.
---     Same figure today, because nothing points at a pot yet, and the right one
---     the moment #251 lets payments do so.
+--   * **`progress` is what has been paid in over the cost**, where the old view
+--     counted the `banked` column. Until #251 lets payments reach a pot, that
+--     reads 0% for the migrated ones — their old balances are still in
+--     `one_offs`, awaiting the cutover decision (see 0024).
 --
 -- A monthly parent rolls up its children's MONTHLY figure, never their all-time
 -- one. That is what keeps the One-offs root meaning "put in this month"
@@ -34,7 +34,7 @@
 -- The temporary payment resolution from 0023 is unchanged and still goes in
 -- #249 — see the note on that ticket.
 --
--- The three new columns are appended at the END of the SELECT, after `split`:
+-- The two new columns are appended at the END of the SELECT, after `split`:
 -- CREATE OR REPLACE VIEW can only add columns to the end, never insert them
 -- mid-list, and replacing in place is what preserves the view's grants. Same
 -- reason 0002 and 0017 append theirs.
@@ -81,7 +81,6 @@ base AS (
         c.budget,
         c.accrual,
         c.cost,
-        c.banked,
         c.ownership_type,
         c.joint_account_id,
         c._created_at,
@@ -121,18 +120,18 @@ SELECT
     base.joint_account_id,
     base._created_at,
     base.current_month,
-    -- A pot measures against its cost and counts what was brought forward; a
-    -- monthly category measures against this month's budget.
+    -- A pot measures what has been paid into it against its cost; a monthly
+    -- category measures this month's spend against this month's budget.
     CASE
         WHEN base.accrual = 'multi_month'
-        THEN base.cost - COALESCE(base.banked, 0) - base.current_month
+        THEN base.cost - base.current_month
         ELSE base.budget - base.current_month
     END AS remaining,
     CASE
         WHEN base.accrual = 'multi_month' THEN
             CASE
                 WHEN COALESCE(base.cost, 0) > 0
-                THEN (COALESCE(base.banked, 0) + base.current_month) / base.cost * 100
+                THEN base.current_month / base.cost * 100
                 ELSE 0
             END
         ELSE
@@ -161,6 +160,5 @@ SELECT
             END
     END AS split,
     base.accrual,
-    base.cost,
-    base.banked
+    base.cost
 FROM base;

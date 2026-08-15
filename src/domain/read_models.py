@@ -120,12 +120,6 @@ class CategoryView(_ViewBase):
         pydantic.NonNegativeFloat | None,
         pydantic.Field(description="What a pot needs to reach; None if monthly."),
     ] = None
-    banked: Annotated[
-        pydantic.NonNegativeFloat | None,
-        pydantic.Field(
-            description="A pot's opening balance; None if monthly.",
-        ),
-    ] = None
     current_month: Annotated[
         float,
         pydantic.Field(
@@ -141,7 +135,7 @@ class CategoryView(_ViewBase):
         pydantic.Field(
             description=(
                 "What is left: budget minus current_month, or for a pot its cost "
-                "minus everything put in. Negative once overspent."
+                "minus what has been paid in. Negative once overspent."
             ),
         ),
     ]

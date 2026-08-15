@@ -150,7 +150,8 @@ class CategoryModel(FinanceTrackerBaseModel):
     A ``MULTI_MONTH`` child is a **pot** — it fills up over several months rather
     than resetting. ``cost`` is how full it needs to get, and ``budget`` is still
     the monthly figure: what is planned towards it this month. Nothing decrements
-    that plan; only payments attributed to the pot move it towards its cost.
+    that plan; a pot's balance is simply the payments attributed to it, and there
+    is deliberately no stored balance beside them to drift out of step.
 
     Depth is enforced in the database — a category cannot see its siblings from
     here, so only the self-parent half of the rule is checkable on the entity.
@@ -173,15 +174,6 @@ class CategoryModel(FinanceTrackerBaseModel):
     cost: Annotated[
         pydantic.NonNegativeFloat | None,
         pydantic.Field(description="What a pot needs to reach; None if monthly."),
-    ] = None
-    banked: Annotated[
-        pydantic.NonNegativeFloat | None,
-        pydantic.Field(
-            description=(
-                "A pot's opening balance, brought forward from before pots could "
-                "take payments. None if monthly."
-            ),
-        ),
     ] = None
 
     @property
@@ -209,31 +201,26 @@ class CategoryModel(FinanceTrackerBaseModel):
 
     @pydantic.model_validator(mode="after")
     def _check_accrual(self) -> Self:
-        """Ensure the pot amounts and the accrual window agree.
+        """Ensure ``cost`` and the accrual window agree.
 
         Raises:
             MultiMonthRootCategoryError: A root claims to be a pot. A root is a
                 monthly allowance, and the roll-up reads its children's monthly
                 figures, so an accruing one would total two different windows.
-            IncompleteMultiMonthCategoryError: A pot is missing an amount it
-                cannot be measured without.
-            MonthlyCategoryWithPotFieldsError: A monthly category carries pot
-                amounts nothing would ever read.
+            IncompleteMultiMonthCategoryError: A pot has no cost, so there is
+                nothing to measure how full it is against.
+            MonthlyCategoryWithPotFieldsError: A monthly category carries a cost
+                nothing would ever read.
 
         """
-        pot_fields = {"cost": self.cost, "banked": self.banked}
         if not self.is_pot:
-            present = [
-                field for field, value in pot_fields.items() if value is not None
-            ]
-            if present:
-                raise errors.MonthlyCategoryWithPotFieldsError(self.name, present)
+            if self.cost is not None:
+                raise errors.MonthlyCategoryWithPotFieldsError(self.name, ["cost"])
             return self
         if self.is_root:
             raise errors.MultiMonthRootCategoryError(self.name)
-        missing = [field for field, value in pot_fields.items() if value is None]
-        if missing:
-            raise errors.IncompleteMultiMonthCategoryError(self.name, missing)
+        if self.cost is None:
+            raise errors.IncompleteMultiMonthCategoryError(self.name, ["cost"])
         return self
 
 
