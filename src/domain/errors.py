@@ -67,6 +67,15 @@ class JointOwnedContributionError(DomainError):
         )
 
 
+class SelfParentedCategoryError(DomainError):
+    """Error when a category names itself as its own parent."""
+
+    def __init__(self, name: str) -> None:
+        """Construct SelfParentedCategoryError."""
+        self.name = name
+        super().__init__(f"Category {name!r} cannot be its own parent.")
+
+
 class MissingJointAccountError(DomainError):
     """Error when a joint-owned item has no joint account reference."""
 
