@@ -95,11 +95,11 @@ class BudgetTrackerView(_ViewBase):
 
 
 class CategoryView(_ViewBase):
-    """Read model for categories rows.
+    """Read model for categories_view.
 
-    Reads the raw ``categories`` table for now: ``categories_view`` and the
-    computed columns every other budget read model carries (``current_month`` /
-    ``remaining`` / ``progress`` / ``split``) arrive with it in #247.
+    One model for both levels of the tree: the view computes the same four
+    figures for a root and for a child, so the level a row sits at is carried by
+    ``parent_id`` rather than by which model was read.
     """
 
     parent_id: Annotated[
@@ -109,6 +109,31 @@ class CategoryView(_ViewBase):
     budget: Annotated[
         pydantic.NonNegativeFloat,
         pydantic.Field(description="What this category is allowed each month."),
+    ]
+    current_month: Annotated[
+        float,
+        pydantic.Field(
+            description=(
+                "Computed: this category's own payments this month plus its children's."
+            ),
+        ),
+    ]
+    remaining: Annotated[
+        float,
+        pydantic.Field(description="budget minus current_month."),
+    ]
+    progress: Annotated[
+        float,
+        pydantic.Field(description="Percentage of budget consumed (0-100)."),
+    ]
+    split: Annotated[
+        float,
+        pydantic.Field(
+            description=(
+                "A child's share of its parent's budget, or a root's share of "
+                "total income (0-100)."
+            ),
+        ),
     ]
 
 
