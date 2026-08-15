@@ -43,7 +43,7 @@ class FinanceSummary(pydantic.BaseModel):
     ]
     total_budget: Annotated[
         float,
-        pydantic.Field(description="Combined budget of every budget tracker."),
+        pydantic.Field(description="Combined budget of every root category."),
     ]
     remaining_budget: Annotated[
         float,
@@ -129,7 +129,7 @@ class SummariseFinancesUseCase:
     def __init__(
         self,
         bank_account_source: "views.ViewSource[read_models.BankAccountView]",
-        budget_tracker_source: "views.ViewSource[read_models.BudgetTrackerView]",
+        category_source: "views.ViewSource[read_models.CategoryView]",
         payment_source: "views.ViewSource[read_models.PaymentView]",
         today: datetime.date | None = None,
         months: int = HISTORY_MONTHS,
@@ -138,7 +138,9 @@ class SummariseFinancesUseCase:
 
         Args:
             bank_account_source: Reads the bank account view rows.
-            budget_tracker_source: Reads the budget tracker view rows.
+            category_source: Reads the category view rows, both levels of the
+                tree. Only the roots are summed — a child's budget is already
+                part of its root's, so totalling both would double-count it.
             payment_source: Reads the payment rows, over their whole history —
                 earlier months are what the trailing series are built from.
             today: The date the current month is taken from. Defaults to today.
@@ -147,7 +149,7 @@ class SummariseFinancesUseCase:
 
         """
         self._bank_account_source = bank_account_source
-        self._budget_tracker_source = budget_tracker_source
+        self._category_source = category_source
         self._payment_source = payment_source
         self._today = today or _today()
         self._months = months
@@ -180,18 +182,19 @@ class SummariseFinancesUseCase:
 
         """
         bank_accounts = self._read(self._bank_account_source, "bank accounts")
-        budget_trackers = self._read(self._budget_tracker_source, "budget trackers")
+        categories = self._read(self._category_source, "categories")
         payments = self._read(self._payment_source, "payments")
 
         keys = _trailing_months(self._today, self._months)
         expenses, nets = _totals_by_month(payments)
         total_balance = sum(account.current_balance for account in bank_accounts)
+        roots = [category for category in categories if category.is_root]
 
         return FinanceSummary(
             total_balance=total_balance,
             balance_history=_balance_history(total_balance, nets, keys),
-            total_budget=sum(tracker.total_budget for tracker in budget_trackers),
-            remaining_budget=sum(tracker.remaining for tracker in budget_trackers),
+            total_budget=sum(root.budget for root in roots),
+            remaining_budget=sum(root.remaining for root in roots),
             expenditure=expenses.get(_month_key(self._today), 0.0),
             expenditure_history=[expenses.get(key, 0.0) for key in keys],
         )

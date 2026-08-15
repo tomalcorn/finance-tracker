@@ -212,9 +212,7 @@ def budget_tracker_id_name_map(
         *_repo_deps(),
         ownership,
     )
-    return {
-        str(model.id): str(model.name) for model in repo.get_all() if model.is_root
-    }
+    return {str(model.id): str(model.name) for model in repo.get_all() if model.is_root}
 
 
 def reconcile_subscriptions_use_case(
@@ -259,11 +257,7 @@ def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUse
     user_id = deps[0]
     return initialise_workspace.InitialiseUserWorkspaceUseCase(
         user_id=user_id,
-        budget_tracker_repo=supabase_repos.budget_tracker_repository(
-            *deps,
-            entities.OwnershipType.PERSONAL,
-        ),
-        expense_source_repo=supabase_repos.expense_source_repository(
+        category_repo=supabase_repos.category_repository(
             *deps,
             entities.OwnershipType.PERSONAL,
         ),
@@ -280,7 +274,7 @@ def joint_workspace_init_use_case() -> (
     """Build InitialiseJointWorkspaceUseCase wired to Supabase repositories.
 
     The counterpart to :func:`workspace_init_use_case` for a joint account: the
-    trackers/sources repos are built in ``JOINT`` mode so every row is stamped
+    categories repo is built in ``JOINT`` mode so every row is stamped
     ``ownership_type='joint'`` and account-scoped, and a joint-accounts repo is
     handed in so the use case can resolve the id it stamps. Run once per session
     from the app entry point alongside the personal workspace init; it no-ops for
@@ -291,11 +285,7 @@ def joint_workspace_init_use_case() -> (
     user_id = deps[0]
     return initialise_joint_workspace.InitialiseJointWorkspaceUseCase(
         user_id=user_id,
-        budget_tracker_repo=supabase_repos.budget_tracker_repository(
-            *deps,
-            entities.OwnershipType.JOINT,
-        ),
-        expense_source_repo=supabase_repos.expense_source_repository(
+        category_repo=supabase_repos.category_repository(
             *deps,
             entities.OwnershipType.JOINT,
         ),
@@ -311,9 +301,9 @@ def contribute_to_joint_use_case() -> contribute_to_joint.ContributeToJointUseCa
     """Build ContributeToJointUseCase wired to Supabase repositories.
 
     Takes no ownership argument: a contribution spans both halves by
-    definition, so it is handed one payments repository per mode. The expense
-    sources are personal because the "Joint" source it books against is the
-    personal-side anchor for the transfer.
+    definition, so it is handed one payments repository per mode. The categories
+    are personal because the "Joint" root it books against is the personal-side
+    anchor for the transfer.
     """
     deps = _repo_deps()
     user_id = deps[0]
@@ -327,7 +317,7 @@ def contribute_to_joint_use_case() -> contribute_to_joint.ContributeToJointUseCa
             *deps,
             entities.OwnershipType.JOINT,
         ),
-        expense_source_repo=supabase_repos.expense_source_repository(
+        category_repo=supabase_repos.category_repository(
             *deps,
             entities.OwnershipType.PERSONAL,
         ),
@@ -347,10 +337,7 @@ def summarise_finances_use_case(
     deps = _repo_deps()
     return summarise_finances.SummariseFinancesUseCase(
         bank_account_source=supabase_repos.bank_account_repository(*deps, ownership),
-        budget_tracker_source=supabase_repos.budget_tracker_repository(
-            *deps,
-            ownership,
-        ),
+        category_source=supabase_repos.category_repository(*deps, ownership),
         payment_source=supabase_repos.payment_repository(*deps, ownership),
     )
 
@@ -406,15 +393,7 @@ def bank_one_offs_use_case(
     """Build BankOneOffsUseCase wired to Supabase repositories."""
     deps = _repo_deps()
     return bank_one_offs.BankOneOffsUseCase(
-        one_off_repo=supabase_repos.one_off_repository(
-            *deps,
-            ownership,
-        ),
-        budget_tracker_repo=supabase_repos.budget_tracker_repository(
-            *deps,
-            ownership,
-        ),
-        expense_source_repo=supabase_repos.expense_source_repository(
+        category_repo=supabase_repos.category_repository(
             *deps,
             ownership,
         ),

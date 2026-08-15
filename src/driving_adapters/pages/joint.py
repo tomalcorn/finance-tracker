@@ -53,12 +53,13 @@ with error_boundary.boundary("loading your joint dashboard"):
 
     # Grid data sources, one per aggregate grid.
     bank_account_data_source = wiring.bank_account_data_source(_JOINT)
+    # One source behind three grids: the budget tracker's two tabs and the
+    # one-offs block are all slices of the one category tree.
+    category_data_source = wiring.category_data_source(_JOINT)
     budget_tracker_sources = budget_tracker_block.BudgetTrackerSources(
-        budget_trackers=wiring.budget_tracker_data_source(_JOINT),
-        expense_sources=wiring.expense_source_data_source(_JOINT),
+        categories=category_data_source,
         income_sources=wiring.income_source_data_source(_JOINT),
     )
-    one_off_data_source = wiring.one_off_data_source(_JOINT)
     payment_data_source = wiring.payment_data_source(_JOINT)
     subscription_data_source = wiring.subscription_data_source(_JOINT)
 
@@ -97,7 +98,7 @@ with error_boundary.boundary("saving your latest changes"):
         budget_tracker_map,
         income_roll_up_period,
     )
-    one_offs_block.commit(one_off_data_source, budget_tracker_map)
+    one_offs_block.commit(category_data_source, budget_tracker_map)
     subscriptions_block.commit(
         subscription_data_source,
         bank_account_map,
@@ -116,7 +117,7 @@ with summary_container, error_boundary.boundary("loading your summary"):
 with one_offs_container, error_boundary.boundary("loading your one-offs"):
     st.subheader(":material/bubble_chart: :orange[One-Offs]")
     one_offs_block.render(
-        one_off_data_source,
+        category_data_source,
         budget_tracker_map,
         bank_account_map,
         bank_one_offs_use_case,

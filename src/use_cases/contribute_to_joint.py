@@ -19,7 +19,7 @@ class ContributeToJointUseCase:
     One call books the money leaving the contributor's personal ledger and
     arriving in the joint one:
 
-    - a **personal expense** against the hidden "Joint" expense source, and
+    - a **personal expense** against the "Joint" root category, and
     - a matching **joint income** owned by the joint account, booked against a
       joint income source the caller picks.
 
@@ -34,7 +34,7 @@ class ContributeToJointUseCase:
         user_id: str,
         personal_payment_repo: "repository.Repository[entities.AnyPaymentModel]",
         joint_payment_repo: "repository.Repository[entities.AnyPaymentModel]",
-        expense_source_repo: "repository.Repository[entities.ExpenseSourceModel]",
+        category_repo: "repository.Repository[entities.CategoryModel]",
         joint_account_repo: "repository.Repository[entities.JointAccountModel]",
     ) -> None:
         """Construct ContributeToJointUseCase.
@@ -43,15 +43,15 @@ class ContributeToJointUseCase:
             user_id: The contributing user.
             personal_payment_repo: Payments repository in personal mode.
             joint_payment_repo: Payments repository in joint mode.
-            expense_source_repo: Personal expense sources, holding the hidden
-                "Joint" source the personal leg is booked against.
+            category_repo: Personal categories, holding the "Joint" root the
+                personal leg is booked against.
             joint_account_repo: The joint accounts the user belongs to.
 
         """
         self._user_id = user_id
         self._personal_payment_repo = personal_payment_repo
         self._joint_payment_repo = joint_payment_repo
-        self._expense_source_repo = expense_source_repo
+        self._category_repo = category_repo
         self._joint_account_repo = joint_account_repo
 
     def execute(
@@ -76,9 +76,8 @@ class ContributeToJointUseCase:
             ContributionAmountError: If ``amount`` is not greater than zero.
             NoJointAccountToContributeToError: If the user belongs to no joint
                 account, so there is nothing to contribute to.
-            JointExpenseSourceNotFoundError: If the hidden "Joint" expense
-                source is missing, so the personal leg has nothing to book
-                against.
+            JointCategoryNotFoundError: If the "Joint" root category is missing,
+                so the personal leg has nothing to book against.
             ContributionWriteError: If any of the three writes fails.
 
         """
@@ -86,7 +85,7 @@ class ContributeToJointUseCase:
             raise errors.ContributionAmountError(amount)
 
         account = self._resolve_joint_account()
-        category_id = self._resolve_joint_expense_source()
+        category_id = self._resolve_joint_category()
         name = f"Joint: {account.name}"
 
         expense = entities.ExpensePaymentModel(
@@ -129,30 +128,31 @@ class ContributeToJointUseCase:
             raise errors.NoJointAccountToContributeToError(self._user_id)
         return accounts[0]
 
-    def _resolve_joint_expense_source(self) -> "uuid.UUID":
-        """Return the id of the hidden "Joint" expense source.
+    def _resolve_joint_category(self) -> "uuid.UUID":
+        """Return the id of the "Joint" root category.
 
         Raises:
-            JointExpenseSourceNotFoundError: If the source is missing.
-            ContributionWriteError: If the sources cannot be read.
+            JointCategoryNotFoundError: If the category is missing.
+            ContributionWriteError: If the categories cannot be read.
 
         """
         try:
-            expense_sources = self._expense_source_repo.get_all()
+            categories = self._category_repo.get_all()
         except port_errors.RepositoryError as e:
-            msg = f"Failed to read expense sources for user {self._user_id}: {e}"
+            msg = f"Failed to read categories for user {self._user_id}: {e}"
             raise errors.ContributionWriteError(msg) from e
 
         match = next(
             (
-                expense_source
-                for expense_source in expense_sources
-                if expense_source.name == entities.BudgetTrackerName.JOINT
+                category
+                for category in categories
+                if category.is_root
+                and category.name == entities.BudgetTrackerName.JOINT
             ),
             None,
         )
         if match is None:
-            raise errors.JointExpenseSourceNotFoundError(self._user_id)
+            raise errors.JointCategoryNotFoundError(self._user_id)
         return match.id
 
     def _write_pair(

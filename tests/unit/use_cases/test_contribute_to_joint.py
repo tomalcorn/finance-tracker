@@ -56,9 +56,9 @@ def joint_account() -> entities.JointAccountModel:
 
 
 @pytest.fixture
-def joint_expense_source() -> entities.ExpenseSourceModel:
-    """Return the hidden "Joint" expense source the personal leg books against."""
-    return entities.ExpenseSourceModel(
+def joint_root_category() -> entities.CategoryModel:
+    """Return the "Joint" root category the personal leg books against."""
+    return entities.CategoryModel(
         user_id=USER_ID,
         name=entities.BudgetTrackerName.JOINT,
     )
@@ -70,7 +70,7 @@ def build_use_case(
     personal_repo: PaymentRepo,
     joint_repo: PaymentRepo,
     joint_account: entities.JointAccountModel,
-    joint_expense_source: entities.ExpenseSourceModel,
+    joint_root_category: entities.CategoryModel,
 ) -> UseCaseBuilder:
     """Return a builder for the use case wired to the standard collaborators.
 
@@ -82,7 +82,7 @@ def build_use_case(
     def _build(
         *,
         accounts: list[entities.JointAccountModel] | None = None,
-        expense_sources: list[entities.ExpenseSourceModel] | None = None,
+        categories: list[entities.CategoryModel] | None = None,
         personal: PaymentRepo | None = None,
         joint: PaymentRepo | None = None,
     ) -> ContributeToJointUseCase:
@@ -90,8 +90,8 @@ def build_use_case(
             user_id=USER_ID,
             personal_payment_repo=personal or personal_repo,
             joint_payment_repo=joint or joint_repo,
-            expense_source_repo=build_repo(
-                [joint_expense_source] if expense_sources is None else expense_sources,
+            category_repo=build_repo(
+                [joint_root_category] if categories is None else categories,
             ),
             joint_account_repo=build_repo(
                 [joint_account] if accounts is None else accounts,
@@ -141,7 +141,7 @@ def _contribute(
 def test_contribution_books_a_personal_expense(
     use_case: ContributeToJointUseCase,
     personal_repo: PaymentRepo,
-    joint_expense_source: entities.ExpenseSourceModel,
+    joint_root_category: entities.CategoryModel,
 ):
     # Arrange / Act
     _contribute(use_case)
@@ -152,7 +152,7 @@ def test_contribution_books_a_personal_expense(
         [
             expense.expense == AMOUNT,
             expense.income == 0,
-            expense.category_id == joint_expense_source.id,
+            expense.category_id == joint_root_category.id,
             expense.bank_account_id == FROM_BANK_ACCOUNT_ID,
             expense.ownership_type is entities.OwnershipType.PERSONAL,
             expense.payment_date == PAYMENT_DATE,
@@ -274,30 +274,53 @@ def test_contributing_without_a_joint_account_is_rejected(
     assert exc_info.value.user_id == USER_ID
 
 
-def test_a_missing_joint_expense_source_is_rejected(
+def test_a_child_category_named_joint_is_not_the_anchor(
     build_use_case: UseCaseBuilder,
 ):
-    # Arrange - the hidden "Joint" source is the personal-side anchor, so
-    # without it the expense leg has nothing to book against.
-    use_case = build_use_case(expense_sources=[])
+    # Arrange - the anchor is the *root* called "Joint"; a user's own
+    # subcategory of that name is an ordinary category and must not stand in
+    # for it.
+    use_case = build_use_case(
+        categories=[
+            entities.CategoryModel(
+                user_id=USER_ID,
+                name=entities.BudgetTrackerName.JOINT,
+                parent_id=uuid.uuid4(),
+            ),
+        ],
+    )
 
     # Act / Assert
-    with pytest.raises(errors.JointExpenseSourceNotFoundError) as exc_info:
+    with pytest.raises(errors.JointCategoryNotFoundError) as exc_info:
         _contribute(use_case)
 
     assert exc_info.value.user_id == USER_ID
 
 
-def test_a_missing_expense_source_writes_nothing(
+def test_a_missing_joint_category_is_rejected(
+    build_use_case: UseCaseBuilder,
+):
+    # Arrange - the "Joint" root is the personal-side anchor, so without it the
+    # expense leg has nothing to book against.
+    use_case = build_use_case(categories=[])
+
+    # Act / Assert
+    with pytest.raises(errors.JointCategoryNotFoundError) as exc_info:
+        _contribute(use_case)
+
+    assert exc_info.value.user_id == USER_ID
+
+
+def test_a_missing_joint_category_writes_nothing(
     build_use_case: UseCaseBuilder,
     personal_repo: PaymentRepo,
     joint_repo: PaymentRepo,
 ):
     # Arrange
-    use_case = build_use_case(expense_sources=[])
+    use_case = build_use_case(categories=[])
 
     # Act
-    with pytest.raises(errors.JointExpenseSourceNotFoundError):
+    with pytest.raises(errors.JointCategoryNotFoundError):
         _contribute(use_case)
 
     # Assert

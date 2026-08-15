@@ -1,11 +1,18 @@
-"""One-offs block for tracking one-off savings goals."""
+"""One-offs block for tracking one-off savings goals.
+
+A pot is an ordinary category that accrues across months (``multi_month``)
+instead of resetting on the 1st, so this is a third grid over the one
+``categories`` table — told apart from the budget tracker's two by ``accrual``,
+with its own ``row_predicate`` and widget-key prefix over the slice already
+fetched.
+"""
 
 from typing import TYPE_CHECKING
 
 import pandas as pd
 import streamlit as st
 
-from domain import entities, query, read_models
+from domain import entities, read_models
 from driving_adapters.components.buttons import add_button, bank_button, filter_button
 from driving_adapters.components.dfes import column_widths, grid
 from driving_adapters.models import frontend_models
@@ -14,19 +21,27 @@ if TYPE_CHECKING:
     from driving_adapters.components.dfes import data_source as data_source_mod
     from use_cases import bank_one_offs
 
-_TABLE_NAME = "one_offs"
+_TABLE_NAME = "categories"
+
+_KEY_PREFIX = "one_off_categories"
 
 _SAMPLE_DATA = pd.DataFrame(
     {
         "name": ["Example One-Off"],
         "cost": [0],
+        "budget": [0],
+        "starting_balance": [0],
         "current_month": [0],
-        "banked": [0],
         "remaining": [0],
         "progress": [0],
         "split": [0],
     },
 )
+
+
+def _is_pot(row: "read_models.CategoryView") -> bool:
+    """Whether a category is a one-off pot rather than a monthly category."""
+    return row.is_pot
 
 
 def _build_config(
@@ -46,10 +61,18 @@ def _build_config(
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             write_table=_TABLE_NAME,
+            key_prefix_override=_KEY_PREFIX,
             data_source=data_source,
-            extra_row_values=(
-                {"budget_tracker_id": one_offs_bt_id} if one_offs_bt_id else None
-            ),
+            row_predicate=_is_pot,
+            # Both are derived, never chosen: a pot added here sits under the
+            # One-offs root and accrues across months, which is what makes it a
+            # pot rather than a monthly category. Without that root the entity's
+            # own rule rejects the add — a root cannot accrue — rather than
+            # saving a pot with nothing to sit under.
+            extra_row_values={
+                "parent_id": one_offs_bt_id,
+                "accrual": entities.AccrualPeriod.MULTI_MONTH,
+            },
         ),
         display=frontend_models.GridDisplay(
             columns=[
@@ -80,7 +103,7 @@ def _build_config(
                     total=True,
                 ),
                 frontend_models.DFEColumnConfig(
-                    column_name="current_month",
+                    column_name="budget",
                     column_config=st.column_config.NumberColumn(
                         "Planned Spend",
                         help="What you intend to put towards it this month.",
@@ -111,17 +134,39 @@ def _build_config(
                     total=True,
                 ),
                 frontend_models.DFEColumnConfig(
-                    column_name="banked",
+                    column_name="starting_balance",
                     column_config=st.column_config.NumberColumn(
-                        "Banked",
-                        help="Put aside so far, across every month.",
+                        "Opening Balance",
+                        help=(
+                            "What the pot held before payments could reach it. "
+                            "Edit it to move money in or out by hand."
+                        ),
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
                     ),
-                    button_label="Banked",
+                    button_label="Opening Balance",
                     input_widget=st.number_input,
                     input_kwargs={"value": 0.0, "format": "%.2f"},
+                    total=True,
+                ),
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="current_month",
+                    column_config=st.column_config.NumberColumn(
+                        "Banked",
+                        help=(
+                            "Computed: the opening balance plus every payment "
+                            "attributed to this pot."
+                        ),
+                        format="£%.2f",
+                        disabled=True,
+                        width=column_widths.MONEY,
+                    ),
+                    button_label="Banked",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                    total=True,
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
@@ -153,20 +198,6 @@ def _build_config(
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                 ),
-                *(
-                    [
-                        frontend_models.DFEColumnConfig(
-                            editable=False,
-                            column_name="budget_tracker_id",
-                            column_config={"disabled": True},
-                            visible=False,
-                            filters=query.Filters(eq=one_offs_bt_id),
-                            input_widget=st.text_input,
-                        ),
-                    ]
-                    if one_offs_bt_id
-                    else []
-                ),
             ],
             sample_data=_SAMPLE_DATA,
         ),
@@ -183,8 +214,8 @@ def commit(
 
 def _bankable_items(
     data_source: "data_source_mod.GridDataSource",
-) -> list[read_models.OneOffView]:
-    """Return the one-offs with an amount pledged for the current month.
+) -> list[read_models.CategoryView]:
+    """Return the pots with an amount planned for the current month.
 
     Read through the port rather than off the grid's display frame: banking acts
     on the aggregate, so neither an active column filter nor the sample data an
@@ -193,7 +224,7 @@ def _bankable_items(
     return [
         row
         for row in data_source.rows()
-        if isinstance(row, read_models.OneOffView) and row.current_month > 0
+        if isinstance(row, read_models.CategoryView) and row.is_pot and row.budget > 0
     ]
 
 

@@ -467,7 +467,12 @@ def budget_tracker_repository(
     connection: "st_supabase_connection.SupabaseConnection",
     ownership: entities.OwnershipType,
 ) -> SupabaseRepository[entities.BudgetTrackerItemModel, read_models.BudgetTrackerView]:
-    """Build the budget-tracker repository."""
+    """Build the budget-tracker repository.
+
+    Dormant since the categories cutover (#250): nothing builds one any more.
+    It is kept, like the table it reads, so the cutover stays recoverable, and
+    goes with that table in the later drop ticket.
+    """
     return SupabaseRepository(
         user_id,
         RepoSpec(
@@ -488,7 +493,12 @@ def expense_source_repository(
     connection: "st_supabase_connection.SupabaseConnection",
     ownership: entities.OwnershipType,
 ) -> SupabaseRepository[entities.ExpenseSourceModel, read_models.ExpenseSourceView]:
-    """Build the expense-sources repository."""
+    """Build the expense-sources repository.
+
+    Dormant since the categories cutover (#250): nothing builds one any more.
+    It is kept, like the table it reads, so the cutover stays recoverable, and
+    goes with that table in the later drop ticket.
+    """
     return SupabaseRepository(
         user_id,
         RepoSpec(
@@ -530,7 +540,12 @@ def one_off_repository(
     connection: "st_supabase_connection.SupabaseConnection",
     ownership: entities.OwnershipType,
 ) -> SupabaseRepository[entities.OneOffItemModel, read_models.OneOffView]:
-    """Build the one-offs repository."""
+    """Build the one-offs repository.
+
+    Dormant since the categories cutover (#250): nothing builds one any more.
+    It is kept, like the table it reads, so the cutover stays recoverable, and
+    goes with that table in the later drop ticket.
+    """
     return SupabaseRepository(
         user_id,
         RepoSpec(

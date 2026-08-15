@@ -34,12 +34,13 @@ st.caption("Your private accounts, budget, and payments — visible only to you.
 with error_boundary.boundary("loading your personal dashboard"):
     # Grid data sources, one per aggregate grid.
     bank_account_data_source = wiring.bank_account_data_source()
+    # One source behind three grids: the budget tracker's two tabs and the
+    # one-offs block are all slices of the one category tree.
+    category_data_source = wiring.category_data_source()
     budget_tracker_sources = budget_tracker_block.BudgetTrackerSources(
-        budget_trackers=wiring.budget_tracker_data_source(),
-        expense_sources=wiring.expense_source_data_source(),
+        categories=category_data_source,
         income_sources=wiring.income_source_data_source(),
     )
-    one_off_data_source = wiring.one_off_data_source()
     payment_data_source = wiring.payment_data_source()
     subscription_data_source = wiring.subscription_data_source()
 
@@ -78,7 +79,7 @@ with error_boundary.boundary("loading your personal dashboard"):
         joint_contributions = subscriptions_block.JointContributionLookups(
             bank_account_map=joint_bank_account_map,
             income_source_map=joint_income_source_map,
-            category_id=wiring.joint_expense_source_id(),
+            category_id=wiring.joint_category_id(),
         )
 
 summary_container = st.container(border=True)
@@ -101,7 +102,7 @@ with error_boundary.boundary("saving your latest changes"):
         budget_tracker_map,
         income_roll_up_period,
     )
-    one_offs_block.commit(one_off_data_source, budget_tracker_map)
+    one_offs_block.commit(category_data_source, budget_tracker_map)
     subscriptions_block.commit(
         subscription_data_source,
         bank_account_map,
@@ -121,7 +122,7 @@ with summary_container, error_boundary.boundary("loading your summary"):
 with one_offs_container, error_boundary.boundary("loading your one-offs"):
     st.subheader(":material/bubble_chart: :blue[One-Offs]")
     one_offs_block.render(
-        one_off_data_source,
+        category_data_source,
         budget_tracker_map,
         bank_account_map,
         bank_one_offs_use_case,

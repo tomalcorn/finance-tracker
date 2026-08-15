@@ -33,7 +33,7 @@ _JUNE_SPEND = 80.0
 _JULY_SPEND = 30.0
 
 type _BankAccountBuilder = Callable[..., read_models.BankAccountView]
-type _BudgetTrackerBuilder = Callable[..., read_models.BudgetTrackerView]
+type _CategoryBuilder = Callable[..., read_models.CategoryView]
 type _PaymentBuilder = Callable[..., read_models.PaymentView]
 type _UseCaseBuilder = Callable[..., summarise_finances.SummariseFinancesUseCase]
 
@@ -74,21 +74,23 @@ def _build_bank_account() -> "_BankAccountBuilder":
     return _build
 
 
-@pytest.fixture(name="build_budget_tracker")
-def _build_budget_tracker() -> "_BudgetTrackerBuilder":
-    """Return a builder for a budget tracker view row."""
+@pytest.fixture(name="build_category")
+def _build_category() -> "_CategoryBuilder":
+    """Return a builder for a category view row, a root unless given a parent."""
 
     def _build(
-        total_budget: float = 0.0,
+        budget: float = 0.0,
         remaining: float = 0.0,
-        name: entities.BudgetTrackerName = entities.BudgetTrackerName.EXPENSES,
-    ) -> read_models.BudgetTrackerView:
-        return read_models.BudgetTrackerView(
+        name: str = entities.BudgetTrackerName.EXPENSES,
+        parent_id: uuid.UUID | None = None,
+    ) -> read_models.CategoryView:
+        return read_models.CategoryView(
             id=uuid.uuid4(),
             user_id=_USER_ID,
             name=name,
-            total_budget=total_budget,
-            current_month=total_budget - remaining,
+            parent_id=parent_id,
+            budget=budget,
+            current_month=budget - remaining,
             remaining=remaining,
             progress=0.0,
             split=0.0,
@@ -133,7 +135,7 @@ def _build_use_case() -> "_UseCaseBuilder":
 
     def _build(
         bank_accounts: "Sequence[read_models.BankAccountView] | None" = None,
-        budget_trackers: "Sequence[read_models.BudgetTrackerView] | None" = None,
+        categories: "Sequence[read_models.CategoryView] | None" = None,
         payments: "Sequence[read_models.PaymentView] | None" = None,
         today: datetime.date = _TODAY,
         months: int = 3,
@@ -142,8 +144,8 @@ def _build_use_case() -> "_UseCaseBuilder":
             bank_account_source=StubViewSource[read_models.BankAccountView](
                 bank_accounts,
             ),
-            budget_tracker_source=StubViewSource[read_models.BudgetTrackerView](
-                budget_trackers,
+            category_source=StubViewSource[read_models.CategoryView](
+                categories,
             ),
             payment_source=StubViewSource[read_models.PaymentView](payments),
             today=today,
@@ -172,19 +174,19 @@ def test_total_balance_sums_every_account(
     assert figures.total_balance == _CURRENT_ACCOUNT + _SAVINGS_ACCOUNT
 
 
-def test_budget_totals_sum_every_tracker(
+def test_budget_totals_sum_every_root(
     build_use_case: "_UseCaseBuilder",
-    build_budget_tracker: "_BudgetTrackerBuilder",
+    build_category: "_CategoryBuilder",
 ) -> None:
     # Arrange
     use_case = build_use_case(
-        budget_trackers=[
-            build_budget_tracker(
-                total_budget=_EXPENSES_BUDGET,
+        categories=[
+            build_category(
+                budget=_EXPENSES_BUDGET,
                 remaining=_EXPENSES_REMAINING,
             ),
-            build_budget_tracker(
-                total_budget=_SAVINGS_BUDGET,
+            build_category(
+                budget=_SAVINGS_BUDGET,
                 remaining=_SAVINGS_REMAINING,
                 name=entities.BudgetTrackerName.SAVINGS,
             ),
@@ -199,6 +201,37 @@ def test_budget_totals_sum_every_tracker(
         [
             figures.total_budget == _EXPENSES_BUDGET + _SAVINGS_BUDGET,
             figures.remaining_budget == _EXPENSES_REMAINING + _SAVINGS_REMAINING,
+        ],
+    )
+
+
+def test_budget_totals_ignore_children(
+    build_use_case: "_UseCaseBuilder",
+    build_category: "_CategoryBuilder",
+) -> None:
+    # Arrange - a child's budget is already part of its root's, so totalling
+    # both levels would count it twice.
+    root = build_category(budget=_EXPENSES_BUDGET, remaining=_EXPENSES_REMAINING)
+    use_case = build_use_case(
+        categories=[
+            root,
+            build_category(
+                budget=_SAVINGS_BUDGET,
+                remaining=_SAVINGS_REMAINING,
+                name="Groceries",
+                parent_id=root.id,
+            ),
+        ],
+    )
+
+    # Act
+    figures = use_case.execute()
+
+    # Assert
+    assert all(
+        [
+            figures.total_budget == _EXPENSES_BUDGET,
+            figures.remaining_budget == _EXPENSES_REMAINING,
         ],
     )
 
@@ -323,7 +356,7 @@ def test_expenditure_delta_is_unknown_without_a_prior_month(
 def test_summarising_nothing_reports_zeroes(
     build_use_case: "_UseCaseBuilder",
 ) -> None:
-    # Arrange - a brand-new workspace has no accounts, trackers, or payments.
+    # Arrange - a brand-new workspace has no accounts, categories, or payments.
     use_case = build_use_case()
 
     # Act
@@ -345,7 +378,7 @@ def test_a_failed_read_is_reported_as_a_use_case_error() -> None:
     # and the error should name which read failed.
     use_case = summarise_finances.SummariseFinancesUseCase(
         bank_account_source=StubViewSource[read_models.BankAccountView](),
-        budget_tracker_source=FailingViewSource[read_models.BudgetTrackerView](),
+        category_source=FailingViewSource[read_models.CategoryView](),
         payment_source=StubViewSource[read_models.PaymentView](),
     )
 
@@ -354,4 +387,4 @@ def test_a_failed_read_is_reported_as_a_use_case_error() -> None:
         use_case.execute()
 
     # Assert
-    assert raised.value.aggregate == "budget trackers"
+    assert raised.value.aggregate == "categories"

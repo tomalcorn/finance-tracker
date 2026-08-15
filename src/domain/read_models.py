@@ -172,6 +172,16 @@ class CategoryView(_ViewBase):
         ),
     ]
 
+    @property
+    def is_root(self) -> bool:
+        """Whether this is a top-level category rather than a subcategory."""
+        return self.parent_id is None
+
+    @property
+    def is_pot(self) -> bool:
+        """Whether this category fills up over months rather than resetting."""
+        return self.accrual is entities.AccrualPeriod.MULTI_MONTH
+
 
 class ExpenseSourceView(_ViewBase):
     """Read model for expense_sources_view."""

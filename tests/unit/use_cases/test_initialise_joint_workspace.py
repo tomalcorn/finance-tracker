@@ -2,7 +2,7 @@
 
 import uuid
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import Any
 
 import pytest
 
@@ -11,46 +11,27 @@ from ports import errors as port_errors
 from use_cases import errors
 from use_cases.initialise_joint_workspace import InitialiseJointWorkspaceUseCase
 
-if TYPE_CHECKING:
-    from tests import conftest
-
-
 USER_ID = "user-abc"
 JOINT_ACCOUNT_ID = uuid.uuid4()
 
-# The joint seed creates every budget tracker except JOINT.
-JOINT_BT_NAMES = {
+# The joint seed creates every root category except JOINT.
+JOINT_ROOT_NAMES = {
     name
     for name in entities.BudgetTrackerName
     if name is not entities.BudgetTrackerName.JOINT
 }
-# Hidden expense sources on the joint side: the personal hidden set minus JOINT.
-JOINT_HIDDEN_BT_NAMES = {
-    entities.BudgetTrackerName.ONE_OFFS,
-    entities.BudgetTrackerName.SAVINGS,
-}
 
-
-type BtRepo = conftest.FakeRepository[entities.BudgetTrackerItemModel]
-type EsRepo = conftest.FakeRepository[entities.ExpenseSourceModel]
-type SettingsRepo = conftest.FakeRepository[entities.UserSettingsModel]
 UseCaseBuilder = Callable[..., InitialiseJointWorkspaceUseCase]
 
 
 @pytest.fixture
-def bt_repo(build_repo: "conftest.RepoBuilder") -> BtRepo:
-    """Return the budget trackers repository in joint mode."""
+def category_repo(build_repo: "Callable[..., Any]") -> Any:  # noqa: ANN401
+    """Return the categories repository in joint mode."""
     return build_repo()
 
 
 @pytest.fixture
-def es_repo(build_repo: "conftest.RepoBuilder") -> EsRepo:
-    """Return the expense sources repository in joint mode."""
-    return build_repo()
-
-
-@pytest.fixture
-def settings_repo(build_repo: "conftest.RepoBuilder") -> SettingsRepo:
+def settings_repo(build_repo: "Callable[..., Any]") -> Any:  # noqa: ANN401
     """Return the settings repository in joint mode.
 
     Given the real parser and joint ownership context so its ``build_entities``
@@ -74,44 +55,42 @@ def joint_account() -> entities.JointAccountModel:
 
 
 @pytest.fixture
-def all_joint_trackers() -> list[entities.BudgetTrackerItemModel]:
-    """Return one joint-stamped budget tracker per seeded joint name."""
+def all_joint_roots() -> list[entities.CategoryModel]:
+    """Return one joint-stamped root category per seeded joint name."""
     return [
-        entities.BudgetTrackerItemModel(
+        entities.CategoryModel(
             user_id=USER_ID,
             name=name,
             ownership_type=entities.OwnershipType.JOINT,
             joint_account_id=JOINT_ACCOUNT_ID,
         )
-        for name in JOINT_BT_NAMES
+        for name in JOINT_ROOT_NAMES
     ]
 
 
 @pytest.fixture
 def build_use_case(
-    build_repo: "conftest.RepoBuilder",
-    bt_repo: BtRepo,
-    es_repo: EsRepo,
-    settings_repo: SettingsRepo,
+    build_repo: "Callable[..., Any]",
+    category_repo: Any,  # noqa: ANN401
+    settings_repo: Any,  # noqa: ANN401
     joint_account: entities.JointAccountModel,
 ) -> UseCaseBuilder:
     """Return a builder for the use case wired to the standard collaborators.
 
     A test overrides exactly the collaborator it wants to vary (an empty
     account list, or a repository that fails on write) and inherits the rest,
-    including the ``bt_repo``/``es_repo``/``settings_repo`` fixtures the test
-    seeds and inspects.
+    including the ``category_repo``/``settings_repo`` fixtures the test seeds
+    and inspects.
     """
 
     def _build(
         *,
         accounts: list[entities.JointAccountModel] | None = None,
-        budget_tracker_repo: BtRepo | None = None,
+        categories_repo: Any = None,  # noqa: ANN401
     ) -> InitialiseJointWorkspaceUseCase:
         return InitialiseJointWorkspaceUseCase(
             user_id=USER_ID,
-            budget_tracker_repo=budget_tracker_repo or bt_repo,
-            expense_source_repo=es_repo,
+            category_repo=categories_repo or category_repo,
             joint_account_repo=build_repo(
                 [joint_account] if accounts is None else accounts,
             ),
@@ -127,197 +106,77 @@ def use_case(build_use_case: UseCaseBuilder) -> InitialiseJointWorkspaceUseCase:
     return build_use_case()
 
 
-# ---------------------------------------------------------------------------
-# Budget tracker seeding
-# ---------------------------------------------------------------------------
-
-
-def test_joint_budget_trackers_created_excluding_joint_with_correct_user_id(
+def test_joint_root_categories_created_excluding_joint_with_correct_user_id(
     use_case: InitialiseJointWorkspaceUseCase,
-    bt_repo: BtRepo,
+    category_repo: Any,  # noqa: ANN401
 ) -> None:
     # Arrange / Act
     use_case.execute()
 
     # Assert
-    created_names = {bt.name for bt in bt_repo.get_all()}
+    created = category_repo.get_all()
     assert all(
         [
-            created_names == JOINT_BT_NAMES,
-            all(bt.user_id == USER_ID for bt in bt_repo.get_all()),
+            {category.name for category in created} == JOINT_ROOT_NAMES,
+            all(category.user_id == USER_ID for category in created),
         ],
     )
 
 
-def test_created_budget_trackers_are_joint_stamped(
+def test_created_categories_are_joint_stamped_roots(
     use_case: InitialiseJointWorkspaceUseCase,
-    bt_repo: BtRepo,
+    category_repo: Any,  # noqa: ANN401
 ) -> None:
     # Arrange / Act
     use_case.execute()
 
     # Assert
     assert all(
-        bt.ownership_type is entities.OwnershipType.JOINT
-        and bt.joint_account_id == JOINT_ACCOUNT_ID
-        for bt in bt_repo.get_all()
+        category.is_root
+        and category.ownership_type is entities.OwnershipType.JOINT
+        and category.joint_account_id == JOINT_ACCOUNT_ID
+        for category in category_repo.get_all()
     )
 
 
-def test_no_budget_trackers_are_duplicated_when_all_already_exist(
+def test_no_root_categories_are_duplicated_when_all_already_exist(
     use_case: InitialiseJointWorkspaceUseCase,
-    bt_repo: BtRepo,
-    all_joint_trackers: list[entities.BudgetTrackerItemModel],
+    category_repo: Any,  # noqa: ANN401
+    all_joint_roots: list[entities.CategoryModel],
 ) -> None:
     # Arrange
-    bt_repo.seed(*all_joint_trackers)
+    category_repo.seed(*all_joint_roots)
 
     # Act
     use_case.execute()
 
     # Assert
-    assert len(bt_repo.get_all()) == len(JOINT_BT_NAMES)
+    assert len(category_repo.get_all()) == len(JOINT_ROOT_NAMES)
 
 
 @pytest.mark.parametrize(
     "missing_name",
-    [pytest.param(name, id=name.value) for name in JOINT_BT_NAMES],
+    [pytest.param(name, id=name.value) for name in JOINT_ROOT_NAMES],
 )
-def test_missing_budget_tracker_is_created_when_others_exist(
+def test_missing_root_category_is_created_when_others_exist(
     missing_name: entities.BudgetTrackerName,
     use_case: InitialiseJointWorkspaceUseCase,
-    bt_repo: BtRepo,
-    all_joint_trackers: list[entities.BudgetTrackerItemModel],
+    category_repo: Any,  # noqa: ANN401
+    all_joint_roots: list[entities.CategoryModel],
 ) -> None:
     # Arrange
-    bt_repo.seed(*(t for t in all_joint_trackers if t.name != missing_name))
+    category_repo.seed(*(r for r in all_joint_roots if r.name != missing_name))
 
     # Act
     use_case.execute()
 
     # Assert
-    created_names = {bt.name for bt in bt_repo.get_all()}
-    assert missing_name in created_names
-
-
-# ---------------------------------------------------------------------------
-# Hidden expense source seeding
-# ---------------------------------------------------------------------------
-
-
-def test_hidden_expense_sources_created_for_one_offs_and_savings(
-    use_case: InitialiseJointWorkspaceUseCase,
-    es_repo: EsRepo,
-) -> None:
-    # Arrange / Act
-    use_case.execute()
-
-    # Assert
-    created_names = {es.name for es in es_repo.get_all()}
-    assert created_names == {name.value for name in JOINT_HIDDEN_BT_NAMES}
-
-
-def test_created_expense_sources_are_joint_stamped(
-    use_case: InitialiseJointWorkspaceUseCase,
-    es_repo: EsRepo,
-) -> None:
-    # Arrange / Act
-    use_case.execute()
-
-    # Assert
-    assert all(
-        es.ownership_type is entities.OwnershipType.JOINT
-        and es.joint_account_id == JOINT_ACCOUNT_ID
-        for es in es_repo.get_all()
-    )
-
-
-def test_hidden_expense_source_is_linked_to_its_budget_tracker(
-    use_case: InitialiseJointWorkspaceUseCase,
-    bt_repo: BtRepo,
-    es_repo: EsRepo,
-) -> None:
-    # Arrange / Act
-    use_case.execute()
-
-    # Assert
-    bt_id_by_name = {bt.name: bt.id for bt in bt_repo.get_all()}
-    es_by_name = {es.name: es for es in es_repo.get_all()}
-    assert all(
-        bt_id_by_name[bt_name] in (es_by_name[bt_name.value].budget_tracker_ids or [])
-        for bt_name in JOINT_HIDDEN_BT_NAMES
-    )
-
-
-def test_no_expense_sources_are_duplicated_when_all_already_exist(
-    use_case: InitialiseJointWorkspaceUseCase,
-    bt_repo: BtRepo,
-    es_repo: EsRepo,
-    all_joint_trackers: list[entities.BudgetTrackerItemModel],
-) -> None:
-    # Arrange
-    bt_repo.seed(*all_joint_trackers)
-    bt_id_by_name = {t.name: t.id for t in all_joint_trackers}
-    es_repo.seed(
-        *(
-            entities.ExpenseSourceModel(
-                user_id=USER_ID,
-                name=bt_name.value,
-                budget_tracker_ids=[bt_id_by_name[bt_name]],
-                ownership_type=entities.OwnershipType.JOINT,
-                joint_account_id=JOINT_ACCOUNT_ID,
-            )
-            for bt_name in JOINT_HIDDEN_BT_NAMES
-        ),
-    )
-
-    # Act
-    use_case.execute()
-
-    # Assert
-    assert len(es_repo.get_all()) == len(JOINT_HIDDEN_BT_NAMES)
-
-
-def test_existing_expense_source_with_none_bt_ids_gets_bt_id_set_and_persisted(
-    use_case: InitialiseJointWorkspaceUseCase,
-    bt_repo: BtRepo,
-    es_repo: EsRepo,
-) -> None:
-    # Arrange
-    target_bt_name = entities.BudgetTrackerName.SAVINGS
-    existing_source = entities.ExpenseSourceModel(
-        user_id=USER_ID,
-        name=target_bt_name.value,
-        budget_tracker_ids=None,
-        ownership_type=entities.OwnershipType.JOINT,
-        joint_account_id=JOINT_ACCOUNT_ID,
-    )
-    es_repo.seed(existing_source)
-
-    # Act
-    use_case.execute()
-
-    # Assert - a linked copy of the source is written back (entities are frozen,
-    # so the link lands on the stored copy rather than the seeded object)
-    bt_id = next(bt.id for bt in bt_repo.get_all() if bt.name == target_bt_name)
-    stored = es_repo.get_by_id(existing_source.id)
-    assert all(
-        [
-            stored is not None,
-            bt_id in ((stored and stored.budget_tracker_ids) or []),
-            existing_source.id in [saved.id for saved in es_repo.saved],
-        ],
-    )
-
-
-# ---------------------------------------------------------------------------
-# Settings seeding
-# ---------------------------------------------------------------------------
+    assert missing_name in {category.name for category in category_repo.get_all()}
 
 
 def test_default_settings_row_created_for_the_account(
     use_case: InitialiseJointWorkspaceUseCase,
-    settings_repo: SettingsRepo,
+    settings_repo: Any,  # noqa: ANN401
 ) -> None:
     # Arrange / Act
     use_case.execute()
@@ -334,7 +193,7 @@ def test_default_settings_row_created_for_the_account(
 
 def test_created_settings_row_is_joint_stamped(
     use_case: InitialiseJointWorkspaceUseCase,
-    settings_repo: SettingsRepo,
+    settings_repo: Any,  # noqa: ANN401
 ) -> None:
     # Arrange / Act
     use_case.execute()
@@ -351,7 +210,7 @@ def test_created_settings_row_is_joint_stamped(
 
 def test_no_settings_row_created_when_one_already_exists(
     use_case: InitialiseJointWorkspaceUseCase,
-    settings_repo: SettingsRepo,
+    settings_repo: Any,  # noqa: ANN401
 ) -> None:
     # Arrange
     settings_repo.seed(
@@ -371,7 +230,7 @@ def test_no_settings_row_created_when_one_already_exists(
 
 def test_existing_non_default_settings_row_is_not_overwritten(
     use_case: InitialiseJointWorkspaceUseCase,
-    settings_repo: SettingsRepo,
+    settings_repo: Any,  # noqa: ANN401
 ) -> None:
     # Arrange - a row carrying a non-default period must survive create-if-missing
     settings_repo.seed(
@@ -396,16 +255,10 @@ def test_existing_non_default_settings_row_is_not_overwritten(
     )
 
 
-# ---------------------------------------------------------------------------
-# Error handling
-# ---------------------------------------------------------------------------
-
-
 def test_no_joint_account_seeds_nothing(
     build_use_case: UseCaseBuilder,
-    bt_repo: BtRepo,
-    es_repo: EsRepo,
-    settings_repo: SettingsRepo,
+    category_repo: Any,  # noqa: ANN401
+    settings_repo: Any,  # noqa: ANN401
 ) -> None:
     # Arrange - a user in no joint account has nothing to seed, so this is a
     # no-op rather than a failure: the entry point runs it for every user.
@@ -415,19 +268,17 @@ def test_no_joint_account_seeds_nothing(
     use_case.execute()
 
     # Assert
-    assert all(
-        [bt_repo.saved == [], es_repo.saved == [], settings_repo.saved == []],
-    )
+    assert all([category_repo.saved == [], settings_repo.saved == []])
 
 
 def test_repository_failure_raises_joint_data_access_error(
     build_use_case: UseCaseBuilder,
-    build_repo: "conftest.RepoBuilder",
+    build_repo: "Callable[..., Any]",
 ) -> None:
     # Arrange
-    failing: BtRepo = build_repo()
+    failing = build_repo()
     failing.save_error = port_errors.RepositoryError("Simulated save failure")
-    use_case = build_use_case(budget_tracker_repo=failing)
+    use_case = build_use_case(categories_repo=failing)
 
     # Act
     with pytest.raises(errors.JointDataAccessError) as exc_info:
@@ -444,13 +295,13 @@ def test_repository_failure_raises_joint_data_access_error(
 
 def test_unexpected_error_is_not_wrapped_as_joint_data_access_error(
     build_use_case: UseCaseBuilder,
-    build_repo: "conftest.RepoBuilder",
+    build_repo: "Callable[..., Any]",
 ) -> None:
     # Arrange - a genuine bug (not a RepositoryError) must propagate untouched.
     boom = ValueError("genuine bug")
-    buggy: BtRepo = build_repo()
+    buggy = build_repo()
     buggy.save_error = boom
-    use_case = build_use_case(budget_tracker_repo=buggy)
+    use_case = build_use_case(categories_repo=buggy)
 
     # Act / Assert
     with pytest.raises(ValueError, match="genuine bug") as exc_info:
