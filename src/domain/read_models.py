@@ -95,11 +95,11 @@ class BudgetTrackerView(_ViewBase):
 
 
 class CategoryView(_ViewBase):
-    """Read model for categories rows.
+    """Read model for categories_view.
 
-    Reads the raw ``categories`` table for now: ``categories_view`` and the
-    computed columns every other budget read model carries (``current_month`` /
-    ``remaining`` / ``progress`` / ``split``) arrive with it in #247.
+    One model for both levels of the tree: the view computes the same four
+    figures for a root and for a child, so the level a row sits at is carried by
+    ``parent_id`` rather than by which model was read.
     """
 
     parent_id: Annotated[
@@ -109,6 +109,47 @@ class CategoryView(_ViewBase):
     budget: Annotated[
         pydantic.NonNegativeFloat,
         pydantic.Field(description="What this category is allowed each month."),
+    ]
+    current_month: Annotated[
+        float,
+        pydantic.Field(
+            description=(
+                "Computed: this category's own payments this month plus its "
+                "children's. Signed — a month whose refunds outweigh its "
+                "spending nets out below zero."
+            ),
+        ),
+    ]
+    remaining: Annotated[
+        float,
+        pydantic.Field(
+            description="budget minus current_month; negative once overspent.",
+        ),
+    ]
+    # Deliberately unconstrained, both ends. Upper: `progress` is spend over
+    # budget, and a budget is there to be overshot — live data already carries a
+    # category at 206%, so `le=100` would fail the read for every row in the
+    # batch. Lower: a refund is a negative expense (#230), so a month of nothing
+    # but reimbursements puts it below zero. Only the *display* is 0-100, and
+    # that clamping belongs to ProgressColumn, not here.
+    progress: Annotated[
+        float,
+        pydantic.Field(
+            description=(
+                "Percentage of budget consumed. Exceeds 100 when overspent, and "
+                "goes negative when refunds outweigh spending."
+            ),
+        ),
+    ]
+    split: Annotated[
+        pydantic.NonNegativeFloat,
+        pydantic.Field(
+            description=(
+                "A child's share of its parent's budget, or a root's share of "
+                "total income. Non-negative, but exceeds 100 when a category is "
+                "allowed more than what it is measured against."
+            ),
+        ),
     ]
 
 

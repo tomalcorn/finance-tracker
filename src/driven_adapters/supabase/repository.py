@@ -443,15 +443,16 @@ def category_repository(
     """Build the categories repository.
 
     Serves both levels of the tree: roots and their children are rows of one
-    table, told apart by ``parent_id``. Reads hit the raw table until
-    ``categories_view`` lands in #247.
+    table, told apart by ``parent_id``, and ``categories_view`` computes the
+    same four figures for each — so one repository answers what the budget
+    tracker and expense source repositories answered separately.
     """
     return SupabaseRepository(
         user_id,
         RepoSpec(
             parse=entities.CategoryModel.model_validate,
             view_model=read_models.CategoryView,
-            read_table=table_names.TableNames.CATEGORIES,
+            read_table=table_names.ViewNames.CATEGORIES,
             write_table=table_names.TableNames.CATEGORIES,
         ),
         cache,

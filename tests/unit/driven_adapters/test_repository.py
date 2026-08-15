@@ -702,6 +702,44 @@ class TestCascadeInvalidation:
         )
 
 
+class TestCategoriesInvalidation:
+    """categories_view sums payments, so a payment write has to restate it."""
+
+    def test_writing_a_payment_busts_the_categories_view(self) -> None:
+        # Arrange
+        cache = FakeCache([])
+        repo = repository.payment_repository(
+            _USER_ID,
+            cache,
+            mock.MagicMock(),
+            _PERSONAL,
+        )
+
+        # Act
+        repo.apply_deletions([str(uuid.uuid4())])
+
+        # Assert - without this the grid keeps showing a category's old spend
+        # until the TTL, the same way every other payment-derived view would
+        assert f"{_USER_ID}:{table_names.ViewNames.CATEGORIES}" in cache.invalidated
+
+    def test_writing_a_category_busts_its_own_view(self) -> None:
+        # Arrange - one key covers both levels: a child's spend rolls up into
+        # its parent, and the parent's budget is the children's denominator
+        cache = FakeCache([])
+        repo = repository.category_repository(
+            _USER_ID,
+            cache,
+            mock.MagicMock(),
+            _PERSONAL,
+        )
+
+        # Act
+        repo.apply_edits({str(uuid.uuid4()): {"budget": 10.0}})
+
+        # Assert
+        assert f"{_USER_ID}:{table_names.ViewNames.CATEGORIES}" in cache.invalidated
+
+
 class TestCascadeAcrossOwnership:
     """A cascade that crosses the ownership split busts the other half too."""
 

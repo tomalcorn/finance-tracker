@@ -33,6 +33,7 @@ class ViewNames(enum.StrEnum):
 
     BANK_ACCOUNTS = "bank_accounts_view"
     BUDGET_TRACKER = "budget_tracker_view"
+    CATEGORIES = "categories_view"
     EXPENSE_SOURCES = "expense_sources_view"
     ONE_OFFS = "one_offs_view"
     INCOME_SOURCES = "income_sources_view"
@@ -41,23 +42,34 @@ class ViewNames(enum.StrEnum):
 
 _PAYMENT_DERIVED_VIEWS: list[ViewNames] = [
     ViewNames.BANK_ACCOUNTS,
+    ViewNames.CATEGORIES,
     ViewNames.EXPENSE_SOURCES,
     ViewNames.INCOME_SOURCES,
     ViewNames.BUDGET_TRACKER,
 ]
-"""The views that sum payments, so any write to them restates all four."""
+"""The views that sum payments, so any write to them restates all five."""
 
 
 CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
     TableNames.PAYMENTS: [*_PAYMENT_DERIVED_VIEWS],
     TableNames.BANK_ACCOUNTS: [ViewNames.BANK_ACCOUNTS],
+    # categories_view resolves a payment to its category *through*
+    # expense_sources until #249 moves the FK, and it tells a hidden stand-in
+    # from a real source by comparing names with budget_tracker. So until that
+    # join goes, editing either table can change which category a payment lands
+    # in — hence categories_view hanging off both. Both entries go with the join.
     TableNames.EXPENSE_SOURCES: [
         ViewNames.EXPENSE_SOURCES,
         ViewNames.BUDGET_TRACKER,
+        ViewNames.CATEGORIES,
     ],
     TableNames.INCOME_SOURCES: [
         ViewNames.INCOME_SOURCES,
         ViewNames.BUDGET_TRACKER,
+        # A root's `split` divides by total income, so restating income restates
+        # it. A child's divides by its parent's budget and is unaffected — but
+        # the key is per-table, not per-row.
+        ViewNames.CATEGORIES,
     ],
     # payments.subscription_id is ON DELETE CASCADE (0001), so deleting a
     # subscription deletes its generated payments too — a write to `payments`
@@ -70,22 +82,29 @@ CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
         *_PAYMENT_DERIVED_VIEWS,
     ],
     TableNames.ONE_OFFS: [ViewNames.ONE_OFFS],
-    # CATEGORIES feeds no views yet — categories_view is #247. A parent/child
-    # write busts the one key either level is read under, and the tree never
-    # crosses the ownership split (a child is owned exactly as its root is), so
-    # there is no cascade to declare in CASCADES_ACROSS_OWNERSHIP.
-    TableNames.CATEGORIES: [],
+    # A write at either level restates both: a child's spend rolls up into its
+    # parent's current_month, and a parent's budget is the denominator of its
+    # children's split. One key covers it — roots and children are rows of the
+    # same view — and the tree never crosses the ownership split (a child is
+    # owned exactly as its root is), so there is no cascade to declare in
+    # CASCADES_ACROSS_OWNERSHIP.
+    TableNames.CATEGORIES: [ViewNames.CATEGORIES],
     TableNames.BUDGET_TRACKER: [
         ViewNames.ONE_OFFS,
         ViewNames.EXPENSE_SOURCES,
         ViewNames.BUDGET_TRACKER,
+        # Its `name` is half of how categories_view spots a hidden stand-in;
+        # goes with that join in #249.
+        ViewNames.CATEGORIES,
     ],
     # A settings row is not summed into anything, but it decides which month
-    # income_sources_view rolls its payments up over — and budget_tracker_view's
-    # `split` divides by that total — so changing one restates both.
+    # income_sources_view rolls its payments up over — and the `split` of
+    # budget_tracker_view and of a root in categories_view divides by that
+    # total — so changing one restates all three.
     TableNames.USER_SETTINGS: [
         ViewNames.INCOME_SOURCES,
         ViewNames.BUDGET_TRACKER,
+        ViewNames.CATEGORIES,
     ],
     # QUICK_BUTTONS feeds no views: a button is a preset, not a transaction, so
     # nothing is computed from one until a tap writes the payment it describes.

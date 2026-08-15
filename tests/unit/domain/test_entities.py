@@ -224,6 +224,82 @@ class TestCategoryTree:
         assert exc_info.value.name == "Groceries"
 
 
+class TestCategoryViewBounds:
+    """What categories_view can actually emit, pinned (#247).
+
+    These guard a deliberate *absence*: ``progress`` looks like a 0-100
+    percentage and is not one, so a well-meant ``le=100`` would fail the read.
+    ``_validated`` raises for the whole batch, not the offending row, so that
+    takes the page down rather than one figure.
+    """
+
+    @staticmethod
+    def _row(**overrides: object) -> dict[str, object]:
+        """Return a categories_view row, keyed as the view returns it."""
+        return {
+            "id": uuid.uuid4(),
+            "user_id": "test-user",
+            "name": "Eating out",
+            "parent_id": uuid.uuid4(),
+            "budget": 100.0,
+            "current_month": 50.0,
+            "remaining": 50.0,
+            "progress": 50.0,
+            "split": 25.0,
+            "_created_at": datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC),
+        } | overrides
+
+    def test_progress_may_exceed_one_hundred(self) -> None:
+        # Arrange - a budget is there to be overshot, and live data already
+        # carries a category at 206%
+        overspent = 206.02
+        row = self._row(
+            current_month=overspent,
+            remaining=-106.02,
+            progress=overspent,
+        )
+
+        # Act
+        view = read_models.CategoryView.model_validate(row)
+
+        # Assert
+        assert view.progress == overspent
+
+    def test_progress_may_go_negative(self) -> None:
+        # Arrange - a refund is a negative expense (#230), so a month of nothing
+        # but reimbursements nets out below zero
+        refunded = -15.0
+        row = self._row(current_month=refunded, remaining=115.0, progress=refunded)
+
+        # Act
+        view = read_models.CategoryView.model_validate(row)
+
+        # Assert
+        assert view.progress == refunded
+
+    def test_split_may_exceed_one_hundred(self) -> None:
+        # Arrange - a category can be allowed more than what it is measured
+        # against, e.g. a root budgeted above the income funding it
+        oversized_share = 140.0
+        row = self._row(split=oversized_share)
+
+        # Act
+        view = read_models.CategoryView.model_validate(row)
+
+        # Assert
+        assert view.split == oversized_share
+
+    def test_split_cannot_be_negative(self) -> None:
+        # Arrange - the view divides a non-negative budget by a denominator it
+        # has already checked is positive, so a negative share is not a value
+        # the view can produce
+        row = self._row(split=-1.0)
+
+        # Act / Assert
+        with pytest.raises(pydantic.ValidationError):
+            read_models.CategoryView.model_validate(row)
+
+
 class TestJointContributionValidator:
     """A contribution subscription must be complete, and must be personal."""
 
