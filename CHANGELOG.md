@@ -1,3 +1,9 @@
+## v1.14.0 (2026-08-15)
+
+### Feat
+
+- **db**: add the categories table replacing three aggregates (#253)
+
 ## v1.13.4 (2026-08-15)
 
 ### Refactor
