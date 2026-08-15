@@ -15,17 +15,6 @@ but not as part of your normal monthly spending. Examples include:
 - gifts
 - [Overspend from a previous month](#overspend-from-a-previous-month) (use with caution!)
 
-## What The Columns Mean
-
-| Column | Meaning |
-| --- | --- |
-| `Cost` | The target amount you want to reach. |
-| `Planned Spend` | What you intend to put towards it this month, before banking. |
-| `Banked` | The amount already moved into the goal from earlier months. |
-| `Remaining` | What is still needed to reach the target. |
-| `% Banked` | How much of the goal has already been banked. |
-| `Share of Budget` | How much of the parent one-offs budget tracker this item is using. |
-
 ## How To Use It
 
 - Add a new item when a savings goal starts.

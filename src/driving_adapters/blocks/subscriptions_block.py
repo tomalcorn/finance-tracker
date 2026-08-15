@@ -209,7 +209,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
             column_name="monthly_cost",
             column_config=st.column_config.NumberColumn(
                 "Monthly Cost",
-                help="The amount spread over a month, whatever its cadence.",
+                help="The amount per month, whatever its cadence.",
                 format="£%.2f",
                 disabled=True,
                 width=column_widths.MONEY,
@@ -295,7 +295,7 @@ def _build_config(
                 _selectbox_column(
                     "expense_source_id",
                     "Expense Source",
-                    "The budget line it comes out of.",
+                    "The expense source/budget tracker this comes out of.",
                     list(expense_source_map.keys()),
                     lookups.make_name_formatter(
                         expense_source_map,

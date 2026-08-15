@@ -123,7 +123,10 @@ def _build_expense_config(
                     column_name="checked",
                     column_config=st.column_config.CheckboxColumn(
                         "Checked",
-                        help="Tick once you have seen it on your statement.",
+                        help=(
+                            "Tick when you have cross checked the account balance "
+                            "against your actual account balance."
+                        ),
                         required=True,
                     ),
                     button_label="Checked",
@@ -152,7 +155,7 @@ def _build_expense_config(
                     column_name="expense_source_id",
                     column_config=st.column_config.SelectboxColumn(
                         "Expense Source",
-                        help="The budget line this comes out of.",
+                        help="The expense source/budget tracker this comes out of.",
                         options=expense_source_ids,
                         format_func=get_expense_source_name,
                     ),
@@ -237,7 +240,10 @@ def _build_income_config(
                     column_name="checked",
                     column_config=st.column_config.CheckboxColumn(
                         "Checked",
-                        help="Tick once you have seen it on your statement.",
+                        help=(
+                            "Tick when you have cross checked the account balance "
+                            "against your actual account balance."
+                        ),
                         required=True,
                     ),
                     button_label="Checked",
@@ -266,7 +272,7 @@ def _build_income_config(
                     column_name="income_source_id",
                     column_config=st.column_config.SelectboxColumn(
                         "Income Source",
-                        help="What this income is booked against.",
+                        help="Which income source this income goes against.",
                         options=income_source_ids,
                         format_func=get_income_source_name,
                     ),

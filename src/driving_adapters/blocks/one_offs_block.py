@@ -98,10 +98,7 @@ def _build_config(
                     column_name="split",
                     column_config=st.column_config.ProgressColumn(
                         "Share of Budget",
-                        help=(
-                            "This month's planned spend as a share of the "
-                            "One-offs budget."
-                        ),
+                        help="The planned spend as a share of the One-offs budget.",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -147,7 +144,7 @@ def _build_config(
                     column_name="remaining",
                     column_config=st.column_config.NumberColumn(
                         "Remaining",
-                        help="Still to find: cost less banked and this month's plan.",
+                        help="The amount of the cost still left to bank.",
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,

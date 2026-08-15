@@ -39,7 +39,7 @@ def _build_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
-                        help="What you call this account.",
+                        help="The name of this account.",
                         required=True,
                     ),
                     button_label="Name",
