@@ -80,12 +80,12 @@ def _build_config(
                 frontend_models.DFEColumnConfig(
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
-                        "Set Aside",
+                        "Planned Spend",
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
                     ),
-                    button_label="Set Aside",
+                    button_label="Planned Spend",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                     total=True,
