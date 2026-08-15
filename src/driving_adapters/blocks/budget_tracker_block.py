@@ -74,8 +74,8 @@ _INCOME_SOURCES_SAMPLE_DATA = pd.DataFrame(
 # labelled for whichever month the settings put it on. The underlying column is
 # always `current_month` — the view moves its window, not its name.
 _INCOME_COLUMN_LABELS: dict[entities.IncomeRollUpPeriod, str] = {
-    entities.IncomeRollUpPeriod.CURRENT_MONTH: "Current Month",
-    entities.IncomeRollUpPeriod.PREVIOUS_MONTH: "Previous Month",
+    entities.IncomeRollUpPeriod.CURRENT_MONTH: "Received This Month",
+    entities.IncomeRollUpPeriod.PREVIOUS_MONTH: "Received Last Month",
 }
 
 _PREVIOUS_MONTH_HELP = (
@@ -101,6 +101,7 @@ def _build_budget_tracker_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
+                        help="The four fixed budget categories.",
                         required=True,
                         disabled=True,
                         width=column_widths.NAME,
@@ -112,12 +113,13 @@ def _build_budget_tracker_config(
                 frontend_models.DFEColumnConfig(
                     column_name="total_budget",
                     column_config=st.column_config.NumberColumn(
-                        "Budget",
+                        "Total Budget",
+                        help="What this category is allowed each month.",
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
                     ),
-                    button_label="Budget",
+                    button_label="Total Budget",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                     sorting=query.SortingValues.DESC,
@@ -127,14 +129,15 @@ def _build_budget_tracker_config(
                     editable=False,
                     column_name="split",
                     column_config=st.column_config.ProgressColumn(
-                        "Split",
+                        "Share of Income",
+                        help="This category's budget as a share of your income.",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
                         width=column_widths.PROGRESS,
                         color="blue",
                     ),
-                    button_label="Split",
+                    button_label="Share of Income",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
                     total=True,
@@ -143,12 +146,13 @@ def _build_budget_tracker_config(
                     editable=False,
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
-                        "Current Month",
+                        "Spent",
+                        help="Payments booked against this category for a given month.",
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,
                     ),
-                    button_label="Current Month",
+                    button_label="Spent",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                     total=True,
@@ -157,14 +161,15 @@ def _build_budget_tracker_config(
                     editable=False,
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
-                        "Progress",
+                        "% Spent",
+                        help="How much of the budget is gone.",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
                         width=column_widths.PROGRESS,
                         color="auto-inverse",
                     ),
-                    button_label="Progress",
+                    button_label="% Spent",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
                 ),
@@ -173,6 +178,7 @@ def _build_budget_tracker_config(
                     column_name="remaining",
                     column_config=st.column_config.NumberColumn(
                         "Remaining",
+                        help="Left to spend this month.",
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,
@@ -212,6 +218,7 @@ def _build_expense_sources_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
+                        help="Name of the expense source.",
                         required=True,
                         width=column_widths.NAME,
                     ),
@@ -223,6 +230,7 @@ def _build_expense_sources_config(
                     column_name="budget",
                     column_config=st.column_config.NumberColumn(
                         "Budget",
+                        help="What this expense source is allowed each month.",
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
@@ -237,14 +245,18 @@ def _build_expense_sources_config(
                     editable=False,
                     column_name="split",
                     column_config=st.column_config.ProgressColumn(
-                        "Split",
+                        "Share of Budget",
+                        help=(
+                            "This expense source's budget as a share of the "
+                            "Expenses budget tracker budget."
+                        ),
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
                         width=column_widths.PROGRESS,
                         color="blue",
                     ),
-                    button_label="Split",
+                    button_label="Share of Budget",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
                     total=True,
@@ -253,12 +265,16 @@ def _build_expense_sources_config(
                     editable=False,
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
-                        "Current Month",
+                        "Spent",
+                        help=(
+                            "Payments booked against this expense source for a "
+                            "given month."
+                        ),
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,
                     ),
-                    button_label="Current Month",
+                    button_label="Spent",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                     total=True,
@@ -267,14 +283,15 @@ def _build_expense_sources_config(
                     editable=False,
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
-                        "Progress",
+                        "% Spent",
+                        help="How much of the budget is gone.",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
                         width=column_widths.PROGRESS,
                         color="auto-inverse",
                     ),
-                    button_label="Progress",
+                    button_label="% Spent",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
                 ),
@@ -283,6 +300,7 @@ def _build_expense_sources_config(
                     column_name="remaining",
                     column_config=st.column_config.NumberColumn(
                         "Remaining",
+                        help="Left to spend this month.",
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,
@@ -338,6 +356,7 @@ def _build_income_sources_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
+                        help="Where the money comes from.",
                         required=True,
                     ),
                     button_label="Name",
@@ -348,6 +367,7 @@ def _build_income_sources_config(
                     column_name="budget_tracker_ids",
                     column_config=st.column_config.MultiselectColumn(
                         "Budget Trackers",
+                        help="The Budget Trackers this income funds.",
                         options=budget_tracker_ids,
                         format_func=get_budget_tracker_name,
                     ),

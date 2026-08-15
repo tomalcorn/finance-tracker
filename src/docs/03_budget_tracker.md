@@ -50,37 +50,8 @@ original category — [Payments](/payments) explains when to reach for each.
 By default the roll-up month is the current one. If you are paid at the end of
 the month, so that each month runs on the previous month's pay, you can move the
 income roll-up back a month in [Settings](/settings) — the column then reads
-`Previous Month` and the `Split` below is worked out against it. Spending stays
-on the current month either way. Personal and joint are set separately.
-
-## Schema
-
-### Budget Tracker Rows
-
-| Column | Meaning |
-| --- | --- |
-| `Total Budget` | The total amount assigned to that tracker row. |
-| `Current Month` | The current-month total rolled up from linked expense sources. |
-| `Remaining` | `total_budget - current_month`. |
-| `Progress` | The share of the budget already used. |
-| `Split` | The share of total income allocated to that tracker row. |
-
-### Expense Sources Rows
-
-| Column | Meaning |
-| --- | --- |
-| `Budget` | The amount available for that source. |
-| `Current Month` | The sum of linked expense payments for the current date window. |
-| `Remaining` | `budget - current_month`. |
-| `Progress` | The share of the source budget already used. |
-| `Split` | The source budget as a share of its linked tracker totals. |
-
-### Income Sources Rows
-
-| Column | Meaning |
-| --- | --- |
-| `Current Month` / `Previous Month` | The sum of income payments linked to that source, over whichever month the [income roll-up setting](/settings) selects. |
-| `Budget Tracker IDs` | The tracker rows that this income supports. |
+`Received Last Month`, and `Share of Income` is worked out against it. Spending
+stays on the current month either way. Personal and joint are set separately.
 
 ## How The Links Work
 
@@ -88,6 +59,6 @@ Income sources say which budget tracker rows the income contributes toward. Expe
 
 ## How To Read The Page
 
-- If `progress` is near 100%, that category is close to or at its budget.
-- If `split` is high, that tracker is taking a larger share of your income.
-- If `remaining` goes negative, the category is overspent.
+- If `% Spent` is near 100%, that category is close to or at its budget.
+- If `Share of Income` is high, that tracker is taking a larger share of your income.
+- If `Remaining` goes negative, the category is overspent.

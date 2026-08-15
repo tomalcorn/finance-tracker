@@ -87,6 +87,7 @@ def _build_expense_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
+                        help="What the payment was for.",
                         required=True,
                     ),
                     button_label="Name",
@@ -97,6 +98,7 @@ def _build_expense_config(
                     column_name="payment_date",
                     column_config=st.column_config.DateColumn(
                         "Date",
+                        help="When the money moved.",
                         format="localized",
                         required=True,
                     ),
@@ -109,6 +111,7 @@ def _build_expense_config(
                     column_name="expense",
                     column_config=st.column_config.NumberColumn(
                         "Expense",
+                        help="How much went out.",
                         format="£%.2f",
                         required=True,
                     ),
@@ -120,6 +123,10 @@ def _build_expense_config(
                     column_name="checked",
                     column_config=st.column_config.CheckboxColumn(
                         "Checked",
+                        help=(
+                            "Tick when you have cross checked the account balance "
+                            "against your actual account balance."
+                        ),
                         required=True,
                     ),
                     button_label="Checked",
@@ -130,7 +137,7 @@ def _build_expense_config(
                     column_name="bank_account_id",
                     column_config=st.column_config.SelectboxColumn(
                         "Bank Account",
-                        help="Select a bank account",
+                        help="Which account the money moved through.",
                         options=bank_account_ids,
                         format_func=get_bank_account_name,
                         required=True,
@@ -148,7 +155,7 @@ def _build_expense_config(
                     column_name="expense_source_id",
                     column_config=st.column_config.SelectboxColumn(
                         "Expense Source",
-                        help="Select an expense source",
+                        help="The expense source/budget tracker this comes out of.",
                         options=expense_source_ids,
                         format_func=get_expense_source_name,
                     ),
@@ -197,6 +204,7 @@ def _build_income_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
+                        help="What the payment was for.",
                         required=True,
                     ),
                     button_label="Name",
@@ -207,6 +215,7 @@ def _build_income_config(
                     column_name="payment_date",
                     column_config=st.column_config.DateColumn(
                         "Date",
+                        help="When the money moved.",
                         format="localized",
                         required=True,
                     ),
@@ -219,6 +228,7 @@ def _build_income_config(
                     column_name="income",
                     column_config=st.column_config.NumberColumn(
                         "Income",
+                        help="How much came in.",
                         format="£%.2f",
                         required=True,
                     ),
@@ -230,6 +240,10 @@ def _build_income_config(
                     column_name="checked",
                     column_config=st.column_config.CheckboxColumn(
                         "Checked",
+                        help=(
+                            "Tick when you have cross checked the account balance "
+                            "against your actual account balance."
+                        ),
                         required=True,
                     ),
                     button_label="Checked",
@@ -240,7 +254,7 @@ def _build_income_config(
                     column_name="bank_account_id",
                     column_config=st.column_config.SelectboxColumn(
                         "Bank Account",
-                        help="Select a bank account",
+                        help="Which account the money moved through.",
                         options=bank_account_ids,
                         format_func=get_bank_account_name,
                         required=True,
@@ -258,7 +272,7 @@ def _build_income_config(
                     column_name="income_source_id",
                     column_config=st.column_config.SelectboxColumn(
                         "Income Source",
-                        help="Select an income source",
+                        help="Which income source this income goes against.",
                         options=income_source_ids,
                         format_func=get_income_source_name,
                     ),

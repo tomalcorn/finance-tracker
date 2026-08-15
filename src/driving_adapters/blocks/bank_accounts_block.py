@@ -39,6 +39,7 @@ def _build_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
+                        help="The name of this account.",
                         required=True,
                     ),
                     button_label="Name",
@@ -49,6 +50,7 @@ def _build_config(
                     column_name="starting_balance",
                     column_config=st.column_config.NumberColumn(
                         "Starting Balance",
+                        help="What was in it when you started tracking.",
                         format="£%.2f",
                         required=True,
                     ),
@@ -61,6 +63,7 @@ def _build_config(
                     editable=False,
                     column_config=st.column_config.NumberColumn(
                         "Current Balance",
+                        help="Starting balance plus every payment since.",
                         format="£%.2f",
                         disabled=True,
                     ),
