@@ -109,6 +109,7 @@ class BankButton:
         if st.button(
             label="",
             icon=constants.ButtonIcons.BANK,
+            help="Move this month's planned spend into banked.",
             key="bank_it_button",
         ):
             self._bank_it_dialog(bankable_items, self._bank_account_map)

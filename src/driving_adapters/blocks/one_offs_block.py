@@ -57,6 +57,7 @@ def _build_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
+                        help="What you are saving up for.",
                         required=True,
                         width=column_widths.NAME,
                     ),
@@ -68,6 +69,7 @@ def _build_config(
                     column_name="cost",
                     column_config=st.column_config.NumberColumn(
                         "Cost",
+                        help="What the item costs in total.",
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
@@ -81,6 +83,7 @@ def _build_config(
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
                         "Planned Spend",
+                        help="What you intend to put towards it this month.",
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
@@ -95,6 +98,10 @@ def _build_config(
                     column_name="split",
                     column_config=st.column_config.ProgressColumn(
                         "Share of Budget",
+                        help=(
+                            "This month's planned spend as a share of the "
+                            "One-offs budget."
+                        ),
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -110,6 +117,7 @@ def _build_config(
                     column_name="banked",
                     column_config=st.column_config.NumberColumn(
                         "Banked",
+                        help="Put aside so far, across every month.",
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
@@ -123,6 +131,7 @@ def _build_config(
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
                         "% Banked",
+                        help="How much of the cost you have banked.",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -138,6 +147,7 @@ def _build_config(
                     column_name="remaining",
                     column_config=st.column_config.NumberColumn(
                         "Remaining",
+                        help="Still to find: cost less banked and this month's plan.",
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,

@@ -101,6 +101,7 @@ def _build_budget_tracker_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
+                        help="The four fixed budget categories.",
                         required=True,
                         disabled=True,
                         width=column_widths.NAME,
@@ -113,6 +114,7 @@ def _build_budget_tracker_config(
                     column_name="total_budget",
                     column_config=st.column_config.NumberColumn(
                         "Total Budget",
+                        help="What this category is allowed each month.",
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
@@ -128,6 +130,7 @@ def _build_budget_tracker_config(
                     column_name="split",
                     column_config=st.column_config.ProgressColumn(
                         "Share of Income",
+                        help="This category's budget as a share of your income.",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -144,6 +147,7 @@ def _build_budget_tracker_config(
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
                         "Spent",
+                        help="Payments booked against it this month.",
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,
@@ -158,6 +162,7 @@ def _build_budget_tracker_config(
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
                         "% Spent",
+                        help="How much of the budget is gone.",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -173,6 +178,7 @@ def _build_budget_tracker_config(
                     column_name="remaining",
                     column_config=st.column_config.NumberColumn(
                         "Remaining",
+                        help="Left to spend this month.",
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,
@@ -212,6 +218,7 @@ def _build_expense_sources_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
+                        help="What the money is being spent on.",
                         required=True,
                         width=column_widths.NAME,
                     ),
@@ -223,6 +230,7 @@ def _build_expense_sources_config(
                     column_name="budget",
                     column_config=st.column_config.NumberColumn(
                         "Budget",
+                        help="What this source is allowed each month.",
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
@@ -238,6 +246,7 @@ def _build_expense_sources_config(
                     column_name="split",
                     column_config=st.column_config.ProgressColumn(
                         "Share of Budget",
+                        help="This source's budget as a share of its category.",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -254,6 +263,7 @@ def _build_expense_sources_config(
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
                         "Spent",
+                        help="Payments booked against it this month.",
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,
@@ -268,6 +278,7 @@ def _build_expense_sources_config(
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
                         "% Spent",
+                        help="How much of the budget is gone.",
                         format="%.1f%%",
                         min_value=0,
                         max_value=100,
@@ -283,6 +294,7 @@ def _build_expense_sources_config(
                     column_name="remaining",
                     column_config=st.column_config.NumberColumn(
                         "Remaining",
+                        help="Left to spend this month.",
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,
@@ -338,6 +350,7 @@ def _build_income_sources_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
+                        help="Where the money comes from.",
                         required=True,
                     ),
                     button_label="Name",
@@ -348,6 +361,7 @@ def _build_income_sources_config(
                     column_name="budget_tracker_ids",
                     column_config=st.column_config.MultiselectColumn(
                         "Budget Trackers",
+                        help="The categories this income funds.",
                         options=budget_tracker_ids,
                         format_func=get_budget_tracker_name,
                     ),

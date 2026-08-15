@@ -216,6 +216,7 @@ def render_filter_button(
         if st.button(
             label="",
             icon=constants.ButtonIcons.FILTER,
+            help="Filter and sort this table.",
             key=f"{key_prefix}_filter_button",
         ):
             _filter_dialog(grid_source, grid_display)

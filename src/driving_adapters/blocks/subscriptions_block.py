@@ -117,6 +117,7 @@ def _core_columns(
             column_name="name",
             column_config=st.column_config.TextColumn(
                 "Name",
+                help="What the recurring payment is for.",
                 required=True,
                 width=column_widths.NAME,
             ),
@@ -128,6 +129,7 @@ def _core_columns(
             column_name="amount",
             column_config=st.column_config.NumberColumn(
                 "Amount",
+                help="What goes out each time it is due.",
                 format="£%.2f",
                 required=True,
                 width=column_widths.MONEY,
@@ -140,6 +142,7 @@ def _core_columns(
             column_name="cadence",
             column_config=st.column_config.SelectboxColumn(
                 "Cadence",
+                help="How often it is due.",
                 options=_CADENCE_OPTIONS,
                 required=True,
                 width=column_widths.CADENCE,
@@ -154,7 +157,7 @@ def _core_columns(
         _selectbox_column(
             "bank_account_id",
             bank_account_label,
-            "Select a bank account",
+            "The account it leaves from.",
             bank_account_ids,
             get_bank_account_name,
         ),
@@ -168,6 +171,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
             column_name="start_date",
             column_config=st.column_config.DateColumn(
                 "Start Date",
+                help="The first date it is due.",
                 format="localized",
                 required=True,
                 width=column_widths.DATE,
@@ -179,6 +183,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
             column_name="end_date",
             column_config=st.column_config.DateColumn(
                 "End Date",
+                help="The last date it is due. Leave empty if it is ongoing.",
                 format="localized",
                 width=column_widths.DATE,
             ),
@@ -191,6 +196,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
             column_name="is_active",
             column_config=st.column_config.CheckboxColumn(
                 "Active",
+                help="Untick to stop it booking new payments.",
                 required=True,
                 width=column_widths.FLAG,
             ),
@@ -203,6 +209,7 @@ def _schedule_columns() -> list[frontend_models.DFEColumnConfig]:
             column_name="monthly_cost",
             column_config=st.column_config.NumberColumn(
                 "Monthly Cost",
+                help="The amount spread over a month, whatever its cadence.",
                 format="£%.2f",
                 disabled=True,
                 width=column_widths.MONEY,
@@ -288,7 +295,7 @@ def _build_config(
                 _selectbox_column(
                     "expense_source_id",
                     "Expense Source",
-                    "Select an expense source",
+                    "The budget line it comes out of.",
                     list(expense_source_map.keys()),
                     lookups.make_name_formatter(
                         expense_source_map,

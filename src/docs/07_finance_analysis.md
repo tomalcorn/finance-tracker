@@ -15,11 +15,11 @@ data entry form. The core question is always:
 
 Look at the budget tracker page first when you review your finances.
 
-- `Progress` tells you how much of a budget has been used.
+- `% Spent` tells you how much of a budget has been used.
 - `Remaining` tells you what is left.
-- `Split` tells you how that budget compares to your income allocation.
+- `Share of Income` tells you how that budget compares to your income allocation.
 
-If `Progress` is climbing quickly while `Split` is already high, that category
+If `% Spent` is climbing quickly while `Share of Income` is already high, that category
 may be eating a larger share of your income than intended.
 
 ## Tracking One-Off Goals
@@ -27,7 +27,7 @@ may be eating a larger share of your income than intended.
 One-off items are easiest to analyse as a trend:
 
 - if `Banked` is rising steadily, the goal is healthy
-- if `Current Month` keeps getting reset without banked growth, the goal may be
+- if `Planned Spend` keeps getting reset without banked growth, the goal may be
   getting raided
 - if `Remaining` is not falling, the target may be too ambitious for the current
   cash flow

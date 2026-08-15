@@ -68,7 +68,7 @@ from the original spend (see the caveat below).
 Add an ordinary expense entry, attribute it to the same `Expense Source` the
 original spend came from, and enter the amount with a minus sign (e.g. `-12.50`).
 Rather than inventing new income, this offsets that category directly: its
-`Current Month` falls, `Remaining` rises, and `Progress` drops, so the category
+`Spent` falls, `Remaining` rises, and `% Spent` drops, so the category
 reads as though you only ever spent your own share. Choose this for one-off
 reimbursements of something you already logged as an expense.
 

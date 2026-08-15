@@ -95,6 +95,7 @@ def render_add_button(
     if st.button(
         label="",
         icon=constants.ButtonIcons.ADD,
+        help="Add a row.",
         key=f"{grid_source.key_prefix}_add_row_button",
     ):
         _add_row_dialog(grid_source, grid_display)
