@@ -168,6 +168,7 @@ class TestCategoryAccrual:
         *,
         parent_id: uuid.UUID | None,
         cost: float | None = 200.0,
+        starting_balance: float | None = 150.0,
     ) -> entities.CategoryModel:
         """Build a multi-month pot, complete unless a test breaks it."""
         return entities.CategoryModel(
@@ -176,6 +177,7 @@ class TestCategoryAccrual:
             parent_id=parent_id,
             accrual=entities.AccrualPeriod.MULTI_MONTH,
             cost=cost,
+            starting_balance=starting_balance,
         )
 
     def test_a_complete_pot_is_accepted(self) -> None:
@@ -192,17 +194,58 @@ class TestCategoryAccrual:
         # Assert
         assert not category.is_pot
 
-    def test_a_pot_needs_a_cost(self) -> None:
-        # Arrange - with no cost there is nothing to measure how full it is
-        # against. The DB CHECK holds the same rule, since a grid edit reaches
-        # the column through apply_edits without passing through this model
+    def test_a_pot_may_start_below_zero(self) -> None:
+        # Arrange - a starting balance is unconstrained in sign, like a bank
+        # account's, which is what lets money be moved out of a pot that was
+        # filled by payments
+        moved_out = -20.0
+
+        # Act
+        pot = self._pot(parent_id=uuid.uuid4(), starting_balance=moved_out)
+
+        # Assert
+        assert pot.starting_balance == moved_out
+
+    @pytest.mark.parametrize(
+        ("cost", "starting_balance"),
+        [(None, 150.0), (200.0, None)],
+    )
+    def test_a_pot_needs_both_fields(
+        self,
+        cost: float | None,
+        starting_balance: float | None,
+    ) -> None:
+        # Arrange - without a cost there is nothing to measure how full it is
+        # against, and without a starting balance there is no figure to
+        # accumulate onto. The DB CHECK holds the same rule, since a grid edit
+        # reaches the columns through apply_edits without passing through here
 
         # Act / Assert
         with pytest.raises(errors.IncompleteMultiMonthCategoryError):
+            self._pot(
+                parent_id=uuid.uuid4(),
+                cost=cost,
+                starting_balance=starting_balance,
+            )
+
+    def test_the_incomplete_error_names_the_missing_field(self) -> None:
+        # Arrange / Act
+        with pytest.raises(errors.IncompleteMultiMonthCategoryError) as exc_info:
             self._pot(parent_id=uuid.uuid4(), cost=None)
 
-    def test_a_monthly_category_may_not_carry_a_cost(self) -> None:
-        # Arrange - nothing would ever read it, so carrying one is a mistake
+        # Assert
+        assert exc_info.value.missing == ["cost"]
+
+    @pytest.mark.parametrize(
+        ("cost", "starting_balance"),
+        [(10.0, None), (None, 10.0)],
+    )
+    def test_a_monthly_category_may_not_carry_pot_fields(
+        self,
+        cost: float | None,
+        starting_balance: float | None,
+    ) -> None:
+        # Arrange - nothing would ever read them, so carrying one is a mistake
         # rather than a harmless extra
 
         # Act / Assert
@@ -211,7 +254,8 @@ class TestCategoryAccrual:
                 user_id="test-user",
                 name="Groceries",
                 parent_id=uuid.uuid4(),
-                cost=10.0,
+                cost=cost,
+                starting_balance=starting_balance,
             )
 
     def test_a_root_cannot_be_a_pot(self) -> None:

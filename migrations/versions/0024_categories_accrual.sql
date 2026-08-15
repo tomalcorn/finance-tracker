@@ -12,43 +12,58 @@
 --   * **Planned Spend** is a plan for the month, set at the start of it. Nothing
 --     decrements it — not Bank It!, not payments. It is the pot's monthly
 --     allowance, so it merges into `budget` like every other category's.
---   * **A pot's balance is the payments attributed to it**, accumulated across
---     months. Nothing else. Bank It! stops moving a private counter and simply
---     writes a payment against the pot.
+--   * **A pot's balance is its starting balance plus the payments attributed to
+--     it**, accumulated across months. Bank It! stops moving a private counter
+--     and simply writes a payment against the pot.
 --
 -- So `accrual` is not a second way of computing things — it only picks the
 -- window, and 0025 branches the view on it.
 --
--- There is deliberately NO `banked` column. An editable balance sitting beside
--- the payments would be a second source of truth for the same money, and would
--- have to be unwound whenever a payment was edited or deleted; every other
--- balance in this schema (bank_accounts_view, expense_sources_view) is computed
--- from payments, and a pot is no different.
+-- `starting_balance` is modelled directly on `bank_accounts.starting_balance`,
+-- and behaves the same way: a figure you set, which nothing writes afterwards,
+-- with payments accumulating on top —
 --
--- `one_offs.banked` is therefore NOT migrated, and `one_offs` is left fully
--- intact — £2,185.50 of balances live there, of which only £235.50 exists as
--- `Bank:` payment rows, so the rest has no ledger history to rebuild from.
--- Deciding what becomes of it is a data question for the cutover, not something
--- this migration should answer by dropping it. Inventing payments to represent
--- it is NOT the answer: bank_accounts_view sums payments, so that would take
--- £1,950 off the account balances for money that never left them.
+--     ba.starting_balance + COALESCE(SUM(p.income - p.expense), 0)
+--
+-- That is deliberately NOT a stored running total. A counter that payments also
+-- updated would be a second source of truth for the same money and would need
+-- unwinding whenever a payment was edited or deleted. A starting balance cannot
+-- drift, because it describes where the pot began, not where it is now.
+--
+-- It carries the balances that predate pots being able to take payments:
+-- `one_offs.banked` holds £2,185.50 with only £235.50 of matching `Bank:`
+-- payment rows, so the rest has no ledger history to rebuild from. Inventing
+-- payments for it was rejected — bank_accounts_view sums payments, so that
+-- would take £1,950 off the account balances for money that never left them.
+-- As a starting balance it simply carries over, whole.
+--
+-- Like its bank-account counterpart it takes NO non-negative constraint. An
+-- overdrawn account starts below zero, and by the same licence a pot's starting
+-- balance can go negative — which is what lets money be moved out of a pot that
+-- was filled by payments.
 --
 -- Statements are idempotent (ADD COLUMN IF NOT EXISTS, DROP CONSTRAINT IF
 -- EXISTS before ADD, a backfill guarded on the column still being unset).
 
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS accrual TEXT NOT NULL DEFAULT 'monthly';
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS cost FLOAT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS starting_balance FLOAT;
 
 ALTER TABLE categories DROP CONSTRAINT IF EXISTS category_accrual_is_known;
 ALTER TABLE categories ADD CONSTRAINT category_accrual_is_known
     CHECK (accrual IN ('monthly', 'multi_month'));
 
--- `cost` belongs to multi-month pots and to nothing else: a pot needs a target
--- to be measured against, and a monthly category has nothing to do with one.
--- Same shape as 0017's joint_contribution_is_complete.
+-- The pot columns belong to multi-month pots and to nothing else: both set for
+-- one, neither set for anything else. A pot needs a target to be measured
+-- against and a balance to start from; a monthly category resets, so it has
+-- nothing to do with either. Same shape as 0017's
+-- joint_contribution_is_complete.
 ALTER TABLE categories DROP CONSTRAINT IF EXISTS category_accrual_columns_match;
 ALTER TABLE categories ADD CONSTRAINT category_accrual_columns_match
-    CHECK ((accrual = 'multi_month') = (cost IS NOT NULL));
+    CHECK (
+        (accrual = 'multi_month')
+        = (cost IS NOT NULL AND starting_balance IS NOT NULL)
+    );
 
 -- A root is always monthly. This is the correction to #248's own plan, which
 -- had accrual inherited from the root: root and children genuinely differ. The
@@ -73,17 +88,24 @@ ALTER TABLE categories ADD CONSTRAINT category_cost_is_not_negative
 -- pledge by the tracker's budget, and categories_view divides `budget` by the
 -- parent's.
 --
--- `one_offs.banked` is knowingly left behind: a pot's balance is its payments,
--- and those balances have no payments to speak of yet. Until the cutover
--- decides what becomes of them, a migrated pot reads as empty rather than as
--- however full it looked before. The figures themselves are safe in `one_offs`.
+-- `one_offs.banked` becomes the pot's starting balance, which carries every
+-- penny of it across without touching a single account balance.
+--
+-- The four existing `Bank:` payments (£235.50) are part of that figure, so they
+-- must NOT also be repointed onto their pots in #249 — that would count them
+-- twice. They stay resolved to the One-offs root, like every other payment
+-- against the hidden stand-in.
+--
+-- `one_offs` is left fully intact regardless, so the original figures remain
+-- recoverable until the old tables are dropped.
 --
 -- Guarded on accrual still being 'monthly' so a re-apply cannot overwrite a
 -- pot that has since been edited.
 UPDATE categories c
-SET accrual = 'multi_month',
-    cost    = COALESCE(oo.cost, 0),
-    budget  = COALESCE(oo.current_month, 0)
+SET accrual          = 'multi_month',
+    cost             = COALESCE(oo.cost, 0),
+    starting_balance = COALESCE(oo.banked, 0),
+    budget           = COALESCE(oo.current_month, 0)
 FROM one_offs oo
 WHERE oo.id = c.id
   AND c.accrual = 'monthly';

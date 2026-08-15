@@ -5,24 +5,23 @@
 -- The branch is ONLY a payment window:
 --
 --   * `monthly`     — payments in the current calendar month, as before.
---   * `multi_month` — payments over all time.
+--   * `multi_month` — the pot's starting balance plus payments over all time,
+--                     exactly as bank_accounts_view computes current_balance.
 --
--- Everything else follows from that. A pot's `current_month` is what has gone
--- into it since it opened, `remaining` is what is left to put in, and
--- `progress` is how full it is — all three from the payments alone, with no
--- stored balance beside them to drift out of step.
+-- Everything else follows from that. A pot's `current_month` is what is in it,
+-- `remaining` is what is left to put in, and `progress` is how full it is.
 --
--- Two things that are deliberately NOT how one_offs_view worked:
+-- One thing here is deliberately NOT how one_offs_view worked: **`remaining` no
+-- longer subtracts Planned Spend.** The old view computed
+-- `cost - current_month - banked`, where `current_month` was the typed-in
+-- pledge, so planning to spend money made the pot read as already emptier.
+-- Planned Spend is a plan for the month and nothing decrements it; only the
+-- starting balance and real payments move `remaining`.
 --
---   * **`remaining` no longer subtracts Planned Spend.** The old view computed
---     `cost - current_month - banked`, where `current_month` was the typed-in
---     pledge — so planning to spend money made the pot read as already emptier.
---     Planned Spend is a plan for the month and nothing decrements it; only
---     money actually attributed to the pot moves `remaining`.
---   * **`progress` is what has been paid in over the cost**, where the old view
---     counted the `banked` column. Until #251 lets payments reach a pot, that
---     reads 0% for the migrated ones — their old balances are still in
---     `one_offs`, awaiting the cutover decision (see 0024).
+-- `progress` is unchanged in practice: it was `banked / cost`, and it is now
+-- `(starting_balance + payments) / cost` — the same figure while the starting
+-- balance carries the old `banked` and nothing points at a pot yet, and the
+-- right one once #251 lets payments do so.
 --
 -- A monthly parent rolls up its children's MONTHLY figure, never their all-time
 -- one. That is what keeps the One-offs root meaning "put in this month"
@@ -34,7 +33,7 @@
 -- The temporary payment resolution from 0023 is unchanged and still goes in
 -- #249 — see the note on that ticket.
 --
--- The two new columns are appended at the END of the SELECT, after `split`:
+-- The three new columns are appended at the END of the SELECT, after `split`:
 -- CREATE OR REPLACE VIEW can only add columns to the end, never insert them
 -- mid-list, and replacing in place is what preserves the view's grants. Same
 -- reason 0002 and 0017 append theirs.
@@ -81,12 +80,13 @@ base AS (
         c.budget,
         c.accrual,
         c.cost,
+        c.starting_balance,
         c.ownership_type,
         c.joint_account_id,
         c._created_at,
         CASE
             WHEN c.accrual = 'multi_month'
-            THEN COALESCE(own.all_time, 0)
+            THEN COALESCE(c.starting_balance, 0) + COALESCE(own.all_time, 0)
             ELSE COALESCE(own.this_month, 0)
         END
         -- Children only ever roll up their monthly figure, and only a monthly
@@ -120,8 +120,8 @@ SELECT
     base.joint_account_id,
     base._created_at,
     base.current_month,
-    -- A pot measures what has been paid into it against its cost; a monthly
-    -- category measures this month's spend against this month's budget.
+    -- A pot measures what is in it against its cost; a monthly category
+    -- measures this month's spend against this month's budget.
     CASE
         WHEN base.accrual = 'multi_month'
         THEN base.cost - base.current_month
@@ -160,5 +160,6 @@ SELECT
             END
     END AS split,
     base.accrual,
-    base.cost
+    base.cost,
+    base.starting_balance
 FROM base;
