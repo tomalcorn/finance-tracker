@@ -3,6 +3,7 @@
 import datetime
 import uuid
 
+import pydantic
 import pytest
 
 from domain import entities, errors, read_models
@@ -179,6 +180,18 @@ class TestCategoryTree:
 
         # Assert
         assert not category.is_root
+
+    def test_a_negative_budget_is_refused(self) -> None:
+        # Arrange - a budget is a plan for money going out, so a negative one is
+        # not a smaller budget; migration 0022 holds the same rule on the table,
+        # which is where a grid edit lands without passing through this model
+        # Act / Assert
+        with pytest.raises(pydantic.ValidationError):
+            entities.CategoryModel(
+                user_id="test-user",
+                name="Groceries",
+                budget=-1.0,
+            )
 
     def test_a_category_cannot_be_its_own_parent(self) -> None:
         # Arrange - the one half of the depth rule visible from a single row;

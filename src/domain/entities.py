@@ -146,7 +146,7 @@ class CategoryModel(FinanceTrackerBaseModel):
         ),
     ] = None
     budget: Annotated[
-        float,
+        pydantic.NonNegativeFloat,
         pydantic.Field(description="What this category is allowed each month."),
     ] = 0.0
 

@@ -107,7 +107,7 @@ class CategoryView(_ViewBase):
         pydantic.Field(description="The category this one sits under, if any."),
     ] = None
     budget: Annotated[
-        float,
+        pydantic.NonNegativeFloat,
         pydantic.Field(description="What this category is allowed each month."),
     ]
 
