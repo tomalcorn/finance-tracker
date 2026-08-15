@@ -110,6 +110,20 @@ def _build_budget_tracker_config(
                     input_kwargs={"value": None},
                 ),
                 frontend_models.DFEColumnConfig(
+                    column_name="total_budget",
+                    column_config=st.column_config.NumberColumn(
+                        "Budget",
+                        format="£%.2f",
+                        required=True,
+                        width=column_widths.MONEY,
+                    ),
+                    button_label="Budget",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
+                    sorting=query.SortingValues.DESC,
+                    total=True,
+                ),
+                frontend_models.DFEColumnConfig(
                     editable=False,
                     column_name="split",
                     column_config=st.column_config.ProgressColumn(
@@ -123,20 +137,6 @@ def _build_budget_tracker_config(
                     button_label="Split",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
-                    total=True,
-                ),
-                frontend_models.DFEColumnConfig(
-                    column_name="total_budget",
-                    column_config=st.column_config.NumberColumn(
-                        "Budget",
-                        format="£%.2f",
-                        required=True,
-                        width=column_widths.MONEY,
-                    ),
-                    button_label="Budget",
-                    input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.2f"},
-                    sorting=query.SortingValues.DESC,
                     total=True,
                 ),
                 frontend_models.DFEColumnConfig(
@@ -345,19 +345,6 @@ def _build_income_sources_config(
                     input_kwargs={"value": None},
                 ),
                 frontend_models.DFEColumnConfig(
-                    editable=False,
-                    column_name="current_month",
-                    column_config=st.column_config.NumberColumn(
-                        roll_up_label,
-                        format="£%.2f",
-                        disabled=True,
-                        help=roll_up_help,
-                    ),
-                    button_label=roll_up_label,
-                    input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.2f"},
-                ),
-                frontend_models.DFEColumnConfig(
                     column_name="budget_tracker_ids",
                     column_config=st.column_config.MultiselectColumn(
                         "Budget Trackers",
@@ -371,6 +358,19 @@ def _build_income_sources_config(
                         "format_func": get_budget_tracker_name,
                     },
                     format_func=get_budget_tracker_name,
+                ),
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="current_month",
+                    column_config=st.column_config.NumberColumn(
+                        roll_up_label,
+                        format="£%.2f",
+                        disabled=True,
+                        help=roll_up_help,
+                    ),
+                    button_label=roll_up_label,
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
             ],
             sample_data=_INCOME_SOURCES_SAMPLE_DATA,

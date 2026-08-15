@@ -107,19 +107,6 @@ def _build_config(
                     total=True,
                 ),
                 frontend_models.DFEColumnConfig(
-                    editable=False,
-                    column_name="remaining",
-                    column_config=st.column_config.NumberColumn(
-                        "Remaining",
-                        format="£%.2f",
-                        disabled=True,
-                        width=column_widths.MONEY,
-                    ),
-                    button_label="Remaining",
-                    input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.2f"},
-                ),
-                frontend_models.DFEColumnConfig(
                     column_name="banked",
                     column_config=st.column_config.NumberColumn(
                         "Banked",
@@ -145,6 +132,19 @@ def _build_config(
                     button_label="Progress",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
+                ),
+                frontend_models.DFEColumnConfig(
+                    editable=False,
+                    column_name="remaining",
+                    column_config=st.column_config.NumberColumn(
+                        "Remaining",
+                        format="£%.2f",
+                        disabled=True,
+                        width=column_widths.MONEY,
+                    ),
+                    button_label="Remaining",
+                    input_widget=st.number_input,
+                    input_kwargs={"value": None, "format": "%.2f"},
                 ),
                 *(
                     [
