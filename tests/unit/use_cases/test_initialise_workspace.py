@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 USER_ID = "user-abc"
-ALL_ROOT_NAMES = set(entities.BudgetTrackerName)
+ALL_BUDGET_TRACKER_NAMES = set(entities.BudgetTrackerName)
 
 
 @pytest.fixture(name="category_repo")
@@ -48,9 +48,9 @@ def _use_case(
     )
 
 
-@pytest.fixture(name="build_root")
-def _build_root() -> "Callable[..., entities.CategoryModel]":
-    """Return a builder for a seeded root category."""
+@pytest.fixture(name="build_budget_tracker")
+def _build_budget_tracker() -> "Callable[..., entities.CategoryModel]":
+    """Return a builder for a seeded budget tracker."""
 
     def _build(name: entities.BudgetTrackerName) -> entities.CategoryModel:
         return entities.CategoryModel(user_id=USER_ID, name=name)
@@ -58,7 +58,7 @@ def _build_root() -> "Callable[..., entities.CategoryModel]":
     return _build
 
 
-def test_all_root_categories_are_created_for_a_fresh_user_with_correct_user_id(
+def test_all_budget_trackers_are_created_for_a_fresh_user_with_correct_user_id(
     use_case: initialise_workspace.InitialiseUserWorkspaceUseCase,
     category_repo: Any,  # noqa: ANN401
 ):
@@ -71,17 +71,17 @@ def test_all_root_categories_are_created_for_a_fresh_user_with_correct_user_id(
     created = category_repo.get_all()
     assert all(
         [
-            {category.name for category in created} == set(ALL_ROOT_NAMES),
+            {category.name for category in created} == set(ALL_BUDGET_TRACKER_NAMES),
             all(category.user_id == USER_ID for category in created),
         ],
     )
 
 
-def test_seeded_categories_are_roots(
+def test_seeded_budget_trackers_are_roots(
     use_case: initialise_workspace.InitialiseUserWorkspaceUseCase,
     category_repo: Any,  # noqa: ANN401
 ):
-    """Only roots are seeded: everything below them is the user's own (#250)."""
+    """A budget tracker is a root: everything below one is the user's own (#250)."""
     # Arrange - a fresh user has no categories at all
 
     # Act
@@ -91,35 +91,37 @@ def test_seeded_categories_are_roots(
     assert all(category.is_root for category in category_repo.get_all())
 
 
-def test_no_root_categories_are_duplicated_when_all_already_exist(
+def test_no_budget_trackers_are_duplicated_when_all_already_exist(
     use_case: initialise_workspace.InitialiseUserWorkspaceUseCase,
     category_repo: Any,  # noqa: ANN401
-    build_root: "Callable[..., entities.CategoryModel]",
+    build_budget_tracker: "Callable[..., entities.CategoryModel]",
 ):
     # Arrange
-    category_repo.seed(*[build_root(name) for name in entities.BudgetTrackerName])
+    category_repo.seed(
+        *[build_budget_tracker(name) for name in entities.BudgetTrackerName],
+    )
 
     # Act
     use_case.execute()
 
     # Assert
-    assert len(category_repo.get_all()) == len(ALL_ROOT_NAMES)
+    assert len(category_repo.get_all()) == len(ALL_BUDGET_TRACKER_NAMES)
 
 
 @pytest.mark.parametrize(
     "missing_name",
     [pytest.param(name, id=name.value) for name in entities.BudgetTrackerName],
 )
-def test_missing_root_category_is_created_when_others_exist(
+def test_missing_budget_tracker_is_created_when_others_exist(
     missing_name: entities.BudgetTrackerName,
     use_case: initialise_workspace.InitialiseUserWorkspaceUseCase,
     category_repo: Any,  # noqa: ANN401
-    build_root: "Callable[..., entities.CategoryModel]",
+    build_budget_tracker: "Callable[..., entities.CategoryModel]",
 ) -> None:
     # Arrange
     category_repo.seed(
         *[
-            build_root(name)
+            build_budget_tracker(name)
             for name in entities.BudgetTrackerName
             if name != missing_name
         ],
@@ -132,11 +134,11 @@ def test_missing_root_category_is_created_when_others_exist(
     assert missing_name in {category.name for category in category_repo.get_all()}
 
 
-def test_a_child_sharing_a_root_name_does_not_stand_in_for_the_root(
+def test_a_child_sharing_a_tracker_name_does_not_stand_in_for_it(
     use_case: initialise_workspace.InitialiseUserWorkspaceUseCase,
     category_repo: Any,  # noqa: ANN401
 ):
-    """A user's own "Savings" under Expenses is not the Savings root."""
+    """A user's own "Savings" under Expenses is not the Savings budget tracker."""
     # Arrange
     category_repo.seed(
         entities.CategoryModel(
@@ -153,7 +155,7 @@ def test_a_child_sharing_a_root_name_does_not_stand_in_for_the_root(
     seeded_roots = {
         category.name for category in category_repo.get_all() if category.is_root
     }
-    assert seeded_roots == set(ALL_ROOT_NAMES)
+    assert seeded_roots == set(ALL_BUDGET_TRACKER_NAMES)
 
 
 def test_default_settings_row_created_for_a_fresh_user(

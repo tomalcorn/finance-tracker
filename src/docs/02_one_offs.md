@@ -28,7 +28,7 @@ but not as part of your normal monthly spending. Examples include:
 
 The `Bank It` button converts selected one-off amounts into real payment entries.
 When you bank items, the app creates an expense payment in the Payments block,
-attributed to the goal itself — and nothing else.
+attributed to the goal itself.
 
 `Banked` is that goal's `Opening Balance` plus every payment attributed to it,
 so it rises by what you just banked. `Planned Spend` stays where you set it:

@@ -516,7 +516,7 @@ def render(
 
     Args:
         sources: The grid data sources behind the three tabs.
-        budget_tracker_map: ``{id: name}`` of the user's root categories.
+        budget_tracker_map: ``{id: name}`` of the user's budget trackers.
         contribute_button: The personal→joint contribution button, rendered
             above the budget tracker grid. Passed only by the personal page for a
             user who belongs to a joint account; ``None`` (the joint page and

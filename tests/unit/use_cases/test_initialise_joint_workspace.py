@@ -14,8 +14,8 @@ from use_cases.initialise_joint_workspace import InitialiseJointWorkspaceUseCase
 USER_ID = "user-abc"
 JOINT_ACCOUNT_ID = uuid.uuid4()
 
-# The joint seed creates every root category except JOINT.
-JOINT_ROOT_NAMES = {
+# The joint seed creates every budget tracker except JOINT.
+JOINT_BUDGET_TRACKER_NAMES = {
     name
     for name in entities.BudgetTrackerName
     if name is not entities.BudgetTrackerName.JOINT
@@ -55,8 +55,8 @@ def joint_account() -> entities.JointAccountModel:
 
 
 @pytest.fixture
-def all_joint_roots() -> list[entities.CategoryModel]:
-    """Return one joint-stamped root category per seeded joint name."""
+def all_joint_budget_trackers() -> list[entities.CategoryModel]:
+    """Return one joint-stamped budget tracker per seeded joint name."""
     return [
         entities.CategoryModel(
             user_id=USER_ID,
@@ -64,7 +64,7 @@ def all_joint_roots() -> list[entities.CategoryModel]:
             ownership_type=entities.OwnershipType.JOINT,
             joint_account_id=JOINT_ACCOUNT_ID,
         )
-        for name in JOINT_ROOT_NAMES
+        for name in JOINT_BUDGET_TRACKER_NAMES
     ]
 
 
@@ -106,7 +106,7 @@ def use_case(build_use_case: UseCaseBuilder) -> InitialiseJointWorkspaceUseCase:
     return build_use_case()
 
 
-def test_joint_root_categories_created_excluding_joint_with_correct_user_id(
+def test_joint_budget_trackers_created_excluding_joint_with_correct_user_id(
     use_case: InitialiseJointWorkspaceUseCase,
     category_repo: Any,  # noqa: ANN401
 ) -> None:
@@ -117,13 +117,13 @@ def test_joint_root_categories_created_excluding_joint_with_correct_user_id(
     created = category_repo.get_all()
     assert all(
         [
-            {category.name for category in created} == JOINT_ROOT_NAMES,
+            {category.name for category in created} == JOINT_BUDGET_TRACKER_NAMES,
             all(category.user_id == USER_ID for category in created),
         ],
     )
 
 
-def test_created_categories_are_joint_stamped_roots(
+def test_created_budget_trackers_are_joint_stamped_roots(
     use_case: InitialiseJointWorkspaceUseCase,
     category_repo: Any,  # noqa: ANN401
 ) -> None:
@@ -139,33 +139,35 @@ def test_created_categories_are_joint_stamped_roots(
     )
 
 
-def test_no_root_categories_are_duplicated_when_all_already_exist(
+def test_no_budget_trackers_are_duplicated_when_all_already_exist(
     use_case: InitialiseJointWorkspaceUseCase,
     category_repo: Any,  # noqa: ANN401
-    all_joint_roots: list[entities.CategoryModel],
+    all_joint_budget_trackers: list[entities.CategoryModel],
 ) -> None:
     # Arrange
-    category_repo.seed(*all_joint_roots)
+    category_repo.seed(*all_joint_budget_trackers)
 
     # Act
     use_case.execute()
 
     # Assert
-    assert len(category_repo.get_all()) == len(JOINT_ROOT_NAMES)
+    assert len(category_repo.get_all()) == len(JOINT_BUDGET_TRACKER_NAMES)
 
 
 @pytest.mark.parametrize(
     "missing_name",
-    [pytest.param(name, id=name.value) for name in JOINT_ROOT_NAMES],
+    [pytest.param(name, id=name.value) for name in JOINT_BUDGET_TRACKER_NAMES],
 )
-def test_missing_root_category_is_created_when_others_exist(
+def test_missing_budget_tracker_is_created_when_others_exist(
     missing_name: entities.BudgetTrackerName,
     use_case: InitialiseJointWorkspaceUseCase,
     category_repo: Any,  # noqa: ANN401
-    all_joint_roots: list[entities.CategoryModel],
+    all_joint_budget_trackers: list[entities.CategoryModel],
 ) -> None:
     # Arrange
-    category_repo.seed(*(r for r in all_joint_roots if r.name != missing_name))
+    category_repo.seed(
+        *(r for r in all_joint_budget_trackers if r.name != missing_name),
+    )
 
     # Act
     use_case.execute()

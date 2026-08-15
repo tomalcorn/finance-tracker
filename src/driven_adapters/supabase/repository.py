@@ -461,58 +461,6 @@ def category_repository(
     )
 
 
-def budget_tracker_repository(
-    user_id: str,
-    cache: "cache_mod.CacheGateway",
-    connection: "st_supabase_connection.SupabaseConnection",
-    ownership: entities.OwnershipType,
-) -> SupabaseRepository[entities.BudgetTrackerItemModel, read_models.BudgetTrackerView]:
-    """Build the budget-tracker repository.
-
-    Dormant since the categories cutover (#250): nothing builds one any more.
-    It is kept, like the table it reads, so the cutover stays recoverable, and
-    goes with that table in the later drop ticket.
-    """
-    return SupabaseRepository(
-        user_id,
-        RepoSpec(
-            parse=entities.BudgetTrackerItemModel.model_validate,
-            view_model=read_models.BudgetTrackerView,
-            read_table=table_names.ViewNames.BUDGET_TRACKER,
-            write_table=table_names.TableNames.BUDGET_TRACKER,
-        ),
-        cache,
-        connection,
-        ownership,
-    )
-
-
-def expense_source_repository(
-    user_id: str,
-    cache: "cache_mod.CacheGateway",
-    connection: "st_supabase_connection.SupabaseConnection",
-    ownership: entities.OwnershipType,
-) -> SupabaseRepository[entities.ExpenseSourceModel, read_models.ExpenseSourceView]:
-    """Build the expense-sources repository.
-
-    Dormant since the categories cutover (#250): nothing builds one any more.
-    It is kept, like the table it reads, so the cutover stays recoverable, and
-    goes with that table in the later drop ticket.
-    """
-    return SupabaseRepository(
-        user_id,
-        RepoSpec(
-            parse=entities.ExpenseSourceModel.model_validate,
-            view_model=read_models.ExpenseSourceView,
-            read_table=table_names.ViewNames.EXPENSE_SOURCES,
-            write_table=table_names.TableNames.EXPENSE_SOURCES,
-        ),
-        cache,
-        connection,
-        ownership,
-    )
-
-
 def income_source_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
@@ -527,32 +475,6 @@ def income_source_repository(
             view_model=read_models.IncomeSourceView,
             read_table=table_names.ViewNames.INCOME_SOURCES,
             write_table=table_names.TableNames.INCOME_SOURCES,
-        ),
-        cache,
-        connection,
-        ownership,
-    )
-
-
-def one_off_repository(
-    user_id: str,
-    cache: "cache_mod.CacheGateway",
-    connection: "st_supabase_connection.SupabaseConnection",
-    ownership: entities.OwnershipType,
-) -> SupabaseRepository[entities.OneOffItemModel, read_models.OneOffView]:
-    """Build the one-offs repository.
-
-    Dormant since the categories cutover (#250): nothing builds one any more.
-    It is kept, like the table it reads, so the cutover stays recoverable, and
-    goes with that table in the later drop ticket.
-    """
-    return SupabaseRepository(
-        user_id,
-        RepoSpec(
-            parse=entities.OneOffItemModel.model_validate,
-            view_model=read_models.OneOffView,
-            read_table=table_names.ViewNames.ONE_OFFS,
-            write_table=table_names.TableNames.ONE_OFFS,
         ),
         cache,
         connection,

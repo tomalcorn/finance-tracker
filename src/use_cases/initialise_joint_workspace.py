@@ -1,7 +1,8 @@
 """Joint workspace initialisation.
 
-Seeds the root categories and the settings row for a joint account, stamping
-joint ownership on every row it creates. The personal-side "Joint" root is
+Seeds the budget trackers and the settings row for a joint account, stamping
+joint ownership on every row it creates. A budget tracker is a root category
+now, but it is still a budget tracker. The personal-side "Joint" one is
 deliberately absent: it is the personal-side anchor for contributions,
 meaningless inside the joint account itself (see #191).
 """
@@ -17,10 +18,10 @@ if TYPE_CHECKING:
 
     from ports import repository
 
-# The joint account seeds every root the personal workspace does except JOINT:
-# a joint-owned copy of the personal contribution anchor would be meaningless
-# and would double up the contribution model.
-_JOINT_ROOT_CATEGORY_NAMES = tuple(
+# The joint account seeds every budget tracker the personal workspace does
+# except JOINT: a joint-owned copy of the personal contribution anchor would be
+# meaningless and would double up the contribution model.
+_JOINT_BUDGET_TRACKER_NAMES = tuple(
     name
     for name in entities.BudgetTrackerName
     if name is not entities.BudgetTrackerName.JOINT
@@ -28,7 +29,7 @@ _JOINT_ROOT_CATEGORY_NAMES = tuple(
 
 
 class InitialiseJointWorkspaceUseCase:
-    """Seeds the root categories and settings for a joint account."""
+    """Seeds the budget trackers and settings for a joint account."""
 
     def __init__(
         self,
@@ -55,7 +56,7 @@ class InitialiseJointWorkspaceUseCase:
         self._settings_repo = settings_repo
 
     def execute(self) -> None:
-        """Ensure the user's joint account has its root categories.
+        """Ensure the user's joint account has its budget trackers.
 
         Idempotent (create-if-missing), matching the personal workspace use case.
         A user who belongs to no joint account has nothing to seed, so this is a
@@ -70,7 +71,7 @@ class InitialiseJointWorkspaceUseCase:
             account = self._resolve_joint_account()
             if account is None:
                 return
-            self._ensure_default_root_categories(account.id)
+            self._ensure_default_budget_trackers(account.id)
             self._ensure_default_settings()
 
         except port_errors.RepositoryError as e:
@@ -83,8 +84,12 @@ class InitialiseJointWorkspaceUseCase:
         accounts = self._joint_account_repo.get_all()
         return accounts[0] if accounts else None
 
-    def _ensure_default_root_categories(self, joint_account_id: "uuid.UUID") -> None:
-        """Create any missing root category for the account."""
+    def _ensure_default_budget_trackers(self, joint_account_id: "uuid.UUID") -> None:
+        """Create any missing budget tracker for the account.
+
+        A budget tracker is a root category: the four fixed names, parented to
+        nothing, which the user's own categories hang off.
+        """
         existing_names = {
             category.name
             for category in self._category_repo.get_all()
@@ -99,7 +104,7 @@ class InitialiseJointWorkspaceUseCase:
                     ownership_type=entities.OwnershipType.JOINT,
                     joint_account_id=joint_account_id,
                 )
-                for name in _JOINT_ROOT_CATEGORY_NAMES
+                for name in _JOINT_BUDGET_TRACKER_NAMES
                 if name not in existing_names
             ],
         )
