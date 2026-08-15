@@ -114,24 +114,40 @@ class CategoryView(_ViewBase):
         float,
         pydantic.Field(
             description=(
-                "Computed: this category's own payments this month plus its children's."
+                "Computed: this category's own payments this month plus its "
+                "children's. Signed — a month whose refunds outweigh its "
+                "spending nets out below zero."
             ),
         ),
     ]
     remaining: Annotated[
         float,
-        pydantic.Field(description="budget minus current_month."),
+        pydantic.Field(
+            description="budget minus current_month; negative once overspent.",
+        ),
     ]
+    # Deliberately unconstrained, both ends. Upper: `progress` is spend over
+    # budget, and a budget is there to be overshot — live data already carries a
+    # category at 206%, so `le=100` would fail the read for every row in the
+    # batch. Lower: a refund is a negative expense (#230), so a month of nothing
+    # but reimbursements puts it below zero. Only the *display* is 0-100, and
+    # that clamping belongs to ProgressColumn, not here.
     progress: Annotated[
-        float,
-        pydantic.Field(description="Percentage of budget consumed (0-100)."),
-    ]
-    split: Annotated[
         float,
         pydantic.Field(
             description=(
+                "Percentage of budget consumed. Exceeds 100 when overspent, and "
+                "goes negative when refunds outweigh spending."
+            ),
+        ),
+    ]
+    split: Annotated[
+        pydantic.NonNegativeFloat,
+        pydantic.Field(
+            description=(
                 "A child's share of its parent's budget, or a root's share of "
-                "total income (0-100)."
+                "total income. Non-negative, but exceeds 100 when a category is "
+                "allowed more than what it is measured against."
             ),
         ),
     ]
