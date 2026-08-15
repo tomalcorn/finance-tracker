@@ -739,6 +739,32 @@ class TestCategoriesInvalidation:
         # Assert
         assert f"{_USER_ID}:{table_names.ViewNames.CATEGORIES}" in cache.invalidated
 
+    def test_deleting_a_category_busts_what_its_repoint_rewrites(self) -> None:
+        # Arrange - deleting a category moves every row attributed to it up onto
+        # its parent (trigger, 0030), so the delete rewrites three tables this
+        # repository never writes itself
+        cache = FakeCache([])
+        repo = repository.category_repository(
+            _USER_ID,
+            cache,
+            mock.MagicMock(),
+            _PERSONAL,
+        )
+
+        # Act
+        repo.apply_deletions([str(uuid.uuid4())])
+
+        # Assert - without these the payments grid keeps showing the deleted
+        # category against a payment that has already moved off it
+        assert all(
+            f"{_USER_ID}:{key}" in cache.invalidated
+            for key in (
+                table_names.TableNames.PAYMENTS,
+                table_names.ViewNames.SUBSCRIPTIONS,
+                table_names.TableNames.QUICK_BUTTONS,
+            )
+        )
+
 
 class TestCascadeAcrossOwnership:
     """A cascade that crosses the ownership split busts the other half too."""

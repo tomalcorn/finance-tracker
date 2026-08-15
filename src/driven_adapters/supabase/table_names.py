@@ -82,7 +82,19 @@ CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
     # same view — and the tree never crosses the ownership split (a child is
     # owned exactly as its root is), so there is no cascade to declare in
     # CASCADES_ACROSS_OWNERSHIP.
-    TableNames.CATEGORIES: [ViewNames.CATEGORIES],
+    #
+    # The other three are the repoint-to-parent trigger (0030): deleting a
+    # category moves every payment, subscription and quick button attributed to
+    # it up onto its parent — writes to three tables this repository never
+    # issues and would otherwise never bust. Only what *reads* an attribution is
+    # listed: the amounts are untouched, so no balance or income total moves,
+    # which is why the payment-derived views other than categories_view stay out.
+    TableNames.CATEGORIES: [
+        ViewNames.CATEGORIES,
+        TableNames.PAYMENTS,
+        ViewNames.SUBSCRIPTIONS,
+        TableNames.QUICK_BUTTONS,
+    ],
     TableNames.BUDGET_TRACKER: [
         ViewNames.ONE_OFFS,
         ViewNames.EXPENSE_SOURCES,
