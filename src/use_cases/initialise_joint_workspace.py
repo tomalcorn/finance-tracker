@@ -131,14 +131,14 @@ class InitialiseJointWorkspaceUseCase:
         for bt_name in _HIDDEN_EXPENSE_SOURCE_BT_NAMES:
             bt_id = bt_id_by_name[bt_name]
 
-            expense_source_name = bt_name.value
-            existing = es_by_name.get(expense_source_name)
+            category_name = bt_name.value
+            existing = es_by_name.get(category_name)
 
             if existing is None:
                 to_save.append(
                     entities.ExpenseSourceModel(
                         user_id=self._user_id,
-                        name=expense_source_name,
+                        name=category_name,
                         budget_tracker_ids=[bt_id],
                         ownership_type=entities.OwnershipType.JOINT,
                         joint_account_id=joint_account_id,

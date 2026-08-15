@@ -61,7 +61,7 @@ class _EditContext:
 
     repo: "repository.Repository[entities.QuickButtonModel]"
     bank_account_map: dict[str, str]
-    expense_source_map: dict[str, str]
+    category_map: dict[str, str]
     buttons: "list[entities.QuickButtonModel]"
 
 
@@ -79,7 +79,7 @@ class _ButtonInputs:
     payment_name: str | None
     expense: float | None
     bank_account_id: str | None
-    expense_source_id: str | None
+    category_id: str | None
     icon: str | None
     display_order: int
 
@@ -182,7 +182,7 @@ def _button_row(
         "payment_name": inputs.payment_name,
         "expense": inputs.expense,
         "bank_account_id": inputs.bank_account_id,
-        "expense_source_id": inputs.expense_source_id,
+        "category_id": inputs.category_id,
         "icon": inputs.icon or None,
         "display_order": inputs.display_order,
     }
@@ -247,7 +247,7 @@ def _prompt_dialog(
     opens with only the amount waiting.
     """
     bank_account_ids = list(context.bank_account_map)
-    expense_source_ids = list(context.expense_source_map)
+    category_ids = list(context.category_map)
     key = f"quick_prompt_{button.id}"
 
     # The payment's name, not the button's: the preset if it has one, and
@@ -282,11 +282,11 @@ def _prompt_dialog(
         format_func=lookups.make_name_formatter(context.bank_account_map),
         key=f"{key}_bank_account",
     )
-    expense_source_id = st.selectbox(
+    category_id = st.selectbox(
         "Expense source",
-        options=expense_source_ids,
-        index=_option_index(expense_source_ids, button.expense_source_id),
-        format_func=lookups.make_name_formatter(context.expense_source_map),
+        options=category_ids,
+        index=_option_index(category_ids, button.category_id),
+        format_func=lookups.make_name_formatter(context.category_map),
         key=f"{key}_expense_source",
     )
 
@@ -304,7 +304,7 @@ def _prompt_dialog(
             "name": name,
             "expense": float(expense),
             "bank_account_id": bank_account_id,
-            "expense_source_id": expense_source_id or None,
+            "category_id": category_id or None,
         }
         if isinstance(payment_date, datetime.date):
             overrides["payment_date"] = payment_date.isoformat()
@@ -326,7 +326,7 @@ def _config_dialog(
         return
 
     bank_account_ids = list(context.bank_account_map)
-    expense_source_ids = list(context.expense_source_map)
+    category_ids = list(context.category_map)
     key = f"quick_button_form_{existing.id if existing else 'new'}"
 
     # The button itself: what the tile says and how it behaves.
@@ -399,13 +399,11 @@ def _config_dialog(
         format_func=lookups.make_name_formatter(context.bank_account_map),
         key=f"{key}_bank_account",
     )
-    expense_source_id = st.selectbox(
+    category_id = st.selectbox(
         "Expense source (optional)",
-        options=expense_source_ids,
-        index=_option_index(expense_source_ids, existing.expense_source_id)
-        if existing
-        else None,
-        format_func=lookups.make_name_formatter(context.expense_source_map),
+        options=category_ids,
+        index=_option_index(category_ids, existing.category_id) if existing else None,
+        format_func=lookups.make_name_formatter(context.category_map),
         help="Leave empty to log the payment uncategorised.",
         key=f"{key}_expense_source",
     )
@@ -418,7 +416,7 @@ def _config_dialog(
         # what the entity wants: it refuses a stored zero outright.
         expense=float(expense) if expense else None,
         bank_account_id=bank_account_id,
-        expense_source_id=expense_source_id,
+        category_id=category_id,
         icon=icon,
         display_order=int(display_order),
     )
@@ -528,7 +526,7 @@ def render(
     quick_button_repo: "repository.Repository[entities.QuickButtonModel]",
     log_use_case: "log_quick_payment.LogQuickPaymentUseCase",
     bank_account_map: dict[str, str],
-    expense_source_map: dict[str, str],
+    category_map: dict[str, str],
 ) -> None:
     """Render the quick expenses block.
 
@@ -536,7 +534,7 @@ def render(
         quick_button_repo: The buttons to show, and where edits are written.
         log_use_case: Logs the payment behind a tapped button.
         bank_account_map: ``{id: name}`` of the accounts a button can log from.
-        expense_source_map: ``{id: name}`` of the sources a button can book to.
+        category_map: ``{id: name}`` of the sources a button can book to.
 
     """
     _flush_toast()
@@ -544,7 +542,7 @@ def render(
     context = _EditContext(
         repo=quick_button_repo,
         bank_account_map=bank_account_map,
-        expense_source_map=expense_source_map,
+        category_map=category_map,
         buttons=buttons,
     )
 

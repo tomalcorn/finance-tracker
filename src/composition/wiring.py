@@ -165,10 +165,14 @@ def bank_account_id_name_map(
     return {str(model.id): str(model.name) for model in repo.get_all()}
 
 
-def expense_source_id_name_map(
+def category_id_name_map(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
 ) -> dict[str, str]:
-    """Return an ``{id: name}`` map of the current user's expense sources."""
+    """Return an ``{id: name}`` map of the categories a payment can be booked to.
+
+    Still read from ``expense_sources``, whose ids are the categories' own
+    (preserved in migration 0020). #251 reads the tree itself.
+    """
     repo = supabase_repos.expense_source_repository(
         *_repo_deps(),
         ownership,
@@ -191,9 +195,9 @@ def joint_expense_source_id() -> "uuid.UUID | None":
     """Return the id of the hidden personal "Joint" expense source, if it exists.
 
     The anchor every contribution's personal leg is booked against, so a
-    contribution subscription's ``expense_source_id`` is derived from it rather
+    contribution subscription's ``category_id`` is derived from it rather
     than chosen. Reads the same cached personal slice
-    :func:`expense_source_id_name_map` does, so it costs no extra fetch.
+    :func:`category_id_name_map` does, so it costs no extra fetch.
     """
     repo = supabase_repos.expense_source_repository(
         *_repo_deps(),

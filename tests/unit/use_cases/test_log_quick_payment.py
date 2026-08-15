@@ -36,7 +36,7 @@ def quick_button() -> entities.QuickButtonModel:
         name="Coffee",
         expense=COFFEE_PRICE,
         bank_account_id=BANK_ACCOUNT_ID,
-        expense_source_id=EXPENSE_SOURCE_ID,
+        category_id=EXPENSE_SOURCE_ID,
         icon="☕",
     )
 
@@ -108,7 +108,7 @@ def test_execute_writes_the_preset_the_button_holds(
             payment.name == "Coffee",
             payment.expense == COFFEE_PRICE,
             payment.bank_account_id == BANK_ACCOUNT_ID,
-            payment.expense_source_id == EXPENSE_SOURCE_ID,
+            payment.category_id == EXPENSE_SOURCE_ID,
             payment.payment_date == PAYMENT_DATE,
             payment.payment_type == "expense",
             payment.checked is False,
@@ -178,7 +178,7 @@ def test_execute_leaves_an_uncategorised_button_uncategorised(
     use_case.execute(button.id)
 
     # Assert
-    assert _saved_expense(payment_repo).expense_source_id is None
+    assert _saved_expense(payment_repo).category_id is None
 
 
 def test_execute_raises_when_the_button_no_longer_exists(
@@ -249,7 +249,7 @@ def prompt_button() -> entities.QuickButtonModel:
         user_id=USER_ID,
         name="Groceries",
         mode=entities.QuickButtonMode.PROMPT,
-        expense_source_id=EXPENSE_SOURCE_ID,
+        category_id=EXPENSE_SOURCE_ID,
     )
 
 
@@ -286,7 +286,7 @@ def test_execute_keeps_the_preset_a_tap_did_not_supply(
         [
             payment.name == "Coffee",
             payment.bank_account_id == BANK_ACCOUNT_ID,
-            payment.expense_source_id == EXPENSE_SOURCE_ID,
+            payment.category_id == EXPENSE_SOURCE_ID,
         ],
     )
 
@@ -316,7 +316,7 @@ def test_execute_logs_a_prompt_button_from_the_details_alone(
             payment.expense == SHOP_TOTAL,
             payment.bank_account_id == BANK_ACCOUNT_ID,
             payment.name == "Big shop",
-            payment.expense_source_id == EXPENSE_SOURCE_ID,
+            payment.category_id == EXPENSE_SOURCE_ID,
         ],
     )
 

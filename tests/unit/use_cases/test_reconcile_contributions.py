@@ -45,7 +45,7 @@ def contribution() -> entities.SubscriptionModel:
         amount=AMOUNT,
         cadence="monthly",
         bank_account_id=BANK_ACCOUNT_ID,
-        expense_source_id=EXPENSE_SOURCE_ID,
+        category_id=EXPENSE_SOURCE_ID,
         start_date=datetime.date(2026, 1, 1),
         joint_bank_account_id=JOINT_BANK_ACCOUNT_ID,
         joint_income_source_id=JOINT_INCOME_SOURCE_ID,
@@ -61,7 +61,7 @@ def plain_subscription() -> entities.SubscriptionModel:
         amount=15.99,
         cadence="monthly",
         bank_account_id=BANK_ACCOUNT_ID,
-        expense_source_id=EXPENSE_SOURCE_ID,
+        category_id=EXPENSE_SOURCE_ID,
         start_date=datetime.date(2026, 1, 1),
     )
 
@@ -134,7 +134,7 @@ def _expense_leg(
         expense=sub.amount,
         payment_date=payment_date,
         bank_account_id=sub.bank_account_id,
-        expense_source_id=sub.expense_source_id,
+        category_id=sub.category_id,
         subscription_id=sub.id,
         linked_payment_id=linked_payment_id,
     )

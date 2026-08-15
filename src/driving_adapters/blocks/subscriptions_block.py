@@ -50,7 +50,7 @@ _SAMPLE_DATA = pd.DataFrame(
         "amount": [0.0],
         "cadence": ["monthly"],
         "bank_account_id": ["example bank account"],
-        "expense_source_id": ["example expense source"],
+        "category_id": ["example expense source"],
         "start_date": [_TODAY],
         "end_date": [None],
         "is_active": [True],
@@ -88,7 +88,7 @@ class JointContributionLookups:
     income_source_map: dict[str, str]
     """``{id: name}`` of the joint income sources to book the arrival against."""
 
-    expense_source_id: "uuid.UUID | None" = None
+    category_id: "uuid.UUID | None" = None
     """The hidden personal "Joint" expense source the expense leg is booked to.
 
     Derived, never chosen, so it is merged into a new row rather than offered as
@@ -266,7 +266,7 @@ def _selectbox_column(
 def _build_config(
     data_source: "data_source_mod.GridDataSource",
     bank_account_map: dict[str, str],
-    expense_source_map: dict[str, str],
+    category_map: dict[str, str],
     *,
     split_out_contributions: bool,
 ) -> frontend_models.DFEConfig:
@@ -293,12 +293,12 @@ def _build_config(
                     ),
                 ),
                 _selectbox_column(
-                    "expense_source_id",
+                    "category_id",
                     "Expense Source",
                     "The expense source/budget tracker this comes out of.",
-                    list(expense_source_map.keys()),
+                    list(category_map.keys()),
                     lookups.make_name_formatter(
-                        expense_source_map,
+                        category_map,
                         "Unknown Expense Source",
                     ),
                 ),
@@ -327,7 +327,7 @@ def _build_contributions_config(
             key_prefix_override=_CONTRIBUTIONS_KEY_PREFIX,
             data_source=data_source,
             row_predicate=_is_contribution,
-            extra_row_values={"expense_source_id": joint.expense_source_id},
+            extra_row_values={"category_id": joint.category_id},
         ),
         display=frontend_models.GridDisplay(
             columns=[
@@ -369,7 +369,7 @@ def _build_contributions_config(
 def _configs(
     data_source: "data_source_mod.GridDataSource",
     bank_account_map: dict[str, str],
-    expense_source_map: dict[str, str],
+    category_map: dict[str, str],
     joint: JointContributionLookups | None,
 ) -> list[frontend_models.DFEConfig]:
     """Build every grid config this block renders, in tab order."""
@@ -377,7 +377,7 @@ def _configs(
         _build_config(
             data_source,
             bank_account_map,
-            expense_source_map,
+            category_map,
             split_out_contributions=joint is not None,
         ),
     ]
@@ -391,22 +391,22 @@ def _configs(
 def commit(
     data_source: "data_source_mod.GridDataSource",
     bank_account_map: dict[str, str],
-    expense_source_map: dict[str, str],
+    category_map: dict[str, str],
     joint: JointContributionLookups | None = None,
 ) -> None:
     """Apply any pending backend updates for this block."""
-    for config in _configs(data_source, bank_account_map, expense_source_map, joint):
+    for config in _configs(data_source, bank_account_map, category_map, joint):
         grid.commit(config)
 
 
 def render(
     data_source: "data_source_mod.GridDataSource",
     bank_account_map: dict[str, str],
-    expense_source_map: dict[str, str],
+    category_map: dict[str, str],
     joint: JointContributionLookups | None = None,
 ) -> None:
     """Render the subscriptions block, with a contributions tab when there is one."""
-    configs = _configs(data_source, bank_account_map, expense_source_map, joint)
+    configs = _configs(data_source, bank_account_map, category_map, joint)
     if len(configs) == 1:
         grid.render(configs[0])
         return

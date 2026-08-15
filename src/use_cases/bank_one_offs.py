@@ -71,7 +71,7 @@ class BankOneOffsUseCase:
             if item.current_month <= 0:
                 raise errors.AmountToBankLTEZeroError(item.name)
 
-        expense_source_id = self._resolve_one_offs_expense_source()
+        category_id = self._resolve_one_offs_expense_source()
 
         banked_items = []
         payment_rows: list[entities.RawRow] = []
@@ -96,7 +96,7 @@ class BankOneOffsUseCase:
                     "expense": monthly_contribution,
                     "payment_date": payment_date,
                     "bank_account_id": bank_account_id,
-                    "expense_source_id": expense_source_id,
+                    "category_id": category_id,
                 },
             )
 

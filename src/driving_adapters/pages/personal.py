@@ -45,7 +45,7 @@ with error_boundary.boundary("loading your personal dashboard"):
 
     # Foreign-key id→name maps, shared across the blocks that display them.
     bank_account_map = wiring.bank_account_id_name_map()
-    expense_source_map = wiring.expense_source_id_name_map()
+    category_map = wiring.category_id_name_map()
     income_source_map = wiring.income_source_id_name_map()
     budget_tracker_map = wiring.budget_tracker_id_name_map()
 
@@ -78,7 +78,7 @@ with error_boundary.boundary("loading your personal dashboard"):
         joint_contributions = subscriptions_block.JointContributionLookups(
             bank_account_map=joint_bank_account_map,
             income_source_map=joint_income_source_map,
-            expense_source_id=wiring.joint_expense_source_id(),
+            category_id=wiring.joint_expense_source_id(),
         )
 
 summary_container = st.container(border=True)
@@ -93,7 +93,7 @@ with error_boundary.boundary("saving your latest changes"):
     payments_block.commit(
         payment_data_source,
         bank_account_map,
-        expense_source_map,
+        category_map,
         income_source_map,
     )
     budget_tracker_block.commit(
@@ -105,7 +105,7 @@ with error_boundary.boundary("saving your latest changes"):
     subscriptions_block.commit(
         subscription_data_source,
         bank_account_map,
-        expense_source_map,
+        category_map,
         joint_contributions,
     )
 
@@ -141,7 +141,7 @@ with payments_container, error_boundary.boundary("loading your payments"):
     payments_block.render(
         payment_data_source,
         bank_account_map,
-        expense_source_map,
+        category_map,
         income_source_map,
     )
 
@@ -156,6 +156,6 @@ with subscriptions_container, error_boundary.boundary("loading your subscription
     subscriptions_block.render(
         subscription_data_source,
         bank_account_map,
-        expense_source_map,
+        category_map,
         joint_contributions,
     )

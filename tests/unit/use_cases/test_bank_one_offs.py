@@ -218,7 +218,7 @@ def test_payment_uses_current_month_not_post_update_banked(
 # ---------------------------------------------------------------------------
 
 
-def test_payment_has_expense_source_id_when_one_offs_tracker_and_source_exist(
+def test_payment_has_category_id_when_one_offs_tracker_and_source_exist(
     build_use_case: "UseCaseBuilder",
     build_payment_repo: "conftest.PaymentRepoBuilder",
 ):
@@ -240,7 +240,7 @@ def test_payment_has_expense_source_id_when_one_offs_tracker_and_source_exist(
     # Assert
     payment = payment_repo.saved[0]
     assert isinstance(payment, entities.ExpensePaymentModel)
-    assert payment.expense_source_id == source.id
+    assert payment.category_id == source.id
 
 
 @pytest.mark.parametrize(
@@ -250,7 +250,7 @@ def test_payment_has_expense_source_id_when_one_offs_tracker_and_source_exist(
         pytest.param([_make_one_offs_tracker()], [], id="tracker_exists_but_no_source"),
     ],
 )
-def test_payment_expense_source_id_is_none_when_lookup_cannot_resolve(
+def test_payment_category_id_is_none_when_lookup_cannot_resolve(
     budget_trackers: list[entities.BudgetTrackerItemModel],
     expense_sources: list[entities.ExpenseSourceModel],
     build_use_case: "UseCaseBuilder",
@@ -272,7 +272,7 @@ def test_payment_expense_source_id_is_none_when_lookup_cannot_resolve(
     # Assert
     payment = payment_repo.saved[0]
     assert isinstance(payment, entities.ExpensePaymentModel)
-    assert payment.expense_source_id is None
+    assert payment.category_id is None
 
 
 # ---------------------------------------------------------------------------
