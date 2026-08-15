@@ -1,3 +1,9 @@
+## v1.16.0 (2026-08-15)
+
+### Feat
+
+- **db**: add the accrual window that makes a one-off a pot (#256)
+
 ## v1.15.0 (2026-08-15)
 
 ### Feat
