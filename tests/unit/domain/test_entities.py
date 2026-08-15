@@ -3,6 +3,7 @@
 import datetime
 import uuid
 
+import pydantic
 import pytest
 
 from domain import entities, errors, read_models
@@ -157,6 +158,70 @@ class TestQuickButtonAmountValidator:
 
         # Assert
         assert exc_info.value.name == "Coffee"
+
+
+class TestCategoryTree:
+    """A category is a root or a child of one, and never its own parent (#246)."""
+
+    def test_a_category_without_a_parent_is_a_root(self) -> None:
+        # Arrange / Act
+        category = entities.CategoryModel(user_id="test-user", name="Expenses")
+
+        # Assert
+        assert category.is_root
+
+    def test_a_category_with_a_parent_is_not_a_root(self) -> None:
+        # Arrange / Act
+        category = entities.CategoryModel(
+            user_id="test-user",
+            name="Groceries",
+            parent_id=uuid.uuid4(),
+        )
+
+        # Assert
+        assert not category.is_root
+
+    def test_a_negative_budget_is_refused(self) -> None:
+        # Arrange - a budget is a plan for money going out, so a negative one is
+        # not a smaller budget; migration 0022 holds the same rule on the table,
+        # which is where a grid edit lands without passing through this model
+        # Act / Assert
+        with pytest.raises(pydantic.ValidationError):
+            entities.CategoryModel(
+                user_id="test-user",
+                name="Groceries",
+                budget=-1.0,
+            )
+
+    def test_a_category_cannot_be_its_own_parent(self) -> None:
+        # Arrange - the one half of the depth rule visible from a single row;
+        # the rest needs the row's siblings and is enforced in the database
+        category_id = uuid.uuid4()
+
+        # Act / Assert
+        with pytest.raises(errors.SelfParentedCategoryError):
+            entities.CategoryModel(
+                id=category_id,
+                user_id="test-user",
+                name="Groceries",
+                parent_id=category_id,
+            )
+
+    def test_the_error_names_the_category(self) -> None:
+        # Arrange
+        category_id = uuid.uuid4()
+
+        # Act
+        with pytest.raises(errors.SelfParentedCategoryError) as exc_info:
+            entities.CategoryModel(
+                id=category_id,
+                user_id="test-user",
+                name="Groceries",
+                parent_id=category_id,
+            )
+
+        # Assert
+        assert exc_info.value.name == "Groceries"
 
 
 class TestJointContributionValidator:

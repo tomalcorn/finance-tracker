@@ -12,6 +12,7 @@ class TableNames(enum.StrEnum):
 
     PAYMENTS = enum.auto()
     BANK_ACCOUNTS = enum.auto()
+    CATEGORIES = enum.auto()
     BUDGET_TRACKER = enum.auto()
     EXPENSE_SOURCES = enum.auto()
     ONE_OFFS = enum.auto()
@@ -69,6 +70,11 @@ CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
         *_PAYMENT_DERIVED_VIEWS,
     ],
     TableNames.ONE_OFFS: [ViewNames.ONE_OFFS],
+    # CATEGORIES feeds no views yet — categories_view is #247. A parent/child
+    # write busts the one key either level is read under, and the tree never
+    # crosses the ownership split (a child is owned exactly as its root is), so
+    # there is no cascade to declare in CASCADES_ACROSS_OWNERSHIP.
+    TableNames.CATEGORIES: [],
     TableNames.BUDGET_TRACKER: [
         ViewNames.ONE_OFFS,
         ViewNames.EXPENSE_SOURCES,

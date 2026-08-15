@@ -94,6 +94,24 @@ class BudgetTrackerView(_ViewBase):
     ]
 
 
+class CategoryView(_ViewBase):
+    """Read model for categories rows.
+
+    Reads the raw ``categories`` table for now: ``categories_view`` and the
+    computed columns every other budget read model carries (``current_month`` /
+    ``remaining`` / ``progress`` / ``split``) arrive with it in #247.
+    """
+
+    parent_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(description="The category this one sits under, if any."),
+    ] = None
+    budget: Annotated[
+        pydantic.NonNegativeFloat,
+        pydantic.Field(description="What this category is allowed each month."),
+    ]
+
+
 class ExpenseSourceView(_ViewBase):
     """Read model for expense_sources_view."""
 

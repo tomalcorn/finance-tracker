@@ -434,6 +434,32 @@ def bank_account_repository(
     )
 
 
+def category_repository(
+    user_id: str,
+    cache: "cache_mod.CacheGateway",
+    connection: "st_supabase_connection.SupabaseConnection",
+    ownership: entities.OwnershipType,
+) -> SupabaseRepository[entities.CategoryModel, read_models.CategoryView]:
+    """Build the categories repository.
+
+    Serves both levels of the tree: roots and their children are rows of one
+    table, told apart by ``parent_id``. Reads hit the raw table until
+    ``categories_view`` lands in #247.
+    """
+    return SupabaseRepository(
+        user_id,
+        RepoSpec(
+            parse=entities.CategoryModel.model_validate,
+            view_model=read_models.CategoryView,
+            read_table=table_names.TableNames.CATEGORIES,
+            write_table=table_names.TableNames.CATEGORIES,
+        ),
+        cache,
+        connection,
+        ownership,
+    )
+
+
 def budget_tracker_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",

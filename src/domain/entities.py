@@ -126,6 +126,49 @@ class BudgetTrackerItemModel(FinanceTrackerBaseModel):
     ] = 0.0
 
 
+class CategoryModel(FinanceTrackerBaseModel):
+    """Model representing a category money can be attributed to.
+
+    Categories are a two-level tree. A **root** (``parent_id is None``) is one of
+    the fixed :class:`BudgetTrackerName` names and is seeded, not created; its
+    **children** are the user's own subcategories. A payment may be attributed to
+    either level, so ``budget`` is the same number at both: what this category is
+    allowed, whether or not it has children.
+
+    Depth is enforced in the database — a category cannot see its siblings from
+    here, so only the self-parent half of the rule is checkable on the entity.
+    """
+
+    parent_id: Annotated[
+        uuid.UUID | None,
+        pydantic.Field(
+            description="The category this one sits under; None for a root.",
+        ),
+    ] = None
+    budget: Annotated[
+        pydantic.NonNegativeFloat,
+        pydantic.Field(description="What this category is allowed each month."),
+    ] = 0.0
+
+    @property
+    def is_root(self) -> bool:
+        """Whether this is a top-level category rather than a subcategory."""
+        return self.parent_id is None
+
+    @pydantic.model_validator(mode="after")
+    def _check_not_self_parented(self) -> Self:
+        """Reject a category that names itself as its parent.
+
+        Raises:
+            SelfParentedCategoryError: The category is its own parent, which
+                would put it in a cycle of one.
+
+        """
+        if self.parent_id is not None and self.parent_id == self.id:
+            raise errors.SelfParentedCategoryError(self.name)
+        return self
+
+
 class ExpenseSourceModel(FinanceTrackerBaseModel):
     """Model representing an expense source."""
 
