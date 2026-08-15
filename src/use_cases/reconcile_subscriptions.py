@@ -350,7 +350,7 @@ class ReconcileSubscriptionsUseCase:
                 "expense": sub.amount,
                 "payment_date": next_date,
                 "bank_account_id": sub.bank_account_id,
-                "expense_source_id": sub.expense_source_id,
+                "category_id": sub.category_id,
                 "subscription_id": sub.id,
             },
         ]

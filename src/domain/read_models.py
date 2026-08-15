@@ -253,9 +253,9 @@ class SubscriptionView(_ViewBase):
         uuid.UUID,
         pydantic.Field(description="The associated bank account ID."),
     ]
-    expense_source_id: Annotated[
+    category_id: Annotated[
         uuid.UUID | None,
-        pydantic.Field(description="The associated expense source ID."),
+        pydantic.Field(description="The category the row is attributed to."),
     ] = None
     start_date: Annotated[
         datetime.date,
@@ -296,7 +296,7 @@ class PaymentView(_ViewBase):
     Payments have no SQL view — this reads the raw ``payments`` table, so it
     carries no computed columns, only the flat union of expense and income
     payment fields. The source-id columns are nullable because only one of
-    ``expense_source_id`` / ``income_source_id`` is set per row.
+    ``category_id`` / ``income_source_id`` is set per row.
     """
 
     payment_date: Annotated[
@@ -323,9 +323,9 @@ class PaymentView(_ViewBase):
         uuid.UUID,
         pydantic.Field(description="The associated bank account ID."),
     ]
-    expense_source_id: Annotated[
+    category_id: Annotated[
         uuid.UUID | None,
-        pydantic.Field(description="The associated expense source ID, if any."),
+        pydantic.Field(description="The category the payment is attributed to."),
     ] = None
     income_source_id: Annotated[
         uuid.UUID | None,
@@ -393,9 +393,9 @@ class QuickButtonView(_ViewBase):
         uuid.UUID | None,
         pydantic.Field(description="The bank account the payment comes from."),
     ] = None
-    expense_source_id: Annotated[
+    category_id: Annotated[
         uuid.UUID | None,
-        pydantic.Field(description="The expense source the payment is booked to."),
+        pydantic.Field(description="The category the payment is booked to."),
     ] = None
     icon: Annotated[
         str | None,

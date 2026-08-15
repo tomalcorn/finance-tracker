@@ -41,8 +41,8 @@ def _bank_account_id() -> uuid.UUID:
     return uuid.uuid4()
 
 
-@pytest.fixture(name="expense_source_id")
-def _expense_source_id() -> uuid.UUID:
+@pytest.fixture(name="category_id")
+def _category_id() -> uuid.UUID:
     return uuid.uuid4()
 
 
@@ -71,7 +71,7 @@ def _build_subscription(
         start_date: datetime.date = datetime.date(2026, 1, 1),
         end_date: datetime.date | None = None,
         is_active: bool = True,
-        expense_source_id: uuid.UUID | None = None,
+        category_id: uuid.UUID | None = None,
         sub_id: uuid.UUID | None = None,
     ) -> entities.SubscriptionModel:
         return entities.SubscriptionModel(
@@ -81,7 +81,7 @@ def _build_subscription(
             amount=amount,
             cadence=cadence,
             bank_account_id=bank_account_id,
-            expense_source_id=expense_source_id,
+            category_id=category_id,
             start_date=start_date,
             end_date=end_date,
             is_active=is_active,
@@ -107,7 +107,7 @@ def _build_payment() -> PaymentBuilder:
             expense=sub.amount,
             payment_date=payment_date,
             bank_account_id=sub.bank_account_id,
-            expense_source_id=sub.expense_source_id,
+            category_id=sub.category_id,
             subscription_id=sub.id,
         )
 
@@ -316,10 +316,10 @@ class TestReconcileSubscription:
         use_case: ReconcileSubscriptionsUseCase,
         build_subscription: SubscriptionBuilder,
         bank_account_id: uuid.UUID,
-        expense_source_id: uuid.UUID,
+        category_id: uuid.UUID,
     ) -> None:
         # Arrange
-        sub = build_subscription(expense_source_id=expense_source_id)
+        sub = build_subscription(category_id=category_id)
 
         # Act
         new_rows, _ = use_case._reconcile_subscription(sub, [])
@@ -330,7 +330,7 @@ class TestReconcileSubscription:
             [
                 added["subscription_id"] == sub.id,
                 added["bank_account_id"] == bank_account_id,
-                added["expense_source_id"] == expense_source_id,
+                added["category_id"] == category_id,
                 added["payment_type"] == "expense",
             ],
         )

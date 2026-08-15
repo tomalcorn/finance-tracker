@@ -86,7 +86,7 @@ class ContributeToJointUseCase:
             raise errors.ContributionAmountError(amount)
 
         account = self._resolve_joint_account()
-        expense_source_id = self._resolve_joint_expense_source()
+        category_id = self._resolve_joint_expense_source()
         name = f"Joint: {account.name}"
 
         expense = entities.ExpensePaymentModel(
@@ -95,7 +95,7 @@ class ContributeToJointUseCase:
             expense=amount,
             payment_date=payment_date,
             bank_account_id=from_bank_account_id,
-            expense_source_id=expense_source_id,
+            category_id=category_id,
         )
         income = entities.IncomePaymentModel(
             user_id=self._user_id,

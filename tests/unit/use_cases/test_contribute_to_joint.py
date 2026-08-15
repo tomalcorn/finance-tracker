@@ -152,7 +152,7 @@ def test_contribution_books_a_personal_expense(
         [
             expense.expense == AMOUNT,
             expense.income == 0,
-            expense.expense_source_id == joint_expense_source.id,
+            expense.category_id == joint_expense_source.id,
             expense.bank_account_id == FROM_BANK_ACCOUNT_ID,
             expense.ownership_type is entities.OwnershipType.PERSONAL,
             expense.payment_date == PAYMENT_DATE,

@@ -95,7 +95,7 @@ class LogQuickPaymentUseCase:
             "payment_date": _today().isoformat(),
             "checked": False,
             "bank_account_id": _optional_id(button.bank_account_id),
-            "expense_source_id": _optional_id(button.expense_source_id),
+            "category_id": _optional_id(button.category_id),
             "payment_type": "expense",
         }
 

@@ -177,7 +177,7 @@ def _inputs() -> quick_expenses_block._ButtonInputs:
         payment_name=None,
         expense=8.0,
         bank_account_id=str(BANK_ACCOUNT_ID),
-        expense_source_id=None,
+        category_id=None,
         icon="🍕",
         display_order=2,
     )
@@ -198,7 +198,7 @@ def test_button_row_carries_the_values_the_dialog_collected(
         "payment_name": None,
         "expense": 8.0,
         "bank_account_id": str(BANK_ACCOUNT_ID),
-        "expense_source_id": None,
+        "category_id": None,
         "icon": "🍕",
         "display_order": 2,
     }

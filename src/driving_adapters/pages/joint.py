@@ -64,7 +64,7 @@ with error_boundary.boundary("loading your joint dashboard"):
 
     # Foreign-key id→name maps, shared across the blocks that display them.
     bank_account_map = wiring.bank_account_id_name_map(_JOINT)
-    expense_source_map = wiring.expense_source_id_name_map(_JOINT)
+    category_map = wiring.category_id_name_map(_JOINT)
     income_source_map = wiring.income_source_id_name_map(_JOINT)
     budget_tracker_map = wiring.budget_tracker_id_name_map(_JOINT)
 
@@ -89,7 +89,7 @@ with error_boundary.boundary("saving your latest changes"):
     payments_block.commit(
         payment_data_source,
         bank_account_map,
-        expense_source_map,
+        category_map,
         income_source_map,
     )
     budget_tracker_block.commit(
@@ -101,7 +101,7 @@ with error_boundary.boundary("saving your latest changes"):
     subscriptions_block.commit(
         subscription_data_source,
         bank_account_map,
-        expense_source_map,
+        category_map,
     )
 
 with error_boundary.boundary("reconciling your subscriptions"):
@@ -135,7 +135,7 @@ with payments_container, error_boundary.boundary("loading your payments"):
     payments_block.render(
         payment_data_source,
         bank_account_map,
-        expense_source_map,
+        category_map,
         income_source_map,
     )
 
@@ -150,5 +150,5 @@ with subscriptions_container, error_boundary.boundary("loading your subscription
     subscriptions_block.render(
         subscription_data_source,
         bank_account_map,
-        expense_source_map,
+        category_map,
     )

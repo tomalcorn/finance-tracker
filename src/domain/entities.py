@@ -275,9 +275,9 @@ class SubscriptionModel(FinanceTrackerBaseModel):
         uuid.UUID,
         pydantic.Field(description="The associated bank account ID."),
     ]
-    expense_source_id: Annotated[
+    category_id: Annotated[
         uuid.UUID | None,
-        pydantic.Field(description="The associated expense source ID."),
+        pydantic.Field(description="The category the row is attributed to."),
     ] = None
     start_date: datetime.date = pydantic.Field(
         description="The date the subscription starts.",
@@ -376,9 +376,9 @@ class ExpensePaymentModel(_PaymentBaseModel):
         float,
         pydantic.Field(description="The income amount (always 0 for expenses)."),
     ] = 0.0
-    expense_source_id: Annotated[
+    category_id: Annotated[
         uuid.UUID | None,
-        pydantic.Field(description="The associated expense source ID."),
+        pydantic.Field(description="The category the row is attributed to."),
     ] = None
 
 
@@ -459,9 +459,9 @@ class QuickButtonModel(FinanceTrackerBaseModel):
         uuid.UUID | None,
         pydantic.Field(description="The bank account the payment comes from."),
     ] = None
-    expense_source_id: Annotated[
+    category_id: Annotated[
         uuid.UUID | None,
-        pydantic.Field(description="The expense source the payment is booked to."),
+        pydantic.Field(description="The category the payment is booked to."),
     ] = None
     icon: Annotated[
         str | None,

@@ -33,12 +33,12 @@ with error_boundary.boundary("loading your quick expenses"):
     quick_button_repo = wiring.quick_button_repository(ownership)
     log_quick_payment_use_case = wiring.log_quick_payment_use_case(ownership)
     bank_account_map = wiring.bank_account_id_name_map(ownership)
-    expense_source_map = wiring.expense_source_id_name_map(ownership)
+    category_map = wiring.category_id_name_map(ownership)
 
 with error_boundary.boundary("loading your quick buttons"):
     quick_expenses_block.render(
         quick_button_repo,
         log_quick_payment_use_case,
         bank_account_map,
-        expense_source_map,
+        category_map,
     )
