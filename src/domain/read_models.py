@@ -117,17 +117,15 @@ class CategoryView(_ViewBase):
         ),
     ] = entities.AccrualPeriod.MONTHLY
     cost: Annotated[
-        pydantic.NonNegativeFloat | None,
-        pydantic.Field(description="What a pot needs to reach; None if monthly."),
-    ] = None
+        pydantic.NonNegativeFloat,
+        pydantic.Field(description="What a pot needs to reach; unused if monthly."),
+    ] = 0.0
     starting_balance: Annotated[
-        float | None,
+        float,
         pydantic.Field(
-            description=(
-                "What a pot held before payments could reach it; None if monthly."
-            ),
+            description="What a pot held before payments could reach it.",
         ),
-    ] = None
+    ] = 0.0
     current_month: Annotated[
         float,
         pydantic.Field(
