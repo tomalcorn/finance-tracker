@@ -147,7 +147,7 @@ def _build_budget_tracker_config(
                     column_name="current_month",
                     column_config=st.column_config.NumberColumn(
                         "Spent",
-                        help="Payments booked against this category this month.",
+                        help="Payments booked against this category for a given month.",
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,
