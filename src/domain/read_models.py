@@ -110,20 +110,39 @@ class CategoryView(_ViewBase):
         pydantic.NonNegativeFloat,
         pydantic.Field(description="What this category is allowed each month."),
     ]
+    accrual: Annotated[
+        entities.AccrualPeriod,
+        pydantic.Field(
+            description="The window this row's payments were totalled over.",
+        ),
+    ] = entities.AccrualPeriod.MONTHLY
+    cost: Annotated[
+        pydantic.NonNegativeFloat | None,
+        pydantic.Field(description="What a pot needs to reach; None if monthly."),
+    ] = None
+    banked: Annotated[
+        pydantic.NonNegativeFloat | None,
+        pydantic.Field(
+            description="A pot's opening balance; None if monthly.",
+        ),
+    ] = None
     current_month: Annotated[
         float,
         pydantic.Field(
             description=(
-                "Computed: this category's own payments this month plus its "
-                "children's. Signed — a month whose refunds outweigh its "
-                "spending nets out below zero."
+                "Computed: this category's own payments plus its children's — "
+                "over the current month, or over all time for a pot. Signed, so "
+                "a month whose refunds outweigh its spending nets out below zero."
             ),
         ),
     ]
     remaining: Annotated[
         float,
         pydantic.Field(
-            description="budget minus current_month; negative once overspent.",
+            description=(
+                "What is left: budget minus current_month, or for a pot its cost "
+                "minus everything put in. Negative once overspent."
+            ),
         ),
     ]
     # Deliberately unconstrained, both ends. Upper: `progress` is spend over

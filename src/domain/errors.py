@@ -67,6 +67,45 @@ class JointOwnedContributionError(DomainError):
         )
 
 
+class IncompleteMultiMonthCategoryError(DomainError):
+    """Error when a category's accrual and its amount columns disagree."""
+
+    def __init__(self, name: str, missing: list[str]) -> None:
+        """Construct IncompleteMultiMonthCategoryError."""
+        self.name = name
+        self.missing = missing
+        joined = ", ".join(missing)
+        super().__init__(
+            f"Category {name!r} accrues across months, so it needs {joined}.",
+        )
+
+
+class MonthlyCategoryWithPotFieldsError(DomainError):
+    """Error when a monthly category carries pot amounts it cannot use."""
+
+    def __init__(self, name: str, present: list[str]) -> None:
+        """Construct MonthlyCategoryWithPotFieldsError."""
+        self.name = name
+        self.present = present
+        joined = ", ".join(present)
+        super().__init__(
+            f"Category {name!r} resets each month, so {joined} would never be "
+            "read. Set it to accrue across months, or clear them.",
+        )
+
+
+class MultiMonthRootCategoryError(DomainError):
+    """Error when a top-level category is set to accrue across months."""
+
+    def __init__(self, name: str) -> None:
+        """Construct MultiMonthRootCategoryError."""
+        self.name = name
+        super().__init__(
+            f"Category {name!r} is top-level, so it is a monthly allowance and "
+            "cannot accrue across months. Only a subcategory can be a pot.",
+        )
+
+
 class SelfParentedCategoryError(DomainError):
     """Error when a category names itself as its own parent."""
 

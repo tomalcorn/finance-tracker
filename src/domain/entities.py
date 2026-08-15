@@ -126,6 +126,18 @@ class BudgetTrackerItemModel(FinanceTrackerBaseModel):
     ] = 0.0
 
 
+class AccrualPeriod(enum.StrEnum):
+    """The window a category totals its payments over.
+
+    Only a window. ``MULTI_MONTH`` does not make a category a different kind of
+    thing — it is still a name with an amount that payments are attributed to,
+    counted since it opened rather than since the 1st.
+    """
+
+    MONTHLY = enum.auto()
+    MULTI_MONTH = enum.auto()
+
+
 class CategoryModel(FinanceTrackerBaseModel):
     """Model representing a category money can be attributed to.
 
@@ -133,7 +145,12 @@ class CategoryModel(FinanceTrackerBaseModel):
     the fixed :class:`BudgetTrackerName` names and is seeded, not created; its
     **children** are the user's own subcategories. A payment may be attributed to
     either level, so ``budget`` is the same number at both: what this category is
-    allowed, whether or not it has children.
+    allowed each month, whether or not it has children.
+
+    A ``MULTI_MONTH`` child is a **pot** — it fills up over several months rather
+    than resetting. ``cost`` is how full it needs to get, and ``budget`` is still
+    the monthly figure: what is planned towards it this month. Nothing decrements
+    that plan; only payments attributed to the pot move it towards its cost.
 
     Depth is enforced in the database — a category cannot see its siblings from
     here, so only the self-parent half of the rule is checkable on the entity.
@@ -149,11 +166,33 @@ class CategoryModel(FinanceTrackerBaseModel):
         pydantic.NonNegativeFloat,
         pydantic.Field(description="What this category is allowed each month."),
     ] = 0.0
+    accrual: Annotated[
+        AccrualPeriod,
+        pydantic.Field(description="The window this category totals payments over."),
+    ] = AccrualPeriod.MONTHLY
+    cost: Annotated[
+        pydantic.NonNegativeFloat | None,
+        pydantic.Field(description="What a pot needs to reach; None if monthly."),
+    ] = None
+    banked: Annotated[
+        pydantic.NonNegativeFloat | None,
+        pydantic.Field(
+            description=(
+                "A pot's opening balance, brought forward from before pots could "
+                "take payments. None if monthly."
+            ),
+        ),
+    ] = None
 
     @property
     def is_root(self) -> bool:
         """Whether this is a top-level category rather than a subcategory."""
         return self.parent_id is None
+
+    @property
+    def is_pot(self) -> bool:
+        """Whether this category fills up over months rather than resetting."""
+        return self.accrual is AccrualPeriod.MULTI_MONTH
 
     @pydantic.model_validator(mode="after")
     def _check_not_self_parented(self) -> Self:
@@ -166,6 +205,35 @@ class CategoryModel(FinanceTrackerBaseModel):
         """
         if self.parent_id is not None and self.parent_id == self.id:
             raise errors.SelfParentedCategoryError(self.name)
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def _check_accrual(self) -> Self:
+        """Ensure the pot amounts and the accrual window agree.
+
+        Raises:
+            MultiMonthRootCategoryError: A root claims to be a pot. A root is a
+                monthly allowance, and the roll-up reads its children's monthly
+                figures, so an accruing one would total two different windows.
+            IncompleteMultiMonthCategoryError: A pot is missing an amount it
+                cannot be measured without.
+            MonthlyCategoryWithPotFieldsError: A monthly category carries pot
+                amounts nothing would ever read.
+
+        """
+        pot_fields = {"cost": self.cost, "banked": self.banked}
+        if not self.is_pot:
+            present = [
+                field for field, value in pot_fields.items() if value is not None
+            ]
+            if present:
+                raise errors.MonthlyCategoryWithPotFieldsError(self.name, present)
+            return self
+        if self.is_root:
+            raise errors.MultiMonthRootCategoryError(self.name)
+        missing = [field for field, value in pot_fields.items() if value is None]
+        if missing:
+            raise errors.IncompleteMultiMonthCategoryError(self.name, missing)
         return self
 
 
