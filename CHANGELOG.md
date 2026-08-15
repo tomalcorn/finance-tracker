@@ -1,3 +1,9 @@
+## v1.13.2 (2026-08-15)
+
+### Fix
+
+- **grids**: order rows deterministically so deltas map to the right row (#243)
+
 ## v1.13.1 (2026-08-13)
 
 ### Fix
