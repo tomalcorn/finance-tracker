@@ -8,7 +8,7 @@ import streamlit as st
 from domain import entities
 from driven_adapters.supabase import authenticator as supabase_auth
 from driven_adapters.supabase import repository as supabase_repos
-from driving_adapters import auth
+from driving_adapters import auth, lookups
 from driving_adapters import cache as ui_cache
 from use_cases import (
     bank_one_offs,
@@ -159,16 +159,17 @@ def bank_account_id_name_map(
 def category_id_name_map(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
 ) -> dict[str, str]:
-    """Return an ``{id: name}`` map of the categories a payment can be booked to.
+    """Return an ``{id: label}`` map of the categories a payment can be booked to.
 
-    Flat for now, roots and children alike. #251 prefixes each child with its
-    parent so the two levels can be told apart in the picker.
+    Every category, roots and children alike: a payment may be attributed at
+    either level. How they are labelled and ordered is the UI's own display
+    decision, so it is ``lookups`` that turns the rows into picker entries.
     """
     repo = supabase_repos.category_repository(
         *_repo_deps(),
         ownership,
     )
-    return {str(model.id): str(model.name) for model in repo.get_all()}
+    return lookups.make_category_name_map(repo.get_all())
 
 
 def income_source_id_name_map(
