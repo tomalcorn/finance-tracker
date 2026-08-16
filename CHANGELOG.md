@@ -1,3 +1,9 @@
+## v1.17.0 (2026-08-16)
+
+### Feat
+
+- cut the app over to categories (#250) (#258)
+
 ## v1.16.1 (2026-08-15)
 
 ### Refactor
