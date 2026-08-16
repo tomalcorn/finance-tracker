@@ -36,9 +36,10 @@ def make_category_name_map(
         categories: Every category of one ownership half, in any order.
 
     Returns:
-        ``{id: label}``, each root followed by its own children and each level
-        sorted by name. A child is labelled ``"Parent - Child"``; one whose
-        parent is absent keeps its bare name and follows the grouped entries.
+        ``{id: label}``, every root first and then the children, each grouped
+        under its own parent and every level sorted by name. A child is
+        labelled ``"Parent - Child"``; one whose parent is absent keeps its bare
+        name and comes last.
 
     """
     children_by_parent: dict[str, list[entities.CategoryModel]] = (
@@ -51,9 +52,10 @@ def make_category_name_map(
     def by_name(category: "entities.CategoryModel") -> str:
         return str(category.name)
 
-    labels: dict[str, str] = {}
-    for root in sorted((c for c in categories if c.is_root), key=by_name):
-        labels[str(root.id)] = str(root.name)
+    roots = sorted((c for c in categories if c.is_root), key=by_name)
+    labels = {str(root.id): str(root.name) for root in roots}
+
+    for root in roots:
         for child in sorted(children_by_parent.pop(str(root.id), []), key=by_name):
             labels[str(child.id)] = f"{root.name} - {child.name}"
 
