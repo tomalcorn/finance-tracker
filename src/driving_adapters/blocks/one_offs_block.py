@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from driving_adapters.components.dfes import data_source as data_source_mod
     from use_cases import bank_one_offs
 
-_TABLE_NAME = "categories"
+_GRID_ID = "categories"
 
 _KEY_PREFIX = "one_off_categories"
 
@@ -60,7 +60,7 @@ def _build_config(
 
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table=_TABLE_NAME,
+            grid_id=_GRID_ID,
             key_prefix_override=_KEY_PREFIX,
             data_source=data_source,
             row_predicate=_is_pot,

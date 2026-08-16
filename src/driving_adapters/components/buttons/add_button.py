@@ -77,7 +77,7 @@ def _add_row_dialog(
         try:
             _submit_new_row(grid_source, new_row)
         except (ValueError, port_errors.RepositoryError):
-            logger.exception("Failed to add a new row to %s", grid_source.write_table)
+            logger.exception("Failed to add a new row to %s", grid_source.grid_id)
             st.error("Could not add the row. Please check the values and try again.")
             return
         st.rerun()

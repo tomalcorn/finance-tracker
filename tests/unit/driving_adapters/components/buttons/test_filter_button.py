@@ -21,7 +21,7 @@ def _config(
     """Build a minimal grid config whose data source yields ``unique_values``."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table="test_table",
+            grid_id="test_table",
             data_source=build_stub_data_source(column_values=unique_values),
         ),
         display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
@@ -83,7 +83,7 @@ def _app_tester(
     ]
     config = frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table="test_table",
+            grid_id="test_table",
             data_source=build_stub_data_source(column_values={0.88, 0.23, 0.1}),
         ),
         display=frontend_models.GridDisplay(

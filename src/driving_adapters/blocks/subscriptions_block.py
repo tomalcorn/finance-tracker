@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from domain import read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
 
-_TABLE_NAME = "subscriptions"
+_GRID_ID = "subscriptions"
 _CONTRIBUTIONS_KEY_PREFIX = "joint_contributions"
 
 _CADENCE_OPTIONS = ["weekly", "monthly", "quarterly", "biannually", "yearly"]
@@ -278,7 +278,7 @@ def _build_config(
     """
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table=_TABLE_NAME,
+            grid_id=_GRID_ID,
             data_source=data_source,
             row_predicate=_is_plain_subscription if split_out_contributions else None,
         ),
@@ -323,7 +323,7 @@ def _build_contributions_config(
     """
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table=_TABLE_NAME,
+            grid_id=_GRID_ID,
             key_prefix_override=_CONTRIBUTIONS_KEY_PREFIX,
             data_source=data_source,
             row_predicate=_is_contribution,

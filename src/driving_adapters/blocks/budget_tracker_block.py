@@ -41,13 +41,13 @@ class BudgetTrackerSources:
     income_sources: "data_source_mod.GridDataSource"
 
 
-_CATEGORIES_TABLE = "categories"
+_CATEGORIES_GRID_ID = "categories"
 
 _ROOTS_KEY_PREFIX = "root_categories"
 
 _CHILDREN_KEY_PREFIX = "expense_categories"
 
-_INCOME_SOURCES_TABLE = "income_sources"
+_INCOME_SOURCES_GRID_ID = "income_sources"
 
 _BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
     {
@@ -105,7 +105,7 @@ def _build_budget_tracker_config(
     """Build the grid config for the budget tracker tab."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table=_CATEGORIES_TABLE,
+            grid_id=_CATEGORIES_GRID_ID,
             key_prefix_override=_ROOTS_KEY_PREFIX,
             data_source=data_source,
             row_predicate=_is_root,
@@ -236,7 +236,7 @@ def _build_expense_sources_config(
     """Build the grid config for the expense sources tab."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table=_CATEGORIES_TABLE,
+            grid_id=_CATEGORIES_GRID_ID,
             key_prefix_override=_CHILDREN_KEY_PREFIX,
             data_source=data_source,
             row_predicate=_expense_child_predicate(expenses_bt_id),
@@ -368,7 +368,7 @@ def _build_income_sources_config(
     )
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table=_INCOME_SOURCES_TABLE,
+            grid_id=_INCOME_SOURCES_GRID_ID,
             data_source=data_source,
         ),
         display=frontend_models.GridDisplay(
