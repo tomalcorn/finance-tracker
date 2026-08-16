@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from driving_adapters.components.dfes import data_source as data_source_mod
 
 _GRID_ID = "subscriptions"
-_CONTRIBUTIONS_KEY_PREFIX = "joint_contributions"
+_CONTRIBUTIONS_GRID_ID = "joint_contributions"
 
 _CADENCE_OPTIONS = ["weekly", "monthly", "quarterly", "biannually", "yearly"]
 
@@ -323,8 +323,7 @@ def _build_contributions_config(
     """
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            grid_id=_GRID_ID,
-            key_prefix_override=_CONTRIBUTIONS_KEY_PREFIX,
+            grid_id=_CONTRIBUTIONS_GRID_ID,
             data_source=data_source,
             row_predicate=_is_contribution,
             extra_row_values={"category_id": joint.category_id},

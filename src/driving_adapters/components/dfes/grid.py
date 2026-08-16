@@ -60,7 +60,7 @@ def build_working_df(config: "frontend_models.DFEConfig") -> pd.DataFrame:
     when nothing is left. Rebuilt every run — there is no cached working frame in
     session state.
     """
-    display, key_prefix = config.display, config.key_prefix
+    display, key_prefix = config.display, config.grid_id
     active_columns = _active_columns(display, key_prefix)
     if config.source.data_source is not None:
         rows = config.source.data_source.rows()
@@ -133,7 +133,7 @@ def render(config: "frontend_models.DFEConfig") -> None:
     and the button functions directly instead.
     """
     render_buttons(config)
-    render_editor(config.display, config.key_prefix, build_working_df(config))
+    render_editor(config.display, config.grid_id, build_working_df(config))
 
 
 def commit(config: "frontend_models.DFEConfig") -> None:
@@ -147,7 +147,7 @@ def commit(config: "frontend_models.DFEConfig") -> None:
 
     A no-op when there are no pending deltas or no data source.
     """
-    key = config.key_prefix
+    key = config.grid_id
     data_source = config.source.data_source
     editor_state = st.session_state.get(key)
     if not editor_state or data_source is None:

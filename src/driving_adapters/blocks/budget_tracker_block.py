@@ -41,11 +41,9 @@ class BudgetTrackerSources:
     income_sources: "data_source_mod.GridDataSource"
 
 
-_CATEGORIES_GRID_ID = "categories"
+_ROOTS_GRID_ID = "root_categories"
 
-_ROOTS_KEY_PREFIX = "root_categories"
-
-_CHILDREN_KEY_PREFIX = "expense_categories"
+_CHILDREN_GRID_ID = "expense_categories"
 
 _INCOME_SOURCES_GRID_ID = "income_sources"
 
@@ -105,8 +103,7 @@ def _build_budget_tracker_config(
     """Build the grid config for the budget tracker tab."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            grid_id=_CATEGORIES_GRID_ID,
-            key_prefix_override=_ROOTS_KEY_PREFIX,
+            grid_id=_ROOTS_GRID_ID,
             data_source=data_source,
             row_predicate=_is_root,
         ),
@@ -236,8 +233,7 @@ def _build_expense_sources_config(
     """Build the grid config for the expense sources tab."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            grid_id=_CATEGORIES_GRID_ID,
-            key_prefix_override=_CHILDREN_KEY_PREFIX,
+            grid_id=_CHILDREN_GRID_ID,
             data_source=data_source,
             row_predicate=_expense_child_predicate(expenses_bt_id),
             # The tab only shows the children of the expenses root, so a
@@ -499,7 +495,7 @@ def _render_with_contribute(
         contribute_button()
     grid.render_editor(
         config.display,
-        config.key_prefix,
+        config.grid_id,
         grid.build_working_df(config),
     )
 

@@ -21,9 +21,7 @@ if TYPE_CHECKING:
     from driving_adapters.components.dfes import data_source as data_source_mod
     from use_cases import bank_one_offs
 
-_GRID_ID = "categories"
-
-_KEY_PREFIX = "one_off_categories"
+_GRID_ID = "one_off_categories"
 
 _SAMPLE_DATA = pd.DataFrame(
     {
@@ -61,7 +59,6 @@ def _build_config(
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             grid_id=_GRID_ID,
-            key_prefix_override=_KEY_PREFIX,
             data_source=data_source,
             row_predicate=_is_pot,
             # Both are derived, never chosen: a pot added here sits under the
@@ -247,4 +244,4 @@ def render(
         bank_btn = bank_button.BankButton(bank_one_offs_use_case, bank_account_map)
         bank_btn(_bankable_items(data_source))
 
-    grid.render_editor(config.display, config.key_prefix, working_df)
+    grid.render_editor(config.display, config.grid_id, working_df)

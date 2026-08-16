@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from driving_adapters.components.dfes import data_source as data_source_mod
 
 _GRID_ID = "payments"
-_INCOME_KEY_PREFIX = "income_entries"
+_INCOME_GRID_ID = "income_entries"
 
 _EXPENSE_PAYMENTS_SAMPLE_DATA = pd.DataFrame(
     {
@@ -192,8 +192,7 @@ def _build_income_config(
     """Build the grid config for income payments."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            grid_id=_GRID_ID,
-            key_prefix_override=_INCOME_KEY_PREFIX,
+            grid_id=_INCOME_GRID_ID,
             data_source=data_source,
             # See the expense grid: the union needs its branch stated.
             extra_row_values={"payment_type": "income"},
@@ -425,7 +424,7 @@ def render(
         grid.render_buttons(expense_config)
         grid.render_editor(
             expense_config.display,
-            expense_config.key_prefix,
+            expense_config.grid_id,
             expense_working_df,
         )
 
