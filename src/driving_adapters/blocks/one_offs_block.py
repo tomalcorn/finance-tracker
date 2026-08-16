@@ -29,7 +29,7 @@ _SAMPLE_DATA = pd.DataFrame(
         "cost": [0],
         "budget": [0],
         "starting_balance": [0],
-        "current_month": [0],
+        "accrued": [0],
         "remaining": [0],
         "progress": [0],
         "split": [0],
@@ -149,7 +149,7 @@ def _build_config(
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
-                    column_name="current_month",
+                    column_name="accrued",
                     column_config=st.column_config.NumberColumn(
                         "Banked",
                         help=(

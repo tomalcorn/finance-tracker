@@ -39,7 +39,7 @@ def _build_category() -> "Callable[..., read_models.CategoryView]":
                 "accrual": accrual,
                 "cost": 1000.0,
                 "starting_balance": 0.0,
-                "current_month": 0.0,
+                "accrued": 0.0,
                 "remaining": 1000.0,
                 "progress": 0.0,
                 "split": 100.0,

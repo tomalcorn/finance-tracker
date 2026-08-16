@@ -218,6 +218,7 @@ class GridSource(pydantic.BaseModel):
         ),
     )
 
+
 class GridDisplay(pydantic.BaseModel):
     """What a grid shows (the *display* half of a grid)."""
 

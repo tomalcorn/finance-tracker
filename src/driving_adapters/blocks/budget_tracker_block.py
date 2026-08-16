@@ -51,7 +51,7 @@ _BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
     {
         "name": ["Example Budget Tracker"],
         "budget": [0],
-        "current_month": [0],
+        "accrued": [0],
         "remaining": [0],
         "progress": [0],
         "split": [0],
@@ -62,7 +62,7 @@ _EXPENSE_SOURCES_SAMPLE_DATA = pd.DataFrame(
     {
         "name": ["Example Expense Source"],
         "budget": [0],
-        "current_month": [0],
+        "accrued": [0],
         "remaining": [0],
         "progress": [0],
         "split": [0],
@@ -157,7 +157,7 @@ def _build_budget_tracker_config(
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
-                    column_name="current_month",
+                    column_name="accrued",
                     column_config=st.column_config.NumberColumn(
                         "Spent",
                         help="Payments booked against this category for a given month.",
@@ -294,7 +294,7 @@ def _build_expense_sources_config(
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
-                    column_name="current_month",
+                    column_name="accrued",
                     column_config=st.column_config.NumberColumn(
                         "Spent",
                         help=(

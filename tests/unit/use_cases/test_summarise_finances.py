@@ -90,7 +90,7 @@ def _build_category() -> "_CategoryBuilder":
             name=name,
             parent_id=parent_id,
             budget=budget,
-            current_month=budget - remaining,
+            accrued=budget - remaining,
             remaining=remaining,
             progress=0.0,
             split=0.0,

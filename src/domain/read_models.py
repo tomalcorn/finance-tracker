@@ -126,14 +126,15 @@ class CategoryView(_ViewBase):
             description="What a pot held before payments could reach it.",
         ),
     ] = 0.0
-    current_month: Annotated[
+    accrued: Annotated[
         float,
         pydantic.Field(
             description=(
-                "Computed: this category's own payments plus its children's over "
-                "the current month — or, for a pot, its starting balance plus "
-                "everything paid in since. Signed, so a month whose refunds "
-                "outweigh its spending nets out below zero."
+                "Computed over this row's accrual window: a monthly category's "
+                "own payments plus its children's over the current month, or a "
+                "pot's starting balance plus everything paid in since it opened. "
+                "Signed, so a window whose refunds outweigh its spending nets "
+                "out below zero."
             ),
         ),
     ]
@@ -141,7 +142,7 @@ class CategoryView(_ViewBase):
         float,
         pydantic.Field(
             description=(
-                "What is left: budget minus current_month, or for a pot its cost "
+                "What is left: budget minus accrued, or for a pot its cost "
                 "minus what is in it. Negative once overspent."
             ),
         ),

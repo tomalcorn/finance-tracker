@@ -225,7 +225,7 @@ def _build_category() -> "Callable[..., read_models.CategoryView]":
                 "parent_id": parent_id,
                 "budget": 100.0,
                 "accrual": accrual,
-                "current_month": 0.0,
+                "accrued": 0.0,
                 "remaining": 100.0,
                 "progress": 0.0,
                 "split": 0.0,
