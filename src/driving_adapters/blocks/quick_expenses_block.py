@@ -259,7 +259,7 @@ def _prompt_dialog(
         value=button.payment_name or "",
         key=f"{key}_name",
     )
-    # No lower bound: a negative amount against the original expense source is
+    # No lower bound: a negative amount against the original category is
     # one of the two supported ways to record being paid back (see the payments
     # docs), and a reimbursement is exactly the small repetitive entry this page
     # exists for. The button's *preset* stays positive — see `_config_dialog`.
@@ -283,11 +283,11 @@ def _prompt_dialog(
         key=f"{key}_bank_account",
     )
     category_id = st.selectbox(
-        "Expense source",
+        "Category",
         options=category_ids,
         index=_option_index(category_ids, button.category_id),
         format_func=lookups.make_name_formatter(context.category_map),
-        key=f"{key}_expense_source",
+        key=f"{key}_category",
     )
 
     # Truthiness rejects only a blank or zero amount; a negative is a refund and
@@ -400,12 +400,12 @@ def _config_dialog(
         key=f"{key}_bank_account",
     )
     category_id = st.selectbox(
-        "Expense source (optional)",
+        "Category (optional)",
         options=category_ids,
         index=_option_index(category_ids, existing.category_id) if existing else None,
         format_func=lookups.make_name_formatter(context.category_map),
         help="Leave empty to log the payment uncategorised.",
-        key=f"{key}_expense_source",
+        key=f"{key}_category",
     )
 
     inputs = _ButtonInputs(

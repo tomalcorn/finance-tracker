@@ -102,13 +102,13 @@ def _build_config(
                 frontend_models.DFEColumnConfig(
                     column_name="budget",
                     column_config=st.column_config.NumberColumn(
-                        "Planned Spend",
+                        "Planned",
                         help="What you intend to put towards it this month.",
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
                     ),
-                    button_label="Planned Spend",
+                    button_label="Planned",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                     total=True,
@@ -133,7 +133,7 @@ def _build_config(
                 frontend_models.DFEColumnConfig(
                     column_name="starting_balance",
                     column_config=st.column_config.NumberColumn(
-                        "Opening Balance",
+                        "Starting",
                         help=(
                             "What the pot held before payments could reach it. "
                             "Edit it to move money in or out by hand."
@@ -142,7 +142,7 @@ def _build_config(
                         required=True,
                         width=column_widths.MONEY,
                     ),
-                    button_label="Opening Balance",
+                    button_label="Starting",
                     input_widget=st.number_input,
                     input_kwargs={"value": 0.0, "format": "%.2f"},
                     total=True,
@@ -151,16 +151,16 @@ def _build_config(
                     editable=False,
                     column_name="accrued",
                     column_config=st.column_config.NumberColumn(
-                        "Banked",
+                        "Spent/Banked",
                         help=(
-                            "Computed: the opening balance plus every payment "
+                            "Computed: the starting balance plus every payment "
                             "attributed to this pot."
                         ),
                         format="£%.2f",
                         disabled=True,
                         width=column_widths.MONEY,
                     ),
-                    button_label="Banked",
+                    button_label="Spent/Banked",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                     total=True,
@@ -169,7 +169,7 @@ def _build_config(
                     editable=False,
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
-                        "% Banked",
+                        "% Spent/Banked",
                         help="How much of the cost you have banked.",
                         format="%.1f%%",
                         min_value=0,
@@ -177,7 +177,7 @@ def _build_config(
                         width=column_widths.PROGRESS,
                         color="blue",
                     ),
-                    button_label="% Banked",
+                    button_label="% Spent/Banked",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
                 ),

@@ -24,7 +24,7 @@ Login is handled through [Auth0](https://auth0.com).
 The usual setup order is:
 
 1. Add your bank accounts.
-2. Create expense sources to match how you want to categorise spending.
+2. Create expense categories to match how you want to categorise spending.
 3. Create income sources and link them to the right budget tracker rows.
 4. Start entering payments and subscriptions.
 5. Use the one-offs block for savings goals like holidays, gifts, large purchases, or

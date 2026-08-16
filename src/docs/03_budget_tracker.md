@@ -24,18 +24,23 @@ This tab shows the fixed tracker rows that act as your main buckets:
 - One-offs
 - Savings
 
-These rows are fixed because they anchor the rest of the model. Expense and
-income sources point at them, and other views roll up into them.
+These rows are fixed because they anchor the rest of the model. Expense
+categories sit beneath them, income sources point at them, and everything rolls
+up into them.
 
-### Expense Sources Tab
+### Expense Categories Tab
 
-Expense sources are the detailed buckets beneath the budget tracker. They are
-usually the place where you model categories like groceries, transport, rent, or other regular monthly payments.
+Expense categories are the detailed buckets beneath `Expenses`. They are
+usually the place where you model spending like groceries, transport, rent, or other regular monthly payments.
 
-A payment only counts toward a source if you attribute it to one, so leaving a
-payment sourceless keeps it out of these totals — see
+A payment only counts toward a category if you attribute it to one, so leaving a
+payment uncategorised keeps it out of these totals — see
 [getting paid back and moving money between accounts](/payments) for the two
 cases where that matters.
+
+You can attribute a payment to a budget tracker directly as well as to one of
+its expense categories. Spending booked straight onto `Expenses` still counts
+toward that tracker's total; it just isn't broken down any further.
 
 ### Income Sources Tab
 
@@ -55,7 +60,10 @@ stays on the current month either way. Personal and joint are set separately.
 
 ## How The Links Work
 
-Income sources say which budget tracker rows the income contributes toward. Expense sources work the other way round, except that they all link to the `Expenses` row of `Budget Tracker` and so that link is hidden.
+Income sources say which budget tracker rows the income contributes toward.
+Expense categories work the other way round: each one sits under a budget
+tracker — `Expenses`, for the ones this tab creates — and its spending rolls up
+into that tracker's `Spent`.
 
 ## How To Read The Page
 

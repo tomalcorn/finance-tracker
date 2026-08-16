@@ -165,7 +165,7 @@ def test_execute_leaves_an_uncategorised_button_uncategorised(
     build_repo: "conftest.RepoBuilder",
     payment_repo: PaymentRepo,
 ) -> None:
-    # Arrange - a button with no expense source still logs a valid payment
+    # Arrange - a button with no category still logs a valid payment
     button = entities.QuickButtonModel(
         user_id=USER_ID,
         name="Parking",

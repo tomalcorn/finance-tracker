@@ -59,7 +59,7 @@ def test_a_child_is_prefixed_with_its_parent(
     assert labels[str(child.id)] == "Expenses - Groceries"
 
 
-def test_each_root_is_followed_by_its_own_children(
+def test_budget_trackers_come_first_then_their_children(
     build_category: "Callable[..., entities.CategoryModel]",
 ) -> None:
     # Arrange - deliberately interleaved, and not in the order they should come
@@ -76,8 +76,8 @@ def test_each_root_is_followed_by_its_own_children(
     # Assert
     assert list(labels.values()) == [
         "Expenses",
-        "Expenses - Groceries",
         "One-offs",
+        "Expenses - Groceries",
         "One-offs - Festival tickets",
     ]
 

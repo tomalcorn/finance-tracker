@@ -27,7 +27,7 @@ class LogQuickPaymentUseCase:
 
     The caller passes the button's id and, for a button that asks before it logs,
     the details its form collected: the preset it holds (name, amount, bank
-    account, expense source) is read back through the repository, so the UI never
+    account, category) is read back through the repository, so the UI never
     has to know which payment fields a tap fills in. The button is read from the
     same cache entry the page rendered from, so the read costs no extra fetch.
 

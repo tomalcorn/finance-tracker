@@ -26,8 +26,8 @@ may be eating a larger share of your income than intended.
 
 One-off items are easiest to analyse as a trend:
 
-- if `Banked` is rising steadily, the goal is healthy
-- if `Planned Spend` is set month after month without banked growth, the goal is
+- if `Spent/Banked` is rising steadily, the goal is healthy
+- if `Planned` is set month after month without banked growth, the goal is
   being planned for but never paid into
 - if `Remaining` is not falling, the target may be too ambitious for the current
   cash flow
@@ -44,12 +44,12 @@ One-off items are easiest to analyse as a trend:
 
 Good categorisation makes the rest of the app much more useful.
 
-- group similar spending into stable expense sources
+- group similar spending into stable expense categories
 - avoid creating a new source for every small variation
 - keep source names descriptive enough that future reviews make sense
 - link each source to the budget tracker row that best represents the intent of
   the spend
-- If you find that each month the spending for one of your expense sources varies significantly, this may be a sign that its not a very good category. Remember, `Expenses` are there for regular monthly spending. Otherwise, consider cutting the expense source and allocating more money for `One-offs`.
+- If you find that each month the spending for one of your expense categories varies significantly, this may be a sign that its not a very good category. Remember, `Expenses` are there for regular monthly spending. Otherwise, consider cutting the category and allocating more money for `One-offs`.
 
 ## What To Watch For
 

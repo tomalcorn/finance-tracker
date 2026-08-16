@@ -27,7 +27,7 @@ _EXPENSE_PAYMENTS_SAMPLE_DATA = pd.DataFrame(
         "payment_date": [datetime.datetime.now(tz=datetime.UTC).date().isoformat()],
         "checked": [False],
         "bank_account_id": ["example bank account"],
-        "category_id": ["example expense source"],
+        "category_id": ["example category"],
         "payment_type": ["expense"],
     },
 )
@@ -154,12 +154,14 @@ def _build_expense_config(
                 frontend_models.DFEColumnConfig(
                     column_name="category_id",
                     column_config=st.column_config.SelectboxColumn(
-                        "Expense Source",
-                        help="The expense source/budget tracker this comes out of.",
+                        "Category",
+                        help=(
+                            "The budget tracker or expense category this comes out of."
+                        ),
                         options=category_ids,
                         format_func=get_category_name,
                     ),
-                    button_label="Expense Source",
+                    button_label="Category",
                     input_widget=st.selectbox,
                     input_kwargs={
                         "options": category_ids,

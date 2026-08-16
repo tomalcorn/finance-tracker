@@ -279,7 +279,7 @@ def test_budget_tracker_tab_shows_only_roots(
     assert shown == [root]
 
 
-def test_expense_sources_tab_shows_only_children_of_the_expenses_root(
+def test_expense_categories_tab_shows_only_children_of_the_expenses_root(
     build_stub_data_source: "conftest.StubDataSourceBuilder",
     build_category: "Callable[..., read_models.CategoryView]",
 ) -> None:
@@ -305,7 +305,7 @@ def test_expense_sources_tab_shows_only_children_of_the_expenses_root(
     assert shown == [expense_child]
 
 
-def test_a_category_added_on_the_expense_sources_tab_is_parented_there(
+def test_a_category_added_on_the_expense_categories_tab_is_parented_there(
     build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
     # Arrange - the tab shows only that root's children, so a row added without

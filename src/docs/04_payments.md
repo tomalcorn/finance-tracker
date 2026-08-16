@@ -17,14 +17,14 @@ There are two entry types:
 Expense entries record money leaving a bank account. They link together:
 
 - a bank account
-- an expense source
+- a category
 - a payment date
 - a `Checked` flag
 
 The `Expense` amount feeds the computed views that update:
 
 - bank account balances
-- expense source current-month totals
+- expense category current-month totals
 - budget tracker rollups
 
 ## Income Entries
@@ -63,9 +63,9 @@ can see and report on it in its own right. Choose this when the repayment is a
 genuine inflow you want to track — or whenever it arrives in a *different month*
 from the original spend (see the caveat below).
 
-**Option B — log a negative expense against the original expense source.**
+**Option B — log a negative expense against the original category.**
 
-Add an ordinary expense entry, attribute it to the same `Expense Source` the
+Add an ordinary expense entry, attribute it to the same `Category` the
 original spend came from, and enter the amount with a minus sign (e.g. `-12.50`).
 Rather than inventing new income, this offsets that category directly: its
 `Spent` falls, `Remaining` rises, and `% Spent` drops, so the category
@@ -73,7 +73,7 @@ reads as though you only ever spent your own share. Choose this for one-off
 reimbursements of something you already logged as an expense.
 
 One thing to know about Option B: **it only works within one calendar month.**
-Expense source rollups count payments from the current month only, so a negative
+Expense category rollups count payments from the current month only, so a negative
 dated in a later month reduces *that* month's total instead — overstating the
 month you spent in and understating the month you were repaid. Across a month
 boundary, use Option A.
@@ -91,11 +91,11 @@ Record it as **two** entries:
 1. An **expense** entry on the account the money leaves.
 2. An **income** entry on the account the money arrives in, same date and amount.
 
-Leave **both** entries without a source: no `Expense Source` on the outgoing one,
+Leave **both** entries without a source: no `Category` on the outgoing one,
 no `Income Source` on the incoming one. A payment with no source moves its bank
 account balance and counts for nothing else, which is exactly what a transfer is.
 
-Attach an expense source and the transfer would be counted as real spending
+Attach a category and the transfer would be counted as real spending
 against that category; attach an income source and it would be counted as real
 income.
 
@@ -107,7 +107,7 @@ income.
 - Keep the `checked` flag up to date so you can tell which rows still need
   reconciliation.
 - In general, leave a payment's source blank when it doesn't belong in your
-  monthly figures — no `Expense Source` on something that isn't real spending, no
+  monthly figures — no `Category` on something that isn't real spending, no
   `Income Source` on something that isn't real income. Moving money between your
   own accounts is the usual case. This can be a bit tricky to get used to at
   first, but you'll get the hang of it!

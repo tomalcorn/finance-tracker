@@ -8,7 +8,7 @@ icon: ":material/bolt:"
 
 Quick Expenses is the page for logging a spend the moment it happens, from a
 phone, without filling in a form. Each button is a preset — a name, an amount, a
-bank account, and an expense source — and tapping it logs that payment against
+bank account, and a category — and tapping it logs that payment against
 today's date.
 
 The payments it creates are ordinary payments. They show up on the dashboard,
@@ -62,7 +62,7 @@ Below the divider is the payment it creates:
 | Payment name | The name the payment is logged under. Defaults to the button name. |
 | Amount | The expense amount. Negative for money coming back. |
 | Bank account | The account the money leaves. |
-| Expense source | The budget the spend counts against. |
+| Category | The budget the spend counts against. |
 
 With **Ask for details** turned on, that whole lower half is optional —
 anything you leave blank is simply what the form asks for at the till. With it
@@ -81,7 +81,7 @@ one-tap logging.
 - Log straight away for the spends you repeat at the same price — a coffee, a
   bus fare, a regular lunch, a repayment that is always the same. Ask first when
   only the amount moves.
-- Give every button an expense source, so the spend lands in the right budget
+- Give every button a category, so the spend lands in the right budget
   without a later tidy-up.
 - If an amount drifts, edit the button rather than making a second one — the
   payments already logged keep the amount they were logged with.

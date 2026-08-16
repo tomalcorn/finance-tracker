@@ -444,8 +444,8 @@ def category_repository(
 
     Serves both levels of the tree: roots and their children are rows of one
     table, told apart by ``parent_id``, and ``categories_view`` computes the
-    same four figures for each — so one repository answers what the budget
-    tracker and expense source repositories answered separately.
+    same four figures for each — so one repository answers for every level of
+    the tree.
     """
     return SupabaseRepository(
         user_id,
