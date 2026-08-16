@@ -1,3 +1,9 @@
+## v1.18.0 (2026-08-16)
+
+### Feat
+
+- offer the whole category tree in the picker (#251) (#259)
+
 ## v1.17.0 (2026-08-16)
 
 ### Feat
