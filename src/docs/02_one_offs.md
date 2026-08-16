@@ -42,7 +42,7 @@ paper allocation. Make sure you actually transfer the money into your easy-acces
 - Keep `Cost` as the full target, not the amount left.
 - Use `Planned Spend` for the money you are assigning right now.
 - Treat `Spent/Banked` as the money already protected for the goal.
-- If `% Banked` is flat for too long, you may need to reduce the target or
+- If `% Spent/Banked` is flat for too long, you may need to reduce the target or
   change the monthly contribution.
 
 ## Overspend from a previous month

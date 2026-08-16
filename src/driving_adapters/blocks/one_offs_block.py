@@ -169,7 +169,7 @@ def _build_config(
                     editable=False,
                     column_name="progress",
                     column_config=st.column_config.ProgressColumn(
-                        "% Banked",
+                        "% Spent/Banked",
                         help="How much of the cost you have banked.",
                         format="%.1f%%",
                         min_value=0,
@@ -177,7 +177,7 @@ def _build_config(
                         width=column_widths.PROGRESS,
                         color="blue",
                     ),
-                    button_label="% Banked",
+                    button_label="% Spent/Banked",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.1f"},
                 ),
