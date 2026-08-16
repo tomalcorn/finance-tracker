@@ -1,9 +1,9 @@
 """Joint workspace initialisation.
 
-Seeds default budget trackers, hidden expense sources, and the settings row for
-a joint account, stamping joint ownership on every row it creates. The
-personal-side "Joint" budget tracker and its hidden expense source are
-deliberately absent: they are the personal-side anchor for contributions,
+Seeds the budget trackers and the settings row for a joint account, stamping
+joint ownership on every row it creates. A budget tracker is a root category
+now, but it is still a budget tracker. The personal-side "Joint" one is
+deliberately absent: it is the personal-side anchor for contributions,
 meaningless inside the joint account itself (see #191).
 """
 
@@ -27,22 +27,14 @@ _JOINT_BUDGET_TRACKER_NAMES = tuple(
     if name is not entities.BudgetTrackerName.JOINT
 )
 
-# Hidden expense sources are needed for these joint budget tracker names — the
-# personal hidden set (JOINT, ONE_OFFS, SAVINGS) minus JOINT.
-_HIDDEN_EXPENSE_SOURCE_BT_NAMES = (
-    entities.BudgetTrackerName.ONE_OFFS,
-    entities.BudgetTrackerName.SAVINGS,
-)
-
 
 class InitialiseJointWorkspaceUseCase:
-    """Seeds default budget trackers and hidden expense sources for a joint account."""
+    """Seeds the budget trackers and settings for a joint account."""
 
     def __init__(
         self,
         user_id: str,
-        budget_tracker_repo: "repository.Repository[entities.BudgetTrackerItemModel]",
-        expense_source_repo: "repository.Repository[entities.ExpenseSourceModel]",
+        category_repo: "repository.Repository[entities.CategoryModel]",
         joint_account_repo: "repository.Repository[entities.JointAccountModel]",
         settings_repo: "repository.Repository[entities.UserSettingsModel]",
     ) -> None:
@@ -51,8 +43,7 @@ class InitialiseJointWorkspaceUseCase:
         Args:
             user_id: The member triggering the seed; stamped as ``user_id`` on
                 every created row.
-            budget_tracker_repo: Budget trackers repository in joint mode.
-            expense_source_repo: Expense sources repository in joint mode.
+            category_repo: Categories repository in joint mode.
             joint_account_repo: The joint accounts the user belongs to, used to
                 resolve the account id stamped on every created row.
             settings_repo: The account's settings repository in joint mode; it
@@ -60,13 +51,12 @@ class InitialiseJointWorkspaceUseCase:
 
         """
         self._user_id = user_id
-        self._bt_repo = budget_tracker_repo
-        self._es_repo = expense_source_repo
+        self._category_repo = category_repo
         self._joint_account_repo = joint_account_repo
         self._settings_repo = settings_repo
 
     def execute(self) -> None:
-        """Ensure the user's joint account has its default trackers and sources.
+        """Ensure the user's joint account has its budget trackers.
 
         Idempotent (create-if-missing), matching the personal workspace use case.
         A user who belongs to no joint account has nothing to seed, so this is a
@@ -82,12 +72,6 @@ class InitialiseJointWorkspaceUseCase:
             if account is None:
                 return
             self._ensure_default_budget_trackers(account.id)
-
-            # Fetch all budget tracker rows again to get IDs
-            all_bts = self._bt_repo.get_all()
-            bt_id_by_name = {bt.name: bt.id for bt in all_bts}
-
-            self._ensure_hidden_expense_sources(account.id, bt_id_by_name)
             self._ensure_default_settings()
 
         except port_errors.RepositoryError as e:
@@ -101,13 +85,20 @@ class InitialiseJointWorkspaceUseCase:
         return accounts[0] if accounts else None
 
     def _ensure_default_budget_trackers(self, joint_account_id: "uuid.UUID") -> None:
-        """Create any missing joint budget tracker rows for the account."""
-        existing_bts = self._bt_repo.get_all()
-        existing_names = {bt.name for bt in existing_bts}
+        """Create any missing budget tracker for the account.
 
-        self._bt_repo.save_entities(
+        A budget tracker is a root category: the four fixed names, parented to
+        nothing, which the user's own categories hang off.
+        """
+        existing_names = {
+            category.name
+            for category in self._category_repo.get_all()
+            if category.is_root
+        }
+
+        self._category_repo.save_entities(
             [
-                entities.BudgetTrackerItemModel(
+                entities.CategoryModel(
                     user_id=self._user_id,
                     name=name,
                     ownership_type=entities.OwnershipType.JOINT,
@@ -117,55 +108,6 @@ class InitialiseJointWorkspaceUseCase:
                 if name not in existing_names
             ],
         )
-
-    def _ensure_hidden_expense_sources(
-        self,
-        joint_account_id: "uuid.UUID",
-        bt_id_by_name: dict[entities.BudgetTrackerName, "uuid.UUID"],
-    ) -> None:
-        """For each hidden budget tracker name, ensure an expense source links to it."""
-        existing_es = self._es_repo.get_all()
-        es_by_name = {es.name: es for es in existing_es}
-
-        to_save = []
-        for bt_name in _HIDDEN_EXPENSE_SOURCE_BT_NAMES:
-            bt_id = bt_id_by_name[bt_name]
-
-            category_name = bt_name.value
-            existing = es_by_name.get(category_name)
-
-            if existing is None:
-                to_save.append(
-                    entities.ExpenseSourceModel(
-                        user_id=self._user_id,
-                        name=category_name,
-                        budget_tracker_ids=[bt_id],
-                        ownership_type=entities.OwnershipType.JOINT,
-                        joint_account_id=joint_account_id,
-                    ),
-                )
-            # Ensure the budget_tracker_ids list contains bt_id.
-            elif existing.budget_tracker_ids is None:
-                to_save.append(
-                    entities.ExpenseSourceModel.model_validate(
-                        existing.model_copy(update={"budget_tracker_ids": [bt_id]}),
-                    ),
-                )
-            elif bt_id not in existing.budget_tracker_ids:
-                to_save.append(
-                    entities.ExpenseSourceModel.model_validate(
-                        existing.model_copy(
-                            update={
-                                "budget_tracker_ids": [
-                                    *existing.budget_tracker_ids,
-                                    bt_id,
-                                ],
-                            },
-                        ),
-                    ),
-                )
-
-        self._es_repo.save_entities(to_save)
 
     def _ensure_default_settings(self) -> None:
         """Create the account's settings row at the default when none exists.

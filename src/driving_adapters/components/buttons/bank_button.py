@@ -38,14 +38,14 @@ class BankButton:
     @st.dialog("Bank It")
     def _bank_it_dialog(
         self,
-        bankable_items: "Sequence[read_models.OneOffView]",
+        bankable_items: "Sequence[read_models.CategoryView]",
         bank_account_map: dict[str, str],
     ) -> None:
         """Render the Bank It dialog."""
         if not bankable_items:
             st.warning(
-                "Nothing to bank yet. Give a one-off a current-month amount "
-                "first, then come back to move it into Banked.",
+                "Nothing to bank yet. Give a one-off a planned spend first, "
+                "then come back to pay it into the pot.",
             )
             return
 
@@ -58,7 +58,7 @@ class BankButton:
 
         item_options = {str(item.id): item for item in bankable_items}
         item_labels = {
-            str(item.id): f"{item.name} — £{item.current_month:,.2f}"
+            str(item.id): f"{item.name} — £{item.budget:,.2f}"
             for item in bankable_items
         }
 
@@ -78,7 +78,7 @@ class BankButton:
         )
 
         if selected_ids:
-            total = sum(item_options[sid].current_month for sid in selected_ids)
+            total = sum(item_options[sid].budget for sid in selected_ids)
             st.markdown(f"**Total to bank: £{total:,.2f}**")
 
         can_submit = bool(selected_ids) and selected_bank_account is not None
@@ -95,7 +95,7 @@ class BankButton:
                 st.stop()
             st.rerun()
 
-    def __call__(self, bankable_items: "Sequence[read_models.OneOffView]") -> None:
+    def __call__(self, bankable_items: "Sequence[read_models.CategoryView]") -> None:
         """Render the Bank It button, opening the dialog when clicked.
 
         The button renders whether or not there is anything to bank; an empty
@@ -103,13 +103,13 @@ class BankButton:
         button silently disappearing.
 
         Args:
-            bankable_items: The one-off views with ``current_month`` > 0.
+            bankable_items: The pot views with a ``budget`` (planned spend) > 0.
 
         """
         if st.button(
             label="",
             icon=constants.ButtonIcons.BANK,
-            help="Move this month's planned spend into banked.",
+            help="Pay this month's planned spend into the pot.",
             key="bank_it_button",
         ):
             self._bank_it_dialog(bankable_items, self._bank_account_map)

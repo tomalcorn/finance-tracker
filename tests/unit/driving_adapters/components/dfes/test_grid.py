@@ -34,7 +34,7 @@ def _config(
     """Build a minimal grid config for the tests."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table="test_table",
+            grid_id="test_table",
             data_source=data_source,
             row_predicate=row_predicate,
         ),

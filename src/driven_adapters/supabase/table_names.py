@@ -53,15 +53,9 @@ _PAYMENT_DERIVED_VIEWS: list[ViewNames] = [
 CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
     TableNames.PAYMENTS: [*_PAYMENT_DERIVED_VIEWS],
     TableNames.BANK_ACCOUNTS: [ViewNames.BANK_ACCOUNTS],
-    # categories_view resolves a payment to its category *through*
-    # expense_sources until #249 moves the FK, and it tells a hidden stand-in
-    # from a real source by comparing names with budget_tracker. So until that
-    # join goes, editing either table can change which category a payment lands
-    # in — hence categories_view hanging off both. Both entries go with the join.
     TableNames.EXPENSE_SOURCES: [
         ViewNames.EXPENSE_SOURCES,
         ViewNames.BUDGET_TRACKER,
-        ViewNames.CATEGORIES,
     ],
     TableNames.INCOME_SOURCES: [
         ViewNames.INCOME_SOURCES,
@@ -88,14 +82,16 @@ CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
     # same view — and the tree never crosses the ownership split (a child is
     # owned exactly as its root is), so there is no cascade to declare in
     # CASCADES_ACROSS_OWNERSHIP.
-    TableNames.CATEGORIES: [ViewNames.CATEGORIES],
+    TableNames.CATEGORIES: [
+        ViewNames.CATEGORIES,
+        TableNames.PAYMENTS,
+        ViewNames.SUBSCRIPTIONS,
+        TableNames.QUICK_BUTTONS,
+    ],
     TableNames.BUDGET_TRACKER: [
         ViewNames.ONE_OFFS,
         ViewNames.EXPENSE_SOURCES,
         ViewNames.BUDGET_TRACKER,
-        # Its `name` is half of how categories_view spots a hidden stand-in;
-        # goes with that join in #249.
-        ViewNames.CATEGORIES,
     ],
     # A settings row is not summed into anything, but it decides which month
     # income_sources_view rolls its payments up over — and the `split` of

@@ -297,7 +297,7 @@ class TestCategoryViewBounds:
             "name": "Eating out",
             "parent_id": uuid.uuid4(),
             "budget": 100.0,
-            "current_month": 50.0,
+            "accrued": 50.0,
             "remaining": 50.0,
             "progress": 50.0,
             "split": 25.0,
@@ -309,7 +309,7 @@ class TestCategoryViewBounds:
         # carries a category at 206%
         overspent = 206.02
         row = self._row(
-            current_month=overspent,
+            accrued=overspent,
             remaining=-106.02,
             progress=overspent,
         )
@@ -324,7 +324,7 @@ class TestCategoryViewBounds:
         # Arrange - a refund is a negative expense (#230), so a month of nothing
         # but reimbursements nets out below zero
         refunded = -15.0
-        row = self._row(current_month=refunded, remaining=115.0, progress=refunded)
+        row = self._row(accrued=refunded, remaining=115.0, progress=refunded)
 
         # Act
         view = read_models.CategoryView.model_validate(row)

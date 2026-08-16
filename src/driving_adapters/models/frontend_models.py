@@ -1,7 +1,7 @@
 """Pydantic configs for the grid (DataFrame-editor) frontend.
 
 - ``GridSource`` — how a grid persists and is identified: the data port, the
-  grid's identifier (``write_table``, which seeds the widget-key prefix), the
+  grid's identifier (``grid_id``, which seeds the widget-key prefix), the
   add-dialog backend model, and any extra row values. The *source* half.
 - ``GridDisplay`` — what a grid shows: its columns, row-edit mode, and the
   empty-state sample frame. The *display* half.
@@ -171,33 +171,27 @@ class DFEColumnConfig(pydantic.BaseModel):
 class GridSource(pydantic.BaseModel):
     """How a grid persists and is identified (the *source* half of a grid).
 
-    Bundles the read/write data port with the write target and add-dialog
+    Bundles the read/write data port with the grid's identity and add-dialog
     wiring, so reads, writes, and filters can each ask for this one coherent
     slice instead of the whole config.
     """
 
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
-    write_table: Annotated[
+    grid_id: Annotated[
         str,
         pydantic.Field(
             description=(
-                "The grid's identifier, matching its backend table name. Nothing "
-                "writes through this — the write target lives on the data_source "
-                "(repository). It seeds the widget-key prefix (see key_prefix) and "
-                "labels the grid in add-dialog error messages."
+                "What this grid is called, in the UI's own terms. Nothing is "
+                "written through it — the write target lives on the data_source "
+                "(repository), which owns it via its RepoSpec. It seeds the "
+                "widget-key prefix for every control it owns, and labels it in "
+                "add-dialog error messages. Conventionally the backend table "
+                "name, but it names a grid, not a table: three grids read one "
+                "``categories`` table."
             ),
         ),
     ]
-    key_prefix_override: Annotated[
-        str | None,
-        pydantic.Field(
-            description=(
-                "Prefix for Streamlit widget keys. Defaults to write_table. Set to "
-                "avoid key collisions when multiple grids share one table."
-            ),
-        ),
-    ] = None
     extra_row_values: Annotated[
         dict[str, Any] | None,
         pydantic.Field(
@@ -223,11 +217,6 @@ class GridSource(pydantic.BaseModel):
             "composition.wiring. When omitted, the grid falls back to sample data."
         ),
     )
-
-    @property
-    def key_prefix(self) -> str:
-        """The session-state / widget key prefix, defaulting to the write table."""
-        return self.key_prefix_override or self.write_table
 
 
 class GridDisplay(pydantic.BaseModel):
@@ -289,6 +278,6 @@ class DFEConfig(pydantic.BaseModel):
     display: GridDisplay
 
     @property
-    def key_prefix(self) -> str:
-        """The grid's widget-key prefix (delegated to the source)."""
-        return self.source.key_prefix
+    def grid_id(self) -> str:
+        """The grid's identifier, and so its widget-key prefix (from the source)."""
+        return self.source.grid_id

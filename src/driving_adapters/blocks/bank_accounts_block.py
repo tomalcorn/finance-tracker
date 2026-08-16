@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from domain import read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
 
-_TABLE_NAME = "bank_accounts"
+_GRID_ID = "bank_accounts"
 
 _SAMPLE_DATA = pd.DataFrame(
     {
@@ -30,7 +30,7 @@ def _build_config(
     """Build the grid config for the bank accounts block."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table=_TABLE_NAME,
+            grid_id=_GRID_ID,
             data_source=data_source,
         ),
         display=frontend_models.GridDisplay(

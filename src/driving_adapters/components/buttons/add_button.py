@@ -53,7 +53,7 @@ def _add_row_dialog(
 ) -> None:
     """Render the add-row dialog and submit the row on confirm."""
     col_configs = grid_display.writable_columns
-    key_prefix = grid_source.key_prefix
+    key_prefix = grid_source.grid_id
     display_name = key_prefix.replace("_", " ").title()
     st.write(f"Add a new row to {display_name}")
     outputs = [
@@ -77,7 +77,7 @@ def _add_row_dialog(
         try:
             _submit_new_row(grid_source, new_row)
         except (ValueError, port_errors.RepositoryError):
-            logger.exception("Failed to add a new row to %s", grid_source.write_table)
+            logger.exception("Failed to add a new row to %s", grid_source.grid_id)
             st.error("Could not add the row. Please check the values and try again.")
             return
         st.rerun()
@@ -96,6 +96,6 @@ def render_add_button(
         label="",
         icon=constants.ButtonIcons.ADD,
         help="Add a row.",
-        key=f"{grid_source.key_prefix}_add_row_button",
+        key=f"{grid_source.grid_id}_add_row_button",
     ):
         _add_row_dialog(grid_source, grid_display)

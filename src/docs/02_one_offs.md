@@ -19,19 +19,20 @@ but not as part of your normal monthly spending. Examples include:
 
 - Add a new item when a savings goal starts.
 - Update `Planned Spend` when you want to earmark money for that goal this month.
-- Use the `Bank It` action to move the planned spend into `Banked`. The recommended approach is to simultaneously move money into a separate easy-access savings account.
+- Use the `Bank It` action to pay the planned spend into the goal. The recommended approach is to simultaneously move money into a separate easy-access savings account.
 - If you come to buy the item, move money from the easy savings into your current account. You don't need to log buying the item with an expense source, only log the incremental payments into your easy-access savings as `Investments`.
 - Edit the goal if the target changes.
-- Delete the goal if you no longer need to track it.
+- Delete the goal if you no longer need to track it. Any payments you banked into it are kept, and move up to the One-Offs category — deleting a goal never deletes spending history.
 
 ## Banking One-Offs
 
 The `Bank It` button converts selected one-off amounts into real payment entries.
-When you bank items, the app:
+When you bank items, the app creates an expense payment in the Payments block,
+attributed to the goal itself.
 
-- creates an expense payment in the Payments block
-- resets `Planned Spend` to zero
-- increases `Banked` by the amount banked
+`Banked` is that goal's `Opening Balance` plus every payment attributed to it,
+so it rises by what you just banked. `Planned Spend` stays where you set it:
+it is the monthly allowance for the goal, and nothing decrements it.
 
 That means the goal becomes part of your actual spending history, not just a
 paper allocation. Make sure you actually transfer the money into your easy-access savings before using the `Bank It` button.

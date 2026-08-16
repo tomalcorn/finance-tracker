@@ -27,8 +27,8 @@ may be eating a larger share of your income than intended.
 One-off items are easiest to analyse as a trend:
 
 - if `Banked` is rising steadily, the goal is healthy
-- if `Planned Spend` keeps getting reset without banked growth, the goal may be
-  getting raided
+- if `Planned Spend` is set month after month without banked growth, the goal is
+  being planned for but never paid into
 - if `Remaining` is not falling, the target may be too ambitious for the current
   cash flow
 

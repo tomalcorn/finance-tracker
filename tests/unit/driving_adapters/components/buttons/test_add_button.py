@@ -31,7 +31,7 @@ def _config(
     """Build a minimal grid config for the add-button tests."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table="test_table",
+            grid_id="test_table",
             data_source=data_source,
         ),
         display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
@@ -72,7 +72,7 @@ def test_submit_new_row_merges_extra_row_values(
     )
     config = frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table="expense_sources",
+            grid_id="expense_sources",
             data_source=data_source,
             extra_row_values={"budget_tracker_ids": ["bt-expenses"]},
         ),

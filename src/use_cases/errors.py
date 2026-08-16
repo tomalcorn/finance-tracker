@@ -73,13 +73,13 @@ class NoJointAccountToContributeToError(ContributionError):
         super().__init__(f"User {user_id!r} belongs to no joint account.")
 
 
-class JointExpenseSourceNotFoundError(ContributionError):
-    """Error when the hidden "Joint" expense source is missing for a user."""
+class JointCategoryNotFoundError(ContributionError):
+    """Error when the "Joint" root category is missing for a user."""
 
     def __init__(self, user_id: str) -> None:
-        """Construct JointExpenseSourceNotFoundError."""
+        """Construct JointCategoryNotFoundError."""
         self.user_id = user_id
-        super().__init__(f"User {user_id!r} has no 'Joint' expense source.")
+        super().__init__(f"User {user_id!r} has no 'Joint' root category.")
 
 
 class ContributionWriteError(ContributionError):

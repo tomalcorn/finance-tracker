@@ -91,7 +91,7 @@ def _handle_numeric_filtering(
         max_value=default_max,
         value=(default_min, default_max),
         step=step,
-        key=f"{grid_source.key_prefix}_filter_numeric_{col_config.column_name}",
+        key=f"{grid_source.grid_id}_filter_numeric_{col_config.column_name}",
     )
     if selected_values == (default_min, default_max):
         return None
@@ -164,7 +164,7 @@ def _filter_dialog(
     written to session state under the grid's key prefix.
     """
     col_configs = list(grid_display.columns)
-    key_prefix = grid_source.key_prefix
+    key_prefix = grid_source.grid_id
     display_name = key_prefix.replace("_", " ").title()
     st.write(f"Filter **{display_name}** by:")
     for col_config in col_configs:
@@ -200,7 +200,7 @@ def render_filter_button(
 
     The button is highlighted while any column carries a filter.
     """
-    key_prefix = grid_source.key_prefix
+    key_prefix = grid_source.grid_id
     # Read the applied filters from session (what the dialog stored), not the
     # freshly rebuilt default columns — otherwise a grid with default filters is
     # always highlighted and clearing them never turns it off.

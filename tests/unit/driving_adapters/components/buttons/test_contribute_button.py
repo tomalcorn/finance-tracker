@@ -74,7 +74,7 @@ def _button(
         user_id="auth0|test-user-1",
         personal_payment_repo=build_repo(),
         joint_payment_repo=build_repo(),
-        expense_source_repo=build_repo(),
+        category_repo=build_repo(),
         joint_account_repo=build_repo(),
     )
     return contribute_button.ContributeButton(

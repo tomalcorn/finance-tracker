@@ -1,4 +1,11 @@
-"""Block for the budget tracker section."""
+"""Block for the budget tracker section.
+
+Two of its three tabs are grids over the one ``categories`` table: the roots,
+and the children of the "Expenses" root. They are told apart by ``parent_id``,
+so each carries its own ``row_predicate`` and widget-key prefix over the one
+slice already fetched — a filtered read would be Path B and would need its own
+cache key.
+"""
 
 import dataclasses
 from typing import TYPE_CHECKING
@@ -6,7 +13,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import streamlit as st
 
-from domain import entities, query
+from domain import entities, query, read_models
 from driving_adapters.components.buttons import constants, filter_button
 from driving_adapters.components.dfes import column_widths, grid
 from driving_adapters.models import frontend_models
@@ -22,29 +29,29 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass(frozen=True)
 class BudgetTrackerSources:
-    """The three grid data sources behind this block's tabs.
+    """The grid data sources behind this block's tabs.
 
-    Bundled rather than threaded through each call: the tabs are three views of
-    one budget, so every entry point here needs all three, and always the same
-    three.
+    Bundled rather than threaded through each call: the tabs are views of one
+    budget, so every entry point here needs both, and always the same two. Two
+    sources for three tabs — the budget tracker and expense source tabs are two
+    levels of one category tree, and so one source.
     """
 
-    budget_trackers: "data_source_mod.GridDataSource"
-    expense_sources: "data_source_mod.GridDataSource"
+    categories: "data_source_mod.GridDataSource"
     income_sources: "data_source_mod.GridDataSource"
 
 
-_BUDGET_TRACKER_TABLE = "budget_tracker"
+_ROOTS_GRID_ID = "root_categories"
 
-_EXPENSE_SOURCES_TABLE = "expense_sources"
+_CHILDREN_GRID_ID = "expense_categories"
 
-_INCOME_SOURCES_TABLE = "income_sources"
+_INCOME_SOURCES_GRID_ID = "income_sources"
 
 _BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
     {
         "name": ["Example Budget Tracker"],
-        "total_budget": [0],
-        "current_month": [0],
+        "budget": [0],
+        "accrued": [0],
         "remaining": [0],
         "progress": [0],
         "split": [0],
@@ -55,7 +62,7 @@ _EXPENSE_SOURCES_SAMPLE_DATA = pd.DataFrame(
     {
         "name": ["Example Expense Source"],
         "budget": [0],
-        "current_month": [0],
+        "accrued": [0],
         "remaining": [0],
         "progress": [0],
         "split": [0],
@@ -85,14 +92,20 @@ _PREVIOUS_MONTH_HELP = (
 )
 
 
+def _is_root(row: "read_models.CategoryView") -> bool:
+    """Whether a category belongs on the budget tracker (roots) tab."""
+    return row.is_root
+
+
 def _build_budget_tracker_config(
     data_source: "data_source_mod.GridDataSource",
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the budget tracker tab."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table=_BUDGET_TRACKER_TABLE,
+            grid_id=_ROOTS_GRID_ID,
             data_source=data_source,
+            row_predicate=_is_root,
         ),
         display=frontend_models.GridDisplay(
             columns=[
@@ -111,7 +124,7 @@ def _build_budget_tracker_config(
                     input_kwargs={"value": None},
                 ),
                 frontend_models.DFEColumnConfig(
-                    column_name="total_budget",
+                    column_name="budget",
                     column_config=st.column_config.NumberColumn(
                         "Total Budget",
                         help="What this category is allowed each month.",
@@ -144,7 +157,7 @@ def _build_budget_tracker_config(
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
-                    column_name="current_month",
+                    column_name="accrued",
                     column_config=st.column_config.NumberColumn(
                         "Spent",
                         help="Payments booked against this category for a given month.",
@@ -195,6 +208,24 @@ def _build_budget_tracker_config(
     )
 
 
+def _expense_child_predicate(
+    expenses_bt_id: str | None,
+) -> "Callable[[read_models.CategoryView], bool]":
+    """Return the predicate selecting the rows the expense sources tab shows.
+
+    Children of the "Expenses" root. Without that root — a workspace the seed
+    has never run against — it falls back to every category that is neither a
+    root nor a pot, so a user's own row is never invisible.
+    """
+
+    def is_expense_child(row: "read_models.CategoryView") -> bool:
+        if expenses_bt_id is None:
+            return not row.is_root and not row.is_pot
+        return str(row.parent_id) == expenses_bt_id
+
+    return is_expense_child
+
+
 def _build_expense_sources_config(
     data_source: "data_source_mod.GridDataSource",
     expenses_bt_id: str | None,
@@ -202,14 +233,14 @@ def _build_expense_sources_config(
     """Build the grid config for the expense sources tab."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table=_EXPENSE_SOURCES_TABLE,
+            grid_id=_CHILDREN_GRID_ID,
             data_source=data_source,
-            # The tab only shows sources linked to the expenses budget tracker
-            # (via the array_contains filter below), so a source added through
-            # the dialog must be linked too — otherwise it saves but is filtered
-            # out of view, appearing not to persist.
+            row_predicate=_expense_child_predicate(expenses_bt_id),
+            # The tab only shows the children of the expenses root, so a
+            # category added through the dialog must be parented there too —
+            # otherwise it saves as a root and appears not to persist.
             extra_row_values=(
-                {"budget_tracker_ids": [expenses_bt_id]} if expenses_bt_id else None
+                {"parent_id": expenses_bt_id} if expenses_bt_id else None
             ),
         ),
         display=frontend_models.GridDisplay(
@@ -263,7 +294,7 @@ def _build_expense_sources_config(
                 ),
                 frontend_models.DFEColumnConfig(
                     editable=False,
-                    column_name="current_month",
+                    column_name="accrued",
                     column_config=st.column_config.NumberColumn(
                         "Spent",
                         help=(
@@ -310,20 +341,6 @@ def _build_expense_sources_config(
                     input_kwargs={"value": None, "format": "%.2f"},
                     total=True,
                 ),
-                *(
-                    [
-                        frontend_models.DFEColumnConfig(
-                            editable=False,
-                            column_name="budget_tracker_ids",
-                            column_config={"disabled": True},
-                            visible=False,
-                            filters=query.Filters(array_contains=expenses_bt_id),
-                            input_widget=st.text_input,
-                        ),
-                    ]
-                    if expenses_bt_id
-                    else []
-                ),
             ],
             sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
         ),
@@ -347,7 +364,7 @@ def _build_income_sources_config(
     )
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            write_table=_INCOME_SOURCES_TABLE,
+            grid_id=_INCOME_SOURCES_GRID_ID,
             data_source=data_source,
         ),
         display=frontend_models.GridDisplay(
@@ -423,8 +440,8 @@ def _configs(
         return budget_tracker_map.get(str(bt_id), "Unknown Budget Tracker")
 
     return (
-        _build_budget_tracker_config(sources.budget_trackers),
-        _build_expense_sources_config(sources.expense_sources, expenses_bt_id),
+        _build_budget_tracker_config(sources.categories),
+        _build_expense_sources_config(sources.categories, expenses_bt_id),
         _build_income_sources_config(
             sources.income_sources,
             budget_tracker_ids,
@@ -478,7 +495,7 @@ def _render_with_contribute(
         contribute_button()
     grid.render_editor(
         config.display,
-        config.key_prefix,
+        config.grid_id,
         grid.build_working_df(config),
     )
 

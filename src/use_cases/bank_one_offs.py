@@ -2,55 +2,33 @@
 
 from typing import TYPE_CHECKING
 
-from domain import entities
 from use_cases import errors
 
 if TYPE_CHECKING:
     import datetime
     import uuid
 
+    from domain import entities
     from ports import repository
 
 
 class BankOneOffsUseCase:
-    """Use-case for handling the Bank It! action."""
+    """Use-case for handling the Bank It! action.
+
+    Banking a pot writes one payment attributed to the pot itself, and nothing
+    else. A pot's balance is its opening balance plus the payments booked to it,
+    so there is no stored counter to increment; and the planned spend is a plan
+    for the month, which nothing decrements.
+    """
 
     def __init__(
         self,
-        one_off_repo: "repository.Repository[entities.OneOffItemModel]",
-        budget_tracker_repo: "repository.Repository[entities.BudgetTrackerItemModel]",
-        expense_source_repo: "repository.Repository[entities.ExpenseSourceModel]",
+        category_repo: "repository.Repository[entities.CategoryModel]",
         payment_repo: "repository.Repository[entities.AnyPaymentModel]",
     ) -> None:
         """Construct BankOneOffsUseCase."""
-        self._one_off_repo = one_off_repo
-        self._budget_tracker_repo = budget_tracker_repo
-        self._expense_source_repo = expense_source_repo
+        self._category_repo = category_repo
         self._payment_repo = payment_repo
-
-    def _resolve_one_offs_expense_source(self) -> "uuid.UUID | None":
-        budget_trackers = self._budget_tracker_repo.get_all()
-        one_offs_tracker = next(
-            (
-                budget_tracker
-                for budget_tracker in budget_trackers
-                if budget_tracker.name == entities.BudgetTrackerName.ONE_OFFS
-            ),
-            None,
-        )
-        if one_offs_tracker is None:
-            return None
-
-        expense_sources = self._expense_source_repo.get_all()
-        match = next(
-            (
-                expense_source
-                for expense_source in expense_sources
-                if one_offs_tracker.id in (expense_source.budget_tracker_ids or [])
-            ),
-            None,
-        )
-        return match.id if match else None
 
     def execute(
         self,
@@ -65,42 +43,24 @@ class BankOneOffsUseCase:
                 to bank thats less than or equal to zero.
 
         """
-        items = self._one_off_repo.get_by_ids(item_ids)
+        items = self._category_repo.get_by_ids(item_ids)
 
         for item in items:
-            if item.current_month <= 0:
+            if item.budget <= 0:
                 raise errors.AmountToBankLTEZeroError(item.name)
 
-        category_id = self._resolve_one_offs_expense_source()
+        payment_rows: list[entities.RawRow] = [
+            {
+                "payment_type": "expense",
+                "name": f"Bank: {item.name}",
+                "expense": item.budget,
+                "payment_date": payment_date,
+                "bank_account_id": bank_account_id,
+                "category_id": item.id,
+            }
+            for item in items
+        ]
 
-        banked_items = []
-        payment_rows: list[entities.RawRow] = []
-        for item in items:
-            monthly_contribution = item.current_month
-            # Entities are frozen: banking produces a new item rather than
-            # mutating the stored one in place.
-            banked_items.append(
-                entities.OneOffItemModel.model_validate(
-                    item.model_copy(
-                        update={
-                            "banked": item.banked + monthly_contribution,
-                            "current_month": 0,
-                        },
-                    ),
-                ),
-            )
-            payment_rows.append(
-                {
-                    "payment_type": "expense",
-                    "name": f"Bank: {item.name}",
-                    "expense": monthly_contribution,
-                    "payment_date": payment_date,
-                    "bank_account_id": bank_account_id,
-                    "category_id": category_id,
-                },
-            )
-
-        self._one_off_repo.save_entities(banked_items)
         self._payment_repo.save_entities(
             self._payment_repo.build_entities(payment_rows),
         )
