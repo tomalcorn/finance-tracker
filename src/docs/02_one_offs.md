@@ -30,7 +30,7 @@ The `Bank It` button converts selected one-off amounts into real payment entries
 When you bank items, the app creates an expense payment in the Payments block,
 attributed to the goal itself.
 
-`Banked` is that goal's `Opening Balance` plus every payment attributed to it,
+`Spent/Banked` is that goal's `Opening Balance` plus every payment attributed to it,
 so it rises by what you just banked. `Planned Spend` stays where you set it:
 it is the monthly allowance for the goal, and nothing decrements it.
 
@@ -41,7 +41,7 @@ paper allocation. Make sure you actually transfer the money into your easy-acces
 
 - Keep `Cost` as the full target, not the amount left.
 - Use `Planned Spend` for the money you are assigning right now.
-- Treat `Banked` as the money already protected for the goal.
+- Treat `Spent/Banked` as the money already protected for the goal.
 - If `% Banked` is flat for too long, you may need to reduce the target or
   change the monthly contribution.
 

@@ -151,7 +151,7 @@ def _build_config(
                     editable=False,
                     column_name="accrued",
                     column_config=st.column_config.NumberColumn(
-                        "Banked",
+                        "Spent/Banked",
                         help=(
                             "Computed: the opening balance plus every payment "
                             "attributed to this pot."
@@ -160,7 +160,7 @@ def _build_config(
                         disabled=True,
                         width=column_widths.MONEY,
                     ),
-                    button_label="Banked",
+                    button_label="Spent/Banked",
                     input_widget=st.number_input,
                     input_kwargs={"value": None, "format": "%.2f"},
                     total=True,
