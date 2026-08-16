@@ -16,7 +16,7 @@ insurance, or other repeat charges.
 | `Cmount` | The amount charged each time the subscription runs. |
 | `Cadence` | How often the charge happens. |
 | `Bank Account ID` | The bank account used to pay for it. |
-| `Expense Source ID` | The expense source that should absorb the cost. |
+| `Category` | The budget tracker or expense category that should absorb the cost. |
 | `Start Date` | When the subscription starts. |
 | `End Date` | When the subscription ends, if it is no longer active. |
 | `Is Active` | Whether the subscription should still be treated as live. |
@@ -32,7 +32,7 @@ can compare them against your budget on the same scale.
 
 - Create a subscription when a payment repeats regularly.
 - Link it to the right bank account.
-- Link it to the right expense source so the spending lands in the right budget.
+- Link it to the right category so the spending lands in the right budget.
 - Mark it inactive when it no longer applies.
 
 ## Joint Contributions
@@ -53,8 +53,8 @@ side and a matching income on the joint side, linked to each other. Switch the
 contribution off, or give it an end date, and any future pair is removed from
 both sets of books together.
 
-You do not pick an expense source for these. The personal side is always booked
-against your "Joint" expense source, the same one the Contribute button
+You do not pick a category for these. The personal side is always booked
+against your "Joint" budget tracker, the same one the Contribute button
 uses, so all your contributions land in one place in your own budget.
 
 ## Important Behaviour
@@ -67,6 +67,6 @@ payments table and the subscription setup do not drift apart.
 
 - Keep `Start Date` and `End Date` accurate so future payments are handled
   correctly.
-- Use `Expense Source ID` for the category you want the subscription to affect.
+- Use `Category` for the budget tracker or expense category you want the subscription to affect.
 - If a service changes frequency, update the cadence instead of creating a second
   subscription row.

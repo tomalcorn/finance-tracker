@@ -58,23 +58,23 @@ def test_submit_new_row_saves_the_entity_built_by_the_port(
 class _LinkedRowModel(pydantic.BaseModel):
     name: str
     user_id: str
-    budget_tracker_ids: list[str] | None = None
+    parent_id: str | None = None
 
 
 def test_submit_new_row_merges_extra_row_values(
     build_stub_data_source: "conftest.StubDataSourceBuilder",
 ) -> None:
-    # Arrange - the expense-sources grid links new rows to its budget tracker
-    # via extra_row_values so they survive the tab's array_contains filter.
+    # Arrange - the expense categories grid parents new rows to its budget
+    # tracker via extra_row_values, so they survive the tab's own row predicate.
     data_source = build_stub_data_source(
         context={"user_id": USER_ID},
         model=_LinkedRowModel,
     )
     config = frontend_models.DFEConfig(
         source=frontend_models.GridSource(
-            grid_id="expense_sources",
+            grid_id="expense_categories",
             data_source=data_source,
-            extra_row_values={"budget_tracker_ids": ["bt-expenses"]},
+            extra_row_values={"parent_id": "bt-expenses"},
         ),
         display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
     )
@@ -87,7 +87,7 @@ def test_submit_new_row_merges_extra_row_values(
         _LinkedRowModel(
             name="Rent",
             user_id=USER_ID,
-            budget_tracker_ids=["bt-expenses"],
+            parent_id="bt-expenses",
         ),
     ]
 

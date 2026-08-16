@@ -40,8 +40,8 @@ class ContributeButton:
     """Button that records a contribution from a personal account to the joint one.
 
     Mirrors ``BankButton``: a button opens a dialog that drives a single use
-    case (``ContributeToJointUseCase``). The use case resolves the hidden
-    "Joint" expense source and the user's joint account itself, so the dialog
+    case (``ContributeToJointUseCase``). The use case resolves the "Joint"
+    budget tracker and the user's joint account itself, so the dialog
     only collects the amount, the personal source account, the joint
     destination account, the joint income source, and the date.
     """

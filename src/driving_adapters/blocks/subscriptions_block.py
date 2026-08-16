@@ -39,7 +39,7 @@ _NON_NULLABLE_FKS = frozenset({"bank_account_id"})
 
 A cell edit is a raw column patch that skips the entity gate, so a cleared cell
 saves ``null`` and the next read fails to validate it. The joint pair and the
-expense source are nullable on the view and so stay clearable.
+category are nullable on the view and so stay clearable.
 """
 
 _TODAY = datetime.datetime.now(tz=datetime.UTC).date().isoformat()
@@ -50,7 +50,7 @@ _SAMPLE_DATA = pd.DataFrame(
         "amount": [0.0],
         "cadence": ["monthly"],
         "bank_account_id": ["example bank account"],
-        "category_id": ["example expense source"],
+        "category_id": ["example category"],
         "start_date": [_TODAY],
         "end_date": [None],
         "is_active": [True],
@@ -89,7 +89,7 @@ class JointContributionLookups:
     """``{id: name}`` of the joint income sources to book the arrival against."""
 
     category_id: "uuid.UUID | None" = None
-    """The hidden personal "Joint" expense source the expense leg is booked to.
+    """The personal "Joint" budget tracker the expense leg is booked to.
 
     Derived, never chosen, so it is merged into a new row rather than offered as
     a column.
@@ -294,12 +294,12 @@ def _build_config(
                 ),
                 _selectbox_column(
                     "category_id",
-                    "Expense Source",
-                    "The expense source/budget tracker this comes out of.",
+                    "Category",
+                    "The budget tracker or expense category this comes out of.",
                     list(category_map.keys()),
                     lookups.make_name_formatter(
                         category_map,
-                        "Unknown Expense Source",
+                        "Unknown Category",
                     ),
                 ),
                 *_schedule_columns(),

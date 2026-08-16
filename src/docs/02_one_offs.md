@@ -20,7 +20,7 @@ but not as part of your normal monthly spending. Examples include:
 - Add a new item when a savings goal starts.
 - Update `Planned Spend` when you want to earmark money for that goal this month.
 - Use the `Bank It` action to pay the planned spend into the goal. The recommended approach is to simultaneously move money into a separate easy-access savings account.
-- If you come to buy the item, move money from the easy savings into your current account. You don't need to log buying the item with an expense source, only log the incremental payments into your easy-access savings as `Investments`.
+- If you come to buy the item, move money from the easy savings into your current account. You don't need to log buying the item with a category, only log the incremental payments into your easy-access savings as `Investments`.
 - Edit the goal if the target changes.
 - Delete the goal if you no longer need to track it. Any payments you banked into it are kept, and move up to the One-Offs category — deleting a goal never deletes spending history.
 

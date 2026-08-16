@@ -1,10 +1,10 @@
 """Block for the budget tracker section.
 
-Two of its three tabs are grids over the one ``categories`` table: the roots,
-and the children of the "Expenses" root. They are told apart by ``parent_id``,
-so each carries its own ``row_predicate`` and widget-key prefix over the one
-slice already fetched — a filtered read would be Path B and would need its own
-cache key.
+Two of its three tabs are grids over the one ``categories`` table: the budget
+trackers, and the expense categories beneath the "Expenses" one. They are told
+apart by ``parent_id``, so each carries its own ``row_predicate`` and widget-key
+prefix over the one slice already fetched — a filtered read would be Path B and
+would need its own cache key.
 """
 
 import dataclasses
@@ -33,8 +33,8 @@ class BudgetTrackerSources:
 
     Bundled rather than threaded through each call: the tabs are views of one
     budget, so every entry point here needs both, and always the same two. Two
-    sources for three tabs — the budget tracker and expense source tabs are two
-    levels of one category tree, and so one source.
+    sources for three tabs — the budget tracker and expense category tabs are
+    two levels of one category tree, and so one source.
     """
 
     categories: "data_source_mod.GridDataSource"
@@ -58,9 +58,9 @@ _BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
     },
 )
 
-_EXPENSE_SOURCES_SAMPLE_DATA = pd.DataFrame(
+_EXPENSE_CATEGORIES_SAMPLE_DATA = pd.DataFrame(
     {
-        "name": ["Example Expense Source"],
+        "name": ["Example Expense Category"],
         "budget": [0],
         "accrued": [0],
         "remaining": [0],
@@ -211,7 +211,7 @@ def _build_budget_tracker_config(
 def _expense_child_predicate(
     expenses_bt_id: str | None,
 ) -> "Callable[[read_models.CategoryView], bool]":
-    """Return the predicate selecting the rows the expense sources tab shows.
+    """Return the predicate selecting the rows the expense categories tab shows.
 
     Children of the "Expenses" root. Without that root — a workspace the seed
     has never run against — it falls back to every category that is neither a
@@ -226,11 +226,11 @@ def _expense_child_predicate(
     return is_expense_child
 
 
-def _build_expense_sources_config(
+def _build_expense_categories_config(
     data_source: "data_source_mod.GridDataSource",
     expenses_bt_id: str | None,
 ) -> frontend_models.DFEConfig:
-    """Build the grid config for the expense sources tab."""
+    """Build the grid config for the expense categories tab."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             grid_id=_CHILDREN_GRID_ID,
@@ -249,7 +249,7 @@ def _build_expense_sources_config(
                     column_name="name",
                     column_config=st.column_config.TextColumn(
                         "Name",
-                        help="Name of the expense source.",
+                        help="Name of the expense category.",
                         required=True,
                         width=column_widths.NAME,
                     ),
@@ -261,7 +261,7 @@ def _build_expense_sources_config(
                     column_name="budget",
                     column_config=st.column_config.NumberColumn(
                         "Budget",
-                        help="What this expense source is allowed each month.",
+                        help="What this expense category is allowed each month.",
                         format="£%.2f",
                         required=True,
                         width=column_widths.MONEY,
@@ -278,7 +278,7 @@ def _build_expense_sources_config(
                     column_config=st.column_config.ProgressColumn(
                         "Share of Budget",
                         help=(
-                            "This expense source's budget as a share of the "
+                            "This expense category's budget as a share of the "
                             "Expenses budget tracker budget."
                         ),
                         format="%.1f%%",
@@ -298,7 +298,7 @@ def _build_expense_sources_config(
                     column_config=st.column_config.NumberColumn(
                         "Spent",
                         help=(
-                            "Payments booked against this expense source for a "
+                            "Payments booked against this expense category for a "
                             "given month."
                         ),
                         format="£%.2f",
@@ -342,7 +342,7 @@ def _build_expense_sources_config(
                     total=True,
                 ),
             ],
-            sample_data=_EXPENSE_SOURCES_SAMPLE_DATA,
+            sample_data=_EXPENSE_CATEGORIES_SAMPLE_DATA,
         ),
     )
 
@@ -424,7 +424,7 @@ def _configs(
     frontend_models.DFEConfig,
     frontend_models.DFEConfig,
 ]:
-    """Build the budget-tracker, expense-source, and income-source grid configs."""
+    """Build the budget-tracker, expense-category and income-source configs."""
     budget_tracker_ids = list(budget_tracker_map.keys())
 
     expenses_bt_id = next(
@@ -441,7 +441,7 @@ def _configs(
 
     return (
         _build_budget_tracker_config(sources.categories),
-        _build_expense_sources_config(sources.categories, expenses_bt_id),
+        _build_expense_categories_config(sources.categories, expenses_bt_id),
         _build_income_sources_config(
             sources.income_sources,
             budget_tracker_ids,
@@ -532,7 +532,7 @@ def render(
     budget_tracker_tab, expense_tab, income_tab = st.tabs(
         [
             f"{constants.TabIcons.BUDGET_TRACKER} Budget Tracker",
-            f"{constants.TabIcons.EXPENSE} Expense Sources",
+            f"{constants.TabIcons.EXPENSE} Expense Categories",
             f"{constants.TabIcons.INCOME} Income Sources",
         ],
     )
