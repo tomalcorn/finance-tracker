@@ -2,8 +2,8 @@
 
 The id -> name maps themselves are per-aggregate reads built in
 ``composition.wiring`` (e.g. ``wiring.bank_account_id_name_map``); this module
-turns such a map into a Streamlit ``format_func``, and builds the one map whose
-labels are a display decision rather than a column: the category tree's.
+turns such a map into a Streamlit ``format_func``, and builds the category
+tree's own labels.
 """
 
 import collections
@@ -13,9 +13,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from domain import entities
-
-CATEGORY_SEPARATOR = " - "
-"""What sits between a parent's name and its child's in a picker label."""
 
 
 def make_name_formatter(
@@ -35,26 +32,13 @@ def make_category_name_map(
 ) -> dict[str, str]:
     """Return an ordered ``{id: label}`` map covering both levels of the tree.
 
-    A payment may be attributed to a root or to one of its children, so the
-    picker offers every category. Two things make a flat list of them readable,
-    and both are display decisions built here from ``parent_id`` rather than
-    stored as a denormalised path:
-
-    * a child is labelled ``"Parent - Child"``, and
-    * each root is immediately followed by its own children, since scanning a
-      long list grouped by parent is far easier than roots-then-everything.
-
-    ``st.column_config.SelectboxColumn`` has no option grouping, so the prefix
-    does the work a group header would. Insertion order is the order a caller
-    gets from ``list(map)``, which is what the options list is built from.
-
     Args:
         categories: Every category of one ownership half, in any order.
 
     Returns:
-        ``{id: label}``, ordered root-then-its-children, each level sorted by
-        name. A child whose parent is absent keeps its bare name and follows the
-        grouped entries, so it can still be picked.
+        ``{id: label}``, each root followed by its own children and each level
+        sorted by name. A child is labelled ``"Parent - Child"``; one whose
+        parent is absent keeps its bare name and follows the grouped entries.
 
     """
     children_by_parent: dict[str, list[entities.CategoryModel]] = (
@@ -71,7 +55,7 @@ def make_category_name_map(
     for root in sorted((c for c in categories if c.is_root), key=by_name):
         labels[str(root.id)] = str(root.name)
         for child in sorted(children_by_parent.pop(str(root.id), []), key=by_name):
-            labels[str(child.id)] = f"{root.name}{CATEGORY_SEPARATOR}{child.name}"
+            labels[str(child.id)] = f"{root.name} - {child.name}"
 
     for orphans in children_by_parent.values():
         for child in sorted(orphans, key=by_name):
