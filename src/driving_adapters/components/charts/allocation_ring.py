@@ -5,11 +5,11 @@ so the ring carries no legend of its own — the cards' swatches, drawn from thi
 module's palette, tie each one to its slice.
 """
 
-import dataclasses
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import altair as alt
 import pandas as pd
+import pydantic
 import streamlit as st
 
 from domain import entities
@@ -42,8 +42,37 @@ _GAP_WIDTH = 2
 _ALARM_GAP_WIDTH = 3
 
 
-@dataclasses.dataclass(frozen=True)
-class Palette:
+class TrackerColours(pydantic.BaseModel):
+    """A slice colour for each of the fixed budget trackers.
+
+    A field apiece rather than a mapping: the trackers are a closed set, so a
+    missing one should fail to construct rather than fall through at render
+    time to the remainder's grey.
+    """
+
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    expenses: Annotated[str, pydantic.Field(description="The Expenses slice.")]
+    joint: Annotated[str, pydantic.Field(description="The Joint slice.")]
+    one_offs: Annotated[str, pydantic.Field(description="The One-offs slice.")]
+    savings: Annotated[str, pydantic.Field(description="The Savings slice.")]
+
+    def for_name(self, name: str) -> str | None:
+        """Return the colour for a tracker, or None if it is not one of them."""
+        match name:
+            case entities.BudgetTrackerName.EXPENSES:
+                return self.expenses
+            case entities.BudgetTrackerName.JOINT:
+                return self.joint
+            case entities.BudgetTrackerName.ONE_OFFS:
+                return self.one_offs
+            case entities.BudgetTrackerName.SAVINGS:
+                return self.savings
+            case _:
+                return None
+
+
+class Palette(pydantic.BaseModel):
     """The chart colours for one surface.
 
     Slots 1 to 4 of a validated categorical palette, stepped for their own
@@ -51,25 +80,40 @@ class Palette:
     clears 3:1 against its surface so the remainder never vanishes into it.
     """
 
-    trackers: dict[str, str]
-    unallocated: str
-    surface: str
-    muted: str
-    text: str
-    critical: str = _CRITICAL
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    trackers: Annotated[
+        TrackerColours,
+        pydantic.Field(description="A slice colour per budget tracker."),
+    ]
+    unallocated: Annotated[
+        str,
+        pydantic.Field(description="The remainder segment, and any unknown row."),
+    ]
+    surface: Annotated[
+        str,
+        pydantic.Field(description="The page behind the chart; the slice gaps."),
+    ]
+    muted: Annotated[str, pydantic.Field(description="The centre's caption.")]
+    text: Annotated[str, pydantic.Field(description="The centre's figure.")]
+    critical: Annotated[
+        str,
+        pydantic.Field(description="The alarm band, gaps and figure."),
+    ] = _CRITICAL
 
     def tracker(self, name: str) -> str:
         """Return the slice colour for a tracker, by name."""
-        return self.trackers.get(name, self.unallocated)
+        colour = self.trackers.for_name(name)
+        return self.unallocated if colour is None else colour
 
 
 LIGHT = Palette(
-    trackers={
-        entities.BudgetTrackerName.EXPENSES: "#2a78d6",
-        entities.BudgetTrackerName.JOINT: "#eb6834",
-        entities.BudgetTrackerName.ONE_OFFS: "#1baf7a",
-        entities.BudgetTrackerName.SAVINGS: "#eda100",
-    },
+    trackers=TrackerColours(
+        expenses="#2a78d6",
+        joint="#eb6834",
+        one_offs="#1baf7a",
+        savings="#eda100",
+    ),
     unallocated="#8a897f",
     surface="#fcfcfb",
     muted="#52514e",
@@ -77,12 +121,12 @@ LIGHT = Palette(
 )
 
 DARK = Palette(
-    trackers={
-        entities.BudgetTrackerName.EXPENSES: "#3987e5",
-        entities.BudgetTrackerName.JOINT: "#d95926",
-        entities.BudgetTrackerName.ONE_OFFS: "#199e70",
-        entities.BudgetTrackerName.SAVINGS: "#c98500",
-    },
+    trackers=TrackerColours(
+        expenses="#3987e5",
+        joint="#d95926",
+        one_offs="#199e70",
+        savings="#c98500",
+    ),
     unallocated="#7a7972",
     surface="#1a1a19",
     muted="#c3c2b7",
@@ -90,12 +134,35 @@ DARK = Palette(
 )
 
 
-@dataclasses.dataclass(frozen=True)
-class Slice:
+class Slice(pydantic.BaseModel):
     """One segment of the ring."""
 
-    name: str
-    amount: float
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    name: Annotated[str, pydantic.Field(description="The segment's label.")]
+    amount: Annotated[float, pydantic.Field(description="What it is worth.")]
+
+
+class Allocation(pydantic.BaseModel):
+    """How an income divides between the trackers."""
+
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    slices: Annotated[
+        list[Slice],
+        pydantic.Field(description="The ring's segments, in drawing order."),
+    ]
+    unallocated: Annotated[
+        float,
+        pydantic.Field(
+            description="Income not yet budgeted; negative once over-allocated.",
+        ),
+    ]
+
+    @property
+    def is_over(self) -> bool:
+        """Whether the trackers are budgeted beyond the income."""
+        return self.unallocated < 0
 
 
 def palette() -> Palette:
@@ -104,31 +171,25 @@ def palette() -> Palette:
     return DARK if getattr(theme, "type", "light") == "dark" else LIGHT
 
 
-def allocated(roots: "Sequence[read_models.CategoryView]") -> float:
-    """Return the total budget across the trackers."""
-    return sum(root.budget for root in roots)
-
-
-def unallocated(roots: "Sequence[read_models.CategoryView]", income: float) -> float:
-    """Return the income left over; negative once the trackers exceed it."""
-    return income - allocated(roots)
-
-
-def slices(
+def allocation(
     roots: "Sequence[read_models.CategoryView]",
     income: float,
-) -> list[Slice]:
-    """Return the ring's segments: a tracker per budget, then any remainder.
+) -> Allocation:
+    """Divide the income between the trackers.
 
-    A tracker budgeted at nothing gets no segment. There is no remainder
-    segment once the trackers have used up the income — the ring is already
-    full, and the shortfall is what the alarm state reports instead.
+    A tracker budgeted at nothing gets no slice. There is no remainder slice
+    once the trackers have used up the income — the ring is already full, and
+    the shortfall is what the alarm state reports instead.
     """
-    segments = [Slice(str(root.name), root.budget) for root in roots if root.budget > 0]
-    left_over = unallocated(roots, income)
-    if segments and left_over > 0:
-        segments.append(Slice(UNALLOCATED_LABEL, left_over))
-    return segments
+    left_over = income - sum(root.budget for root in roots)
+    slices = [
+        Slice(name=str(root.name), amount=root.budget)
+        for root in roots
+        if root.budget > 0
+    ]
+    if slices and left_over > 0:
+        slices.append(Slice(name=UNALLOCATED_LABEL, amount=left_over))
+    return Allocation(slices=slices, unallocated=left_over)
 
 
 def render(
@@ -137,17 +198,16 @@ def render(
     colours: Palette,
 ) -> None:
     """Render the ring, or a caption where there is nothing to draw."""
-    segments = slices(roots, income)
-    if not segments:
+    divided = allocation(roots, income)
+    if not divided.slices:
         st.caption("Nothing allocated yet.")
         return
 
-    over_by = -unallocated(roots, income)
-    over = over_by > 0
-    layers = [_arc(segments, colours, over=over)]
+    over = divided.is_over
+    layers = [_arc(divided.slices, colours, over=over)]
     if over:
         layers.append(_alarm_band(colours))
-    layers += _centre(over_by if over else -over_by, colours, over=over)
+    layers += _centre(divided.unallocated, colours, over=over)
     chart = (
         alt.layer(*layers)
         # Independent, or the band's single datum is stacked into the slices'
@@ -159,14 +219,14 @@ def render(
 
 
 def _arc(
-    segments: "Sequence[Slice]",
+    slices: "Sequence[Slice]",
     colours: Palette,
     *,
     over: bool,
 ) -> "alt.Chart":
     """Build the ring itself, its slice gaps carrying the alarm colour."""
-    frame = pd.DataFrame([dataclasses.asdict(segment) for segment in segments])
-    domain = [segment.name for segment in segments]
+    frame = pd.DataFrame([one.model_dump() for one in slices])
+    domain = [one.name for one in slices]
     return (
         alt.Chart(frame)
         .mark_arc(

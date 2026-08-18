@@ -47,16 +47,16 @@ def test_the_remainder_closes_the_ring_when_income_is_left_over(
     roots = [build_root(budget=300.0)]
 
     # Act
-    segments = allocation_ring.slices(roots, income=500.0)
+    divided = allocation_ring.allocation(roots, income=500.0)
 
     # Assert - the remainder is what makes the ring the whole income
-    assert segments[-1] == allocation_ring.Slice(
-        allocation_ring.UNALLOCATED_LABEL,
-        200.0,
+    assert divided.slices[-1] == allocation_ring.Slice(
+        name=allocation_ring.UNALLOCATED_LABEL,
+        amount=200.0,
     )
 
 
-def test_no_remainder_segment_once_the_trackers_exceed_the_income(
+def test_no_remainder_slice_once_the_trackers_exceed_the_income(
     build_root: "Callable[..., read_models.CategoryView]",
 ) -> None:
     # Arrange - the ring is already full, so a remainder would have to be
@@ -64,15 +64,15 @@ def test_no_remainder_segment_once_the_trackers_exceed_the_income(
     roots = [build_root(budget=800.0)]
 
     # Act
-    segments = allocation_ring.slices(roots, income=500.0)
+    divided = allocation_ring.allocation(roots, income=500.0)
 
     # Assert
-    assert [segment.name for segment in segments] == [
+    assert [one.name for one in divided.slices] == [
         entities.BudgetTrackerName.EXPENSES,
     ]
 
 
-def test_a_tracker_budgeted_at_nothing_gets_no_segment(
+def test_a_tracker_budgeted_at_nothing_gets_no_slice(
     build_root: "Callable[..., read_models.CategoryView]",
 ) -> None:
     # Arrange
@@ -82,37 +82,35 @@ def test_a_tracker_budgeted_at_nothing_gets_no_segment(
     ]
 
     # Act
-    segments = allocation_ring.slices(roots, income=300.0)
+    divided = allocation_ring.allocation(roots, income=300.0)
 
     # Assert
-    assert [segment.name for segment in segments] == [
+    assert [one.name for one in divided.slices] == [
         entities.BudgetTrackerName.EXPENSES,
     ]
 
 
-def test_no_segments_at_all_when_nothing_is_allocated() -> None:
+def test_no_slices_at_all_when_nothing_is_allocated() -> None:
     # Arrange - the caller draws a caption rather than an empty ring.
 
     # Act
-    segments = allocation_ring.slices([], income=500.0)
+    divided = allocation_ring.allocation([], income=500.0)
 
     # Assert
-    assert segments == []
+    assert divided.slices == []
 
 
-def test_unallocated_goes_negative_once_over_allocated(
+def test_over_allocated_once_the_trackers_exceed_the_income(
     build_root: "Callable[..., read_models.CategoryView]",
 ) -> None:
-    # Arrange - the sign is what the render path reads to pick the alarm state.
-    budget = 800.0
-    income = 500.0
-    roots = [build_root(budget=budget)]
+    # Arrange - this flag is what the render path reads to pick the alarm state.
+    roots = [build_root(budget=800.0)]
 
     # Act
-    left_over = allocation_ring.unallocated(roots, income=income)
+    divided = allocation_ring.allocation(roots, income=500.0)
 
     # Assert
-    assert left_over == income - budget
+    assert divided.is_over
 
 
 @pytest.mark.parametrize(

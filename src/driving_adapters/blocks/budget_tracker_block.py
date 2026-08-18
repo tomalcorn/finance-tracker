@@ -52,9 +52,7 @@ _ALLOCATION_KEY_PREFIX = "budget_allocation"
 
 _BUDGET_STEP = 10.0
 
-# Name and share, the input, then the spend — widest first, so the tracker a
-# card belongs to is what the eye lands on.
-_CARD_COLUMN_WIDTHS = [3, 3, 2]
+_CARD_COLUMN_WIDTHS = [3, 3, 4]
 
 _PANEL_COLUMN_WIDTHS = [3, 2]
 
@@ -304,11 +302,7 @@ def _configs(
     budget_tracker_map: dict[str, str],
     income_roll_up_period: entities.IncomeRollUpPeriod,
 ) -> tuple[frontend_models.DFEConfig, frontend_models.DFEConfig]:
-    """Build the expense-category and income-source configs.
-
-    Two, not three: the budget trackers tab is the allocation panel, which
-    writes a column patch straight through the port rather than through a grid.
-    """
+    """Build the expense-category and income-source configs."""
     budget_tracker_ids = list(budget_tracker_map.keys())
 
     expenses_bt_id = next(
@@ -430,17 +424,16 @@ def _render_tracker_card(
         )
         with name_col:
             st.markdown(
-                f'<span style="color:{colours.tracker(str(root.name))};'
-                f'font-size:1.1em">&#9679;</span> <strong>{root.name}</strong><br>'
-                f'<span style="opacity:0.6;font-size:0.85em">'
-                f"{share:.1f}% of income</span>",
+                f'<span style="color:{colours.tracker(str(root.name))}">&#9679;</span> '
+                f"<strong>{root.name}</strong> "
+                f'<span style="opacity:0.6">· {share:.1f}%</span>',
                 unsafe_allow_html=True,
             )
         with input_col:
             _budget_input(sources, root)
         with spend_col:
             st.caption(
-                f"£{root.accrued:,.2f} spent\n\n£{root.remaining:,.2f} left",
+                f"£{root.accrued:,.2f} spent · £{root.remaining:,.2f} left",
             )
 
 
