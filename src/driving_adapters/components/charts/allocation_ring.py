@@ -23,8 +23,6 @@ UNALLOCATED_LABEL = "Unallocated"
 
 _CRITICAL = "#d03b3b"
 
-_SLICE_LABEL_INK = "#0b0b0b"
-
 _RING_INNER_RADIUS = 84
 
 _RING_OUTER_RADIUS = 128
@@ -38,14 +36,6 @@ _RING_HEIGHT = 320
 _CENTRE_VALUE_SIZE = 30
 
 _CENTRE_LABEL_SIZE = 13
-
-_SLICE_LABEL_SIZE = 12
-
-_SLICE_LABEL_RADIUS = (_RING_INNER_RADIUS + _RING_OUTER_RADIUS) / 2
-
-# Below this a slice is too narrow to hold its own figure without colliding
-# with its neighbours; the tooltip still carries it.
-_SLICE_LABEL_MIN_SHARE = 5.0
 
 _GAP_WIDTH = 2
 
@@ -110,16 +100,6 @@ class Palette(pydantic.BaseModel):
         str,
         pydantic.Field(description="The alarm band, gaps and figure."),
     ] = _CRITICAL
-    slice_label: Annotated[
-        str,
-        pydantic.Field(
-            description=(
-                "The share written on a slice. One ink for both surfaces: it "
-                "sits on the slice, not the page, and measures at least 4.4:1 "
-                "against every slice colour in either palette."
-            ),
-        ),
-    ] = _SLICE_LABEL_INK
 
     def tracker(self, name: str) -> str:
         """Return the slice colour for a tracker, by name."""
@@ -163,7 +143,13 @@ class Slice(pydantic.BaseModel):
     amount: Annotated[float, pydantic.Field(description="What it is worth.")]
     share: Annotated[
         float,
-        pydantic.Field(description="Its percentage of the whole ring."),
+        pydantic.Field(
+            description=(
+                "Its fraction of the whole ring, 0 to 1. A ratio rather than a "
+                "percentage so the chart's own formatter writes the % sign — "
+                "display formatting belongs there, not on the model."
+            ),
+        ),
     ]
 
 
@@ -212,7 +198,7 @@ def allocation(
         amounts.append((UNALLOCATED_LABEL, left_over))
     whole = sum(amount for _, amount in amounts)
     slices = [
-        Slice(name=name, amount=amount, share=amount / whole * 100)
+        Slice(name=name, amount=amount, share=amount / whole)
         for name, amount in amounts
     ]
     return Allocation(slices=slices, unallocated=left_over)
@@ -230,10 +216,7 @@ def render(
         return
 
     over = divided.is_over
-    layers = [
-        _arc(divided.slices, colours, over=over),
-        _slice_labels(divided.slices, colours),
-    ]
+    layers = [_arc(divided.slices, colours, over=over)]
     if over:
         layers.append(_alarm_band(colours))
     layers += _centre(divided.unallocated, colours, over=over)
@@ -247,38 +230,6 @@ def render(
     st.altair_chart(chart, theme=None)
 
 
-def _frame(slices: "Sequence[Slice]") -> pd.DataFrame:
-    """Build the frame the arc and its labels share.
-
-    One frame for both, because a text mark only lands on its slice if it
-    stacks over exactly the same rows in the same order.
-    """
-    rows = []
-    for one in slices:
-        row = one.model_dump()
-        # Blank rather than dropped: a filtered-out row would shift the stack
-        # and land every later label on the wrong slice.
-        row["label"] = (
-            f"{one.share:.1f}%" if one.share >= _SLICE_LABEL_MIN_SHARE else ""
-        )
-        rows.append(row)
-    return pd.DataFrame(rows)
-
-
-def _slice_labels(slices: "Sequence[Slice]", colours: Palette) -> "alt.Chart":
-    """Build the share written on each slice wide enough to hold it."""
-    return (
-        alt.Chart(_frame(slices))
-        .mark_text(
-            radius=_SLICE_LABEL_RADIUS,
-            fontSize=_SLICE_LABEL_SIZE,
-            fontWeight="bold",
-            color=colours.slice_label,
-        )
-        .encode(theta=alt.Theta("amount:Q", stack=True), text="label:N")
-    )
-
-
 def _arc(
     slices: "Sequence[Slice]",
     colours: Palette,
@@ -286,7 +237,7 @@ def _arc(
     over: bool,
 ) -> "alt.Chart":
     """Build the ring itself, its slice gaps carrying the alarm colour."""
-    frame = _frame(slices)
+    frame = pd.DataFrame([one.model_dump() for one in slices])
     domain = [one.name for one in slices]
     return (
         alt.Chart(frame)
@@ -309,7 +260,7 @@ def _arc(
             tooltip=[
                 alt.Tooltip("name:N", title="Tracker"),
                 alt.Tooltip("amount:Q", title="Budget", format=",.2f"),
-                alt.Tooltip("share:Q", title="Share", format=".1f"),
+                alt.Tooltip("share:Q", title="Share", format=".1%"),
             ],
         )
     )
