@@ -1,3 +1,9 @@
+## v1.18.2 (2026-08-18)
+
+### Fix
+
+- state the totals strip's height so it survives a column (#267)
+
 ## v1.18.1 (2026-08-16)
 
 ### Refactor
