@@ -1,3 +1,9 @@
+## v1.19.0 (2026-08-18)
+
+### Feat
+
+- an allocation panel in place of the budget trackers grid (#268)
+
 ## v1.18.2 (2026-08-18)
 
 ### Fix
