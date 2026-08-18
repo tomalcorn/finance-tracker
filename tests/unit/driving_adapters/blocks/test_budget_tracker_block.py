@@ -283,10 +283,7 @@ def test_a_category_added_on_the_expense_categories_tab_is_parented_there(
     assert children_config.source.extra_row_values == {"parent_id": expenses_root_id}
 
 
-def _panel_wrapper(
-    source: "data_source_mod.GridDataSource",
-    root_map: dict[str, str],
-) -> None:
+def _panel_wrapper(source: "data_source_mod.GridDataSource") -> None:
     """Render the allocation panel alone for AppTest.
 
     Injected via kwargs for the same reason as ``_render_wrapper``: from_function
@@ -295,7 +292,7 @@ def _panel_wrapper(
     from driving_adapters.blocks import budget_tracker_block
 
     sources = budget_tracker_block.BudgetTrackerSources(source, source)
-    budget_tracker_block.render_allocation_panel(sources, root_map)
+    budget_tracker_block.render_allocation_panel(sources)
 
 
 @pytest.fixture(name="build_panel_tester")
@@ -312,13 +309,13 @@ def _build_panel_tester(
     def _build(
         *names: entities.BudgetTrackerName,
     ) -> "tuple[st_test.AppTest, Any]":
-        roots = [build_category(name=name) for name in names]
-        source = build_stub_data_source(roots)
-        root_map = {str(root.id): str(root.name) for root in roots}
+        source = build_stub_data_source(
+            [build_category(name=name) for name in names],
+        )
         app_tester = st_test.AppTest.from_function(
             _panel_wrapper,
             default_timeout=120,
-            kwargs={"source": source, "root_map": root_map},
+            kwargs={"source": source},
         )
         return app_tester, source
 

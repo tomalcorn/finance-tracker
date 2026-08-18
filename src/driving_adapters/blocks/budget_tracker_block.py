@@ -357,18 +357,18 @@ def commit(
     grid.commit(is_config)
 
 
-def _roots(
-    sources: BudgetTrackerSources,
-    budget_tracker_map: dict[str, str],
-) -> list["read_models.CategoryView"]:
-    """Return the budget trackers, in the fixed display order of their names."""
+def _roots(sources: BudgetTrackerSources) -> list["read_models.CategoryView"]:
+    """Return the budget trackers, in the fixed display order of their names.
+
+    Read off the rows rather than narrowed by the id→name map: the row already
+    carries its own name, so consulting the map could only ever hide a tracker
+    the map had not caught up with.
+    """
     order = list(entities.BudgetTrackerName)
     roots = [
         row
         for row in sources.categories.rows()
-        if isinstance(row, read_models.CategoryView)
-        and row.is_root
-        and str(row.id) in budget_tracker_map
+        if isinstance(row, read_models.CategoryView) and row.is_root
     ]
     return sorted(
         roots,
@@ -446,7 +446,6 @@ def _render_tracker_card(
 
 def render_allocation_panel(
     sources: BudgetTrackerSources,
-    budget_tracker_map: dict[str, str],
     contribute_button: "contribute_button_component.ContributeButton | None" = None,
 ) -> None:
     """Render the allocation panel: a card per tracker, and the ring.
@@ -461,7 +460,7 @@ def render_allocation_panel(
     if contribute_button is not None:
         contribute_button()
 
-    roots = _roots(sources, budget_tracker_map)
+    roots = _roots(sources)
     if not roots:
         st.info("No budget trackers yet.")
         return
@@ -518,7 +517,7 @@ def render(
     )
 
     with budget_tracker_tab:
-        render_allocation_panel(sources, budget_tracker_map, contribute_button)
+        render_allocation_panel(sources, contribute_button)
 
     with expense_tab:
         grid.render(es_config)
