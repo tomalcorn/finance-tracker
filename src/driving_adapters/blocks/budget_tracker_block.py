@@ -406,7 +406,6 @@ def _budget_input(
 def _render_tracker_card(
     sources: BudgetTrackerSources,
     root: "read_models.CategoryView",
-    income: float,
     colours: allocation_ring.Palette,
 ) -> None:
     """Render one tracker's allocation card.
@@ -416,7 +415,6 @@ def _render_tracker_card(
     colour, which the light palette needs: two of its four hues sit under 3:1
     against the surface.
     """
-    share = (root.budget / income * 100) if income else 0.0
     with st.container(border=True):
         name_col, input_col, spend_col = st.columns(
             _CARD_COLUMN_WIDTHS,
@@ -425,8 +423,7 @@ def _render_tracker_card(
         with name_col:
             st.markdown(
                 f'<span style="color:{colours.tracker(str(root.name))}">&#9679;</span> '
-                f"<strong>{root.name}</strong> "
-                f'<span style="opacity:0.6">· {share:.1f}%</span>',
+                f"<strong>{root.name}</strong>",
                 unsafe_allow_html=True,
             )
         with input_col:
@@ -467,7 +464,7 @@ def render_allocation_panel(
     cards_col, ring_col = st.columns(_PANEL_COLUMN_WIDTHS, gap="medium")
     with cards_col:
         for root in roots:
-            _render_tracker_card(sources, root, income, colours)
+            _render_tracker_card(sources, root, colours)
     with ring_col:
         allocation_ring.render(roots, income, colours)
 

@@ -53,6 +53,7 @@ def test_the_remainder_closes_the_ring_when_income_is_left_over(
     assert divided.slices[-1] == allocation_ring.Slice(
         name=allocation_ring.UNALLOCATED_LABEL,
         amount=200.0,
+        share=40.0,
     )
 
 
@@ -128,3 +129,24 @@ def test_every_budget_tracker_has_a_slice_colour(
 
     # Assert
     assert all(colour != palette.unallocated for colour in named.values())
+
+
+def test_a_slice_share_is_of_the_ring_not_the_income(
+    build_root: "Callable[..., read_models.CategoryView]",
+) -> None:
+    # Arrange - over-allocated, so the ring is the trackers rather than the
+    # income; a share measured against income would exceed 100 and overrun the
+    # slice it is written on.
+    roots = [
+        build_root(budget=600.0),
+        build_root(
+            name=entities.BudgetTrackerName.SAVINGS,
+            budget=200.0,
+        ),
+    ]
+
+    # Act
+    divided = allocation_ring.allocation(roots, income=500.0)
+
+    # Assert
+    assert [one.share for one in divided.slices] == [75.0, 25.0]
