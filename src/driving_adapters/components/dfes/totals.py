@@ -45,6 +45,16 @@ A table's header and its rows are both 35px tall, so cropping 34 takes the
 header and leaves its bottom rule to read as the top border of the totals row.
 """
 
+_STRIP_HEIGHT_PX = 72
+"""The strip's full height: a 35px header, its one 35px row, and the border.
+
+Stated rather than left to Streamlit. Sized to its content a table gets this
+right at the page's top level, but inside an ``st.columns`` column it comes out
+at 46px — short enough that the header crop takes the totals row with it and
+the strip renders as a sliver. The strip is one row by construction, so its
+height is knowable, and saying so makes it the same in either place.
+"""
+
 _CROP_HEADER_CSS = """
 <style>
 .st-key-{container_key} [data-testid="stDataFrame"] {{
@@ -194,6 +204,7 @@ def render(
             ],
             num_rows=strip_num_rows(grid_display),
             hide_index=True,
+            height=_STRIP_HEIGHT_PX,
         )
     st.markdown(
         _CROP_HEADER_CSS.format(
