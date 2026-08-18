@@ -1,10 +1,12 @@
 """Block for the budget tracker section.
 
-Two of its three tabs are grids over the one ``categories`` table: the budget
-trackers, and the expense categories beneath the "Expenses" one. They are told
-apart by ``parent_id``, so each carries its own ``row_predicate`` and widget-key
-prefix over the one slice already fetched — a filtered read would be Path B and
-would need its own cache key.
+The first tab is the allocation panel: a card per budget tracker and the
+allocation ring, the one place a tracker's monthly budget is set. The other two
+are grids — the expense categories beneath the "Expenses" tracker, and the
+income sources. The category grids are told apart by ``parent_id``, so each
+carries its own ``row_predicate`` and widget-key prefix over the one slice
+already fetched — a filtered read would be Path B and would need its own cache
+key.
 """
 
 import dataclasses
@@ -14,7 +16,8 @@ import pandas as pd
 import streamlit as st
 
 from domain import entities, query, read_models
-from driving_adapters.components.buttons import constants, filter_button
+from driving_adapters.components.buttons import constants
+from driving_adapters.components.charts import allocation_ring
 from driving_adapters.components.dfes import column_widths, grid
 from driving_adapters.models import frontend_models
 
@@ -41,22 +44,17 @@ class BudgetTrackerSources:
     income_sources: "data_source_mod.GridDataSource"
 
 
-_ROOTS_GRID_ID = "root_categories"
-
 _CHILDREN_GRID_ID = "expense_categories"
 
 _INCOME_SOURCES_GRID_ID = "income_sources"
 
-_BUDGET_TRACKER_SAMPLE_DATA = pd.DataFrame(
-    {
-        "name": ["Example Budget Tracker"],
-        "budget": [0],
-        "accrued": [0],
-        "remaining": [0],
-        "progress": [0],
-        "split": [0],
-    },
-)
+_ALLOCATION_KEY_PREFIX = "budget_allocation"
+
+_BUDGET_STEP = 10.0
+
+_CARD_COLUMN_WIDTHS = [3, 3, 4]
+
+_PANEL_COLUMN_WIDTHS = [3, 2]
 
 _EXPENSE_CATEGORIES_SAMPLE_DATA = pd.DataFrame(
     {
@@ -90,122 +88,6 @@ _PREVIOUS_MONTH_HELP = (
     "splits against last month's pay. Change this in "
     "[Settings](/settings)."
 )
-
-
-def _is_root(row: "read_models.CategoryView") -> bool:
-    """Whether a category belongs on the budget tracker (roots) tab."""
-    return row.is_root
-
-
-def _build_budget_tracker_config(
-    data_source: "data_source_mod.GridDataSource",
-) -> frontend_models.DFEConfig:
-    """Build the grid config for the budget tracker tab."""
-    return frontend_models.DFEConfig(
-        source=frontend_models.GridSource(
-            grid_id=_ROOTS_GRID_ID,
-            data_source=data_source,
-            row_predicate=_is_root,
-        ),
-        display=frontend_models.GridDisplay(
-            columns=[
-                frontend_models.DFEColumnConfig(
-                    editable=False,
-                    column_name="name",
-                    column_config=st.column_config.TextColumn(
-                        "Name",
-                        help="The four fixed budget categories.",
-                        required=True,
-                        disabled=True,
-                        width=column_widths.NAME,
-                    ),
-                    button_label="Name",
-                    input_widget=st.text_input,
-                    input_kwargs={"value": None},
-                ),
-                frontend_models.DFEColumnConfig(
-                    column_name="budget",
-                    column_config=st.column_config.NumberColumn(
-                        "Total Budget",
-                        help="What this category is allowed each month.",
-                        format="£%.2f",
-                        required=True,
-                        width=column_widths.MONEY,
-                    ),
-                    button_label="Total Budget",
-                    input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.2f"},
-                    sorting=query.SortingValues.DESC,
-                    total=True,
-                ),
-                frontend_models.DFEColumnConfig(
-                    editable=False,
-                    column_name="split",
-                    column_config=st.column_config.ProgressColumn(
-                        "Share of Income",
-                        help="This category's budget as a share of your income.",
-                        format="%.1f%%",
-                        min_value=0,
-                        max_value=100,
-                        width=column_widths.PROGRESS,
-                        color="blue",
-                    ),
-                    button_label="Share of Income",
-                    input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.1f"},
-                    total=True,
-                ),
-                frontend_models.DFEColumnConfig(
-                    editable=False,
-                    column_name="accrued",
-                    column_config=st.column_config.NumberColumn(
-                        "Spent",
-                        help="Payments booked against this category for a given month.",
-                        format="£%.2f",
-                        disabled=True,
-                        width=column_widths.MONEY,
-                    ),
-                    button_label="Spent",
-                    input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.2f"},
-                    total=True,
-                ),
-                frontend_models.DFEColumnConfig(
-                    editable=False,
-                    column_name="progress",
-                    column_config=st.column_config.ProgressColumn(
-                        "% Spent",
-                        help="How much of the budget is gone.",
-                        format="%.1f%%",
-                        min_value=0,
-                        max_value=100,
-                        width=column_widths.PROGRESS,
-                        color="auto-inverse",
-                    ),
-                    button_label="% Spent",
-                    input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.1f"},
-                ),
-                frontend_models.DFEColumnConfig(
-                    editable=False,
-                    column_name="remaining",
-                    column_config=st.column_config.NumberColumn(
-                        "Remaining",
-                        help="Left to spend this month.",
-                        format="£%.2f",
-                        disabled=True,
-                        width=column_widths.MONEY,
-                    ),
-                    button_label="Remaining",
-                    input_widget=st.number_input,
-                    input_kwargs={"value": None, "format": "%.2f"},
-                    total=True,
-                ),
-            ],
-            sample_data=_BUDGET_TRACKER_SAMPLE_DATA,
-            num_rows="fixed",
-        ),
-    )
 
 
 def _expense_child_predicate(
@@ -419,12 +301,8 @@ def _configs(
     sources: BudgetTrackerSources,
     budget_tracker_map: dict[str, str],
     income_roll_up_period: entities.IncomeRollUpPeriod,
-) -> tuple[
-    frontend_models.DFEConfig,
-    frontend_models.DFEConfig,
-    frontend_models.DFEConfig,
-]:
-    """Build the budget-tracker, expense-category and income-source configs."""
+) -> tuple[frontend_models.DFEConfig, frontend_models.DFEConfig]:
+    """Build the expense-category and income-source configs."""
     budget_tracker_ids = list(budget_tracker_map.keys())
 
     expenses_bt_id = next(
@@ -440,7 +318,6 @@ def _configs(
         return budget_tracker_map.get(str(bt_id), "Unknown Budget Tracker")
 
     return (
-        _build_budget_tracker_config(sources.categories),
         _build_expense_categories_config(sources.categories, expenses_bt_id),
         _build_income_sources_config(
             sources.income_sources,
@@ -465,39 +342,131 @@ def commit(
     ones ``render`` builds, which is what keeps the editor's widget deltas
     lining up with the columns they came from.
     """
-    bt_config, es_config, is_config = _configs(
+    es_config, is_config = _configs(
         sources,
         budget_tracker_map,
         income_roll_up_period,
     )
-    grid.commit(bt_config)
     grid.commit(es_config)
     grid.commit(is_config)
 
 
-def _render_with_contribute(
-    config: frontend_models.DFEConfig,
-    contribute_button: "contribute_button_component.ContributeButton",
-) -> None:
-    """Render the budget tracker grid with the contribute button in its button row.
+def _roots(sources: BudgetTrackerSources) -> list["read_models.CategoryView"]:
+    """Return the budget trackers, in the fixed display order of their names.
 
-    The default ``grid.render`` would stack the button above the row, so this
-    composes the row itself — the same seam the one-offs block uses for its
-    "bank it" button. The grid is ``num_rows="fixed"``, so filter is the only
-    built-in button to sit alongside.
+    Read off the rows rather than narrowed by the id→name map: the row already
+    carries its own name, so consulting the map could only ever hide a tracker
+    the map had not caught up with.
     """
-    filter_col, contribute_col, _ = st.columns(
-        constants.FILTER_CONTRIBUTE_BUTTON_WIDTHS,
+    order = list(entities.BudgetTrackerName)
+    roots = [
+        row
+        for row in sources.categories.rows()
+        if isinstance(row, read_models.CategoryView) and row.is_root
+    ]
+    return sorted(
+        roots,
+        key=lambda row: order.index(row.name) if row.name in order else len(order),
     )
-    with filter_col:
-        filter_button.render_filter_button(config.source, config.display)
-    with contribute_col:
+
+
+def _total_income(sources: BudgetTrackerSources) -> float:
+    """Return what the tracker budgets are being split out of."""
+    return sum(
+        row.current_month
+        for row in sources.income_sources.rows()
+        if isinstance(row, read_models.IncomeSourceView)
+    )
+
+
+def _budget_input(
+    sources: BudgetTrackerSources,
+    root: "read_models.CategoryView",
+) -> None:
+    """Render one tracker's monthly budget as an editable number."""
+    key = f"{_ALLOCATION_KEY_PREFIX}_budget_{root.id}"
+
+    def save() -> None:
+        sources.categories.apply_edits(
+            {str(root.id): {"budget": float(st.session_state[key])}},
+        )
+
+    st.number_input(
+        "Total budget",
+        value=float(root.budget),
+        min_value=0.0,
+        step=_BUDGET_STEP,
+        format="%.2f",
+        key=key,
+        on_change=save,
+        label_visibility="collapsed",
+    )
+
+
+def _render_tracker_card(
+    sources: BudgetTrackerSources,
+    root: "read_models.CategoryView",
+    colours: allocation_ring.Palette,
+) -> None:
+    """Render one tracker's allocation card.
+
+    The swatch ties the card to its slice of the ring, which is why the ring
+    carries no legend. It also puts the tracker's identity in text beside the
+    colour, which the light palette needs: two of its four hues sit under 3:1
+    against the surface.
+    """
+    with st.container(border=True):
+        name_col, input_col, spend_col = st.columns(
+            _CARD_COLUMN_WIDTHS,
+            vertical_alignment="center",
+        )
+        with name_col:
+            st.markdown(
+                f'<span style="color:{colours.tracker(str(root.name))}">&#9679;</span> '
+                f"<strong>{root.name}</strong>",
+                unsafe_allow_html=True,
+            )
+        with input_col:
+            _budget_input(sources, root)
+        with spend_col:
+            st.caption(
+                f"£{root.accrued:,.2f} spent · £{root.remaining:,.2f} left",
+            )
+
+
+def render_allocation_panel(
+    sources: BudgetTrackerSources,
+    contribute_button: "contribute_button_component.ContributeButton | None" = None,
+) -> None:
+    """Render the allocation panel: a card per tracker, and the ring.
+
+    Deliberately not a grid. Splitting income between the trackers is one
+    decision about one pot of money, and rows of a table read as unrelated
+    edits.
+    """
+    # Above the empty-state check: contributing to the joint account is a
+    # page-level action, not one of the panel's contents, so a workspace with no
+    # trackers yet must not also lose the button.
+    if contribute_button is not None:
         contribute_button()
-    grid.render_editor(
-        config.display,
-        config.grid_id,
-        grid.build_working_df(config),
+
+    roots = _roots(sources)
+    if not roots:
+        st.info("No budget trackers yet.")
+        return
+
+    st.caption(
+        "Set what each tracker is allowed each month. The ring is your income, split.",
     )
+
+    colours = allocation_ring.palette()
+    income = _total_income(sources)
+    cards_col, ring_col = st.columns(_PANEL_COLUMN_WIDTHS, gap="medium")
+    with cards_col:
+        for root in roots:
+            _render_tracker_card(sources, root, colours)
+    with ring_col:
+        allocation_ring.render(roots, income, colours)
 
 
 def render(
@@ -511,10 +480,10 @@ def render(
     """Render the budget tracker block.
 
     Args:
-        sources: The grid data sources behind the three tabs.
+        sources: The data sources behind the three tabs.
         budget_tracker_map: ``{id: name}`` of the user's budget trackers.
         contribute_button: The personal→joint contribution button, rendered
-            above the budget tracker grid. Passed only by the personal page for a
+            above the allocation panel. Passed only by the personal page for a
             user who belongs to a joint account; ``None`` (the joint page and
             non-members) hides it, since contributing funds joint from personal.
         income_roll_up_period: The month the income sources tab totals payments
@@ -523,7 +492,7 @@ def render(
             when the window has been moved, to explain it via the column tooltip.
 
     """
-    bt_config, es_config, is_config = _configs(
+    es_config, is_config = _configs(
         sources,
         budget_tracker_map,
         income_roll_up_period,
@@ -538,10 +507,7 @@ def render(
     )
 
     with budget_tracker_tab:
-        if contribute_button is None:
-            grid.render(bt_config)
-        else:
-            _render_with_contribute(bt_config, contribute_button)
+        render_allocation_panel(sources, contribute_button)
 
     with expense_tab:
         grid.render(es_config)

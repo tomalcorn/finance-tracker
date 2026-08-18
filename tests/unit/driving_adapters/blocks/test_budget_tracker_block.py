@@ -2,7 +2,7 @@
 
 import datetime
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import streamlit.testing.v1 as st_test
@@ -97,28 +97,6 @@ def test_render_shows_contribute_button_when_provided(
     assert any(btn.key == "contribute_button" for btn in app_tester.button)
 
 
-def test_contribute_button_shares_the_button_row_with_filter(
-    build_app_tester: "Callable[..., st_test.AppTest]",
-    contribute_btn: contribute_button.ContributeButton,
-) -> None:
-    # Arrange - the contribute button sits *alongside* the grid's filter button
-    # rather than stacking above it, so the two must land in sibling columns of
-    # one row, not merely both be present on the page.
-    app_tester = build_app_tester(contribute_btn)
-
-    # Act
-    app_tester.run()
-
-    # Assert
-    columns = [{btn.key for btn in column.button} for column in app_tester.columns]
-    assert all(
-        [
-            {"root_categories_filter_button"} in columns,
-            {"contribute_button"} in columns,
-        ],
-    )
-
-
 def test_render_omits_contribute_button_when_absent(
     build_app_tester: "Callable[..., st_test.AppTest]",
 ) -> None:
@@ -152,7 +130,7 @@ def test_income_roll_up_column_is_labelled_for_the_configured_month(
     sources = budget_tracker_block.BudgetTrackerSources(source, source)
 
     # Act
-    _, _, income_config = budget_tracker_block._configs(sources, {}, period)
+    _, income_config = budget_tracker_block._configs(sources, {}, period)
 
     # Assert
     roll_up_column = next(
@@ -172,7 +150,7 @@ def _income_roll_up_column(
 
     source = build_stub_data_source()
     sources = budget_tracker_block.BudgetTrackerSources(source, source)
-    _, _, income_config = budget_tracker_block._configs(sources, {}, period)
+    _, income_config = budget_tracker_block._configs(sources, {}, period)
     return next(
         column
         for column in income_config.display.columns
@@ -236,47 +214,25 @@ def _build_category() -> "Callable[..., read_models.CategoryView]":
     return _build
 
 
-def _tab_predicates(
+def _expense_child_predicate(
     root_map: dict[str, str],
     build_stub_data_source: "conftest.StubDataSourceBuilder",
-) -> "tuple[Callable[..., bool], Callable[..., bool]]":
-    """Return the roots and children tabs' own row predicates."""
+) -> "Callable[..., bool]":
+    """Return the expense categories tab's own row predicate."""
     from driving_adapters.blocks import budget_tracker_block
 
     source = build_stub_data_source()
     sources = budget_tracker_block.BudgetTrackerSources(source, source)
-    roots_config, children_config, _ = budget_tracker_block._configs(
+    children_config, _ = budget_tracker_block._configs(
         sources,
         root_map,
         entities.IncomeRollUpPeriod.CURRENT_MONTH,
     )
-    is_root = roots_config.source.row_predicate
     is_expense_child = children_config.source.row_predicate
-    if is_root is None or is_expense_child is None:
-        msg = "both category tabs must narrow the one source to their own slice"
+    if is_expense_child is None:
+        msg = "the categories tab must narrow the one source to its own slice"
         raise AssertionError(msg)
-    return is_root, is_expense_child
-
-
-def test_budget_tracker_tab_shows_only_roots(
-    build_stub_data_source: "conftest.StubDataSourceBuilder",
-    build_category: "Callable[..., read_models.CategoryView]",
-) -> None:
-    # Arrange - roots and children are rows of one table read through one
-    # source, so each tab narrows it itself.
-    expenses_root_id = str(uuid.uuid4())
-    is_root, _ = _tab_predicates(
-        {expenses_root_id: entities.BudgetTrackerName.EXPENSES},
-        build_stub_data_source,
-    )
-    root = build_category(name=entities.BudgetTrackerName.EXPENSES)
-    child = build_category(parent_id=expenses_root_id)
-
-    # Act
-    shown = [row for row in (root, child) if is_root(row)]
-
-    # Assert
-    assert shown == [root]
+    return is_expense_child
 
 
 def test_expense_categories_tab_shows_only_children_of_the_expenses_root(
@@ -287,7 +243,7 @@ def test_expense_categories_tab_shows_only_children_of_the_expenses_root(
     # parent decides what this tab shows.
     expenses_root_id = str(uuid.uuid4())
     one_offs_root_id = str(uuid.uuid4())
-    _, is_expense_child = _tab_predicates(
+    is_expense_child = _expense_child_predicate(
         {expenses_root_id: entities.BudgetTrackerName.EXPENSES},
         build_stub_data_source,
     )
@@ -317,7 +273,7 @@ def test_a_category_added_on_the_expense_categories_tab_is_parented_there(
     sources = budget_tracker_block.BudgetTrackerSources(source, source)
 
     # Act
-    _, children_config, _ = budget_tracker_block._configs(
+    children_config, _ = budget_tracker_block._configs(
         sources,
         {expenses_root_id: entities.BudgetTrackerName.EXPENSES},
         entities.IncomeRollUpPeriod.CURRENT_MONTH,
@@ -325,3 +281,117 @@ def test_a_category_added_on_the_expense_categories_tab_is_parented_there(
 
     # Assert
     assert children_config.source.extra_row_values == {"parent_id": expenses_root_id}
+
+
+def _panel_wrapper(source: "data_source_mod.GridDataSource") -> None:
+    """Render the allocation panel alone for AppTest.
+
+    Injected via kwargs for the same reason as ``_render_wrapper``: from_function
+    re-runs this body in a namespace where module-level names aren't visible.
+    """
+    from driving_adapters.blocks import budget_tracker_block
+
+    sources = budget_tracker_block.BudgetTrackerSources(source, source)
+    budget_tracker_block.render_allocation_panel(sources)
+
+
+@pytest.fixture(name="build_panel_tester")
+def _build_panel_tester(
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+    build_category: "Callable[..., read_models.CategoryView]",
+) -> "Callable[..., tuple[st_test.AppTest, Any]]":
+    """Return a builder for an AppTest over the panel, and the source behind it.
+
+    The source is handed back so a test can assert on what the panel wrote
+    through it.
+    """
+
+    def _build(
+        *names: entities.BudgetTrackerName,
+    ) -> "tuple[st_test.AppTest, Any]":
+        source = build_stub_data_source(
+            [build_category(name=name) for name in names],
+        )
+        app_tester = st_test.AppTest.from_function(
+            _panel_wrapper,
+            default_timeout=120,
+            kwargs={"source": source},
+        )
+        return app_tester, source
+
+    return _build
+
+
+def test_the_panel_gives_every_tracker_its_own_budget_input(
+    build_panel_tester: "Callable[..., tuple[st_test.AppTest, Any]]",
+) -> None:
+    # Arrange - one card per tracker, each with the one editable figure.
+    trackers = (
+        entities.BudgetTrackerName.EXPENSES,
+        entities.BudgetTrackerName.SAVINGS,
+    )
+    app_tester, _ = build_panel_tester(*trackers)
+
+    # Act
+    app_tester.run()
+
+    # Assert
+    assert len(app_tester.number_input) == len(trackers)
+
+
+def test_setting_a_budget_writes_a_patch_through_the_port(
+    build_panel_tester: "Callable[..., tuple[st_test.AppTest, Any]]",
+) -> None:
+    # Arrange - the panel replaces a grid, so it has to reach the same port the
+    # grid's edits did rather than only redrawing itself.
+    app_tester, source = build_panel_tester(entities.BudgetTrackerName.EXPENSES)
+    app_tester.run()
+
+    root_id = str(source.rows()[0].id)
+
+    # Act
+    app_tester.number_input[0].set_value(250.0).run()
+
+    # Assert
+    assert source.edits == [{root_id: {"budget": 250.0}}]
+
+
+def test_the_panel_orders_the_trackers_by_their_fixed_names(
+    build_panel_tester: "Callable[..., tuple[st_test.AppTest, Any]]",
+) -> None:
+    # Arrange - built in the wrong order on purpose; the cards must not follow
+    # whatever order the read happened to return.
+    app_tester, _ = build_panel_tester(
+        entities.BudgetTrackerName.SAVINGS,
+        entities.BudgetTrackerName.EXPENSES,
+    )
+
+    # Act
+    app_tester.run()
+
+    # Assert
+    named = [
+        name
+        for markdown in app_tester.markdown
+        for name in entities.BudgetTrackerName
+        if name in markdown.value
+    ]
+    assert named == [
+        entities.BudgetTrackerName.EXPENSES,
+        entities.BudgetTrackerName.SAVINGS,
+    ]
+
+
+def test_a_workspace_with_no_trackers_still_offers_the_contribute_button(
+    build_app_tester: "Callable[..., st_test.AppTest]",
+    contribute_btn: contribute_button.ContributeButton,
+) -> None:
+    # Arrange - contributing funds the joint account from personal; it is not
+    # one of the panel's contents, so the empty state must not swallow it.
+    app_tester = build_app_tester(contribute_btn)
+
+    # Act
+    app_tester.run()
+
+    # Assert
+    assert any(btn.key == "contribute_button" for btn in app_tester.button)
