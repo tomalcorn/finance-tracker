@@ -269,26 +269,76 @@ def test_a_subcategory_is_parented_to_the_tracker_it_was_added_under(
     }
 
 
-def test_a_tracker_with_no_subcategories_still_offers_an_add_button(
+@pytest.mark.parametrize(
+    "tracker",
+    [entities.BudgetTrackerName.EXPENSES, entities.BudgetTrackerName.ONE_OFFS],
+)
+def test_a_tracker_meant_to_be_broken_down_offers_an_add_button(
     build_area: "Callable[..., block_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
+    tracker: entities.BudgetTrackerName,
 ) -> None:
-    # Arrange - on the old page this was impossible: the categories tab was
-    # hard-wired to Expenses, so nothing could be added under Savings at all.
+    # Arrange - on the old page this was impossible for anything but Expenses:
+    # the categories tab was hard-wired to it.
+    root = next(row for row in four_trackers if row.name == tracker)
+    area = build_area(categories=four_trackers)
+
+    # Act
+    app_tester = _tester(area, selected=str(root.id))
+    app_tester.run()
+
+    # Assert
+    assert any(
+        btn.key == f"categories_{root.id}_add_row_button" for btn in app_tester.button
+    )
+
+
+@pytest.mark.parametrize(
+    "tracker",
+    [entities.BudgetTrackerName.JOINT, entities.BudgetTrackerName.SAVINGS],
+)
+def test_a_one_pot_tracker_offers_nothing_to_break_it_down(
+    build_area: "Callable[..., block_mod.BudgetArea]",
+    four_trackers: list["read_models.CategoryView"],
+    tracker: entities.BudgetTrackerName,
+) -> None:
+    # Arrange - each of these is one pot of money, so it neither offers to add
+    # a subcategory nor explains the absence of any.
+    root = next(row for row in four_trackers if row.name == tracker)
+    area = build_area(categories=four_trackers)
+
+    # Act
+    app_tester = _tester(area, selected=str(root.id))
+    app_tester.run()
+
+    # Assert
+    assert all(
+        [
+            not any("add_row_button" in str(btn.key) for btn in app_tester.button),
+            not any("subcategories" in cap.value for cap in app_tester.caption),
+        ],
+    )
+
+
+def test_a_one_pot_tracker_still_shows_subcategories_it_somehow_has(
+    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_category: "Callable[..., read_models.CategoryView]",
+    four_trackers: list["read_models.CategoryView"],
+) -> None:
+    # Arrange - not offering to add one is a different thing from hiding one
+    # that exists; a row must never be invisible because of where it sits.
     savings = next(
         row for row in four_trackers if row.name == entities.BudgetTrackerName.SAVINGS
     )
-    area = build_area(categories=four_trackers)
+    child = build_category(name="Rainy day", parent_id=str(savings.id))
+    area = build_area(categories=[*four_trackers, child])
 
     # Act
     app_tester = _tester(area, selected=str(savings.id))
     app_tester.run()
 
     # Assert
-    assert any(
-        btn.key == f"categories_{savings.id}_add_row_button"
-        for btn in app_tester.button
-    )
+    assert app_tester.dataframe
 
 
 def test_a_trackers_own_budget_is_not_editable_from_its_detail(

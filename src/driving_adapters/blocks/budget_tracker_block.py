@@ -79,7 +79,7 @@ _PANEL_COLUMN_WIDTHS = [3, 2]
 
 _MASTER_COLUMN_WIDTHS = [1.1, 5]
 
-_PROGRESS_CEILING = 100.0
+_BUTTON_WIDTH = 0.05
 
 _ROOT_ICONS: dict[str, str] = {
     entities.BudgetTrackerName.EXPENSES: ":material/do_not_disturb_on:",
@@ -88,15 +88,15 @@ _ROOT_ICONS: dict[str, str] = {
     entities.BudgetTrackerName.SAVINGS: ":material/savings:",
 }
 
-_NO_CHILDREN_CAPTION: dict[str, str] = {
-    entities.BudgetTrackerName.JOINT: (
-        "Contributions to the joint account are set up on the Subscriptions "
-        "block, or one-off via **Contribute**. Nothing to break down here."
-    ),
-}
+_NO_CHILDREN_CAPTION = "No subcategories yet. Add one to break this tracker down."
 
-_DEFAULT_NO_CHILDREN_CAPTION = (
-    "No subcategories yet — this tracker is one pot of money. Add one to break it down."
+# Each of these is one pot of money rather than something to break down, so
+# neither offers to add a subcategory nor explains the absence of any.
+_TRACKERS_WITHOUT_SUBCATEGORIES = frozenset(
+    {
+        entities.BudgetTrackerName.JOINT,
+        entities.BudgetTrackerName.SAVINGS,
+    },
 )
 
 _MONTHLY_SAMPLE_DATA = pd.DataFrame(
@@ -723,31 +723,44 @@ def _bankable_pots(area: BudgetArea) -> list["read_models.CategoryView"]:
     return [row for row in _categories(area) if row.is_pot and row.budget > 0]
 
 
+def _takes_subcategories(root: "read_models.CategoryView") -> bool:
+    """Whether this tracker is meant to be broken down at all."""
+    return root.name not in _TRACKERS_WITHOUT_SUBCATEGORIES
+
+
 def _render_children(area: BudgetArea, root: "read_models.CategoryView") -> None:
     """Render one tracker's subcategories, with the buttons that act on them.
 
-    With no subcategories the grid is left out entirely rather than falling back
-    to sample data: example figures under a real tracker read as real money. The
-    add button stays, so a tracker that has none can gain one.
+    A tracker that is one pot of money shows nothing here. One that is meant to
+    be broken down but has not been yet shows the add button and says so, rather
+    than an empty grid falling back to sample data — example figures under a
+    real tracker read as real money.
+
+    Rows already under a tracker are always drawn, whichever kind it is, so a
+    subcategory cannot be made invisible by the tracker it sits under.
     """
-    config = _children_config(area, root)
-    if not _children_of(area, str(root.id)):
-        st.caption(
-            _NO_CHILDREN_CAPTION.get(root.name, _DEFAULT_NO_CHILDREN_CAPTION),
-        )
-        add_button.render_add_button(config.source, config.display)
+    adds = _takes_subcategories(root)
+    children = _children_of(area, str(root.id))
+    if not children:
+        if adds:
+            st.caption(_NO_CHILDREN_CAPTION)
+            config = _children_config(area, root)
+            add_button.render_add_button(config.source, config.display)
         return
 
+    config = _children_config(area, root)
     working_df = grid.build_working_df(config)
     pot = _is_pot_root(root)
-    button_widths = [0.05, 0.05, 0.05, 0.85] if pot else [0.05, 0.05, 0.9]
-    button_cols = st.columns(button_widths)
-    with button_cols[0]:
-        add_button.render_add_button(config.source, config.display)
-    with button_cols[1]:
+    button_cols = st.columns(_child_button_widths(adds=adds, pot=pot))
+    next_col = 0
+    if adds:
+        with button_cols[next_col]:
+            add_button.render_add_button(config.source, config.display)
+        next_col += 1
+    with button_cols[next_col]:
         filter_button.render_filter_button(config.source, config.display)
     if pot:
-        with button_cols[2]:
+        with button_cols[next_col + 1]:
             bank_button.BankButton(
                 area.bank_one_offs_use_case,
                 area.bank_account_map,
@@ -755,13 +768,16 @@ def _render_children(area: BudgetArea, root: "read_models.CategoryView") -> None
     grid.render_editor(config.display, config.grid_id, working_df)
 
 
+def _child_button_widths(*, adds: bool, pot: bool) -> list[float]:
+    """Size the button row for however many buttons the tracker has earned."""
+    buttons = 1 + int(adds) + int(pot)
+    return [_BUTTON_WIDTH] * buttons + [1.0 - buttons * _BUTTON_WIDTH]
+
+
 def _render_root_detail(area: BudgetArea, root: "read_models.CategoryView") -> None:
     """Render one tracker: its headline figures, then its subcategories."""
-    st.markdown(
-        f"##### {root.name} · £{root.accrued:,.2f} of £{root.budget:,.2f} "
-        f"· £{root.remaining:,.2f} left",
-    )
-    budget_col, spent_col, left_col, share_col = st.columns(4)
+    st.markdown(f"##### {_ROOT_ICONS.get(root.name, '')} {root.name}")
+    budget_col, spent_col, left_col, used_col = st.columns(4)
     with budget_col:
         # Read-only: a tracker's budget has one home, the allocation panel.
         st.metric("Total budget", f"£{root.budget:,.2f}")
@@ -774,9 +790,8 @@ def _render_root_detail(area: BudgetArea, root: "read_models.CategoryView") -> N
             delta=None if root.remaining >= 0 else "over budget",
             delta_color="inverse",
         )
-    with share_col:
-        st.metric("Share of income", f"{root.split:.1f}%")
-    st.progress(min(max(root.progress, 0.0), _PROGRESS_CEILING) / _PROGRESS_CEILING)
+    with used_col:
+        st.metric("Budget used", f"{root.progress:.1f}%")
 
     if root.name == entities.BudgetTrackerName.JOINT and area.contribute_button:
         area.contribute_button()
