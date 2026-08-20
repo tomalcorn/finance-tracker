@@ -543,3 +543,41 @@ def test_the_default_roll_up_window_needs_no_explaining(
         col for col in config.display.columns if col.column_name == "current_month"
     )
     assert column.column_config.get("help") is None
+
+
+@pytest.mark.parametrize(
+    ("tracker", "expected_label"),
+    [
+        (entities.BudgetTrackerName.EXPENSES, "Share of Budget"),
+        (entities.BudgetTrackerName.ONE_OFFS, "Share of Remaining"),
+    ],
+)
+def test_the_split_column_is_named_for_what_it_measures_against(
+    build_area: "Callable[..., block_mod.BudgetArea]",
+    four_trackers: list["read_models.CategoryView"],
+    tracker: entities.BudgetTrackerName,
+    expected_label: str,
+) -> None:
+    # Arrange - a pot's denominator is what its tracker has left to allocate
+    # this month (#262); a monthly category's is its tracker's whole budget.
+    # The label is the only place a reader is told which one they are looking
+    # at, and the two column sets must not drift onto the same wording.
+    from driving_adapters.blocks import budget_tracker_block
+
+    area = build_area(categories=four_trackers)
+    root = next(row for row in four_trackers if row.name == tracker)
+
+    # Act
+    config = budget_tracker_block._children_config(area, root)
+
+    # Assert - the add dialog labels the field from `button_label`, so the two
+    # have to agree or the same figure is named twice over.
+    (split_column,) = [
+        column for column in config.display.columns if column.column_name == "split"
+    ]
+    assert all(
+        [
+            split_column.column_config["label"] == expected_label,
+            split_column.button_label == expected_label,
+        ],
+    )

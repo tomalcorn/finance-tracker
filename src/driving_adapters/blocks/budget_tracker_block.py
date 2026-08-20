@@ -340,15 +340,19 @@ def _pot_child_columns() -> list[frontend_models.DFEColumnConfig]:
             editable=False,
             column_name="split",
             column_config=st.column_config.ProgressColumn(
-                "Share of Budget",
-                help="The planned spend as a share of the One-offs budget.",
+                "Share of Remaining",
+                help=(
+                    "The planned spend as a share of what the One-offs budget "
+                    "has left to allocate this month. Reads 0% once nothing is "
+                    "left."
+                ),
                 format="%.1f%%",
                 min_value=0,
                 max_value=100,
                 width=column_widths.PROGRESS,
                 color="blue",
             ),
-            button_label="Share of Budget",
+            button_label="Share of Remaining",
             input_widget=st.number_input,
             input_kwargs={"value": None, "format": "%.1f"},
             total=True,
