@@ -1,3 +1,9 @@
+## v1.20.0 (2026-08-20)
+
+### Feat
+
+- measure a pot's share against what is left (#262) (#271)
+
 ## v1.19.0 (2026-08-18)
 
 ### Feat
