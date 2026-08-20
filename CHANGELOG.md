@@ -1,3 +1,9 @@
+## v1.21.0 (2026-08-20)
+
+### Feat
+
+- replace the budget tab strip with master / detail (#270)
+
 ## v1.20.0 (2026-08-20)
 
 ### Feat
