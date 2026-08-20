@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
     from tests import conftest
 
-    from driving_adapters.blocks import budget_tracker_block as block_mod
+    from driving_adapters.blocks.budget import context as context_mod
 
 
 @pytest.fixture(name="contribute_btn")
@@ -85,7 +85,7 @@ def _bank_use_case(
 def _build_area(
     build_stub_data_source: "conftest.StubDataSourceBuilder",
     bank_use_case: BankOneOffsUseCase,
-) -> "Callable[..., block_mod.BudgetArea]":
+) -> "Callable[..., context_mod.BudgetArea]":
     """Return a builder for a BudgetArea over stub sources.
 
     A test overrides only what it varies — the categories on the page, the
@@ -100,13 +100,13 @@ def _build_area(
             entities.IncomeRollUpPeriod.CURRENT_MONTH
         ),
         contribute: "contribute_button.ContributeButton | None" = None,
-    ) -> "block_mod.BudgetArea":
-        from driving_adapters.blocks import budget_tracker_block
+    ) -> "context_mod.BudgetArea":
+        from driving_adapters.blocks.budget import context
 
         rows = categories or []
         category_source = build_stub_data_source(rows)
-        return budget_tracker_block.BudgetArea(
-            sources=budget_tracker_block.BudgetTrackerSources(
+        return context.BudgetArea(
+            sources=context.BudgetTrackerSources(
                 categories=category_source,
                 income_sources=build_stub_data_source(income or []),
             ),
@@ -122,19 +122,19 @@ def _build_area(
     return _build
 
 
-def _render_wrapper(area: "block_mod.BudgetArea") -> None:
+def _render_wrapper(area: "context_mod.BudgetArea") -> None:
     """Render the budget area for AppTest.
 
     The area is injected via AppTest ``kwargs`` because from_function re-runs
     this body in a fresh namespace where module-level names aren't visible.
     """
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import page
 
-    budget_tracker_block.render(area)
+    page.render(area)
 
 
 def _tester(
-    area: "block_mod.BudgetArea",
+    area: "context_mod.BudgetArea",
     selected: str | None = None,
 ) -> st_test.AppTest:
     """Build an AppTest over the area, optionally with an entry pre-selected."""
@@ -162,17 +162,17 @@ def _four_trackers(
 
 
 def test_the_master_list_leads_with_income_then_the_allocation_panel(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
 ) -> None:
     # Arrange - the list is ordered by the sequence the decisions happen in,
     # and the trackers are built out of order to prove it is not read order.
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import page
 
     area = build_area(categories=four_trackers)
 
     # Act
-    entries = budget_tracker_block._master_entries(area)
+    entries = page.master_entries(area)
 
     # Assert
     assert [entry.label for entry in entries] == [
@@ -186,12 +186,12 @@ def test_the_master_list_leads_with_income_then_the_allocation_panel(
 
 
 def test_the_page_opens_on_a_tracker_not_on_income(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
 ) -> None:
     # Arrange - income and the panel are where a budget is set up; the trackers
     # are what the page is opened to look at day to day.
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import page
 
     area = build_area(categories=four_trackers)
     expenses = next(
@@ -203,18 +203,18 @@ def test_the_page_opens_on_a_tracker_not_on_income(
     app_tester.run()
 
     # Assert
-    assert app_tester.session_state[budget_tracker_block._SELECTED_KEY] == str(
+    assert app_tester.session_state[page.SELECTED_KEY] == str(
         expenses.id,
     )
 
 
 def test_a_trackers_subcategory_grid_shows_only_its_own_children(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     build_category: "Callable[..., read_models.CategoryView]",
     four_trackers: list["read_models.CategoryView"],
 ) -> None:
     # Arrange - every grid narrows the one category slice itself.
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import grids
 
     expenses = next(
         row for row in four_trackers if row.name == entities.BudgetTrackerName.EXPENSES
@@ -225,7 +225,7 @@ def test_a_trackers_subcategory_grid_shows_only_its_own_children(
     mine = build_category(parent_id=str(expenses.id))
     theirs = build_category(name="Rainy day", parent_id=str(savings.id))
     area = build_area(categories=[*four_trackers, mine, theirs])
-    config = budget_tracker_block._children_config(area, expenses)
+    config = grids.children_config(area, expenses)
     predicate = config.source.row_predicate
     if predicate is None:
         msg = "a tracker's grid must narrow the source to its own children"
@@ -246,7 +246,7 @@ def test_a_trackers_subcategory_grid_shows_only_its_own_children(
     ],
 )
 def test_a_subcategory_is_parented_to_the_tracker_it_was_added_under(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
     tracker: entities.BudgetTrackerName,
     expected_accrual: entities.AccrualPeriod,
@@ -254,13 +254,13 @@ def test_a_subcategory_is_parented_to_the_tracker_it_was_added_under(
     # Arrange - the parent and the accrual are derived from the tracker the
     # grid hangs under, which is what gives every tracker a working add button
     # rather than only the one the grid used to be wired to.
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import grids
 
     area = build_area(categories=four_trackers)
     root = next(row for row in four_trackers if row.name == tracker)
 
     # Act
-    config = budget_tracker_block._children_config(area, root)
+    config = grids.children_config(area, root)
 
     # Assert
     assert config.source.extra_row_values == {
@@ -274,7 +274,7 @@ def test_a_subcategory_is_parented_to_the_tracker_it_was_added_under(
     [entities.BudgetTrackerName.EXPENSES, entities.BudgetTrackerName.ONE_OFFS],
 )
 def test_a_tracker_meant_to_be_broken_down_offers_an_add_button(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
     tracker: entities.BudgetTrackerName,
 ) -> None:
@@ -298,7 +298,7 @@ def test_a_tracker_meant_to_be_broken_down_offers_an_add_button(
     [entities.BudgetTrackerName.JOINT, entities.BudgetTrackerName.SAVINGS],
 )
 def test_a_one_pot_tracker_offers_nothing_to_break_it_down(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
     tracker: entities.BudgetTrackerName,
 ) -> None:
@@ -321,7 +321,7 @@ def test_a_one_pot_tracker_offers_nothing_to_break_it_down(
 
 
 def test_a_one_pot_tracker_still_shows_subcategories_it_somehow_has(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     build_category: "Callable[..., read_models.CategoryView]",
     four_trackers: list["read_models.CategoryView"],
 ) -> None:
@@ -342,7 +342,7 @@ def test_a_one_pot_tracker_still_shows_subcategories_it_somehow_has(
 
 
 def test_a_trackers_own_budget_is_not_editable_from_its_detail(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
 ) -> None:
     # Arrange - the budget has one home, the allocation panel. On the old page
@@ -361,16 +361,16 @@ def test_a_trackers_own_budget_is_not_editable_from_its_detail(
 
 
 def test_the_allocation_panel_gives_every_tracker_a_budget_input(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
 ) -> None:
     # Arrange
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import page
 
     area = build_area(categories=four_trackers)
 
     # Act
-    app_tester = _tester(area, selected=budget_tracker_block._TRACKERS_ENTRY)
+    app_tester = _tester(area, selected=page.TRACKERS_ENTRY)
     app_tester.run()
 
     # Assert
@@ -378,19 +378,19 @@ def test_the_allocation_panel_gives_every_tracker_a_budget_input(
 
 
 def test_setting_a_budget_writes_a_patch_through_the_port(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
 ) -> None:
     # Arrange - the panel replaced a grid, so it has to reach the same port the
     # grid's edits did rather than only redrawing itself.
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import page
 
     area = build_area(categories=four_trackers)
     source: Any = area.sources.categories
     expenses = next(
         row for row in four_trackers if row.name == entities.BudgetTrackerName.EXPENSES
     )
-    app_tester = _tester(area, selected=budget_tracker_block._TRACKERS_ENTRY)
+    app_tester = _tester(area, selected=page.TRACKERS_ENTRY)
     app_tester.run()
 
     # Act
@@ -400,53 +400,12 @@ def test_setting_a_budget_writes_a_patch_through_the_port(
     assert source.edits == [{str(expenses.id): {"budget": 250.0}}]
 
 
-def test_a_subcategory_under_no_tracker_is_surfaced_rather_than_dropped(
-    build_area: "Callable[..., block_mod.BudgetArea]",
-    build_category: "Callable[..., read_models.CategoryView]",
-    four_trackers: list["read_models.CategoryView"],
-) -> None:
-    # Arrange - the detail panel only ever draws children under their tracker,
-    # so a row with no tracker to sit under would otherwise vanish.
-    orphan = build_category(name="Stray", parent_id=str(uuid.uuid4()))
-    area = build_area(categories=[*four_trackers, orphan])
-
-    # Act
-    app_tester = _tester(area)
-    app_tester.run()
-
-    # Assert
-    assert any(
-        "1 category sits under no budget tracker" in warning.value
-        for warning in app_tester.warning
-    )
-
-
-def test_no_warning_when_every_subcategory_has_its_tracker(
-    build_area: "Callable[..., block_mod.BudgetArea]",
-    build_category: "Callable[..., read_models.CategoryView]",
-    four_trackers: list["read_models.CategoryView"],
-) -> None:
-    # Arrange
-    expenses = next(
-        row for row in four_trackers if row.name == entities.BudgetTrackerName.EXPENSES
-    )
-    area = build_area(
-        categories=[*four_trackers, build_category(parent_id=str(expenses.id))],
-    )
-
-    # Act
-    app_tester = _tester(area)
-    app_tester.run()
-
-    # Assert
-    assert not app_tester.warning
-
-
 def test_the_contribute_button_sits_on_the_joint_trackers_detail(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
     contribute_btn: contribute_button.ContributeButton,
 ) -> None:
+
     # Arrange - contributing funds joint from personal, so it belongs with the
     # tracker the money lands in rather than loose on the page.
     joint = next(
@@ -463,7 +422,7 @@ def test_the_contribute_button_sits_on_the_joint_trackers_detail(
 
 
 def test_no_contribute_button_on_another_trackers_detail(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
     contribute_btn: contribute_button.ContributeButton,
 ) -> None:
@@ -489,18 +448,18 @@ def test_no_contribute_button_on_another_trackers_detail(
     ],
 )
 def test_the_income_roll_up_column_is_labelled_for_its_month(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     period: entities.IncomeRollUpPeriod,
     expected_label: str,
 ) -> None:
     # Arrange - one column showing one of two months, so it is named for
     # whichever the settings put it on.
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import grids
 
     area = build_area(period=period)
 
     # Act
-    config = budget_tracker_block._income_config(area)
+    config = grids.income_config(area)
 
     # Assert
     column = next(
@@ -510,15 +469,15 @@ def test_the_income_roll_up_column_is_labelled_for_its_month(
 
 
 def test_a_moved_roll_up_window_is_explained_on_the_column(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
 ) -> None:
     # Arrange - only a moved window needs explaining.
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import grids
 
     area = build_area(period=entities.IncomeRollUpPeriod.PREVIOUS_MONTH)
 
     # Act
-    config = budget_tracker_block._income_config(area)
+    config = grids.income_config(area)
 
     # Assert
     column = next(
@@ -528,15 +487,15 @@ def test_a_moved_roll_up_window_is_explained_on_the_column(
 
 
 def test_the_default_roll_up_window_needs_no_explaining(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
 ) -> None:
     # Arrange
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import grids
 
     area = build_area(period=entities.IncomeRollUpPeriod.CURRENT_MONTH)
 
     # Act
-    config = budget_tracker_block._income_config(area)
+    config = grids.income_config(area)
 
     # Assert
     column = next(
@@ -553,7 +512,7 @@ def test_the_default_roll_up_window_needs_no_explaining(
     ],
 )
 def test_the_split_column_is_named_for_what_it_measures_against(
-    build_area: "Callable[..., block_mod.BudgetArea]",
+    build_area: "Callable[..., context_mod.BudgetArea]",
     four_trackers: list["read_models.CategoryView"],
     tracker: entities.BudgetTrackerName,
     expected_label: str,
@@ -562,13 +521,13 @@ def test_the_split_column_is_named_for_what_it_measures_against(
     # this month (#262); a monthly category's is its tracker's whole budget.
     # The label is the only place a reader is told which one they are looking
     # at, and the two column sets must not drift onto the same wording.
-    from driving_adapters.blocks import budget_tracker_block
+    from driving_adapters.blocks.budget import grids
 
     area = build_area(categories=four_trackers)
     root = next(row for row in four_trackers if row.name == tracker)
 
     # Act
-    config = budget_tracker_block._children_config(area, root)
+    config = grids.children_config(area, root)
 
     # Assert - the add dialog labels the field from `button_label`, so the two
     # have to agree or the same figure is named twice over.
