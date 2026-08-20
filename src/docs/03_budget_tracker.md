@@ -75,7 +75,7 @@ original category — [Payments](/payments) explains when to reach for each.
 By default the roll-up month is the current one. If you are paid at the end of
 the month, so that each month runs on the previous month's pay, you can move the
 income roll-up back a month in [Settings](/settings) — the column then reads
-`Received Last Month`, and `Share of Income` is worked out against it. Spending
+`Received Last Month`, and the allocation ring is split against it. Spending
 stays on the current month either way. Personal and joint are set separately.
 
 ## How The Links Work
@@ -86,6 +86,10 @@ added it beneath, and its spending rolls up into that tracker's `Spent`.
 
 ## How To Read The Page
 
-- If `% Spent` is near 100%, that category is close to or at its budget.
-- If `Share of Income` is high, that tracker is taking a larger share of your income.
+- If `Budget used` is near 100%, that tracker is close to or at its budget; the
+  same goes for `% Spent` on one of its categories.
+- If a tracker's slice of the allocation ring is large, it is taking a bigger
+  share of your income — hover a slice for the figure.
+- If the ring turns red, you have allocated more than you earn, and the middle
+  says by how much.
 - If `Remaining` goes negative, the category is overspent.
