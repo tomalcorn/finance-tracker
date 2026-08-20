@@ -19,11 +19,12 @@ from domain import entities
 from driving_adapters import error_boundary
 from driving_adapters.blocks import (
     bank_accounts_block,
-    budget,
     payments_block,
     subscriptions_block,
     summary_block,
 )
+from driving_adapters.blocks.budget import context as budget_context
+from driving_adapters.blocks.budget import page as budget_page
 
 _JOINT = entities.OwnershipType.JOINT
 
@@ -55,7 +56,7 @@ with error_boundary.boundary("loading your joint dashboard"):
     # One source behind every category grid: the trackers, their
     # subcategories and any orphan are slices of the one category tree.
     category_data_source = wiring.category_data_source(_JOINT)
-    budget_tracker_sources = budget.BudgetTrackerSources(
+    budget_tracker_sources = budget_context.BudgetTrackerSources(
         categories=category_data_source,
         income_sources=wiring.income_source_data_source(_JOINT),
     )
@@ -79,7 +80,7 @@ with error_boundary.boundary("loading your joint dashboard"):
 
     # No contribute button: contributing funds joint from personal, so it
     # belongs on the other page.
-    budget_area = budget.BudgetArea(
+    budget_area = budget_context.BudgetArea(
         sources=budget_tracker_sources,
         budget_tracker_map=budget_tracker_map,
         bank_account_map=bank_account_map,
@@ -101,7 +102,7 @@ with error_boundary.boundary("saving your latest changes"):
         category_map,
         income_source_map,
     )
-    budget.commit(budget_area)
+    budget_page.commit(budget_area)
     subscriptions_block.commit(
         subscription_data_source,
         bank_account_map,
@@ -119,7 +120,7 @@ with summary_container, error_boundary.boundary("loading your summary"):
 
 with budget_tracker_container, error_boundary.boundary("loading your budget"):
     st.subheader(":material/pie_chart: :orange[Budget]")
-    budget.render(budget_area)
+    budget_page.render(budget_area)
 
 with payments_container, error_boundary.boundary("loading your payments"):
     st.subheader(":material/payments: :orange[Payments]")
