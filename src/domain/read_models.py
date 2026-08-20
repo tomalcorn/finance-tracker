@@ -166,9 +166,13 @@ class CategoryView(_ViewBase):
         pydantic.NonNegativeFloat,
         pydantic.Field(
             description=(
-                "A child's share of its parent's budget, or a root's share of "
-                "total income. Non-negative, but exceeds 100 when a category is "
-                "allowed more than what it is measured against."
+                "What this category's budget is measured against, as a "
+                "percentage: a root's share of total income, a monthly child's "
+                "share of its parent's budget, and a pot's share of what its "
+                "parent has left to allocate this month (#262). Non-negative — "
+                "a denominator of zero or less reads as 0 — but exceeds 100 "
+                "when a category is allowed more than what it is measured "
+                "against."
             ),
         ),
     ]

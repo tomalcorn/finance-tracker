@@ -37,6 +37,18 @@ it is the monthly allowance for the goal, and nothing decrements it.
 That means the goal becomes part of your actual spending history, not just a
 paper allocation. Make sure you actually transfer the money into your easy-access savings before using the `Bank It` button.
 
+## Share of Remaining
+
+`Share of Remaining` is that goal's `Planned` as a percentage of what the
+One-Offs budget still has left to hand out this month — its budget minus
+everything already banked into it and its goals. It answers "of the money still
+going spare, how much is this goal asking for", so the same `Planned` claims a
+larger share as the month's allowance is used up.
+
+The total under the column is therefore the whole month's `Planned` measured
+against what is left, and it climbs as you bank. Once nothing is left — the
+budget is fully banked, or overspent — every goal reads `0%`.
+
 ## Practical Tips
 
 - Keep `Cost` as the full target, not the amount left.
@@ -44,9 +56,11 @@ paper allocation. Make sure you actually transfer the money into your easy-acces
 - Treat `Spent/Banked` as the money already protected for the goal.
 - If `% Spent/Banked` is flat for too long, you may need to reduce the target or
   change the monthly contribution.
+- Read `Share of Remaining` before you bank, not after: it is at its most
+  meaningful while the month's allowance is still unspent.
 
 ## Overspend from a previous month
 
 If you end the month in the red, do a quick calculation to see how much you have overspent by.
 
-Add that amount as a new One-Offs entry and then next month, assign as much of its total as you can to `Planned` leave it sitting there. You don't need to bank it or do anything with it, just make sure your One-Offs `Planned` total doesnt go over 100%. Reduce the total by the amount you had in `Planned` at the end of that month, then continue until you've "paid" it all off.
+Add that amount as a new One-Offs entry and then next month, assign as much of its total as you can to `Planned` leave it sitting there. You don't need to bank it or do anything with it, just make sure that, before you bank anything that month, your One-Offs `Share of Remaining` total doesn't go over 100%. Reduce the total by the amount you had in `Planned` at the end of that month, then continue until you've "paid" it all off.

@@ -190,3 +190,27 @@ def test_bank_button_shares_the_button_row_with_add_and_filter(
             {"bank_it_button"} in columns,
         ],
     )
+
+
+def test_the_split_column_is_labelled_share_of_remaining(
+    build_stub_data_source: "Callable[..., Any]",
+) -> None:
+    # Arrange - the column's denominator moved from the One-offs budget to what
+    # is left of it (#262), and its label is the only place a reader is told
+    # which of the two they are looking at.
+    from driving_adapters.blocks import one_offs_block
+
+    config = one_offs_block._build_config(
+        build_stub_data_source([]),
+        {_ONE_OFFS_ROOT_ID: entities.BudgetTrackerName.ONE_OFFS},
+    )
+
+    # Act
+    (split_column,) = [
+        column for column in config.display.columns if column.column_name == "split"
+    ]
+
+    # Assert - the add/edit dialog labels it from `button_label`, so the two
+    # have to agree or the same figure is named twice over.
+    assert split_column.column_config["label"] == "Share of Remaining"
+    assert split_column.button_label == "Share of Remaining"
