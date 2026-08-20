@@ -37,18 +37,6 @@ it is the monthly allowance for the goal, and nothing decrements it.
 That means the goal becomes part of your actual spending history, not just a
 paper allocation. Make sure you actually transfer the money into your easy-access savings before using the `Bank It` button.
 
-## Share of Remaining
-
-`Share of Remaining` is that goal's `Planned` as a percentage of what the
-One-Offs budget still has left to hand out this month — its budget minus
-everything already banked into it and its goals. It answers "of the money still
-going spare, how much is this goal asking for", so the same `Planned` claims a
-larger share as the month's allowance is used up.
-
-The total under the column is therefore the whole month's `Planned` measured
-against what is left, and it climbs as you bank. Once nothing is left — the
-budget is fully banked, or overspent — every goal reads `0%`.
-
 ## Practical Tips
 
 - Keep `Cost` as the full target, not the amount left.
