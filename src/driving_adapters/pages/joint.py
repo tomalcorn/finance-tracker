@@ -132,10 +132,8 @@ with payments_container, error_boundary.boundary("loading your payments"):
     )
 
 with bank_accounts_container, error_boundary.boundary("loading your bank accounts"):
-    # Read after reconciliation so computed balances reflect its new payments.
-    bank_accounts = wiring.bank_account_views(_JOINT)
     st.subheader(":material/account_balance: :orange[Bank Accounts]")
-    bank_accounts_block.render(bank_account_data_source, bank_accounts)
+    bank_accounts_block.render(bank_account_data_source)
 
 with subscriptions_container, error_boundary.boundary("loading your subscriptions"):
     st.subheader(":material/autorenew: :orange[Subscriptions]")

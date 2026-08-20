@@ -264,7 +264,7 @@ def _selectbox_column(
 
 
 def _build_config(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.SubscriptionView]",
     bank_account_map: dict[str, str],
     category_map: dict[str, str],
     *,
@@ -310,7 +310,7 @@ def _build_config(
 
 
 def _build_contributions_config(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.SubscriptionView]",
     bank_account_map: dict[str, str],
     joint: JointContributionLookups,
 ) -> frontend_models.DFEConfig:
@@ -366,7 +366,7 @@ def _build_contributions_config(
 
 
 def _configs(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.SubscriptionView]",
     bank_account_map: dict[str, str],
     category_map: dict[str, str],
     joint: JointContributionLookups | None,
@@ -388,7 +388,7 @@ def _configs(
 
 
 def commit(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.SubscriptionView]",
     bank_account_map: dict[str, str],
     category_map: dict[str, str],
     joint: JointContributionLookups | None = None,
@@ -399,7 +399,7 @@ def commit(
 
 
 def render(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.SubscriptionView]",
     bank_account_map: dict[str, str],
     category_map: dict[str, str],
     joint: JointContributionLookups | None = None,

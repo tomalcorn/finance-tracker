@@ -209,14 +209,19 @@ class GridSource(pydantic.BaseModel):
             ),
         ),
     ] = None
-    data_source: data_source_mod.GridDataSource | None = pydantic.Field(
-        default=None,
-        description=(
-            "Repository-backed reads for this grid: the rows to display, plus the "
-            "column values for the uniqueness rule and filter widgets. Built in "
-            "composition.wiring. When omitted, the grid falls back to sample data."
+    data_source: Annotated[
+        data_source_mod.GridDataSource[pydantic.BaseModel] | None,
+        pydantic.Field(
+            description=(
+                "Repository-backed reads for this grid: the rows to display, plus "
+                "the column values for the uniqueness rule and filter widgets. "
+                "Built in composition.wiring. When omitted, the grid falls back to "
+                "sample data. Held at the widest row type the port allows: the "
+                "grid only ever dumps a row to a frame, so it is the holders that "
+                "name a view model."
+            ),
         ),
-    )
+    ] = None
 
 
 class GridDisplay(pydantic.BaseModel):

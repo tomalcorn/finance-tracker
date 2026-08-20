@@ -10,6 +10,8 @@ from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from domain import read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
 
@@ -25,7 +27,7 @@ _SAMPLE_DATA = pd.DataFrame(
 
 
 def _build_config(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.BankAccountView]",
 ) -> frontend_models.DFEConfig:
     """Build the grid config for the bank accounts block."""
     return frontend_models.DFEConfig(
@@ -77,12 +79,14 @@ def _build_config(
     )
 
 
-def commit(data_source: "data_source_mod.GridDataSource") -> None:
+def commit(
+    data_source: "data_source_mod.GridDataSource[read_models.BankAccountView]",
+) -> None:
     """Apply any pending backend updates for this block."""
     grid.commit(_build_config(data_source))
 
 
-def _render_metrics_tab(accounts: "list[read_models.BankAccountView]") -> None:
+def _render_metrics_tab(accounts: "Sequence[read_models.BankAccountView]") -> None:
     """Render the metrics grid tab showing name and current balance per account."""
     cols = st.columns(3)
     for i, account in enumerate(accounts):
@@ -95,10 +99,13 @@ def _render_metrics_tab(accounts: "list[read_models.BankAccountView]") -> None:
 
 
 def render(
-    data_source: "data_source_mod.GridDataSource",
-    accounts: "list[read_models.BankAccountView]",
+    data_source: "data_source_mod.GridDataSource[read_models.BankAccountView]",
 ) -> None:
-    """Render the bank accounts block."""
+    """Render the bank accounts block.
+
+    Both tabs read the one source. Called after reconciliation, so the computed
+    balances the overview shows include the payments it has just written.
+    """
     metrics_tab, table_tab = st.tabs(
         [
             f"{constants.TabIcons.OVERVIEW} Overview",
@@ -107,7 +114,7 @@ def render(
     )
 
     with metrics_tab:
-        _render_metrics_tab(accounts)
+        _render_metrics_tab(data_source.rows())
 
     with table_tab:
         grid.render(_build_config(data_source))

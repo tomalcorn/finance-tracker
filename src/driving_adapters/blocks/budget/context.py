@@ -7,9 +7,12 @@ it here. A filtered read would be Path B and would need its own cache key.
 import dataclasses
 from typing import TYPE_CHECKING
 
-from domain import entities, read_models
+from domain import entities
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from domain import read_models
     from driving_adapters.components.buttons import (
         contribute_button as contribute_button_component,
     )
@@ -42,8 +45,8 @@ class BudgetTrackerSources:
     other.
     """
 
-    categories: "data_source_mod.GridDataSource"
-    income_sources: "data_source_mod.GridDataSource"
+    categories: "data_source_mod.GridDataSource[read_models.CategoryView]"
+    income_sources: "data_source_mod.GridDataSource[read_models.IncomeSourceView]"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -60,13 +63,9 @@ class BudgetArea:
     contribute_button: "contribute_button_component.ContributeButton | None" = None
 
 
-def categories(area: BudgetArea) -> list["read_models.CategoryView"]:
+def categories(area: BudgetArea) -> "Sequence[read_models.CategoryView]":
     """Return every category the user owns, roots and children alike."""
-    return [
-        row
-        for row in area.sources.categories.rows()
-        if isinstance(row, read_models.CategoryView)
-    ]
+    return area.sources.categories.rows()
 
 
 def roots(area: BudgetArea) -> list["read_models.CategoryView"]:
@@ -89,11 +88,7 @@ def children_of(area: BudgetArea, root_id: str) -> list["read_models.CategoryVie
 
 def total_income(area: BudgetArea) -> float:
     """Return what the tracker budgets are being split out of."""
-    return sum(
-        row.current_month
-        for row in area.sources.income_sources.rows()
-        if isinstance(row, read_models.IncomeSourceView)
-    )
+    return sum(row.current_month for row in area.sources.income_sources.rows())
 
 
 def is_pot_root(root: "read_models.CategoryView") -> bool:
