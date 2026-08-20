@@ -19,12 +19,12 @@ from domain import entities
 from driving_adapters import error_boundary
 from driving_adapters.blocks import (
     bank_accounts_block,
-    budget_tracker_block,
-    one_offs_block,
     payments_block,
     subscriptions_block,
     summary_block,
 )
+from driving_adapters.blocks.budget import context as budget_context
+from driving_adapters.blocks.budget import page as budget_page
 
 _JOINT = entities.OwnershipType.JOINT
 
@@ -53,10 +53,10 @@ with error_boundary.boundary("loading your joint dashboard"):
 
     # Grid data sources, one per aggregate grid.
     bank_account_data_source = wiring.bank_account_data_source(_JOINT)
-    # One source behind three grids: the budget tracker's two tabs and the
-    # one-offs block are all slices of the one category tree.
+    # One source behind every category grid: the trackers, their
+    # subcategories and any orphan are slices of the one category tree.
     category_data_source = wiring.category_data_source(_JOINT)
-    budget_tracker_sources = budget_tracker_block.BudgetTrackerSources(
+    budget_tracker_sources = budget_context.BudgetTrackerSources(
         categories=category_data_source,
         income_sources=wiring.income_source_data_source(_JOINT),
     )
@@ -78,8 +78,17 @@ with error_boundary.boundary("loading your joint dashboard"):
     # to label the column.
     income_roll_up_period = wiring.income_roll_up_period(_JOINT)
 
+    # No contribute button: contributing funds joint from personal, so it
+    # belongs on the other page.
+    budget_area = budget_context.BudgetArea(
+        sources=budget_tracker_sources,
+        budget_tracker_map=budget_tracker_map,
+        bank_account_map=bank_account_map,
+        bank_one_offs_use_case=bank_one_offs_use_case,
+        income_roll_up_period=income_roll_up_period,
+    )
+
 summary_container = st.container(border=True)
-one_offs_container = st.container(border=True)
 budget_tracker_container = st.container(border=True)
 payments_container = st.container(border=True)
 bank_accounts_container = st.container(border=True)
@@ -93,12 +102,7 @@ with error_boundary.boundary("saving your latest changes"):
         category_map,
         income_source_map,
     )
-    budget_tracker_block.commit(
-        budget_tracker_sources,
-        budget_tracker_map,
-        income_roll_up_period,
-    )
-    one_offs_block.commit(category_data_source, budget_tracker_map)
+    budget_page.commit(budget_area)
     subscriptions_block.commit(
         subscription_data_source,
         bank_account_map,
@@ -114,22 +118,9 @@ with summary_container, error_boundary.boundary("loading your summary"):
     st.subheader(":material/insights: :orange[Summary]")
     summary_block.render(wiring.summarise_finances_use_case(_JOINT).execute())
 
-with one_offs_container, error_boundary.boundary("loading your one-offs"):
-    st.subheader(":material/bubble_chart: :orange[One-Offs]")
-    one_offs_block.render(
-        category_data_source,
-        budget_tracker_map,
-        bank_account_map,
-        bank_one_offs_use_case,
-    )
-
-with budget_tracker_container, error_boundary.boundary("loading your budget tracker"):
-    st.subheader(":material/pie_chart: :orange[Budget Tracker]")
-    budget_tracker_block.render(
-        budget_tracker_sources,
-        budget_tracker_map,
-        income_roll_up_period=income_roll_up_period,
-    )
+with budget_tracker_container, error_boundary.boundary("loading your budget"):
+    st.subheader(":material/pie_chart: :orange[Budget]")
+    budget_page.render(budget_area)
 
 with payments_container, error_boundary.boundary("loading your payments"):
     st.subheader(":material/payments: :orange[Payments]")

@@ -7,7 +7,9 @@ icon: ":material/bubble_chart:"
 # One-Offs
 
 One-off savings goals are things you want to accumulate money for over time,
-but not as part of your normal monthly spending. Examples include:
+but not as part of your normal monthly spending. They live under the `One-offs`
+budget tracker — pick it from the list on the [Budget](/budget_tracker) panel.
+Examples include:
 
 - holidays
 - a new laptop

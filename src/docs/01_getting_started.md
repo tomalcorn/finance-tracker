@@ -27,8 +27,8 @@ The usual setup order is:
 2. Create expense categories to match how you want to categorise spending.
 3. Create income sources and link them to the right budget tracker rows.
 4. Start entering payments and subscriptions.
-5. Use the one-offs block for savings goals like holidays, gifts, large purchases, or
-   anything that isn't regular monthly spending.
+5. Use the `One-offs` budget tracker for savings goals like holidays, gifts,
+   large purchases, or anything that isn't regular monthly spending.
 
 ## A Good First Check
 

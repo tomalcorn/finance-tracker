@@ -15,12 +15,14 @@ data entry form. The core question is always:
 
 Look at the budget tracker page first when you review your finances.
 
-- `% Spent` tells you how much of a budget has been used.
+- `Budget used` tells you how much of a tracker's budget has gone, and
+  `% Spent` does the same for one of its categories.
 - `Remaining` tells you what is left.
-- `Share of Income` tells you how that budget compares to your income allocation.
+- The allocation ring tells you how each tracker's budget compares to your
+  income — hover a slice for its share.
 
-If `% Spent` is climbing quickly while `Share of Income` is already high, that category
-may be eating a larger share of your income than intended.
+If `Budget used` is climbing quickly on a tracker whose ring slice is already
+large, it may be eating a bigger share of your income than intended.
 
 ## Tracking One-Off Goals
 
