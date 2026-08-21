@@ -30,7 +30,7 @@ def _submit_new_row(
     grid_source: "frontend_models.GridSource",
     new_row: dict[str, object],
 ) -> None:
-    """Build a new row into an entity through the port, then persist it.
+    """Write a new row through the port, which validates it into an entity.
 
     Raises:
         ValueError: If the grid has no data source to write through.
@@ -42,8 +42,7 @@ def _submit_new_row(
         msg = "An editable grid requires a data source to add rows."
         raise ValueError(msg)
     new_row.update(grid_source.extra_row_values or {})
-    data_source = grid_source.data_source
-    data_source.save_entities(data_source.build_entities([new_row]))
+    grid_source.data_source.create_rows([new_row])
 
 
 @st.dialog("Add Row")

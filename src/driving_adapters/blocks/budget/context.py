@@ -7,9 +7,10 @@ it here. A filtered read would be Path B and would need its own cache key.
 import dataclasses
 from typing import TYPE_CHECKING
 
-from domain import entities, read_models
+from domain import entities
 
 if TYPE_CHECKING:
+    from domain import read_models
     from driving_adapters.components.buttons import (
         contribute_button as contribute_button_component,
     )
@@ -42,8 +43,8 @@ class BudgetTrackerSources:
     other.
     """
 
-    categories: "data_source_mod.GridDataSource"
-    income_sources: "data_source_mod.GridDataSource"
+    categories: "data_source_mod.GridDataSource[read_models.CategoryView]"
+    income_sources: "data_source_mod.GridDataSource[read_models.IncomeSourceView]"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -60,20 +61,11 @@ class BudgetArea:
     contribute_button: "contribute_button_component.ContributeButton | None" = None
 
 
-def categories(area: BudgetArea) -> list["read_models.CategoryView"]:
-    """Return every category the user owns, roots and children alike."""
-    return [
-        row
-        for row in area.sources.categories.rows()
-        if isinstance(row, read_models.CategoryView)
-    ]
-
-
 def roots(area: BudgetArea) -> list["read_models.CategoryView"]:
     """Return the budget trackers, in the fixed display order of their names."""
     order = list(entities.BudgetTrackerName)
     return sorted(
-        (row for row in categories(area) if row.is_root),
+        (row for row in area.sources.categories.rows() if row.is_root),
         key=lambda row: order.index(row.name) if row.name in order else len(order),
     )
 
@@ -82,18 +74,14 @@ def children_of(area: BudgetArea, root_id: str) -> list["read_models.CategoryVie
     """Return the subcategories sitting under one tracker."""
     return [
         row
-        for row in categories(area)
+        for row in area.sources.categories.rows()
         if not row.is_root and str(row.parent_id) == root_id
     ]
 
 
 def total_income(area: BudgetArea) -> float:
     """Return what the tracker budgets are being split out of."""
-    return sum(
-        row.current_month
-        for row in area.sources.income_sources.rows()
-        if isinstance(row, read_models.IncomeSourceView)
-    )
+    return sum(row.current_month for row in area.sources.income_sources.rows())
 
 
 def is_pot_root(root: "read_models.CategoryView") -> bool:
@@ -113,4 +101,6 @@ def bankable_pots(area: BudgetArea) -> list["read_models.CategoryView"]:
     on the aggregate, so neither an active column filter nor the sample data an
     empty frame falls back to gets to decide what is bankable.
     """
-    return [row for row in categories(area) if row.is_pot and row.budget > 0]
+    return [
+        row for row in area.sources.categories.rows() if row.is_pot and row.budget > 0
+    ]

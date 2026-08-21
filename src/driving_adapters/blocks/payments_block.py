@@ -15,6 +15,7 @@ from driving_adapters.models import frontend_models
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from domain import read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
 
 _GRID_ID = "payments"
@@ -66,7 +67,7 @@ def _current_year_filter() -> query.Filters:
 
 
 def _build_expense_config(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.PaymentView]",
     bank_account_ids: list[str],
     get_bank_account_name: "Callable[[str | float], str]",
     category_ids: list[str],
@@ -187,7 +188,7 @@ def _build_expense_config(
 
 
 def _build_income_config(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.PaymentView]",
     bank_account_ids: list[str],
     get_bank_account_name: "Callable[[str | float], str]",
     income_source_ids: list[str],
@@ -305,7 +306,7 @@ def _build_income_config(
 
 
 def _configs(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.PaymentView]",
     bank_account_map: dict[str, str],
     category_map: dict[str, str],
     income_source_map: dict[str, str],
@@ -347,7 +348,7 @@ def _configs(
 
 
 def commit(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.PaymentView]",
     bank_account_map: dict[str, str],
     category_map: dict[str, str],
     income_source_map: dict[str, str],
@@ -403,7 +404,7 @@ def _render_expense_breakdown(
 
 
 def render(
-    data_source: "data_source_mod.GridDataSource",
+    data_source: "data_source_mod.GridDataSource[read_models.PaymentView]",
     bank_account_map: dict[str, str],
     category_map: dict[str, str],
     income_source_map: dict[str, str],

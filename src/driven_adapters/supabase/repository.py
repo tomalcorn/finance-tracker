@@ -390,6 +390,14 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
             msg = f"Failed to delete rows from {self._spec.write_table}: {e}"
             raise errors.RepositoryError(msg) from e
 
+    def create_rows(self, rows: "Sequence[entities.RawRow]") -> None:
+        """Build entities from raw rows and persist them, in one step.
+
+        The grid's create path: it holds nothing between the gate and the write,
+        so it asks for both at once rather than naming the entity type.
+        """
+        self.save_entities(self.build_entities(rows))
+
     def rows(self) -> list[ViewT]:
         """Return all display rows as typed view models."""
         return self._validated(self._fetch_rows(), self._spec.view_model.model_validate)

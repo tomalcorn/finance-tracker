@@ -55,14 +55,14 @@ def _repo_deps() -> tuple[
 
 def bank_account_data_source(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> "data_source_mod.GridDataSource":
+) -> "data_source_mod.GridDataSource[read_models.BankAccountView]":
     """GridDataSource for the bank accounts DFE."""
     return supabase_repos.bank_account_repository(*_repo_deps(), ownership)
 
 
 def category_data_source(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> "data_source_mod.GridDataSource":
+) -> "data_source_mod.GridDataSource[read_models.CategoryView]":
     """GridDataSource for every categories DFE.
 
     One source for all of them: the budget tracker grid, the subcategories grid
@@ -74,21 +74,21 @@ def category_data_source(
 
 def income_source_data_source(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> "data_source_mod.GridDataSource":
+) -> "data_source_mod.GridDataSource[read_models.IncomeSourceView]":
     """GridDataSource for the income sources DFE."""
     return supabase_repos.income_source_repository(*_repo_deps(), ownership)
 
 
 def payment_data_source(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> "data_source_mod.GridDataSource":
+) -> "data_source_mod.GridDataSource[read_models.PaymentView]":
     """GridDataSource for the payments DFEs."""
     return supabase_repos.payment_repository(*_repo_deps(), ownership)
 
 
 def subscription_data_source(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> "data_source_mod.GridDataSource":
+) -> "data_source_mod.GridDataSource[read_models.SubscriptionView]":
     """GridDataSource for the subscriptions DFE."""
     return supabase_repos.subscription_repository(*_repo_deps(), ownership)
 
@@ -128,21 +128,6 @@ def joint_account_member_repository() -> (
 ):
     """Repository for the current user's joint-account memberships."""
     return supabase_repos.joint_account_member_repository(*_repo_deps())
-
-
-def bank_account_views(
-    ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> "list[read_models.BankAccountView]":
-    """Return the current user's bank accounts as typed view rows.
-
-    Carries the computed ``current_balance`` column, so it is the read the
-    bank-accounts overview metrics use.
-    """
-    repo = supabase_repos.bank_account_repository(
-        *_repo_deps(),
-        ownership,
-    )
-    return repo.rows()
 
 
 def bank_account_id_name_map(

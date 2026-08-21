@@ -114,8 +114,11 @@ class FakeRepository[E: pydantic.BaseModel](repository.Repository[E]):
         self.deleted.extend(ids)
 
 
-class StubDataSource:
+class StubDataSource[ViewT: pydantic.BaseModel]:
     """``GridDataSource`` stub: fixed reads, recording every write.
+
+    Generic over the view model it answers with, so it satisfies a concretely
+    parameterised ``GridDataSource[…]`` the way a repository does.
 
     ``model`` teaches the stub how to build entities; omit it for a test that
     never drives the create path.
@@ -123,13 +126,13 @@ class StubDataSource:
 
     def __init__(
         self,
-        rows: "Sequence[pydantic.BaseModel] | None" = None,
+        rows: "Sequence[ViewT] | None" = None,
         column_values: set[object] | None = None,
         model: type[pydantic.BaseModel] | None = None,
         context: "entities.RawRow | None" = None,
     ) -> None:
         """Fix the reads this stub answers and prepare the write records."""
-        self._rows = list(rows or [])
+        self._rows: list[ViewT] = list(rows or [])
         self._column_values = column_values or set()
         self._model = model
         self._context = dict(context or {})
@@ -138,7 +141,7 @@ class StubDataSource:
         self.edits: list[entities.EditedRows] = []
         self.deleted: list[str] = []
 
-    def rows(self) -> list[pydantic.BaseModel]:
+    def rows(self) -> list[ViewT]:
         return list(self._rows)
 
     # column_name is unused: the stub answers one fixed value set.
@@ -157,6 +160,9 @@ class StubDataSource:
     def save_entities(self, items: "Sequence[pydantic.BaseModel]") -> None:
         self.saved.extend(items)
 
+    def create_rows(self, rows: "Sequence[entities.RawRow]") -> None:
+        self.save_entities(self.build_entities(rows))
+
     def apply_edits(self, edits: "entities.EditedRows") -> None:
         if edits:
             self.edits.append(edits)
@@ -167,7 +173,7 @@ class StubDataSource:
 
 type RepoBuilder = Callable[..., FakeRepository[Any]]
 type PaymentRepoBuilder = Callable[..., FakeRepository[entities.AnyPaymentModel]]
-type StubDataSourceBuilder = Callable[..., StubDataSource]
+type StubDataSourceBuilder = Callable[..., StubDataSource[Any]]
 
 
 @pytest.fixture(name="build_repo")
@@ -220,11 +226,11 @@ def _build_stub_data_source() -> "StubDataSourceBuilder":
     """Return a builder for the grid data-source stub."""
 
     def _build(
-        rows: "Sequence[pydantic.BaseModel] | None" = None,
+        rows: "Sequence[Any] | None" = None,
         column_values: set[object] | None = None,
         model: type[pydantic.BaseModel] | None = None,
         context: "entities.RawRow | None" = None,
-    ) -> StubDataSource:
+    ) -> "StubDataSource[Any]":
         return StubDataSource(rows, column_values, model, context)
 
     return _build
