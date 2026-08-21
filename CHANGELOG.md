@@ -1,3 +1,9 @@
+## v1.23.0 (2026-08-21)
+
+### Feat
+
+- make GridDataSource generic over its view model (#269) (#273)
+
 ## v1.22.0 (2026-08-21)
 
 ### Feat
