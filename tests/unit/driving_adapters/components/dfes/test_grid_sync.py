@@ -73,6 +73,92 @@ class TestApplyActiveSorting:
         )
         pd.testing.assert_frame_equal(result, expected)
 
+    def test_oldest_row_leads_a_tie_by_default(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
+        """Rows tied on the sorted column default to oldest-created first."""
+        # Arrange
+        rows = [
+            {
+                "id": "bbb",
+                "payment_date": "2026-01-01",
+                "created_at": "2026-01-01T10:00",
+            },
+            {
+                "id": "aaa",
+                "payment_date": "2026-01-01",
+                "created_at": "2026-01-01T09:00",
+            },
+        ]
+        configs = [make_column_config("payment_date", sorting=query.SortingValues.DESC)]
+
+        # Act
+        result = grid_sync.apply_active_sorting(pd.DataFrame(rows), configs)
+
+        # Assert
+        assert result["id"].tolist() == ["aaa", "bbb"]
+
+    def test_newest_row_leads_a_tie_when_insertion_sorting_is_desc(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
+        """A DESC insertion sorting puts the newest-created row atop its tie."""
+        # Arrange
+        rows = [
+            {
+                "id": "aaa",
+                "payment_date": "2026-01-01",
+                "created_at": "2026-01-01T09:00",
+            },
+            {
+                "id": "bbb",
+                "payment_date": "2026-01-01",
+                "created_at": "2026-01-01T10:00",
+            },
+        ]
+        configs = [make_column_config("payment_date", sorting=query.SortingValues.DESC)]
+
+        # Act
+        result = grid_sync.apply_active_sorting(
+            pd.DataFrame(rows),
+            configs,
+            query.SortingValues.DESC,
+        )
+
+        # Assert
+        assert result["id"].tolist() == ["bbb", "aaa"]
+
+    def test_insertion_sorting_never_reorders_distinct_sort_values(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
+        """The configured sort still wins: the tiebreak only orders ties."""
+        # Arrange - the newest row is the one with the oldest payment date
+        rows = [
+            {
+                "id": "aaa",
+                "payment_date": "2026-01-01",
+                "created_at": "2026-01-02T09:00",
+            },
+            {
+                "id": "bbb",
+                "payment_date": "2026-03-01",
+                "created_at": "2026-01-01T09:00",
+            },
+        ]
+        configs = [make_column_config("payment_date", sorting=query.SortingValues.DESC)]
+
+        # Act
+        result = grid_sync.apply_active_sorting(
+            pd.DataFrame(rows),
+            configs,
+            query.SortingValues.DESC,
+        )
+
+        # Assert
+        assert result["payment_date"].tolist() == ["2026-03-01", "2026-01-01"]
+
     def test_returns_frame_unchanged_without_sort_config(
         self,
         make_column_config: ColumnConfigFactory,
@@ -133,6 +219,33 @@ class TestSortingIsIndependentOfFetchOrder:
         second = grid_sync.apply_active_sorting(
             pd.DataFrame(list(reversed(rows))),
             configs,
+        )
+
+        # Assert
+        pd.testing.assert_frame_equal(first, second)
+
+    def test_rows_tied_on_creation_keep_one_order_under_desc_insertion(
+        self,
+        make_column_config: ColumnConfigFactory,
+    ) -> None:
+        """The id key still settles rows a DESC insertion sorting leaves tied."""
+        # Arrange - identical rows, opposite arrival order, tied on both keys
+        rows = [
+            {"id": "aaa", "created_at": "2026-01-01T09:00"},
+            {"id": "bbb", "created_at": "2026-01-01T09:00"},
+        ]
+        configs = [make_column_config("created_at")]
+
+        # Act
+        first = grid_sync.apply_active_sorting(
+            pd.DataFrame(rows),
+            configs,
+            query.SortingValues.DESC,
+        )
+        second = grid_sync.apply_active_sorting(
+            pd.DataFrame(list(reversed(rows))),
+            configs,
+            query.SortingValues.DESC,
         )
 
         # Assert

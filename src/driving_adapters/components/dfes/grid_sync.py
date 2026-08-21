@@ -22,11 +22,18 @@ if typing.TYPE_CHECKING:
 UniqueChecker = Callable[[str], set[object]]
 """Returns the set of existing values for a column (user-scoped)."""
 
-_TIEBREAK_COLUMNS = ("created_at", "id")
-"""Trailing sort keys: insertion order, then a unique key to settle the rest.
+_INSERTION_COLUMN = "created_at"
+"""Trailing sort key: when the row was inserted.
 
-Absent only from the sample-data empty state, which is why each is applied
-only when the frame actually carries it.
+Its direction is the grid's own (``GridDisplay.insertion_sorting``), so a grid
+can put its newest rows either side of the ones it ties with.
+"""
+
+_UNIQUE_COLUMN = "id"
+"""Final sort key, always ascending: settles whatever the keys before it tie on.
+
+Both trailing keys are absent from the sample-data empty state, which is why
+each is applied only when the frame actually carries it.
 """
 
 _TO_PANDAS_OPERATOR = {
@@ -102,6 +109,7 @@ def apply_active_filters(
 def apply_active_sorting(
     dataframe: pd.DataFrame,
     active_configs: list["frontend_models.DFEColumnConfig"],
+    insertion_sorting: query.SortingValues = query.SortingValues.ASC,
 ) -> pd.DataFrame:
     """Sort the frame by every column configured with a sort direction (Path A).
 
@@ -115,6 +123,18 @@ def apply_active_sorting(
     deltas by position, and ``compute_deltas`` resolves them by position
     against a frame rebuilt on a later run. Two fetches of the same rows have
     to order them the same way, or a delta lands on the wrong row.
+
+    Args:
+        dataframe: The display frame to order.
+        active_configs: The grid's columns, carrying the current sort state.
+        insertion_sorting: Direction of the ``created_at`` tiebreak. ``DESC``
+            puts the newest-created row first among rows tied on the sorted
+            columns; the ``id`` key after it stays ascending either way, so the
+            order remains total.
+
+    Returns:
+        The frame ordered by the configured columns and the trailing keys.
+
     """
     sort_configs = [
         config
@@ -123,10 +143,14 @@ def apply_active_sorting(
     ]
     sort_columns = [config.column_name for config in sort_configs]
     ascending = [config.sorting == query.SortingValues.ASC for config in sort_configs]
-    for column in _TIEBREAK_COLUMNS:
+    tiebreaks = (
+        (_INSERTION_COLUMN, insertion_sorting == query.SortingValues.ASC),
+        (_UNIQUE_COLUMN, True),
+    )
+    for column, column_ascending in tiebreaks:
         if column in dataframe.columns:
             sort_columns.append(column)
-            ascending.append(True)
+            ascending.append(column_ascending)
     if not sort_columns:
         return dataframe
     return dataframe.sort_values(

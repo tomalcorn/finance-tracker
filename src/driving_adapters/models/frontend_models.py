@@ -229,6 +229,16 @@ class GridDisplay(pydantic.BaseModel):
         pydantic.Field(description="The ordered column configs for the editor."),
     ]
     num_rows: Literal["fixed", "dynamic", "add", "delete"] = "delete"
+    insertion_sorting: Annotated[
+        query.SortingValues,
+        pydantic.Field(
+            description=(
+                "Direction of the created_at tiebreak applied after the column "
+                "sorts. DESC shows the newest-created row first among rows tied "
+                "on those columns; ASC shows it last."
+            ),
+        ),
+    ] = query.SortingValues.ASC
     sample_data: Annotated[
         pd.DataFrame,
         pydantic.Field(description="Frame shown when the data source read is empty."),

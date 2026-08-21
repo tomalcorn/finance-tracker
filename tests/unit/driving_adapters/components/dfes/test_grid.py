@@ -6,6 +6,7 @@ import pandas as pd
 import pydantic
 import streamlit as st
 
+from domain import query
 from driving_adapters import ss_keys
 from driving_adapters.components.dfes import grid
 from driving_adapters.models import frontend_models
@@ -25,11 +26,17 @@ class _RowModel(pydantic.BaseModel):
     name: str
 
 
+class _TimestampedRow(pydantic.BaseModel):
+    id: str
+    created_at: str
+
+
 def _config(
     *,
     data_source: "conftest.StubDataSource | None" = None,
     sample_data: pd.DataFrame | None = None,
     row_predicate: "Callable[[Any], bool] | None" = None,
+    insertion_sorting: query.SortingValues = query.SortingValues.ASC,
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config for the tests."""
     return frontend_models.DFEConfig(
@@ -40,6 +47,7 @@ def _config(
         ),
         display=frontend_models.GridDisplay(
             columns=[],
+            insertion_sorting=insertion_sorting,
             sample_data=pd.DataFrame() if sample_data is None else sample_data,
         ),
     )
@@ -61,6 +69,26 @@ def test_build_working_df_reads_from_data_source(
     # Assert
     expected = pd.DataFrame([{"id": "0", "name": "Alice"}, {"id": "1", "name": "Bob"}])
     pd.testing.assert_frame_equal(working_df, expected)
+
+
+def test_build_working_df_applies_the_displays_insertion_sorting(
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+) -> None:
+    # Arrange
+    rows: list[pydantic.BaseModel] = [
+        _TimestampedRow(id="0", created_at="2026-01-01T09:00"),
+        _TimestampedRow(id="1", created_at="2026-01-01T10:00"),
+    ]
+    config = _config(
+        data_source=build_stub_data_source(rows=rows),
+        insertion_sorting=query.SortingValues.DESC,
+    )
+
+    # Act
+    working_df = grid.build_working_df(config)
+
+    # Assert
+    assert working_df["id"].tolist() == ["1", "0"]
 
 
 def test_build_working_df_falls_back_to_sample_when_source_empty(

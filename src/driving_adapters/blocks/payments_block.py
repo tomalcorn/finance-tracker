@@ -179,6 +179,8 @@ def _build_expense_config(
                     filters=query.Filters(eq="expense"),
                 ),
             ],
+            # A payment just booked for today tops that date's rows.
+            insertion_sorting=query.SortingValues.DESC,
             sample_data=_EXPENSE_PAYMENTS_SAMPLE_DATA,
         ),
     )
@@ -295,6 +297,8 @@ def _build_income_config(
                     filters=query.Filters(eq="income"),
                 ),
             ],
+            # A payment just booked for today tops that date's rows.
+            insertion_sorting=query.SortingValues.DESC,
             sample_data=_INCOME_ENTRIES_SAMPLE_DATA,
         ),
     )

@@ -29,7 +29,7 @@ class _ViewBase(pydantic.BaseModel):
         datetime.datetime,
         pydantic.Field(
             alias="_created_at",
-            description="When the row was inserted; the grid's final sort key.",
+            description="When the row was inserted; a trailing sort key for the grid.",
         ),
     ]
     ownership_type: Annotated[
