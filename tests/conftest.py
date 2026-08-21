@@ -160,6 +160,9 @@ class StubDataSource[ViewT: pydantic.BaseModel]:
     def save_entities(self, items: "Sequence[pydantic.BaseModel]") -> None:
         self.saved.extend(items)
 
+    def create_rows(self, rows: "Sequence[entities.RawRow]") -> None:
+        self.save_entities(self.build_entities(rows))
+
     def apply_edits(self, edits: "entities.EditedRows") -> None:
         if edits:
             self.edits.append(edits)

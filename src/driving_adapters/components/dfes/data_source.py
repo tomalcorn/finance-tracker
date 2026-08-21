@@ -13,10 +13,11 @@ Generic over its view model, so a holder declares the rows it reads
 grid itself does not care, and holds ``GridDataSource[pydantic.BaseModel]``:
 the parameter is covariant, so any concretely-typed source satisfies it.
 
-Creation is deliberately two steps (``build_entities`` then ``save_entities``):
-raw column values become a complete, correctly-owned entity before anything is
-written, so the write path through the entity is visible at the call site rather
-than hidden behind one method.
+Creation is one step (``create_rows``). The gate — raw column values becoming a
+complete, correctly-owned entity before anything is written — still runs, but on
+the repository's side of the port: the ``Repository`` write contract keeps
+``build_entities`` / ``save_entities`` separate because its callers do work
+between them, and the grid never does.
 """
 
 import typing
@@ -47,22 +48,15 @@ class GridDataSource[ViewT: "pydantic.BaseModel"](
         """Return the set of existing values for a column."""
         ...
 
-    def build_entities(
-        self,
-        rows: "Sequence[entities.RawRow]",
-    ) -> "Sequence[typing.Any]":
-        """Complete and validate raw rows into entities, without persisting.
+    def create_rows(self, rows: "Sequence[entities.RawRow]") -> None:
+        """Validate raw rows through the entity gate, then persist them.
 
         The grid collects user input as bare column values; the implementation
-        completes each row with the ownership context it writes under and
-        validates it, so a row the grid adds is a valid, correctly-owned entity
-        before anything is written. The entity type is opaque to the grid — it
-        only passes the result back to ``save_entities``.
+        completes each row with the ownership context it writes under, validates
+        it into an entity, and only then writes. The entity never surfaces here:
+        the grid has nothing to do with one between the two steps, so the port
+        does not name a type it cannot use.
         """
-        ...
-
-    def save_entities(self, items: "Sequence[typing.Any]") -> None:
-        """Persist complete entities, inserting or updating each by id."""
         ...
 
     def apply_edits(self, edits: "entities.EditedRows") -> None:
