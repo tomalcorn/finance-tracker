@@ -1,3 +1,9 @@
+## v1.22.0 (2026-08-21)
+
+### Feat
+
+- sort newest payments to the top of a tied date (#274) (#275)
+
 ## v1.21.0 (2026-08-20)
 
 ### Feat
