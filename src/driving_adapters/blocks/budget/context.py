@@ -10,8 +10,6 @@ from typing import TYPE_CHECKING
 from domain import entities
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from domain import read_models
     from driving_adapters.components.buttons import (
         contribute_button as contribute_button_component,
@@ -63,16 +61,11 @@ class BudgetArea:
     contribute_button: "contribute_button_component.ContributeButton | None" = None
 
 
-def categories(area: BudgetArea) -> "Sequence[read_models.CategoryView]":
-    """Return every category the user owns, roots and children alike."""
-    return area.sources.categories.rows()
-
-
 def roots(area: BudgetArea) -> list["read_models.CategoryView"]:
     """Return the budget trackers, in the fixed display order of their names."""
     order = list(entities.BudgetTrackerName)
     return sorted(
-        (row for row in categories(area) if row.is_root),
+        (row for row in area.sources.categories.rows() if row.is_root),
         key=lambda row: order.index(row.name) if row.name in order else len(order),
     )
 
@@ -81,7 +74,7 @@ def children_of(area: BudgetArea, root_id: str) -> list["read_models.CategoryVie
     """Return the subcategories sitting under one tracker."""
     return [
         row
-        for row in categories(area)
+        for row in area.sources.categories.rows()
         if not row.is_root and str(row.parent_id) == root_id
     ]
 
@@ -108,4 +101,6 @@ def bankable_pots(area: BudgetArea) -> list["read_models.CategoryView"]:
     on the aggregate, so neither an active column filter nor the sample data an
     empty frame falls back to gets to decide what is bankable.
     """
-    return [row for row in categories(area) if row.is_pot and row.budget > 0]
+    return [
+        row for row in area.sources.categories.rows() if row.is_pot and row.budget > 0
+    ]
