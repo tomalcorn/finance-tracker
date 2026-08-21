@@ -74,7 +74,11 @@ def build_working_df(config: "frontend_models.DFEConfig") -> pd.DataFrame:
     if working_df.empty:
         working_df = display.sample_data.copy()
     working_df = _convert_cols_to_datetime(working_df, list(display.columns))
-    return grid_sync.apply_active_sorting(working_df, active_columns)
+    return grid_sync.apply_active_sorting(
+        working_df,
+        active_columns,
+        display.insertion_sorting,
+    )
 
 
 def render_editor(
