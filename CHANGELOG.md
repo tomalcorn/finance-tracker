@@ -1,3 +1,9 @@
+## v1.23.1 (2026-08-23)
+
+### Fix
+
+- name subcategory grid dialogs after their tracker (#276) (#277)
+
 ## v1.23.0 (2026-08-21)
 
 ### Feat
