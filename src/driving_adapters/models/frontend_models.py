@@ -192,6 +192,17 @@ class GridSource(pydantic.BaseModel):
             ),
         ),
     ]
+    display_name: Annotated[
+        str | None,
+        pydantic.Field(
+            description=(
+                "What the dialogs call this grid. Separate from ``grid_id`` "
+                "because that has to be unique per grid — the subcategory grids "
+                "carry their tracker's id in it — while this is read by a "
+                "person. Defaults to the titlecased ``grid_id``."
+            ),
+        ),
+    ] = None
     extra_row_values: Annotated[
         dict[str, Any] | None,
         pydantic.Field(
@@ -222,6 +233,11 @@ class GridSource(pydantic.BaseModel):
             ),
         ),
     ] = None
+
+    @property
+    def label(self) -> str:
+        """The grid's name as the dialogs show it."""
+        return self.display_name or self.grid_id.replace("_", " ").title()
 
 
 class GridDisplay(pydantic.BaseModel):

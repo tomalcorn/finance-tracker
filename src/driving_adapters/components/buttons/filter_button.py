@@ -165,8 +165,7 @@ def _filter_dialog(
     """
     col_configs = list(grid_display.columns)
     key_prefix = grid_source.grid_id
-    display_name = key_prefix.replace("_", " ").title()
-    st.write(f"Filter **{display_name}** by:")
+    st.write(f"Filter **{grid_source.label}** by:")
     for col_config in col_configs:
         if not col_config.visible:
             continue

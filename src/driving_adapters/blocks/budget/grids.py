@@ -41,6 +41,7 @@ def children_config(
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             grid_id=f"{CHILDREN_GRID_PREFIX}_{root.id}",
+            display_name=root.name,
             data_source=area.sources.categories,
             row_predicate=children_predicate(str(root.id)),
             extra_row_values={

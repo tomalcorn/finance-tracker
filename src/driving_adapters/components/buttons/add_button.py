@@ -53,8 +53,7 @@ def _add_row_dialog(
     """Render the add-row dialog and submit the row on confirm."""
     col_configs = grid_display.writable_columns
     key_prefix = grid_source.grid_id
-    display_name = key_prefix.replace("_", " ").title()
-    st.write(f"Add a new row to {display_name}")
+    st.write(f"Add a new row to {grid_source.label}")
     outputs = [
         col.input_widget(
             label=col.button_label or col.column_name,
