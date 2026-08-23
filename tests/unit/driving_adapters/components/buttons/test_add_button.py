@@ -14,6 +14,8 @@ from driving_adapters.components.buttons import add_button
 from driving_adapters.models import frontend_models
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from driving_adapters.components.dfes import data_source as data_source_mod
 
 USER_ID = "auth0|test-user-1"
@@ -27,11 +29,13 @@ class _RowModel(pydantic.BaseModel):
 def _config(
     *,
     data_source: "data_source_mod.GridDataSource",
+    display_name: str | None = None,
 ) -> frontend_models.DFEConfig:
     """Build a minimal grid config for the add-button tests."""
     return frontend_models.DFEConfig(
         source=frontend_models.GridSource(
             grid_id="test_table",
+            display_name=display_name,
             data_source=data_source,
         ),
         display=frontend_models.GridDisplay(columns=[], sample_data=pd.DataFrame()),
@@ -105,19 +109,31 @@ def _dialog_wrapper(config: "frontend_models.DFEConfig") -> None:
     add_button._add_row_dialog(config.source, config.display)
 
 
+@pytest.fixture(name="build_app_tester")
+def _build_app_tester(
+    build_stub_data_source: "conftest.StubDataSourceBuilder",
+) -> "Callable[..., st_test.AppTest]":
+    def build(display_name: str | None = None) -> st_test.AppTest:
+        source = build_stub_data_source(
+            context={"user_id": USER_ID},
+            model=entities.ExpensePaymentModel,
+        )
+        return st_test.AppTest.from_function(
+            _dialog_wrapper,
+            default_timeout=120,
+            kwargs={
+                "config": _config(data_source=source, display_name=display_name),
+            },
+        )
+
+    return build
+
+
 @pytest.fixture(name="app_tester")
 def _app_tester(
-    build_stub_data_source: "conftest.StubDataSourceBuilder",
+    build_app_tester: "Callable[..., st_test.AppTest]",
 ) -> st_test.AppTest:
-    source = build_stub_data_source(
-        context={"user_id": USER_ID},
-        model=entities.ExpensePaymentModel,
-    )
-    return st_test.AppTest.from_function(
-        _dialog_wrapper,
-        default_timeout=120,
-        kwargs={"config": _config(data_source=source)},
-    )
+    return build_app_tester()
 
 
 def test_add_row_dialog_renders(app_tester: st_test.AppTest) -> None:
@@ -132,6 +148,20 @@ def test_add_row_dialog_renders(app_tester: st_test.AppTest) -> None:
         app_tester,
     )
     assert all([submit_button_key_rendered, dialog_text_rendered])
+
+
+def test_add_row_dialog_titles_itself_with_the_display_name(
+    build_app_tester: "Callable[..., st_test.AppTest]",
+) -> None:
+    """A grid whose id carries a tracker uuid is named by its display_name."""
+    # Arrange
+    app_tester = build_app_tester(display_name="One-offs")
+
+    # Act
+    app_tester.run()
+
+    # Assert
+    assert "Add a new row to One-offs" in conftest.get_rendered_texts(app_tester)
 
 
 def _make_col_config(
