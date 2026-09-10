@@ -18,7 +18,9 @@ dependencies = [
 dev = [
     "commitizen",
     "poethepoet",
-    # Migration runner tooling (not part of the app itself, see migrations/).
+    # Ops tooling, not part of the app itself: the migration runner
+    # (migrations/) and the Community Cloud keep-alive visit (ops/).
+    "playwright",
     "psycopg[binary]",
     "pydantic-settings",
     "pytest",

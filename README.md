@@ -28,6 +28,34 @@ Versioned SQL schema/view changes live in the [`migrations/`](./migrations/READM
 package (ops tooling, outside `src/`), applied with `uv run poe migrate`. See the
 [migrations README](./migrations/README.md) for the workflow.
 
+## Keeping the deployment awake
+
+Streamlit Community Cloud puts an app to sleep after 12 hours without traffic,
+and its traffic counter follows real browser sessions rather than HTTP hits — a
+`curl` against a sleeping app returns 200 while the app stays asleep. The
+`Keep Awake` workflow therefore visits the app every 6 hours with a headless
+browser (`ops/keep_awake.py`), waking it first if it has already dozed off. Six
+hours leaves a full window spare, so one delayed run cannot let it sleep.
+
+The visit needs no credentials: an anonymous visitor is redirected straight to
+Auth0, and reaching that redirect means the app script ran, which is what resets
+the timer. It reads one repository variable (Settings → Secrets and variables →
+Actions → Variables):
+
+| Variable | Value |
+| --- | --- |
+| `STREAMLIT_APP_URL` | The app's Community Cloud URL, e.g. `https://<app>.streamlit.app` |
+
+Run it by hand from the Actions tab, or locally:
+
+```bash
+STREAMLIT_APP_URL=https://<app>.streamlit.app uv run python -m ops.keep_awake
+```
+
+A failed run uploads a screenshot of whatever the browser was looking at.
+GitHub disables scheduled workflows after 60 days without repository activity;
+if the app starts sleeping again, check the workflow is still enabled.
+
 ## Versioning & releases
 
 Versioning is driven by [Conventional Commits](https://www.conventionalcommits.org/)
