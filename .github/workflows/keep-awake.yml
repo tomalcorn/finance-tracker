@@ -1,0 +1,35 @@
+name: Keep Awake
+on:
+  schedule:
+    # Community Cloud sleeps an app after 12 quiet hours. Visiting every 6
+    # hours leaves a full window spare, so one skipped or delayed run — cron
+    # here is best-effort and drifts under load — cannot let the app fall
+    # asleep. Note GitHub disables scheduled workflows after 60 days without
+    # repository activity; re-enable it from the Actions tab if that happens.
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: keep-awake
+  cancel-in-progress: true
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+      - name: Visit the app
+        env:
+          STREAMLIT_APP_URL: ${{ vars.STREAMLIT_APP_URL }}
+        run: uv run python -m ops.keep_awake --screenshot keep-awake-failure.png
+      - name: Upload failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-awake-failure
+          path: keep-awake-failure.png
+          if-no-files-found: ignore

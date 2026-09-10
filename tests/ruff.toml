@@ -54,7 +54,8 @@ known-first-party = [
     "use_cases",
     "composition",
     "driving_adapters",
-    "migrations"
+    "migrations",
+    "ops"
 ]
 
 [format]
