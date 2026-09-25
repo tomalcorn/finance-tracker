@@ -17,6 +17,10 @@ streams it to the browser over a websocket, so:
   spreadsheet-style grids (`st.data_editor` in `components/dfes/grid.py` and
   `totals.py`). The feature most suited to a phone, one-tap logging from
   Quick Expenses (`pages/quick_expenses.py`), is the one that suffers most.
+- **It is clunky on a desktop too.** Almost every screen is a spreadsheet grid,
+  so everyday tasks (logging a payment, checking a budget, topping up a goal)
+  mean finding the right row and editing cells. Streamlit offers little room to
+  build anything friendlier.
 - **The hosting sleeps.** Streamlit Community Cloud sleeps after 12 hours with
   no visitors, which is why `ops/keep_awake.py` and the `Keep Awake` workflow
   exist.
@@ -45,6 +49,8 @@ The constraints for this decision:
 2. Ideally **one codebase** serving both phone and desktop.
 3. **Free to run.** The Apple Developer Program costs $99/year and is not
    wanted for now.
+4. **A friendlier interface.** Move away from grids as the default way of
+   working, towards screens built around the tasks people actually do.
 
 ## Decision
 
@@ -69,14 +75,25 @@ In detail:
   `expo-auth-session`, using PKCE). Supabase is configured to accept Auth0
   tokens through its **third-party auth** support, so no server has to sign
   tokens. `public.user_id()` is changed to read the Auth0 `sub` claim, falling
-  back to `userId` while both clients exist. An Auth0 Action adds the
+  back to `userId` until Streamlit is retired. An Auth0 Action adds the
   `role: authenticated` claim Supabase expects.
-- **Business logic:** rules every client must agree on move into Postgres
+- **Business logic:** rules that belong with the data move into Postgres
   (views, and SQL functions called over RPC), continuing the direction the
   migrations already take. Whatever must stay in the client is ported from
   pydantic to TypeScript with [zod](https://zod.dev) schemas, keeping the
   domain / use-case / port split so the architecture carries over as well as
   the code.
+- **Interface redesign:** the screens are redesigned, not ported. Grid-heavy
+  screens become task-focused views (lists, cards, summaries, forms and
+  progress visuals), with a refreshed visual identity shared across the app.
+  Tables stay only where working with many rows at once genuinely needs them.
+  The detailed design is left to the work itself, starting with Quick
+  Expenses.
+- **One switch-over, not a gradual migration.** The Expo app is built up
+  alongside Streamlit until it covers everything Streamlit does, but it is
+  only used for testing in the meantime. Streamlit stays the only app in real
+  use until the new one is ready, then it is replaced in a single cut-over and
+  retired.
 - **No App Store and no Apple Developer Program.** Because the app is built on
   React Native rather than as a plain website, the same codebase can later
   produce a native iOS build through EAS if that becomes worth $99/year. That
@@ -93,7 +110,7 @@ In detail:
 | Flet (Python on Flutter) | Yes, and stays in Python | Mostly | $99/year to ship natively | Only option that keeps the Python domain code as is, but its iOS support is young, and it inherits Flutter's web weaknesses |
 | Capacitor wrapping a web app | Yes | No (web view) | $99/year | Pays for the App Store without getting a native app |
 | SwiftUI app + keep Streamlit (FastAPI in front of the existing use cases) | No, two UIs | Yes, best possible | $99/year plus a server | Most native, but two front ends and a server to run and pay for |
-| Keep Streamlit, tune it for mobile | Yes | No | Free | Cannot fix the grid-heavy interaction model, sleeping hosting or offline start-up |
+| Keep Streamlit, tune it for mobile | Yes | No | Free | Cannot fix the grid-heavy interaction model, sleeping hosting or offline start-up, and leaves little room for a redesign |
 
 ## Consequences
 
@@ -105,6 +122,9 @@ In detail:
 - **No more sleeping.** A static site is always available, so
   `ops/keep_awake.py` and the `Keep Awake` workflow can be deleted once
   Streamlit is retired.
+- **A friendlier app.** Rebuilding the UI is the chance to redesign it, so the
+  migration and the move away from spreadsheet-style editing are one piece of
+  work rather than two.
 - **Faster and phone-friendly.** Screens are built for touch and small widths.
   The installed app opens full-screen from the home screen, the app shell loads
   from cache, and data comes straight from Supabase instead of through a
@@ -120,12 +140,19 @@ In detail:
   use-case layers (~3k lines) from Python to TypeScript. The existing pytest
   suite does not carry over; tests are rewritten, e.g. with Vitest, alongside
   the code they cover.
-- **The grids need redesigning, not porting.** Editing many rows in a
-  spreadsheet grid does not work on a phone. The mobile layouts become lists
-  with detail and edit views, with a denser table layout on wide screens.
-- **Two stacks run side by side** until the migration finishes. Keeping them in
-  sync is only manageable because both use the same Supabase schema, and
-  because shared rules move into Postgres first.
+- **Redesign adds design work to every screen.** Nothing can be carried over
+  as it looks today, and each screen needs its interactions worked out (and
+  checked on both phone and desktop widths) before it is built. Bulk edits that
+  a grid makes trivial need a deliberate replacement where they are still
+  wanted.
+- **Nothing pays off until the switch-over.** The phone gets no benefit from
+  the new app, Quick Expenses included, until it has caught up with
+  Streamlit completely.
+- **Two codebases share one schema** while the new app is built. Streamlit
+  stays the live app, so any schema change made for the Expo app must keep
+  Streamlit working, and anything added to Streamlit in the meantime widens
+  the gap the new app has to close. Keeping new Streamlit features to a
+  minimum during the build keeps that gap from moving.
 - **iOS limits on installed web apps:**
   - no home-screen widgets, Siri Shortcuts or App Store listing
   - push notifications work only after the app is installed to the home
@@ -152,33 +179,33 @@ documentation when work starts:
 
 ## Plan
 
-Each phase ships on its own and leaves the app working.
+Streamlit stays the live app throughout steps 1 to 3. Only step 4 changes what
+is used day to day.
 
 1. **Authentication without the JWT secret.**
    - Enable Supabase third-party auth for Auth0, and add an Auth0 Action that
      sets `role: authenticated`.
-   - Add a migration so `public.user_id()` accepts `sub` as well as `userId`.
-   - Optionally move Streamlit onto the same flow, then remove
-     `SupabaseAuthenticator`'s minting and the JWT secret from its
-     configuration.
-   - Useful even if nothing else here goes ahead.
-2. **Push shared rules into Postgres.** Move logic that both clients need, such
-   as reconciling subscriptions, logging quick payments and summary figures,
-   into views or SQL functions where practical, and have the Python use cases
-   call them. This shrinks what has to be ported.
-3. **Create the PWA with Quick Expenses as its first screen.**
-   - Scaffold Expo + Expo Router + TypeScript, supabase-js, Auth0 login, the
-     manifest, the service worker, and a CI deployment to the static host.
-   - Implement Quick Expenses end to end.
-   - The phone gets its most useful feature immediately; Streamlit remains the
-     desktop app.
-4. **Port the remaining screens one by one:** Personal (budget, payments,
-   subscriptions, bank accounts, one-offs, summary), Joint, Settings and the
-   in-app docs (`src/docs/*.md`), redesigning each for small screens.
-5. **Retire Streamlit** once the PWA matches it. Remove `src/driving_adapters`,
-   `streamlit_app.py`, the Streamlit dependencies, `ops/keep_awake.py` and the
-   `Keep Awake` workflow. The Python `migrations/` tooling stays for schema
-   changes.
+   - Add a migration so `public.user_id()` accepts `sub` as well as `userId`,
+     so Streamlit's minted tokens keep working alongside Auth0's.
+2. **Scaffold the Expo app.**
+   - Expo + Expo Router + TypeScript, supabase-js, Auth0 login, the manifest,
+     the service worker, and a CI deployment to the static host, pointed at
+     the Supabase project.
+   - Set up the new visual identity (theme, typography, icons) and the shared
+     components the screens will reuse.
+3. **Build the screens until the app covers everything Streamlit does:**
+   Quick Expenses first, then Personal (budget, payments, subscriptions, bank
+   accounts, one-offs, summary), Joint, Settings and the in-app docs
+   (`src/docs/*.md`). Each is redesigned rather than a reproduction of its
+   grids. Logic that belongs with the data moves into Postgres views or SQL
+   functions as each screen needs it, which shrinks what has to be written in
+   TypeScript. The app is used only for testing during this step.
+4. **Switch over and retire Streamlit.**
+   - Remove `src/driving_adapters`, `streamlit_app.py`, the Streamlit
+     dependencies, `SupabaseAuthenticator` and the JWT secret,
+     `ops/keep_awake.py` and the `Keep Awake` workflow.
+   - Drop the `userId` fallback from `public.user_id()`.
+   - The Python `migrations/` tooling stays for schema changes.
 
 ### Revisit this decision if
 
