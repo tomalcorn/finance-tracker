@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Verify Supabase third-party auth</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
+  label { display: block; margin-top: .75rem; font-weight: 600; }
+  input { width: 100%; padding: .4rem; font: inherit; box-sizing: border-box; }
+  button { margin: 1rem .5rem 0 0; padding: .4rem .9rem; font: inherit; }
+  pre { background: #f4f4f4; padding: .75rem; overflow-x: auto; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Verify Supabase third-party auth</h1>
+<p>See <code>auth0-supabase-third-party-auth.md</code>. Values are stored only in this browser's localStorage.</p>
+
+<label>Auth0 SPA client ID <input id="clientId"></label>
+<label>Supabase project URL <input id="supabaseUrl" placeholder="https://xxxx.supabase.co"></label>
+<label>Supabase anon key <input id="anonKey"></label>
+<label>Table to query <input id="table" value="payments"></label>
+
+<button id="login">Log in</button>
+<button id="check">Run checks</button>
+<button id="logout">Log out</button>
+
+<pre id="out">Not run yet.</pre>
+
+<script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+<script>
+  const DOMAIN = "st-finance-tracker.eu.auth0.com";
+  const FIELDS = ["clientId", "supabaseUrl", "anonKey", "table"];
+  const out = document.getElementById("out");
+  const log = (line) => { out.textContent += "\n" + line; };
+
+  for (const id of FIELDS) {
+    const el = document.getElementById(id);
+    el.value = localStorage.getItem("verify:" + id) ?? el.value;
+    el.addEventListener("change", () => localStorage.setItem("verify:" + id, el.value));
+  }
+  const field = (id) => document.getElementById(id).value.trim();
+
+  async function client() {
+    return auth0.createAuth0Client({
+      domain: DOMAIN,
+      clientId: field("clientId"),
+      authorizationParams: { redirect_uri: location.origin + location.pathname },
+      cacheLocation: "localstorage",
+      useRefreshTokens: true,
+    });
+  }
+
+  async function query(token) {
+    const res = await fetch(`${field("supabaseUrl")}/rest/v1/${field("table")}?select=*&limit=5`, {
+      headers: { apikey: field("anonKey"), Authorization: `Bearer ${token}` },
+    });
+    return `${res.status} ${await res.text()}`;
+  }
+
+  document.getElementById("login").onclick = async () => {
+    await (await client()).loginWithRedirect();
+  };
+
+  document.getElementById("logout").onclick = async () => {
+    await (await client()).logout({ logoutParams: { returnTo: location.origin + location.pathname } });
+  };
+
+  document.getElementById("check").onclick = async () => {
+    out.textContent = "Running…";
+    const c = await client();
+    if (!(await c.isAuthenticated())) { log("Not logged in."); return; }
+    const claims = await c.getIdTokenClaims();
+    const { __raw: idToken, ...shown } = claims;
+    log("ID token claims:\n" + JSON.stringify(
+      { role: shown.role, sub: shown.sub, iss: shown.iss, aud: shown.aud, exp: new Date(shown.exp * 1000) }, null, 2));
+    log("\nWith the ID token (expect 200):\n" + await query(idToken));
+    log("\nWith a corrupted token (expect 401):\n" + await query(idToken.slice(0, -4) + "AAAA"));
+  };
+
+  (async () => {
+    if (location.search.includes("code=") && field("clientId")) {
+      await (await client()).handleRedirectCallback();
+      history.replaceState({}, "", location.pathname);
+      out.textContent = "Logged in. Run the checks.";
+    }
+  })();
+</script>
+</body>
+</html>
