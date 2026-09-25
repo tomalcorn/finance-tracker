@@ -72,11 +72,14 @@ In detail:
   using only the public anon key. RLS remains the security boundary, exactly as
   it is today.
 - **Authentication:** Auth0 login in the browser (Auth0 SPA SDK or
-  `expo-auth-session`, using PKCE). Supabase is configured to accept Auth0
-  tokens through its **third-party auth** support, so no server has to sign
-  tokens. `public.user_id()` is changed to read the Auth0 `sub` claim, falling
-  back to `userId` until Streamlit is retired. An Auth0 Action adds the
-  `role: authenticated` claim Supabase expects.
+  `expo-auth-session`, using PKCE, with refresh-token rotation because Safari
+  blocks the cookies silent login needs), through a new Auth0 application of
+  type SPA. Supabase is configured to accept Auth0 tokens through its
+  **third-party auth** support, so no server has to sign tokens. The app sends
+  Supabase the Auth0 **ID token**: Supabase needs an un-namespaced `role`
+  claim, which Auth0 strips from access tokens, so an Auth0 Action sets
+  `role: authenticated` on the ID token. `public.user_id()` is changed to read
+  the Auth0 `sub` claim, falling back to `userId` until Streamlit is retired.
 - **Business logic:** rules that belong with the data move into Postgres
   (views, and SQL functions called over RPC), continuing the direction the
   migrations already take. Whatever must stay in the client is ported from
@@ -94,6 +97,12 @@ In detail:
   only used for testing in the meantime. Streamlit stays the only app in real
   use until the new one is ready, then it is replaced in a single cut-over and
   retired.
+- **The Expo app runs against prod from the start,** logged in only as
+  dedicated Auth0 test users until the switch-over. RLS keeps their rows apart
+  from real data. The testing database is not used for it: it has no RLS and
+  grants every table to `anon`, so a public app pointed at it would make it
+  world-writable and show every user's rows. A third Supabase project is not
+  available on the free plan.
 - **No App Store and no Apple Developer Program.** Because the app is built on
   React Native rather than as a plain website, the same codebase can later
   produce a native iOS build through EAS if that becomes worth $99/year. That
@@ -163,19 +172,18 @@ In detail:
 - **The Supabase free tier still pauses** a project after about a week with no
   activity. This is unchanged from today.
 
-### Risks and checks before building
+### Checked before building
 
-These depend on third-party products and must be confirmed against current
-documentation when work starts:
+Confirmed against current documentation on 2026-09-25 (#282):
 
-- Supabase third-party auth supports Auth0 on the free plan, and how it
-  expects the `role` claim to be set.
-- The exact claim `public.user_id()` should read from an Auth0 token (`sub` is
-  expected to match today's `userId` values, since both come from the Auth0
-  `sub`).
-- Current free-tier limits of the chosen static host and of Supabase.
-- Expo's current guidance on web manifests and service workers for static web
-  exports.
+- Supabase third-party auth supports Auth0 on the free plan (50,000
+  third-party MAUs included). It needs RS256-signed tokens, which the Auth0
+  tenant already uses.
+- `sub` in an Auth0 token equals today's `userId` values, since Streamlit
+  already passes the Auth0 `sub` as `userId`. No data migration is needed.
+- Expo Router does not generate a manifest or service worker; both are added
+  by hand, with Workbox run over the static export.
+- Cloudflare Pages is the preferred host: its free plan has no bandwidth cap.
 
 ## Plan
 
@@ -183,8 +191,9 @@ Streamlit stays the live app throughout steps 1 to 3. Only step 4 changes what
 is used day to day.
 
 1. **Authentication without the JWT secret.**
-   - Enable Supabase third-party auth for Auth0, and add an Auth0 Action that
-     sets `role: authenticated`.
+   - Enable Supabase third-party auth for Auth0 on prod, and add an Auth0
+     Action that sets `role: authenticated` on the ID token.
+   - Create the Auth0 test users the Expo app is tested as.
    - Add a migration so `public.user_id()` accepts `sub` as well as `userId`,
      so Streamlit's minted tokens keep working alongside Auth0's.
 2. **Scaffold the Expo app.**
