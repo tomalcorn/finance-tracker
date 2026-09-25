@@ -77,6 +77,10 @@ All Expo testing happens as these users, so RLS keeps it away from real data.
 2. Tenant ID: `st-finance-tracker`, region: `eu`.
 3. Save. Supabase fetches the tenant's signing keys from its JWKS; key changes
    can take up to 30 minutes to be picked up.
+4. **Authentication → Sign In / Providers → Supabase Auth**: turn off **Allow
+   new users to sign up**. Supabase's own Auth is unused, and anyone with the
+   anon key could otherwise create accounts there. `public.user_id()` already
+   ignores their tokens (0033), so this is defence in depth.
 
 ## 5. Verify
 
