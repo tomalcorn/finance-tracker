@@ -2,42 +2,71 @@ name: Client Code Quality
 on:
   push:
     branches: ["main"]
-    paths: ["client/**", ".github/workflows/client-code-quality.yml", ".github/actions/setup-client/**"]
   pull_request:
     branches: ["main"]
-    paths: ["client/**", ".github/workflows/client-code-quality.yml", ".github/actions/setup-client/**"]
 
 defaults:
   run:
     working-directory: client
 
+# Job names carry a client_ prefix because branch protection matches required
+# checks by job name alone: a client job called `tests` would satisfy the
+# Python workflow's required `tests` check. The workflow always runs and skips
+# its jobs when client/ is untouched, so the jobs can be made required too.
 jobs:
-  linting:
+  changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      client: ${{ steps.filter.outputs.client }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            client:
+              - 'client/**'
+              - '.github/workflows/client-code-quality.yml'
+              - '.github/actions/setup-client/**'
+  client_linting:
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.client == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-client
       - run: npm run lint
-  formatting:
+  client_formatting:
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.client == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-client
       - run: npm run format:check
-  type_consistency:
+  client_type_consistency:
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.client == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-client
       - run: npm run typecheck
-  tests:
+  client_tests:
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.client == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-client
       - run: npm test -- --ci
-  dependencies:
+  client_dependencies:
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.client == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-client
