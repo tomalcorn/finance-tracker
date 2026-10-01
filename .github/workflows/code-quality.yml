@@ -4,8 +4,10 @@ env:
 on:
   push:
     branches: ["main"]
+    paths-ignore: ["client/**", ".github/workflows/client-code-quality.yml", ".github/actions/setup-client/**"]
   pull_request:
     branches: ["main"]
+    paths-ignore: ["client/**", ".github/workflows/client-code-quality.yml", ".github/actions/setup-client/**"]
 
 jobs:
   lock_file:

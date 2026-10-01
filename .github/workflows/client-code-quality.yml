@@ -1,0 +1,44 @@
+name: Client Code Quality
+on:
+  push:
+    branches: ["main"]
+    paths: ["client/**", ".github/workflows/client-code-quality.yml", ".github/actions/setup-client/**"]
+  pull_request:
+    branches: ["main"]
+    paths: ["client/**", ".github/workflows/client-code-quality.yml", ".github/actions/setup-client/**"]
+
+defaults:
+  run:
+    working-directory: client
+
+jobs:
+  linting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-client
+      - run: npm run lint
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-client
+      - run: npm run format:check
+  type_consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-client
+      - run: npm run typecheck
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-client
+      - run: npm test -- --ci
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-client
+      - run: npx expo install --check

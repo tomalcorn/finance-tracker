@@ -6,6 +6,9 @@ categories, recurring subscriptions, payments, and one-off savings goals.
 The app code lives under `src/`. For a guided walkthrough of each block and
 how to use the tracker effectively, see the [markdown docs](./src/docs/01_getting_started.md).
 
+The Expo app replacing the Streamlit UI is being built in [`client/`](./client/README.md)
+([ADR 0001](./docs/adr/0001-mobile-via-progressive-web-app.md)).
+
 ## Data Flow At A Glance
 
 ```text

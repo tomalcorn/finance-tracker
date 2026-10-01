@@ -1,0 +1,13 @@
+name: "set up client"
+description: "Install Node and the Expo client's locked npm dependencies"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: client/.nvmrc
+        cache: npm
+        cache-dependency-path: client/package-lock.json
+    - run: npm ci
+      shell: bash
+      working-directory: client
