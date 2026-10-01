@@ -19,11 +19,25 @@ Run from `client/`, with Node 22 (`.nvmrc`; Expo SDK 57 needs 22.13+):
 | `npm run format`         | Format with Prettier (`format:check` to check only)                                       |
 | `npm run typecheck`      | `tsc --noEmit`                                                                            |
 | `npm test`               | Jest (`test:watch` to watch)                                                              |
+| `npm run export:web`     | Build the static web app into `dist/`                                                     |
+| `npm run serve:web`      | Serve `dist/` locally with clean URLs, as a static host would                             |
 | `npx expo install <pkg>` | Add a dependency at the version matching the Expo SDK; use instead of `npm install <pkg>` |
 
 **Before opening a PR**, run `npm run lint`, `npm run format:check`,
 `npm run typecheck` and `npm test`. The `Client Code Quality` workflow runs the
 same checks, plus `expo install --check`, on any PR touching `client/`.
+
+## Layout
+
+- `src/app/`: Expo Router routes and layouts only. The root stack holds the
+  tab group and Docs. `(tabs)/` holds Quick Expenses (`/`), Personal, Joint and
+  Settings.
+- `src/components/`: shared components, imported as `@/components/...`.
+- `__tests__/`: tests, never inside `src/app/`, because every file there
+  becomes a route.
+
+The web build is a static export (`web.output: "static"`), with one HTML file
+per route.
 
 ## Decisions (#286)
 
