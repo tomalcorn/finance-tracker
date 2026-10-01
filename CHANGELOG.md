@@ -1,3 +1,9 @@
+## v1.25.0 (2026-10-01)
+
+### Feat
+
+- **client**: set up the Expo app's tooling and CI (#313)
+
 ## v1.24.0 (2026-10-01)
 
 ### Feat
