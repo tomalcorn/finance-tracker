@@ -1,3 +1,9 @@
+## v1.24.0 (2026-10-01)
+
+### Feat
+
+- **db**: let public.user_id() accept Auth0 ID tokens (#311)
+
 ## v1.23.1 (2026-08-23)
 
 ### Fix
