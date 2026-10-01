@@ -46,9 +46,12 @@ The existing application is a Regular Web App with a client secret, used by
    - Name: `Finance Tracker (web app)`
    - Type: **Single Page Web Applications**
 2. **Settings** tab:
-   - **Allowed Callback URLs**, **Allowed Logout URLs** and **Allowed Web
-     Origins**: `http://localhost:8081` for now (Expo's web dev server, and the
-     verification page below). The deployed URL is added in #291.
+   - **Allowed Callback URLs** and **Allowed Logout URLs**, comma-separated:
+     `http://localhost:8081, http://localhost:8081/verify-third-party-auth.html`.
+     Auth0 matches these exactly, path included: the first is Expo's web dev
+     server, the second the verification page below.
+   - **Allowed Web Origins**: `http://localhost:8081` (origins have no path).
+   - The deployed URL is added to all three in #291.
    - **Refresh Token Rotation**: on. Safari blocks the third-party cookies
      silent login relies on, so the app stays logged in with rotating refresh
      tokens instead.
