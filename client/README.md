@@ -40,10 +40,14 @@ same checks, plus `expo install --check`, on any PR touching `client/`.
 - **Tests:** Jest with the `jest-expo` preset and React Native Testing Library,
   Expo's supported runner for both plain TypeScript and components. Tests live
   in `__tests__/` directories and are named `*-test.ts(x)`.
-- **CI:** `.github/workflows/client-code-quality.yml`, path-filtered to
-  `client/**`. The Python `Code Quality` workflow ignores those paths, so a
-  client-only PR does not run the Python suite or take the integration-database
-  lock.
+- **CI:** `.github/workflows/client-code-quality.yml`. Both it and the Python
+  `Code Quality` workflow run on every PR. Each skips its jobs when its side of
+  the repo is untouched, so a client-only PR does not run the Python suite or
+  take the integration-database lock. They skip jobs rather than not running
+  at all because the Python jobs are required checks on `main`: a skipped job
+  reports and counts as passing, while a workflow that never runs leaves its
+  checks pending forever. Client jobs are prefixed `client_`, because required
+  checks are matched by job name alone.
 - **Versioning:** one version for the whole repo. Commitizen keeps bumping
   `pyproject.toml` and tagging `vX.Y.Z` on merge, and client changes take part
   through ordinary conventional-commit PR titles, scoped `client`
