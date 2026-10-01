@@ -1,3 +1,9 @@
+## v1.26.0 (2026-10-01)
+
+### Feat
+
+- **client**: add Expo Router with placeholder screens (#314)
+
 ## v1.25.0 (2026-10-01)
 
 ### Feat
