@@ -1,6 +1,6 @@
 """Construct use cases and grid data sources with live dependencies."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import st_supabase_connection
 import streamlit as st
@@ -29,9 +29,24 @@ if TYPE_CHECKING:
     from ports import authentication, repository
 
 
+class SessionSupabaseConnection(st_supabase_connection.SupabaseConnection):
+    """A ``SupabaseConnection`` that ``st.connection`` caches per browser session.
+
+    The authenticator applies the signed-in user's token to the connection's
+    client, so every session must hold its own client. The base class keeps
+    Streamlit's default ``"global"`` scope, which hands one client to every
+    session.
+    """
+
+    @classmethod
+    def scope(cls) -> Literal["session"]:
+        """Return ``"session"`` so each browser session gets its own client."""
+        return "session"
+
+
 def _connection() -> st_supabase_connection.SupabaseConnection:
-    """Return the shared Supabase connection for this session."""
-    return st.connection("supabase", type=st_supabase_connection.SupabaseConnection)
+    """Return this session's Supabase connection."""
+    return st.connection("supabase", type=SessionSupabaseConnection)
 
 
 def authenticator() -> "authentication.Authenticator":
