@@ -1,3 +1,10 @@
+## v1.26.1 (2026-10-13)
+
+### Fix
+
+- authenticate the Supabase connection every time it is handed out (#318)
+- give each session its own Supabase client (#317)
+
 ## v1.26.0 (2026-10-01)
 
 ### Feat
