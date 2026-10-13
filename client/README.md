@@ -7,6 +7,14 @@ Streamlit UI, shipped as an installable web app. See
 being built. It runs against prod Supabase as test users only until the
 switch-over.
 
+## Setup
+
+Copy `.env.example` to `.env.local` (gitignored) and fill it in. Every value
+is public, because it ends up in the web bundle: the Auth0 domain and SPA
+client ID, and prod Supabase's URL and anon key. Log in as a test user from
+#283, never your own account, until the switch-over. Run the dev server on
+port 8081, the callback URL the Auth0 application allows.
+
 ## Commands
 
 Run from `client/`, with Node 22 (`.nvmrc`; Expo SDK 57 needs 22.13+):
@@ -31,10 +39,23 @@ same checks, plus `expo install --check`, on any PR touching `client/`.
 
 - `src/app/`: Expo Router routes and layouts only. The root stack holds the
   tab group and Docs. `(tabs)/` holds Quick Expenses (`/`), Personal, Joint and
-  Settings.
+  Settings, and is only shown when signed in. Signed-out visits are sent to
+  `/sign-in`, which remembers where they were going. Docs and sign-in are
+  public. The tab layout gates the routes instead of Expo Router's
+  `Stack.Protected`, because protected routes get no HTML file in the static
+  export, which would break a direct link.
+- `src/auth/`: the `AuthClient` port and its implementations:
+  `createAuthClient.web.ts` over the Auth0 SPA SDK, and a native stub that is
+  always signed out. `AuthProvider` resolves the session and exposes it through
+  `useAuth()`.
+- `src/data/`: the Supabase client, sent the Auth0 ID token on every request.
+- `src/composition/`: builds the services (`createServices`) in the browser and
+  provides them through `useServices()`. Tests replace `createServices` with
+  fakes.
 - `src/components/`: shared components, imported as `@/components/...`.
-- `__tests__/`: tests, never inside `src/app/`, because every file there
-  becomes a route.
+- `__tests__/` directories: tests. Route-level tests sit at the top level,
+  and unit tests beside the code they cover. Never put tests inside
+  `src/app/`, because every file there becomes a route.
 
 The web build is a static export (`web.output: "static"`), with one HTML file
 per route.
