@@ -63,22 +63,7 @@ def test_applies_a_token_carrying_the_user_id_claim() -> None:
     assert _decode(connection.applied_tokens[0])["userId"] == _USER
 
 
-def test_returned_expiry_matches_the_token_exp_claim() -> None:
-    # Arrange
-    connection = _StubConnection()
-    authenticator = supabase_auth.SupabaseAuthenticator(
-        _as_connection(connection),
-        _SECRET,
-    )
-
-    # Act
-    expires_at = authenticator.authenticate(_USER)
-
-    # Assert
-    assert int(expires_at.timestamp()) == _decode(connection.applied_tokens[0])["exp"]
-
-
-def test_expiry_is_about_an_hour_ahead() -> None:
+def test_token_expires_about_an_hour_ahead() -> None:
     # Arrange
     connection = _StubConnection()
     authenticator = supabase_auth.SupabaseAuthenticator(
@@ -88,9 +73,11 @@ def test_expiry_is_about_an_hour_ahead() -> None:
     before = datetime.datetime.now(tz=datetime.UTC)
 
     # Act
-    expires_at = authenticator.authenticate(_USER)
+    authenticator.authenticate(_USER)
 
     # Assert - within a minute of one hour from now
+    exp = _decode(connection.applied_tokens[0])["exp"]
+    expires_at = datetime.datetime.fromtimestamp(int(str(exp)), tz=datetime.UTC)
     drift = abs((expires_at - before) - datetime.timedelta(hours=1))
     assert drift < datetime.timedelta(minutes=1)
 

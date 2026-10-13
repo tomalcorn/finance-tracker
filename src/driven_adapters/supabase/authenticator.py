@@ -30,15 +30,12 @@ class SupabaseAuthenticator(authentication.Authenticator):
         self._connection = connection
         self._jwt_secret = jwt_secret
 
-    def authenticate(self, user_id: str) -> datetime.datetime:
+    def authenticate(self, user_id: str) -> None:
         """Mint a JWT for the user and apply it to the PostgREST client.
 
         Args:
             user_id: The Auth0 user ID, carried as the ``userId`` claim that the
                 custom ``auth.user_id()`` Postgres function reads in RLS policies.
-
-        Returns:
-            When the minted token expires.
 
         Raises:
             AuthenticationError: the token could not be minted or applied.
@@ -52,7 +49,6 @@ class SupabaseAuthenticator(authentication.Authenticator):
         except Exception as e:
             msg = f"Failed to authenticate Supabase connection: {e}"
             raise errors.AuthenticationError(msg) from e
-        return expires_at
 
     def _mint(
         self,
