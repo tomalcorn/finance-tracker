@@ -49,10 +49,16 @@ def _connection() -> st_supabase_connection.SupabaseConnection:
     return st.connection("supabase", type=SessionSupabaseConnection)
 
 
-def authenticator() -> "authentication.Authenticator":
-    """Build the Supabase authenticator with the shared connection and secret."""
-    jwt_secret = str(st.secrets["supabase_admin"]["jwt_secret"])
-    return supabase_auth.SupabaseAuthenticator(_connection(), jwt_secret)
+def _jwt_secret() -> str:
+    """Return the secret Supabase JWTs are signed with."""
+    return str(st.secrets["supabase_admin"]["jwt_secret"])
+
+
+def _authenticator(
+    connection: st_supabase_connection.SupabaseConnection,
+) -> "authentication.Authenticator":
+    """Build the Supabase authenticator for a connection."""
+    return supabase_auth.SupabaseAuthenticator(connection, _jwt_secret())
 
 
 def _repo_deps() -> tuple[
@@ -62,10 +68,15 @@ def _repo_deps() -> tuple[
 ]:
     """Return the (user_id, cache, connection) triple every repo factory needs.
 
-    Ownership-scoped repos discover the user's joint accounts themselves, so no
-    joint-account ids are threaded through here.
+    The connection is authenticated as the current user each time it is handed
+    out, so a repository never queries with another user's credentials or with
+    none. Ownership-scoped repos discover the user's joint accounts themselves,
+    so no joint-account ids are threaded through here.
     """
-    return auth.get_current_user(), ui_cache.StreamlitCache(), _connection()
+    user_id = auth.get_current_user()
+    connection = _connection()
+    _authenticator(connection).authenticate(user_id)
+    return user_id, ui_cache.StreamlitCache(), connection
 
 
 def bank_account_data_source(

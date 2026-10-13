@@ -5,7 +5,7 @@ import logging
 import streamlit as st
 
 from composition import wiring
-from driving_adapters import auth, session, ss_keys
+from driving_adapters import session, ss_keys
 from driving_adapters.pages import constants, docs_pages
 from use_cases import errors as use_case_errors
 
@@ -18,9 +18,6 @@ st.set_page_config(layout="wide")
 if not st.user.is_logged_in:
     st.login("auth0")
     st.stop()
-
-current_user = auth.get_current_user()
-auth.ensure_authenticated(wiring.authenticator(), current_user)
 
 
 def _initialise_workspace() -> None:
