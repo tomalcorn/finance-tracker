@@ -27,8 +27,9 @@ Run from `client/`, with Node 22 (`.nvmrc`; Expo SDK 57 needs 22.13+):
 | `npm run format`         | Format with Prettier (`format:check` to check only)                                       |
 | `npm run typecheck`      | `tsc --noEmit`                                                                            |
 | `npm test`               | Jest (`test:watch` to watch)                                                              |
-| `npm run export:web`     | Build the static web app into `dist/`                                                     |
+| `npm run export:web`     | Build the static web app into `dist/`, with its service worker                            |
 | `npm run serve:web`      | Serve `dist/` locally with clean URLs, as a static host would                             |
+| `npm run pwa:assets`     | Regenerate the icons, iOS start-up images and manifest from `src/pwa.json`                |
 | `npx expo install <pkg>` | Add a dependency at the version matching the Expo SDK; use instead of `npm install <pkg>` |
 
 **Before opening a PR**, run `npm run lint`, `npm run format:check`,
@@ -83,6 +84,29 @@ same checks, plus `expo install --check`, on any PR touching `client/`.
 
 The web build is a static export (`web.output: "static"`), with one HTML file
 per route.
+
+## Installing the app (#290)
+
+The web build can be added to a home screen and opens full-screen, with its
+shell loaded even with no network.
+
+- `src/pwa.json` holds the installed app's name, colours, icon mark and the
+  iPhone screen sizes given a start-up image. `npm run pwa:assets` turns it into
+  `public/manifest.json`, `public/icons/`, `public/splash/` and
+  `assets/favicon.png`. Commit its output, since the build does not run it. The
+  icon is a placeholder `£` until the visual identity (#292); changing it means
+  editing `src/pwa.json` and rerunning the script.
+- `src/app/+html.tsx` is the HTML around every exported page. It links the
+  manifest and adds the iOS home-screen tags and start-up images, plus, in a
+  production build only, the service worker registration.
+- `npm run export:web` runs Workbox (`workbox-config.cjs`) over `dist/` to write
+  `dist/sw.js`. It precaches the shell (HTML, JS, CSS, fonts, icons), ignoring
+  query strings, so `/sign-in?returnTo=…` and Auth0's `/?code=…` callback load
+  offline too. Nothing else is cached: Supabase and Auth0 are other origins, so
+  data always comes from the network. A new deploy takes over the next time the
+  app opens.
+- Offline, a signed-in user cannot refresh their session, so the app shows
+  sign-in rather than their data.
 
 ## Decisions (#286)
 
