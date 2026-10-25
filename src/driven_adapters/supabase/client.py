@@ -11,6 +11,13 @@ if TYPE_CHECKING:
 
     from domain import entities
 
+PAGE_SIZE = 1000
+"""The most rows one select requests; Supabase caps a response at 1,000.
+
+Must not exceed the project's PostgREST ``max-rows``: a page cut short by the
+cap is indistinguishable from the last page, so the read would stop early.
+"""
+
 
 def _execute_query(
     query: "st_supabase_connection.SyncSelectRequestBuilder",
@@ -35,7 +42,10 @@ def fetch_table(
     connection: "st_supabase_connection.SupabaseConnection",
     eq_filters: "Mapping[str, str] | None" = None,
 ) -> list["entities.JsonDict"]:
-    """Fetch rows from the specified table, optionally narrowed by equality.
+    """Fetch every row of the specified table, optionally narrowed by equality.
+
+    Reads in pages of ``PAGE_SIZE`` ordered by ``id``, so a table larger than
+    one Supabase response is returned whole rather than silently cut short.
 
     Args:
         table_name: The name of the table to query.
@@ -53,14 +63,21 @@ def fetch_table(
         errors.AdapterError: If the backend does not return a list of rows.
 
     """
-    query = connection.table(table_name).select(query_string)
-    for column, value in (eq_filters or {}).items():
-        query = query.eq(column, value)
-    rows = _execute_query(query)
-    if not isinstance(rows, list):
-        msg = f"Expected a list of rows from {table_name}, got {type(rows).__name__}"
-        raise errors.AdapterError(msg)
-    return cast("list[entities.JsonDict]", rows)
+    rows: list[entities.JsonDict] = []
+    start = 0
+    while True:
+        query = connection.table(table_name).select(query_string)
+        for column, value in (eq_filters or {}).items():
+            query = query.eq(column, value)
+        page = _execute_query(query.order("id").range(start, start + PAGE_SIZE - 1))
+        if not isinstance(page, list):
+            got = type(page).__name__
+            msg = f"Expected a list of rows from {table_name}, got {got}"
+            raise errors.AdapterError(msg)
+        rows.extend(cast("list[entities.JsonDict]", page))
+        if len(page) < PAGE_SIZE:
+            return rows
+        start += PAGE_SIZE
 
 
 def upsert_rows(
