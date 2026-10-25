@@ -1,3 +1,9 @@
+## v1.28.3 (2026-10-25)
+
+### Fix
+
+- **client**: share one set of repositories per user across tabs (#322)
+
 ## v1.28.2 (2026-10-25)
 
 ### Fix
