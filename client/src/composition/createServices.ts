@@ -15,7 +15,7 @@ export type Services = {
   auth: AuthClient;
   /** Caches every read made by screens. */
   queryClient: QueryClient;
-  /** The signed-in user's repositories. */
+  /** The signed-in user's repositories: the same object on every call for the same user. */
   repositories(userId: string): Repositories;
 };
 
@@ -37,9 +37,17 @@ export function createServices(): Services {
   const gateway = supabaseGateway(createSupabase(config, () => auth.getIdToken()));
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: shouldRetry } } });
   const cache = queryCache(queryClient);
+  const repositoriesByUser = new Map<string, Repositories>();
   return {
     auth,
     queryClient,
-    repositories: (userId) => createRepositories({ userId, gateway, cache }),
+    repositories(userId) {
+      let repositories = repositoriesByUser.get(userId);
+      if (!repositories) {
+        repositories = createRepositories({ userId, gateway, cache });
+        repositoriesByUser.set(userId, repositories);
+      }
+      return repositories;
+    },
   };
 }
