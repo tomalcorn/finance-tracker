@@ -1,3 +1,9 @@
+## v1.28.1 (2026-10-25)
+
+### Fix
+
+- page Supabase reads so tables over 1,000 rows come back whole (#320)
+
 ## v1.28.0 (2026-10-25)
 
 ### Feat
