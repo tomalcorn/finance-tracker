@@ -59,8 +59,8 @@ same checks, plus `expo install --check`, on any PR touching `client/`.
   one repository per aggregate and ownership half.
 - `src/data/`: the Supabase implementation, the only code that touches
   supabase-js. `TableGateway` pages every select past Supabase's 1,000-row cap.
-  `tables.ts` records, for each table, which views and cascades change when it
-  is written to, so that a save marks exactly those cached reads as out of date.
+  `tables.ts` records, for each table, the views and cascades changed by a write
+  to it, so that a save marks exactly those cached reads as out of date.
 - `src/hooks/`: what screens and components use to reach their dependencies,
   depending only on `src/ports/`. `useRepositories()` gives the signed-in
   user's repositories, and `useRows(repository)` reads one through TanStack

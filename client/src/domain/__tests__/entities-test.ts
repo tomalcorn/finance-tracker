@@ -13,7 +13,7 @@ const ID = '5f2b1c9e-8d3a-4b6f-9e1d-2c7a4b8e6f01';
 const BANK_ACCOUNT_ID = '0c4e7a2d-1b5f-4e8a-a3c6-9d2f8b1e4a07';
 const JOINT_ID = '9a3d6e1f-4c2b-4f7a-8e5d-1b6c3a9f2e08';
 
-/** The path of each issue that `schema` reports for `input`. */
+/** The path of each issue reported by `schema` for `input`. */
 function issuePaths(schema: z.ZodType, input: unknown): string[] {
   const result = schema.safeParse(input);
   return result.success ? [] : result.error.issues.map((issue) => issue.path.join('.'));

@@ -63,8 +63,8 @@ export function createRepositories(deps: {
   });
 
   /**
-   * For an aggregate split into personal and joint rows: a function that gives
-   * the repository for either half, building each the first time it is asked for.
+   * For an aggregate split into personal and joint rows: a function giving the
+   * repository for either half, each built on its first use.
    */
   function repositoryPerOwnership<EntityT extends object, ViewT>(spec: RepoSpec<EntityT, ViewT>) {
     const built = new Map<OwnershipType, Repository<EntityT, ViewT>>();
@@ -78,8 +78,8 @@ export function createRepositories(deps: {
     };
   }
 
-  /** For an aggregate with no personal or joint split: a function that gives its one repository. */
-  function singleRepository<EntityT extends object, ViewT>(spec: RepoSpec<EntityT, ViewT>) {
+  /** For an aggregate with no personal or joint split: a function giving its one repository. */
+  function unownedRepository<EntityT extends object, ViewT>(spec: RepoSpec<EntityT, ViewT>) {
     let repo: Repository<EntityT, ViewT> | undefined;
     return () => (repo ??= createRepository(spec, context('unowned')));
   }
@@ -127,13 +127,13 @@ export function createRepositories(deps: {
       readFrom: 'user_settings',
       writeTo: 'user_settings',
     }),
-    jointAccounts: singleRepository({
+    jointAccounts: unownedRepository({
       entity: JointAccountSchema,
       view: JointAccountViewSchema,
       readFrom: 'joint_accounts',
       writeTo: 'joint_accounts',
     }),
-    jointAccountMembers: singleRepository({
+    jointAccountMembers: unownedRepository({
       entity: JointAccountMemberSchema,
       view: JointAccountMemberViewSchema,
       readFrom: 'joint_account_members',

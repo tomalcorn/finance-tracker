@@ -7,7 +7,7 @@ import type { OwnershipType, RawRow } from '@/domain/entities';
 import { InvalidRowError, NoJointAccountError, RepositoryError } from '@/ports/errors';
 import type { CacheKey, Repository } from '@/ports/repository';
 
-/** The per-aggregate configuration a repository is built from. */
+/** The per-aggregate configuration used to build a repository. */
 export type RepoSpec<EntityT extends object, ViewT> = {
   entity: z.ZodType<EntityT>;
   view: z.ZodType<ViewT>;
@@ -16,9 +16,9 @@ export type RepoSpec<EntityT extends object, ViewT> = {
 };
 
 /**
- * Which rows a repository reads and writes: the user's personal ones, their
- * joint account's, or, for `joint_accounts` and `joint_account_members`, which
- * belong to neither, `unowned`.
+ * The rows read and written by a repository: the user's personal ones, their
+ * joint account's, or `unowned` for `joint_accounts` and
+ * `joint_account_members`, which belong to neither half.
  */
 export type RepoOwnership = OwnershipType | 'unowned';
 
@@ -57,7 +57,7 @@ export function createRepository<EntityT extends object, ViewT>(
     return id;
   }
 
-  /** The ownership columns to stamp on each row this repository writes. */
+  /** The ownership columns carried by every row written by this repository. */
   async function ownershipFields(): Promise<Record<string, string | null>> {
     if (ownership === 'unowned') return {};
     return {
@@ -74,7 +74,7 @@ export function createRepository<EntityT extends object, ViewT>(
     return result.data;
   }
 
-  /** The cache keys to invalidate after writing to this table. */
+  /** The cache keys made out of date by a write to this table. */
   function affectedKeys(): CacheKey[] {
     const own = [spec.writeTo, ...(AFFECTED_BY[spec.writeTo] ?? [])];
     const keys = own.map((source) => cacheKey(userId, ownership, source));

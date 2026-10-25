@@ -2,12 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { ReadSource, TableName } from '@/data/tables';
 
-/** A stored row as the database returns it, before any schema has read it. */
+/** A stored row as returned by the database, before parsing by any schema. */
 export type StoredRow = Record<string, unknown>;
 
 /**
- * The table operations a repository needs. Internal to `src/data/`: callers
- * outside it go through a `Repository`.
+ * The table operations needed by a repository. Internal to `src/data/`: code
+ * outside it uses a `Repository` instead.
  */
 export interface TableGateway {
   /** Every row of `source` matching each `column = value` in `eq`. */
@@ -27,7 +27,7 @@ export class GatewayError extends Error {
   }
 }
 
-/** How many rows each select request asks for. Supabase returns at most 1,000 per response. */
+/** The number of rows requested per select. Supabase returns at most 1,000 per response. */
 export const PAGE_SIZE = 1000;
 
 /** The gateway over supabase-js, paging every select so none is cut short. */

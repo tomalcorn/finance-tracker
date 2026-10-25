@@ -18,7 +18,7 @@ export interface Repository<EntityT, ViewT> {
   /** The key this repository's `rows()` are cached under. */
   readonly cacheKey: CacheKey;
 
-  /** Every row the user may see in this repository's ownership mode. */
+  /** Every row visible to the user in this repository's ownership mode. */
   rows(): Promise<ViewT[]>;
 
   /**
@@ -32,8 +32,8 @@ export interface Repository<EntityT, ViewT> {
   build(rows: readonly RawRow[]): Promise<EntityT[]>;
 
   /**
-   * Insert or update each entity by id, then mark as out of date every cached
-   * read that the write affects. An empty list does nothing.
+   * Insert or update each entity by id, then mark every cached read affected
+   * by the write as out of date. An empty list does nothing.
    *
    * @throws {RepositoryError} when an entity is owned differently from this repository.
    */

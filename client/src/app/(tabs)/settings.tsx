@@ -5,7 +5,7 @@ import { Button, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
 import { useRepositories, useRows } from '@/hooks/repositories';
 
-/** The start of the name of every quick button the probe creates, so that it deletes only those. */
+/** The start of the name of every quick button created by the probe, so that it deletes only those. */
 const PROBE_PREFIX = '[probe] ';
 
 function countOf(result: { data?: unknown[]; error: Error | null }): string {
@@ -15,7 +15,7 @@ function countOf(result: { data?: unknown[]; error: Error | null }): string {
 
 /**
  * Exercises the quick-button repository end to end: create, read, edit and
- * delete, touching only buttons it made. Temporary until #295.
+ * delete, touching only buttons created by the probe. Temporary until #295.
  */
 function QuickButtonProbe() {
   const quickButtons = useRepositories().quickButtons('personal');

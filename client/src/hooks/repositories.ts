@@ -21,7 +21,7 @@ export function useRepositories(): Repositories {
   return repositories;
 }
 
-/** A repository's rows, cached, and fetched again whenever a write makes them out of date. */
+/** A repository's rows, cached, and fetched again whenever made out of date by a write. */
 export function useRows<ViewT>(repository: Repository<object, ViewT>): UseQueryResult<ViewT[]> {
   return useQuery({ queryKey: repository.cacheKey, queryFn: () => repository.rows() });
 }

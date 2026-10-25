@@ -25,7 +25,8 @@ import type { Repository } from '@/ports/repository';
 
 /**
  * Every aggregate's repository for the signed-in user. An owned aggregate takes
- * the half it serves; asking twice for the same half returns the same repository.
+ * the ownership half to serve; asking twice for the same half returns the same
+ * repository.
  */
 export type Repositories = {
   bankAccounts(ownership: OwnershipType): Repository<BankAccount, BankAccountView>;
