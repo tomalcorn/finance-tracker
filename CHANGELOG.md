@@ -1,3 +1,9 @@
+## v1.29.0 (2026-10-25)
+
+### Feat
+
+- **client**: make the web app installable (#324)
+
 ## v1.28.3 (2026-10-25)
 
 ### Fix
