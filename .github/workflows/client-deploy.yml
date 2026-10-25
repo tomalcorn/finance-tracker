@@ -1,0 +1,61 @@
+name: Client Deploy
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "client/**"
+      - ".github/workflows/client-deploy.yml"
+      - ".github/actions/setup-client/**"
+  workflow_dispatch:
+
+# One deploy at a time, in merge order; a newer merge waits rather than cancelling one mid-upload.
+concurrency:
+  group: client-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: client
+
+# Builds the static web export against prod Supabase and uploads it to
+# Cloudflare Pages. One-time setup (project, token, variables, Auth0 URLs) is
+# in client/README.md under "Deploying".
+jobs:
+  client_deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.deployment-url }}
+    env:
+      EXPO_PUBLIC_AUTH0_DOMAIN: ${{ vars.EXPO_PUBLIC_AUTH0_DOMAIN }}
+      EXPO_PUBLIC_AUTH0_CLIENT_ID: ${{ vars.EXPO_PUBLIC_AUTH0_CLIENT_ID }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-client
+      # The app only reports missing configuration once it is running, so stop
+      # here instead of deploying a build that cannot log in.
+      - name: Check the build configuration
+        run: |
+          missing=0
+          for name in EXPO_PUBLIC_AUTH0_DOMAIN EXPO_PUBLIC_AUTH0_CLIENT_ID \
+            EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository variable $name is not set."
+              missing=1
+            fi
+          done
+          exit "$missing"
+      - run: npm run export:web
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: client
+          command: pages deploy dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }} --branch=main
