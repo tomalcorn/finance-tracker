@@ -1,3 +1,9 @@
+## v1.28.2 (2026-10-25)
+
+### Fix
+
+- **client**: keep a signed-out deep link's path through hydration (#321)
+
 ## v1.28.1 (2026-10-25)
 
 ### Fix
