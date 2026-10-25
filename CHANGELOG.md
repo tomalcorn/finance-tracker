@@ -1,3 +1,9 @@
+## v1.28.0 (2026-10-25)
+
+### Feat
+
+- **client**: port the domain models and data access to TypeScript (#319)
+
 ## v1.27.0 (2026-10-25)
 
 ### Feat
