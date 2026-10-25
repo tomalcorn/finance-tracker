@@ -50,8 +50,9 @@ same checks, plus `expo install --check`, on any PR touching `client/`.
   `useAuth()`.
 - `src/data/`: the Supabase client, sent the Auth0 ID token on every request.
 - `src/composition/`: builds the services (`createServices`) in the browser and
-  provides them through `useServices()`. Tests replace `createServices` with
-  fakes.
+  provides them through `useServices()`. Route tests supply fakes by passing
+  `renderRouter` a `wrapper` that sets `ServicesFactoryProvider`, rather than
+  mocking modules.
 - `src/components/`: shared components, imported as `@/components/...`.
 - `__tests__/` directories: tests. Route-level tests sit at the top level,
   and unit tests beside the code they cover. Never put tests inside

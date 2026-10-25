@@ -12,9 +12,29 @@ const NOT_BUILT: ServicesState = { services: null, error: null };
 
 const ServicesContext = createContext<ServicesState>(NOT_BUILT);
 
-function build(): ServicesState {
+const ServicesFactoryContext = createContext<() => Services>(createServices);
+
+/**
+ * Make every `ServicesProvider` below build its services with `create`.
+ *
+ * Without one, `ServicesProvider` uses the real `createServices`. Tests wrap
+ * the router in this to supply fakes, since the root layout takes no props.
+ */
+export function ServicesFactoryProvider({
+  create,
+  children,
+}: {
+  create: () => Services;
+  children: ReactNode;
+}) {
+  return (
+    <ServicesFactoryContext.Provider value={create}>{children}</ServicesFactoryContext.Provider>
+  );
+}
+
+function build(create: () => Services): ServicesState {
   try {
-    return { services: createServices(), error: null };
+    return { services: create(), error: null };
   } catch (error) {
     return { services: null, error: error instanceof Error ? error : new Error(String(error)) };
   }
@@ -31,9 +51,10 @@ const neverChanges = () => () => {};
  * (hydrating) render sees, so consumers show a loading state until then.
  */
 export function ServicesProvider({ children }: { children: ReactNode }) {
+  const create = useContext(ServicesFactoryContext);
   const [getBuilt] = useState(() => {
     let built: ServicesState | undefined;
-    return () => (built ??= build());
+    return () => (built ??= build(create));
   });
   const state = useSyncExternalStore(neverChanges, getBuilt, () => NOT_BUILT);
 

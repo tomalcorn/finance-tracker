@@ -2,6 +2,7 @@ import { type Href, useRouter } from 'expo-router';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 import type { AuthUser } from '@/auth/authClient';
+import { safeReturnTo } from '@/auth/returnTo';
 import { useServicesState } from '@/composition/ServicesProvider';
 
 /** Where the session stands. `unavailable` means the app cannot authenticate at all. */
@@ -38,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const user = await services.auth.getUser();
         if (cancelled) return;
         setState(user ? { status: 'signedIn', user } : { status: 'signedOut' });
-        if (user && returnTo) router.replace(returnTo as Href);
+        if (user && returnTo) router.replace(safeReturnTo(returnTo) as Href);
       } catch (error) {
         if (!cancelled) setState({ status: 'signedOut', error: message(error) });
       }
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (returnTo: string) => {
       try {
-        await services?.auth.login(returnTo);
+        await services?.auth.login(safeReturnTo(returnTo));
       } catch (error) {
         setState({ status: 'signedOut', error: message(error) });
       }

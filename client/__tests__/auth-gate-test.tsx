@@ -1,26 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { router } from 'expo-router';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import type { ReactNode } from 'react';
 
 import type { AuthClient, AuthUser } from '@/auth/authClient';
+import type { Services } from '@/composition/createServices';
+import { ServicesFactoryProvider } from '@/composition/ServicesProvider';
 import { ConfigError } from '@/config';
 
 const APP_DIR = './src/app';
 const USER: AuthUser = { sub: 'auth0|test', email: 'test@example.com' };
 
-let mockAuth: AuthClient;
-let mockCreateServicesError: Error | null;
-
-jest.mock('@/composition/createServices', () => ({
-  createServices: () => {
-    if (mockCreateServicesError) throw mockCreateServicesError;
-    return {
-      auth: mockAuth,
-      supabase: {
-        from: () => ({ select: async () => ({ count: 0, error: null }) }),
-      } as unknown as SupabaseClient,
-    };
-  },
-}));
+const FAKE_SUPABASE = {
+  from: () => ({ select: async () => ({ count: 0, error: null }) }),
+} as unknown as SupabaseClient;
 
 function fakeAuth(overrides: Partial<AuthClient> = {}): AuthClient {
   return {
@@ -33,14 +26,26 @@ function fakeAuth(overrides: Partial<AuthClient> = {}): AuthClient {
   };
 }
 
-beforeEach(() => {
-  mockAuth = fakeAuth();
-  mockCreateServicesError = null;
+function renderApp(initialUrl: string, create: () => Services) {
+  return renderRouter(APP_DIR, {
+    initialUrl,
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <ServicesFactoryProvider create={create}>{children}</ServicesFactoryProvider>
+    ),
+  });
+}
+
+function renderWithAuth(initialUrl: string, auth: AuthClient) {
+  return renderApp(initialUrl, () => ({ auth, supabase: FAKE_SUPABASE }));
+}
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe('signed out', () => {
   it('sends a tab route to sign-in', async () => {
-    const app = renderRouter(APP_DIR, { initialUrl: '/personal' });
+    const app = renderWithAuth('/personal', fakeAuth());
     await app;
 
     await screen.findByText('Log in');
@@ -48,27 +53,37 @@ describe('signed out', () => {
   });
 
   it('logs in returning to the route that was asked for', async () => {
-    await renderRouter(APP_DIR, { initialUrl: '/personal' });
+    const auth = fakeAuth();
+    await renderWithAuth('/personal', auth);
 
     await fireEvent.press(await screen.findByText('Log in'));
 
-    expect(mockAuth.login).toHaveBeenCalledWith('/personal');
+    expect(auth.login).toHaveBeenCalledWith('/personal');
+  });
+
+  it('logs in returning home when asked to return off the app', async () => {
+    const auth = fakeAuth();
+    await renderWithAuth('/sign-in?returnTo=https%3A%2F%2Fevil.example', auth);
+
+    await fireEvent.press(await screen.findByText('Log in'));
+
+    expect(auth.login).toHaveBeenCalledWith('/');
   });
 
   it('leaves docs readable', async () => {
-    await renderRouter(APP_DIR, { initialUrl: '/docs' });
+    await renderWithAuth('/docs', fakeAuth());
 
     expect(await screen.findByText('Coming in #303.')).toBeOnTheScreen();
   });
 
   it('shows why the session could not be restored', async () => {
-    mockAuth = fakeAuth({
+    const auth = fakeAuth({
       handleRedirectCallback: async () => {
         throw new Error('access_denied');
       },
     });
 
-    await renderRouter(APP_DIR, { initialUrl: '/' });
+    await renderWithAuth('/', auth);
 
     expect(await screen.findByText('access_denied')).toBeOnTheScreen();
   });
@@ -76,22 +91,33 @@ describe('signed out', () => {
 
 describe('signed in', () => {
   it('returns to the route a login redirect asked for', async () => {
-    mockAuth = fakeAuth({
+    const auth = fakeAuth({
       handleRedirectCallback: async () => '/joint',
       getUser: async () => USER,
     });
 
-    const app = renderRouter(APP_DIR, { initialUrl: '/' });
+    const app = renderWithAuth('/', auth);
     await app;
 
     await screen.findByText('Coming in #301.');
     expect(app.getPathname()).toBe('/joint');
   });
 
-  it('sends sign-in on to the app', async () => {
-    mockAuth = fakeAuth({ getUser: async () => USER });
+  it('returns home when a login redirect asks to leave the app', async () => {
+    const replace = jest.spyOn(router, 'replace');
+    const auth = fakeAuth({
+      handleRedirectCallback: async () => 'https://evil.example',
+      getUser: async () => USER,
+    });
 
-    const app = renderRouter(APP_DIR, { initialUrl: '/sign-in' });
+    await renderWithAuth('/', auth);
+    await screen.findByText('Coming in #295.');
+
+    expect(replace).toHaveBeenLastCalledWith('/');
+  });
+
+  it('sends sign-in on to the app', async () => {
+    const app = renderWithAuth('/sign-in', fakeAuth({ getUser: async () => USER }));
     await app;
 
     await screen.findByText('Coming in #295.');
@@ -101,9 +127,9 @@ describe('signed in', () => {
 
 describe('without configuration', () => {
   it('says which variables are missing', async () => {
-    mockCreateServicesError = new ConfigError(['EXPO_PUBLIC_AUTH0_CLIENT_ID']);
-
-    await renderRouter(APP_DIR, { initialUrl: '/' });
+    await renderApp('/', () => {
+      throw new ConfigError(['EXPO_PUBLIC_AUTH0_CLIENT_ID']);
+    });
 
     expect(await screen.findByText(/EXPO_PUBLIC_AUTH0_CLIENT_ID/)).toBeOnTheScreen();
   });
