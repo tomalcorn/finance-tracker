@@ -1,3 +1,9 @@
+## v1.27.0 (2026-10-25)
+
+### Feat
+
+- **client**: log in with Auth0 and query Supabase with the ID token (#316)
+
 ## v1.26.1 (2026-10-13)
 
 ### Fix
