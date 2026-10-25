@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { CenteredStatus } from '@/components/CenteredStatus';
+import { DataProvider } from '@/composition/DataProvider';
 
 const noTabBar = () => null;
 
@@ -37,6 +38,6 @@ function SignedInOnly({ children }: { children: ReactNode }) {
     case 'signedOut':
       return <Redirect href={{ pathname: '/sign-in', params: { returnTo: pathname } }} />;
     case 'signedIn':
-      return children;
+      return <DataProvider userId={state.user.sub}>{children}</DataProvider>;
   }
 }

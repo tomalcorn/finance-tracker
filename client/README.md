@@ -50,13 +50,32 @@ same checks, plus `expo install --check`, on any PR touching `client/`.
   export makes such a change before the session loads.
 - `src/auth/`: the `AuthClient` port and its implementations:
   `createAuthClient.web.ts` over the Auth0 SPA SDK, and a native stub that is
-  always signed out. `AuthProvider` resolves the session and exposes it through
-  `useAuth()`.
-- `src/data/`: the Supabase client, sent the Auth0 ID token on every request.
-- `src/composition/`: builds the services (`createServices`) in the browser and
-  provides them through `useServices()`. Route tests supply fakes by passing
-  `renderRouter` a `wrapper` that sets `ServicesFactoryProvider`, rather than
-  mocking modules.
+  always signed out. `AuthProvider` is handed an `AuthClient`, resolves the
+  session, and exposes it through `useAuth()`.
+- `src/domain/`: zod schemas mirroring the Python `src/domain`. `entities.ts`
+  holds the write models (`QuickButtonSchema`, with type `QuickButton`) and
+  their rules; `readModels.ts` holds the rows each view returns, computed
+  columns included. Field names stay snake_case, as the database has them.
+- `src/ports/`: what screens depend on. `Repository<Entity, View>` reads view
+  rows and writes whole entities: `build` completes raw rows with the owner and
+  validates them (the write gate), then `save` upserts them. An edit is a view
+  row with changes merged in, passed back through `build`. `Repositories` gives
+  one repository per aggregate and ownership half.
+- `src/data/`: the Supabase implementation, the only code that touches
+  supabase-js. `TableGateway` pages every select past Supabase's 1,000-row cap.
+  `tables.ts` records, for each table, the views and cascades changed by a write
+  to it, so that a save marks exactly those cached reads as out of date.
+- `src/hooks/`: what screens and components use to reach their dependencies,
+  depending only on `src/ports/`. `useRepositories()` gives the signed-in
+  user's repositories, and `useRows(repository)` reads one through TanStack
+  Query's cache.
+- `src/composition/`: the only code that sees every layer. It builds the
+  services (`createServices`) in the browser, hands the auth client to
+  `AuthProvider`, and `DataProvider` fills in what `src/hooks/` reads. Nothing
+  imports it except route files: with Expo Router the routes are the entry
+  point, so the layouts act as the composition root. Route tests supply fakes by
+  passing `renderRouter` a `wrapper` that sets `ServicesFactoryProvider`, rather
+  than mocking modules.
 - `src/components/`: shared components, imported as `@/components/...`.
 - `__tests__/` directories: tests. Route-level tests sit at the top level,
   and unit tests beside the code they cover. Never put tests inside
