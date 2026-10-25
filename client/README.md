@@ -48,11 +48,24 @@ same checks, plus `expo install --check`, on any PR touching `client/`.
   `createAuthClient.web.ts` over the Auth0 SPA SDK, and a native stub that is
   always signed out. `AuthProvider` resolves the session and exposes it through
   `useAuth()`.
-- `src/data/`: the Supabase client, sent the Auth0 ID token on every request.
+- `src/domain/`: zod schemas mirroring the Python `src/domain`. `entities.ts`
+  holds the write models (`QuickButtonSchema`, with type `QuickButton`) and
+  their rules; `readModels.ts` holds the rows each view returns, computed
+  columns included. Field names stay snake_case, as the database has them.
+- `src/ports/`: what screens depend on. `Repository<Entity, View>` reads view
+  rows and writes whole entities: `build` completes raw rows with the owner and
+  validates them (the write gate), then `save` upserts them. An edit is a view
+  row with changes merged in, passed back through `build`. `Repositories` gives
+  one repository per aggregate and ownership half.
+- `src/data/`: the Supabase implementation, the only code that touches
+  supabase-js. `TableGateway` pages every select past Supabase's 1,000-row cap.
+  `tables.ts` records which views and cascades a write to each table changes,
+  so a save invalidates exactly those cached reads.
 - `src/composition/`: builds the services (`createServices`) in the browser and
-  provides them through `useServices()`. Route tests supply fakes by passing
-  `renderRouter` a `wrapper` that sets `ServicesFactoryProvider`, rather than
-  mocking modules.
+  provides them through `useServices()`. `DataProvider` gives signed-in screens
+  `useRepositories()` and `useRows(repository)`, reads cached by TanStack Query.
+  Route tests supply fakes by passing `renderRouter` a `wrapper` that sets
+  `ServicesFactoryProvider`, rather than mocking modules.
 - `src/components/`: shared components, imported as `@/components/...`.
 - `__tests__/` directories: tests. Route-level tests sit at the top level,
   and unit tests beside the code they cover. Never put tests inside
