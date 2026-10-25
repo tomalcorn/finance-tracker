@@ -108,6 +108,46 @@ shell loaded even with no network.
 - Offline, a signed-in user cannot refresh their session, so the app shows
   sign-in rather than their data.
 
+## Deploying (#291)
+
+The `Client Deploy` workflow (`.github/workflows/client-deploy.yml`) builds the
+static export against prod Supabase and uploads it to Cloudflare Pages. It runs
+on every merge to `main` that touches `client/`, and from **Actions → Client
+Deploy → Run workflow**. There are no preview deploys for PRs: login would not
+work on them, since Auth0 accepts only the URLs registered with it.
+
+The build stops before deploying if any of the four `EXPO_PUBLIC_` variables
+is missing, since the app would otherwise deploy unable to log in.
+
+### One-time setup
+
+1. **Create the Pages project.** Run `npx wrangler login`, then
+   `npx wrangler pages project create finance-tracker --production-branch=main`.
+   Cloudflare reports the project's URL, normally
+   `https://finance-tracker.pages.dev`.
+2. **Create an API token.** In Cloudflare: **My Profile → API Tokens → Create
+   Token → Custom token**, with the permission **Account → Cloudflare Pages →
+   Edit**, limited to your account. Store it as a repository secret by running
+   `gh secret set CLOUDFLARE_API_TOKEN`, which prompts for the value.
+3. **Set the repository variables** (Settings → Secrets and variables → Actions
+   → Variables, or `gh variable set NAME --body VALUE`):
+   - `CLOUDFLARE_ACCOUNT_ID`: shown on the Workers & Pages overview.
+   - `CLOUDFLARE_PAGES_PROJECT`: the project name from step 1.
+   - `EXPO_PUBLIC_AUTH0_DOMAIN`, `EXPO_PUBLIC_AUTH0_CLIENT_ID`,
+     `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`: the same
+     values as in `.env.local`. They are public, so they are variables, not
+     secrets.
+4. **Register the URL in Auth0.** In the "Finance Tracker (web app)"
+   application, add the deployed origin (e.g.
+   `https://finance-tracker.pages.dev`, no path and no trailing slash) to
+   **Allowed Callback URLs**, **Allowed Logout URLs** and **Allowed Web
+   Origins**.
+5. **Deploy** with **Run workflow**, or by merging to `main`.
+
+Cloudflare Pages serves `/personal` from `personal.html`, and an unknown path
+gets the app's not-found screen: `npm run export:web` copies
+`dist/+not-found.html` to `dist/404.html`, the page Pages serves with a 404.
+
 ## Decisions (#286)
 
 - **Location:** `client/`, beside the Python code, which is removed at the

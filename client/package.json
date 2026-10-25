@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
-    "export:web": "expo export --platform web && workbox generateSW workbox-config.cjs",
+    "export:web": "expo export --platform web && cp dist/+not-found.html dist/404.html && workbox generateSW workbox-config.cjs",
     "serve:web": "npx --yes serve dist",
     "pwa:assets": "node scripts/generate-pwa-assets.mjs"
   },
