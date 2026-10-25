@@ -43,7 +43,11 @@ same checks, plus `expo install --check`, on any PR touching `client/`.
   `/sign-in`, which remembers where they were going. Docs and sign-in are
   public. The tab layout gates the routes instead of Expo Router's
   `Stack.Protected`, because protected routes get no HTML file in the static
-  export, which would break a direct link.
+  export, which would break a direct link. It gates each screen through the
+  navigator's `screenLayout` rather than rendering something else in place of
+  `<Tabs>`: a layout without a navigator loses the URL's tab on the next
+  navigation state change, so `usePathname()` reads `/`. Hydrating the static
+  export makes such a change before the session loads.
 - `src/auth/`: the `AuthClient` port and its implementations:
   `createAuthClient.web.ts` over the Auth0 SPA SDK, and a native stub that is
   always signed out. `AuthProvider` is handed an `AuthClient`, resolves the
