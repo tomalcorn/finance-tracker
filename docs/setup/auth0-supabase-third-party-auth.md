@@ -51,8 +51,8 @@ The existing application is a Regular Web App with a client secret, used by
      Auth0 matches these exactly, path included: the first is Expo's web dev
      server, the second the verification page below.
    - **Allowed Web Origins**: `http://localhost:8081` (origins have no path).
-   - Add the deployed origin to all three too, e.g.
-     `https://finance-tracker.pages.dev` (no path, no trailing slash). See
+   - Add the deployed origin to all three too:
+     `https://finance-tracker-drr.pages.dev` (no path, no trailing slash). See
      "Deploying" in `client/README.md`.
    - **Refresh Token Rotation**: on. Safari blocks the third-party cookies
      silent login relies on, so the app stays logged in with rotating refresh

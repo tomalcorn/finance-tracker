@@ -34,6 +34,8 @@ jobs:
       EXPO_PUBLIC_AUTH0_CLIENT_ID: ${{ vars.EXPO_PUBLIC_AUTH0_CLIENT_ID }}
       EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-client
@@ -43,12 +45,21 @@ jobs:
         run: |
           missing=0
           for name in EXPO_PUBLIC_AUTH0_DOMAIN EXPO_PUBLIC_AUTH0_CLIENT_ID \
-            EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY; do
+            EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY \
+            CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_PAGES_PROJECT; do
             if [ -z "${!name}" ]; then
               echo "::error::Repository variable $name is not set."
               missing=1
             fi
           done
+          # Cloudflare may give the project a URL with a suffix
+          # (finance-tracker-drr.pages.dev); wrangler needs the bare name.
+          if [[ "$CLOUDFLARE_PAGES_PROJECT" == *[/.:]* ]]; then
+            echo "::error::CLOUDFLARE_PAGES_PROJECT is '$CLOUDFLARE_PAGES_PROJECT'," \
+              "but it must be the Pages project's name, as listed by" \
+              "'npx wrangler pages project list' (e.g. finance-tracker), not its URL."
+            missing=1
+          fi
           exit "$missing"
       - run: npm run export:web
       - name: Deploy to Cloudflare Pages
