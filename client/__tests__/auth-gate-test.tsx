@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { router } from 'expo-router';
-import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import type { ReactNode } from 'react';
 
 import type { AuthClient, AuthUser } from '@/auth/authClient';
@@ -122,6 +122,44 @@ describe('signed in', () => {
 
     await screen.findByText('Coming in #295.');
     expect(app.getPathname()).toBe('/');
+  });
+});
+
+/**
+ * Render `initialUrl` and change the navigation state while the session is still loading.
+ *
+ * Hydrating the static web export makes that change on its own; `renderRouter`
+ * does not hydrate, so this makes it with `setParams` instead.
+ */
+async function renderWithStateChangeWhileLoading(initialUrl: string, user: AuthUser | null) {
+  let finishLoading = () => {};
+  const loaded = new Promise<null>((resolve) => {
+    finishLoading = () => resolve(null);
+  });
+  const auth = fakeAuth({ handleRedirectCallback: () => loaded, getUser: async () => user });
+  const app = renderWithAuth(initialUrl, auth);
+  await app;
+
+  await act(() => router.setParams({}));
+  await act(async () => finishLoading());
+
+  return { app, auth };
+}
+
+describe('a navigation state change while the session loads', () => {
+  it('logs in returning to the route that was asked for', async () => {
+    const { auth } = await renderWithStateChangeWhileLoading('/personal', null);
+
+    await fireEvent.press(await screen.findByText('Log in'));
+
+    expect(auth.login).toHaveBeenCalledWith('/personal');
+  });
+
+  it('opens the route that was asked for once signed in', async () => {
+    const { app } = await renderWithStateChangeWhileLoading('/joint', USER);
+
+    await screen.findByText('Coming in #301.');
+    expect(app.getPathname()).toBe('/joint');
   });
 });
 
