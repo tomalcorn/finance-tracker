@@ -1,3 +1,9 @@
+## v1.30.0 (2026-10-25)
+
+### Feat
+
+- **client**: deploy the web build to Cloudflare Pages (#325)
+
 ## v1.29.0 (2026-10-25)
 
 ### Feat
