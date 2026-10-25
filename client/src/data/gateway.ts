@@ -27,7 +27,7 @@ export class GatewayError extends Error {
   }
 }
 
-/** The most rows a select fetches per request; Supabase caps a response at 1,000. */
+/** How many rows each select request asks for. Supabase returns at most 1,000 per response. */
 export const PAGE_SIZE = 1000;
 
 /** The gateway over supabase-js, paging every select so none is cut short. */

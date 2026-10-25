@@ -32,8 +32,8 @@ export interface Repository<EntityT, ViewT> {
   build(rows: readonly RawRow[]): Promise<EntityT[]>;
 
   /**
-   * Insert or update each entity by id, then invalidate every cached read the
-   * write changes. An empty list does nothing.
+   * Insert or update each entity by id, then mark as out of date every cached
+   * read that the write affects. An empty list does nothing.
    *
    * @throws {RepositoryError} when an entity is owned differently from this repository.
    */

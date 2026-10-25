@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/AuthProvider';
-import { useRepositories, useRows } from '@/composition/DataProvider';
+import { useRepositories, useRows } from '@/hooks/repositories';
 
-/** The label every probe-made quick button starts with, so the probe only deletes its own. */
+/** The start of the name of every quick button the probe creates, so that it deletes only those. */
 const PROBE_PREFIX = '[probe] ';
 
 function countOf(result: { data?: unknown[]; error: Error | null }): string {

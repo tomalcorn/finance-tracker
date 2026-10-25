@@ -32,37 +32,31 @@ export function today(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
-/** Report a failed rule on `field` from inside a refinement. */
-export function addIssue(ctx: z.RefinementCtx, field: string, message: string): void {
-  ctx.addIssue({ code: 'custom', message, path: [field] });
+/** Whether a row names its joint account, as every joint-owned row must. */
+export function hasJointAccount(row: {
+  ownership_type: OwnershipType;
+  joint_account_id: string | null;
+}): boolean {
+  return row.ownership_type !== 'joint' || row.joint_account_id !== null;
 }
 
-/** The ownership columns every owned aggregate carries. */
-export const ownershipFields = {
-  ownership_type: OwnershipTypeSchema.default('personal'),
-  joint_account_id: z.uuid().nullable().default(null),
+/** The issue `hasJointAccount` reports. */
+export const NEEDS_JOINT_ACCOUNT = {
+  path: ['joint_account_id'],
+  message: 'A joint-owned row needs a joint account.',
 };
-
-/** Reject a joint-owned row that names no joint account. */
-export function requireJointAccount(
-  row: { ownership_type: OwnershipType; joint_account_id: string | null },
-  ctx: z.RefinementCtx,
-): void {
-  if (row.ownership_type === 'joint' && row.joint_account_id === null) {
-    addIssue(ctx, 'joint_account_id', 'A joint-owned row needs a joint account.');
-  }
-}
 
 const entityFields = {
   id: z.uuid().default(newId),
   user_id: z.string(),
   name: z.string().default(''),
-  ...ownershipFields,
+  ownership_type: OwnershipTypeSchema.default('personal'),
+  joint_account_id: z.uuid().nullable().default(null),
 };
 
 export const BankAccountSchema = z
   .object({ ...entityFields, starting_balance: z.number().default(0) })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type BankAccount = z.infer<typeof BankAccountSchema>;
 
 /**
@@ -79,20 +73,20 @@ export const CategorySchema = z
     cost: z.number().nonnegative().default(0),
     starting_balance: z.number().default(0),
   })
-  .superRefine(requireJointAccount)
-  .superRefine((category, ctx) => {
-    if (category.parent_id !== null && category.parent_id === category.id) {
-      addIssue(ctx, 'parent_id', 'A category cannot be its own parent.');
-    }
-    if (category.accrual === 'multi_month' && category.parent_id === null) {
-      addIssue(ctx, 'accrual', 'Only a subcategory can accrue across months.');
-    }
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT)
+  .refine((category) => category.parent_id !== category.id, {
+    path: ['parent_id'],
+    message: 'A category cannot be its own parent.',
+  })
+  .refine((category) => category.accrual !== 'multi_month' || category.parent_id !== null, {
+    path: ['accrual'],
+    message: 'Only a subcategory can accrue across months.',
   });
 export type Category = z.infer<typeof CategorySchema>;
 
 export const IncomeSourceSchema = z
   .object({ ...entityFields, budget_tracker_ids: z.array(z.uuid()).default([]) })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type IncomeSource = z.infer<typeof IncomeSourceSchema>;
 
 /**
@@ -113,21 +107,31 @@ export const SubscriptionSchema = z
     joint_income_source_id: z.uuid().nullable().default(null),
     joint_bank_account_id: z.uuid().nullable().default(null),
   })
-  .superRefine(requireJointAccount)
-  .superRefine((subscription, ctx) => {
-    const jointFields = ['joint_income_source_id', 'joint_bank_account_id'] as const;
-    const missing = jointFields.filter((field) => subscription[field] === null);
-    for (const field of missing.length < jointFields.length ? missing : []) {
-      addIssue(ctx, field, 'A joint contribution needs both joint fields.');
-    }
-    if (subscription.joint_income_source_id !== null && subscription.ownership_type === 'joint') {
-      addIssue(
-        ctx,
-        'joint_income_source_id',
-        'Only a personal subscription can be a joint contribution.',
-      );
-    }
-  });
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT)
+  .refine(
+    (subscription) =>
+      subscription.joint_income_source_id !== null || subscription.joint_bank_account_id === null,
+    {
+      path: ['joint_income_source_id'],
+      message: 'A joint contribution needs both joint fields.',
+    },
+  )
+  .refine(
+    (subscription) =>
+      subscription.joint_bank_account_id !== null || subscription.joint_income_source_id === null,
+    {
+      path: ['joint_bank_account_id'],
+      message: 'A joint contribution needs both joint fields.',
+    },
+  )
+  .refine(
+    (subscription) =>
+      subscription.joint_income_source_id === null || subscription.ownership_type === 'personal',
+    {
+      path: ['joint_income_source_id'],
+      message: 'Only a personal subscription can be a joint contribution.',
+    },
+  );
 export type Subscription = z.infer<typeof SubscriptionSchema>;
 
 const paymentFields = {
@@ -147,7 +151,7 @@ export const ExpensePaymentSchema = z
     income: z.number().default(0),
     category_id: z.uuid().nullable().default(null),
   })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type ExpensePayment = z.infer<typeof ExpensePaymentSchema>;
 
 export const IncomePaymentSchema = z
@@ -158,7 +162,7 @@ export const IncomePaymentSchema = z
     expense: z.number().default(0),
     income_source_id: z.uuid().nullable().default(null),
   })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type IncomePayment = z.infer<typeof IncomePaymentSchema>;
 
 /** A payment, told apart by `payment_type`. */
@@ -186,18 +190,18 @@ export const QuickButtonSchema = z
     icon: z.string().nullable().default(null),
     display_order: z.int().nonnegative().default(0),
   })
-  .superRefine(requireJointAccount)
-  .superRefine((button, ctx) => {
-    if (button.mode === 'log') {
-      for (const field of ['expense', 'bank_account_id'] as const) {
-        if (button[field] === null) {
-          addIssue(ctx, field, 'A log button needs this to write a payment.');
-        }
-      }
-    }
-    if (button.expense === 0) {
-      addIssue(ctx, 'expense', 'A quick button cannot preset an amount of zero.');
-    }
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT)
+  .refine((button) => button.mode !== 'log' || button.expense !== null, {
+    path: ['expense'],
+    message: 'A log button needs an amount to write a payment.',
+  })
+  .refine((button) => button.mode !== 'log' || button.bank_account_id !== null, {
+    path: ['bank_account_id'],
+    message: 'A log button needs a bank account to write a payment.',
+  })
+  .refine((button) => button.expense !== 0, {
+    path: ['expense'],
+    message: 'A quick button cannot preset an amount of zero.',
   });
 export type QuickButton = z.infer<typeof QuickButtonSchema>;
 
@@ -207,7 +211,7 @@ export const UserSettingsSchema = z
     ...entityFields,
     income_roll_up_period: IncomeRollUpPeriodSchema.default('current_month'),
   })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
 
 /** A shared account. It has no single owner, so no `user_id` or ownership columns. */

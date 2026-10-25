@@ -10,7 +10,8 @@ import {
   IncomeRollUpPeriodSchema,
   OwnershipTypeSchema,
   QuickButtonModeSchema,
-  requireJointAccount,
+  hasJointAccount,
+  NEEDS_JOINT_ACCOUNT,
 } from '@/domain/entities';
 
 const viewFields = {
@@ -30,7 +31,7 @@ export const BankAccountViewSchema = z
     /** `starting_balance` plus the net of every payment. */
     current_balance: z.number(),
   })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type BankAccountView = z.infer<typeof BankAccountViewSchema>;
 
 /** A row of `categories_view`, a root or a subcategory alike. */
@@ -59,7 +60,7 @@ export const CategoryViewSchema = z
      */
     split: z.number().nonnegative(),
   })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type CategoryView = z.infer<typeof CategoryViewSchema>;
 
 /** A row of `income_sources_view`. */
@@ -67,11 +68,11 @@ export const IncomeSourceViewSchema = z
   .object({
     ...viewFields,
     budget_tracker_ids: z.array(z.uuid()),
-    /** Income payments over the month `income_roll_up_period` selects. */
+    /** Income payments in the month chosen by `income_roll_up_period`. */
     current_month: z.number(),
     income_roll_up_period: IncomeRollUpPeriodSchema,
   })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type IncomeSourceView = z.infer<typeof IncomeSourceViewSchema>;
 
 /** A row of `subscriptions_view`. */
@@ -90,7 +91,7 @@ export const SubscriptionViewSchema = z
     joint_income_source_id: z.uuid().nullable(),
     joint_bank_account_id: z.uuid().nullable(),
   })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type SubscriptionView = z.infer<typeof SubscriptionViewSchema>;
 
 /**
@@ -111,7 +112,7 @@ export const PaymentViewSchema = z
     subscription_id: z.uuid().nullable(),
     linked_payment_id: z.uuid().nullable(),
   })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type PaymentView = z.infer<typeof PaymentViewSchema>;
 
 /** A row of the `quick_buttons` table, which has no view. */
@@ -126,13 +127,13 @@ export const QuickButtonViewSchema = z
     icon: z.string().nullable(),
     display_order: z.int(),
   })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type QuickButtonView = z.infer<typeof QuickButtonViewSchema>;
 
 /** A row of the `user_settings` table, which has no view. */
 export const UserSettingsViewSchema = z
   .object({ ...viewFields, income_roll_up_period: IncomeRollUpPeriodSchema })
-  .superRefine(requireJointAccount);
+  .refine(hasJointAccount, NEEDS_JOINT_ACCOUNT);
 export type UserSettingsView = z.infer<typeof UserSettingsViewSchema>;
 
 /** A row of the `joint_accounts` table. */

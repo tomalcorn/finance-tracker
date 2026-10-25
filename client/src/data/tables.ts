@@ -25,9 +25,10 @@ const PAYMENT_DERIVED: readonly ReadSource[] = [
 ];
 
 /**
- * What else a write to each table changes, beyond the table itself: the views
- * computed from it, and the tables an `ON DELETE CASCADE` writes on its behalf.
- * All within the written row's own ownership.
+ * For each table, what else changes when it is written to, besides the table
+ * itself: the views computed from it, and the tables that an
+ * `ON DELETE CASCADE` writes to on its behalf. All within the same ownership
+ * half as the row written.
  */
 export const AFFECTED_BY: Readonly<Partial<Record<TableName, readonly ReadSource[]>>> = {
   payments: PAYMENT_DERIVED,

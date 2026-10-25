@@ -13,7 +13,7 @@ import type { Repositories } from '@/ports/repositories';
 /** The app's outbound dependencies, built once per page load. */
 export type Services = {
   auth: AuthClient;
-  /** Caches every read the screens make. */
+  /** Caches every read that screens make. */
   queryClient: QueryClient;
   /** The signed-in user's repositories. */
   repositories(userId: string): Repositories;
