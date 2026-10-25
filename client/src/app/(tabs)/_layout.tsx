@@ -2,6 +2,7 @@ import { Redirect, Tabs, usePathname } from 'expo-router';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { CenteredStatus } from '@/components/CenteredStatus';
+import { DataProvider } from '@/composition/DataProvider';
 
 export default function TabsLayout() {
   const { state } = useAuth();
@@ -16,12 +17,14 @@ export default function TabsLayout() {
       return <Redirect href={{ pathname: '/sign-in', params: { returnTo: pathname } }} />;
     case 'signedIn':
       return (
-        <Tabs>
-          <Tabs.Screen name="index" options={{ title: 'Quick Expenses' }} />
-          <Tabs.Screen name="personal" options={{ title: 'Personal' }} />
-          <Tabs.Screen name="joint" options={{ title: 'Joint' }} />
-          <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
-        </Tabs>
+        <DataProvider userId={state.user.sub}>
+          <Tabs>
+            <Tabs.Screen name="index" options={{ title: 'Quick Expenses' }} />
+            <Tabs.Screen name="personal" options={{ title: 'Personal' }} />
+            <Tabs.Screen name="joint" options={{ title: 'Joint' }} />
+            <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+          </Tabs>
+        </DataProvider>
       );
   }
 }

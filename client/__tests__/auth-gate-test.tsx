@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { QueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import type { ReactNode } from 'react';
@@ -6,14 +6,28 @@ import type { ReactNode } from 'react';
 import type { AuthClient, AuthUser } from '@/auth/authClient';
 import type { Services } from '@/composition/createServices';
 import { ServicesFactoryProvider } from '@/composition/ServicesProvider';
+import { createRepositories } from '@/data/repositories';
 import { ConfigError } from '@/config';
 
 const APP_DIR = './src/app';
 const USER: AuthUser = { sub: 'auth0|test', email: 'test@example.com' };
 
-const FAKE_SUPABASE = {
-  from: () => ({ select: async () => ({ count: 0, error: null }) }),
-} as unknown as SupabaseClient;
+/** Repositories over an empty in-memory gateway. */
+function emptyRepositories(userId: string) {
+  return createRepositories({
+    userId,
+    gateway: { select: async () => [], upsert: async () => {}, delete: async () => {} },
+    cache: { invalidate: async () => {} },
+  });
+}
+
+function fakeServices(auth: AuthClient): Services {
+  return {
+    auth,
+    queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    repositories: emptyRepositories,
+  };
+}
 
 function fakeAuth(overrides: Partial<AuthClient> = {}): AuthClient {
   return {
@@ -36,7 +50,7 @@ function renderApp(initialUrl: string, create: () => Services) {
 }
 
 function renderWithAuth(initialUrl: string, auth: AuthClient) {
-  return renderApp(initialUrl, () => ({ auth, supabase: FAKE_SUPABASE }));
+  return renderApp(initialUrl, () => fakeServices(auth));
 }
 
 afterEach(() => {

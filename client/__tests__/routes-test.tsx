@@ -1,10 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { QueryClient } from '@tanstack/react-query';
 import { renderRouter, screen } from 'expo-router/testing-library';
 import type { ReactNode } from 'react';
 
 import type { AuthClient } from '@/auth/authClient';
 import type { Services } from '@/composition/createServices';
 import { ServicesFactoryProvider } from '@/composition/ServicesProvider';
+import { createRepositories } from '@/data/repositories';
 
 const APP_DIR = './src/app';
 
@@ -16,11 +17,24 @@ const SIGNED_IN_AUTH: AuthClient = {
   logout: async () => {},
 };
 
-const FAKE_SUPABASE = {
-  from: () => ({ select: async () => ({ count: 0, error: null }) }),
-} as unknown as SupabaseClient;
+/** Repositories over an empty in-memory gateway. */
+function emptyRepositories(userId: string) {
+  return createRepositories({
+    userId,
+    gateway: { select: async () => [], upsert: async () => {}, delete: async () => {} },
+    cache: { invalidate: async () => {} },
+  });
+}
 
-const createSignedIn = (): Services => ({ auth: SIGNED_IN_AUTH, supabase: FAKE_SUPABASE });
+function fakeServices(auth: AuthClient): Services {
+  return {
+    auth,
+    queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    repositories: emptyRepositories,
+  };
+}
+
+const createSignedIn = (): Services => fakeServices(SIGNED_IN_AUTH);
 
 function SignedIn({ children }: { children: ReactNode }) {
   return <ServicesFactoryProvider create={createSignedIn}>{children}</ServicesFactoryProvider>;

@@ -1,9 +1,9 @@
 import { type Href, useRouter } from 'expo-router';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
-import type { AuthUser } from '@/auth/authClient';
+import type { AuthClient, AuthUser } from '@/auth/authClient';
 import { safeReturnTo } from '@/auth/returnTo';
-import { useServicesState } from '@/composition/ServicesProvider';
+import { MissingProviderError } from '@/hooks/MissingProviderError';
 
 /** Where the session stands. `unavailable` means the app cannot authenticate at all. */
 export type AuthState =
@@ -24,19 +24,31 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Resolve the session on load, finishing a login redirect if there is one. */
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const { services, error: servicesError } = useServicesState();
+/**
+ * Resolve the session on load, finishing a login redirect if there is one.
+ *
+ * `auth` is `null` until it is ready, or for good when it cannot be built,
+ * in which case `unavailable` says why.
+ */
+export function AuthProvider({
+  auth,
+  unavailable,
+  children,
+}: {
+  auth: AuthClient | null;
+  unavailable: Error | null;
+  children: ReactNode;
+}) {
   const router = useRouter();
   const [state, setState] = useState<AuthState>({ status: 'loading' });
 
   useEffect(() => {
-    if (!services) return;
+    if (!auth) return;
     let cancelled = false;
     (async () => {
       try {
-        const returnTo = await services.auth.handleRedirectCallback();
-        const user = await services.auth.getUser();
+        const returnTo = await auth.handleRedirectCallback();
+        const user = await auth.getUser();
         if (cancelled) return;
         setState(user ? { status: 'signedIn', user } : { status: 'signedOut' });
         if (user && returnTo) router.replace(safeReturnTo(returnTo) as Href);
@@ -47,25 +59,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [services, router]);
+  }, [auth, router]);
 
   const login = useCallback(
     async (returnTo: string) => {
       try {
-        await services?.auth.login(safeReturnTo(returnTo));
+        await auth?.login(safeReturnTo(returnTo));
       } catch (error) {
         setState({ status: 'signedOut', error: message(error) });
       }
     },
-    [services],
+    [auth],
   );
 
   const logout = useCallback(async () => {
-    await services?.auth.logout();
-  }, [services]);
+    await auth?.logout();
+  }, [auth]);
 
-  const current: AuthState = servicesError
-    ? { status: 'unavailable', error: servicesError.message }
+  const current: AuthState = unavailable
+    ? { status: 'unavailable', error: unavailable.message }
     : state;
 
   return (
@@ -75,11 +87,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** The session and the actions that change it. */
+/**
+ * The session and the actions that change it.
+ *
+ * @throws {MissingProviderError} when called outside an `AuthProvider`.
+ */
 export function useAuth(): AuthContextValue {
   const value = useContext(AuthContext);
   if (!value) {
-    throw new Error('useAuth must be used inside an AuthProvider.');
+    throw new MissingProviderError('useAuth', 'AuthProvider');
   }
   return value;
 }

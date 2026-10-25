@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, useContext, useState, useSyncExternalStore } from 'react';
 
+import { AuthProvider } from '@/auth/AuthProvider';
 import { createServices, type Services } from '@/composition/createServices';
 
 /** Services once built, or why they could not be. Both null while building. */
@@ -43,7 +44,8 @@ function build(create: () => Services): ServicesState {
 const neverChanges = () => () => {};
 
 /**
- * Build the services in the browser and provide them below.
+ * Build the services in the browser and provide them below, along with the
+ * session (`useAuth`) resolved through their auth client.
  *
  * They are never built while rendering on the server: the static web export
  * renders every route in Node, where there is no `window` for the Auth0 SDK.
@@ -58,12 +60,13 @@ export function ServicesProvider({ children }: { children: ReactNode }) {
   });
   const state = useSyncExternalStore(neverChanges, getBuilt, () => NOT_BUILT);
 
-  return <ServicesContext.Provider value={state}>{children}</ServicesContext.Provider>;
-}
-
-/** The services state provided above, including while it is still building. */
-export function useServicesState(): ServicesState {
-  return useContext(ServicesContext);
+  return (
+    <ServicesContext.Provider value={state}>
+      <AuthProvider auth={state.services?.auth ?? null} unavailable={state.error}>
+        {children}
+      </AuthProvider>
+    </ServicesContext.Provider>
+  );
 }
 
 /**
