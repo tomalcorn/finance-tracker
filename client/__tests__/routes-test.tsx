@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { renderRouter, screen } from 'expo-router/testing-library';
+import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import type { ReactNode } from 'react';
 
 import type { AuthClient } from '@/auth/authClient';
@@ -51,6 +51,14 @@ describe('routes when signed in', () => {
     await renderRouter(APP_DIR, { initialUrl: url, wrapper: SignedIn });
 
     expect(await screen.findByText(`Coming in #${issue}.`)).toBeOnTheScreen();
+  });
+
+  it('switches screen when a tab is pressed', async () => {
+    await renderRouter(APP_DIR, { initialUrl: '/', wrapper: SignedIn });
+
+    await fireEvent.press(await screen.findByRole('tab', { name: 'Settings' }));
+
+    expect(await screen.findByText('Coming in #302.')).toBeOnTheScreen();
   });
 
   it('/design renders the component gallery', async () => {

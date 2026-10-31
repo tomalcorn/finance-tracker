@@ -5,6 +5,7 @@ import { Amount } from '@/components/Amount';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { GlassTabBar, type GlassTabItem } from '@/components/GlassTabBar';
 import { ListRow } from '@/components/ListRow';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
@@ -12,10 +13,26 @@ import { TextField } from '@/components/TextField';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING, type Palette } from '@/theme/tokens';
 
+const SAMPLE_TABS = [
+  { key: 'quick', label: 'Quick', icon: { ios: 'bolt.fill', web: 'bolt' } },
+  { key: 'personal', label: 'Personal', icon: { ios: 'person.fill', web: 'person' } },
+  { key: 'joint', label: 'Joint', icon: { ios: 'person.2.fill', web: 'group' } },
+  { key: 'settings', label: 'Settings', icon: { ios: 'gearshape.fill', web: 'settings' } },
+] as const satisfies readonly GlassTabItem[];
+
+/** Colours drawn behind the sample tab bar, so its blur and translucency show. */
+const STAGE_STRIPES = [
+  'accent',
+  'warning',
+  'negative',
+  'positive',
+] as const satisfies readonly (keyof Palette)[];
+
 /** A gallery of the theme and every shared component, with sample data, for reviewing the design. */
 export default function DesignScreen() {
   const { colors } = useAppTheme();
   const [amount, setAmount] = useState('12.50');
+  const [tab, setTab] = useState<string>(SAMPLE_TABS[0].key);
 
   return (
     <Screen>
@@ -23,6 +40,15 @@ export default function DesignScreen() {
         The theme and shared components, with sample data. Switch the device to dark mode to see the
         dark palette.
       </AppText>
+
+      <Card title="Tab bar">
+        <View style={[styles.tabStage, { backgroundColor: colors.background }]}>
+          {STAGE_STRIPES.map((stripe) => (
+            <View key={stripe} style={[styles.stripe, { backgroundColor: colors[stripe] }]} />
+          ))}
+          <GlassTabBar items={SAMPLE_TABS} selectedKey={tab} onSelect={setTab} />
+        </View>
+      </Card>
 
       <Card title="Colours">
         <View style={styles.swatches}>
@@ -109,6 +135,14 @@ export default function DesignScreen() {
 }
 
 const styles = StyleSheet.create({
+  tabStage: {
+    height: 160,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+    justifyContent: 'space-evenly',
+    paddingHorizontal: SPACING.lg,
+  },
+  stripe: { height: 14, borderRadius: RADIUS.pill, width: '70%' },
   swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
   swatch: { width: 88, gap: SPACING.xs },
   chip: { height: 40, borderRadius: RADIUS.sm, borderWidth: StyleSheet.hairlineWidth },

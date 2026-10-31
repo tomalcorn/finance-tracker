@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { useTabBarClearance } from '@/components/GlassTabBar';
 import { useAppTheme } from '@/theme/theme';
 import { MAX_CONTENT_WIDTH, SPACING } from '@/theme/tokens';
 
@@ -10,13 +11,21 @@ type ScreenProps = {
   centred?: boolean;
 };
 
-/** A screen's scrolling page: the theme background and one column, capped in width on desktop. */
+/**
+ * A screen's scrolling page: the theme background and one column, capped in width on desktop.
+ * Inside the tabs, its content scrolls under the floating tab bar but always clears it.
+ */
 export function Screen({ children, centred = false }: ScreenProps) {
   const { colors } = useAppTheme();
+  const clearance = useTabBarClearance();
   return (
     <ScrollView
       style={{ backgroundColor: colors.background }}
-      contentContainerStyle={[styles.content, centred && styles.centred]}
+      contentContainerStyle={[
+        styles.content,
+        centred && styles.centred,
+        { paddingBottom: SPACING.lg + clearance },
+      ]}
     >
       <View style={styles.column}>{children}</View>
     </ScrollView>

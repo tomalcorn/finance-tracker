@@ -19,6 +19,10 @@ export type Palette = {
   positive: string;
   negative: string;
   warning: string;
+  /** The translucent fill of a floating glass surface, blurred over what is behind it. */
+  glass: string;
+  /** The edge of a glass surface. */
+  glassBorder: string;
 };
 
 export const LIGHT: Palette = {
@@ -34,6 +38,8 @@ export const LIGHT: Palette = {
   positive: '#15803D',
   negative: '#B42318',
   warning: '#A15C07',
+  glass: 'rgba(255, 255, 255, 0.72)',
+  glassBorder: 'rgba(28, 27, 25, 0.08)',
 };
 
 export const DARK: Palette = {
@@ -49,6 +55,8 @@ export const DARK: Palette = {
   positive: '#5BD48A',
   negative: '#F2877D',
   warning: '#F2B455',
+  glass: 'rgba(38, 43, 42, 0.68)',
+  glassBorder: 'rgba(255, 255, 255, 0.1)',
 };
 
 export const SPACING = {
