@@ -102,7 +102,7 @@ describe('quick-button probe', () => {
 
     await fireEvent.press(screen.getByText('Add £1 to the first'));
 
-    expect(await screen.findByText(/£2\.5$/)).toBeOnTheScreen();
+    expect(await screen.findByText('£2.50')).toBeOnTheScreen();
   });
 
   it('deletes only the buttons it made', async () => {

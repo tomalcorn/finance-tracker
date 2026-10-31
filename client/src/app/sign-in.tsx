@@ -1,11 +1,17 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/AuthProvider';
+import { AppText } from '@/components/AppText';
+import { Button } from '@/components/Button';
 import { CenteredStatus } from '@/components/CenteredStatus';
+import { Screen } from '@/components/Screen';
+import { useAppTheme } from '@/theme/theme';
+import { RADIUS, SPACING } from '@/theme/tokens';
 
 export default function SignInScreen() {
   const { state, login } = useAuth();
+  const { colors } = useAppTheme();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
   switch (state.status) {
@@ -17,19 +23,36 @@ export default function SignInScreen() {
       return <Redirect href="/" />;
     case 'signedOut':
       return (
-        <View style={styles.container}>
-          <Text role="heading" style={styles.title}>
-            Finance Tracker
-          </Text>
-          {state.error ? <Text style={styles.error}>{state.error}</Text> : null}
+        <Screen centred>
+          <View style={styles.brand}>
+            <View style={[styles.mark, { backgroundColor: colors.accent }]}>
+              <AppText variant="title" style={{ color: colors.onAccent }}>
+                £
+              </AppText>
+            </View>
+            <AppText variant="title">Finance Tracker</AppText>
+            <AppText tone="muted">Budgets, bills and savings in one place.</AppText>
+          </View>
+          {state.error ? (
+            <AppText tone="negative" style={styles.centre}>
+              {state.error}
+            </AppText>
+          ) : null}
           <Button title="Log in" onPress={() => login(returnTo ?? '/')} />
-        </View>
+        </Screen>
       );
   }
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
-  title: { fontSize: 28, fontWeight: '600' },
-  error: { color: '#b00020', textAlign: 'center' },
+  brand: { alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.lg },
+  mark: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  centre: { textAlign: 'center' },
 });

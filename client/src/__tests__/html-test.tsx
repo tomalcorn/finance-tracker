@@ -19,6 +19,10 @@ describe('the HTML head', () => {
     expect(renderHead('production')).toContain('<link rel="manifest" href="/manifest.json"/>');
   });
 
+  it('lets the page reach under the iPhone safe areas, so their insets are reported', () => {
+    expect(renderHead('production')).toMatch(/name="viewport" content="[^"]*viewport-fit=cover/);
+  });
+
   it('sets the theme colour', () => {
     expect(renderHead('production')).toContain(
       `<meta name="theme-color" content="${PWA.themeColor}"/>`,
