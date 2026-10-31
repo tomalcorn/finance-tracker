@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Amount } from '@/components/Amount';
+import { AppIcon } from '@/components/AppIcon';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -67,6 +68,14 @@ export default function DesignScreen() {
             />
           </Card>
           <GlassTabBar items={SAMPLE_TABS} selectedKey={tab} onSelect={setTab} />
+        </View>
+      </Card>
+
+      <Card title="App icon">
+        <View style={styles.icons}>
+          <AppIcon size={64} />
+          <AppIcon size={40} />
+          <AppIcon size={24} />
         </View>
       </Card>
 
@@ -201,6 +210,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: SPACING.md,
   },
+  icons: { flexDirection: 'row', alignItems: 'flex-end', gap: SPACING.lg },
   swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
   swatch: { width: 88, gap: SPACING.xs },
   chip: { height: 40, borderRadius: RADIUS.sm, borderWidth: StyleSheet.hairlineWidth },

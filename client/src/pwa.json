@@ -3,7 +3,19 @@
   "shortName": "Finance",
   "themeColor": "#0F766E",
   "backgroundColor": "#0F766E",
-  "mark": { "color": "#FFFFFF" },
+  "mark": {
+    "color": "#FFFFFF",
+    "chart": [
+      [20, 70],
+      [36, 52],
+      [50, 60],
+      [80, 30]
+    ],
+    "floor": 80,
+    "lineWidth": 6,
+    "dotRadius": 6,
+    "fillOpacity": 0.35
+  },
   "startupImages": [
     { "width": 440, "height": 956, "pixelRatio": 3 },
     { "width": 420, "height": 912, "pixelRatio": 3 },
