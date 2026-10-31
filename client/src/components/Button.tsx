@@ -26,7 +26,7 @@ const VARIANT_COLOURS: Record<ButtonVariant, { fill: keyof Palette | null; text:
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 /** How far a held button shrinks, and how much it dims at the bottom. */
-const PRESSED_SCALE = 0.95;
+const PRESSED_SCALE = 0.965;
 const PRESSED_OPACITY = 0.9;
 const DISABLED_OPACITY = 0.4;
 
