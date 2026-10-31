@@ -1,3 +1,9 @@
+## v1.31.1 (2026-10-31)
+
+### Fix
+
+- **client**: publish tab icons, theme dark mode, weight buttons and move titles onto the page (#328)
+
 ## v1.31.0 (2026-10-31)
 
 ### Feat
