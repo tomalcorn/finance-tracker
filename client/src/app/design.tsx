@@ -35,7 +35,7 @@ export default function DesignScreen() {
   const [tab, setTab] = useState<string>(SAMPLE_TABS[0].key);
 
   return (
-    <Screen>
+    <Screen title="Design" back>
       <AppText tone="muted">
         The theme and shared components, with sample data. Switch the device to dark mode to see the
         dark palette.

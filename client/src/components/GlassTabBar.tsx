@@ -79,8 +79,8 @@ export function GlassTabBar({
     Animated.spring(position, {
       toValue: selectedIndex,
       useNativeDriver: Platform.OS !== 'web',
-      speed: 20,
-      bounciness: 6,
+      speed: 32,
+      bounciness: 2,
     }).start();
   }, [position, selectedIndex]);
 

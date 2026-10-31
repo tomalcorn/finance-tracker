@@ -12,8 +12,6 @@ import {
   type GlassTabItem,
 } from '@/components/GlassTabBar';
 import { DataProvider } from '@/composition/DataProvider';
-import { useAppTheme } from '@/theme/theme';
-import { TYPOGRAPHY } from '@/theme/tokens';
 
 /** The tabs in order: `key` is the route name, `label` the short name under the icon. */
 const TABS: readonly (GlassTabItem & { title: string })[] = [
@@ -42,7 +40,6 @@ const noTabBar = () => null;
 
 export default function TabsLayout() {
   const { state } = useAuth();
-  const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const signedIn = state.status === 'signedIn';
 
@@ -53,11 +50,7 @@ export default function TabsLayout() {
           <SignedInOnly>{children}</SignedInOnly>
         </TabBarClearanceContext.Provider>
       )}
-      screenOptions={{
-        headerShown: signedIn,
-        headerShadowVisible: false,
-        headerTitleStyle: { ...TYPOGRAPHY.heading, color: colors.text },
-      }}
+      screenOptions={{ headerShown: false }}
       tabBar={signedIn ? TabBar : noTabBar}
     >
       {TABS.map((tab) => (
