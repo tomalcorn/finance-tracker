@@ -123,8 +123,10 @@ is missing, since the app would otherwise deploy unable to log in.
 
 1. **Create the Pages project.** Run `npx wrangler login`, then
    `npx wrangler pages project create finance-tracker --production-branch=main`.
-   Cloudflare reports the project's URL, normally
-   `https://finance-tracker.pages.dev`.
+   The project's **name** is `finance-tracker`, but its **URL** may carry a
+   suffix when the plain name is taken elsewhere: this repo's is
+   `https://finance-tracker-drr.pages.dev`. `npx wrangler pages project list`
+   shows both.
 2. **Create an API token.** In Cloudflare: **My Profile → API Tokens → Create
    Token → Custom token**, with the permission **Account → Cloudflare Pages →
    Edit**, limited to your account. Store it as a repository secret by running
@@ -132,14 +134,15 @@ is missing, since the app would otherwise deploy unable to log in.
 3. **Set the repository variables** (Settings → Secrets and variables → Actions
    → Variables, or `gh variable set NAME --body VALUE`):
    - `CLOUDFLARE_ACCOUNT_ID`: shown on the Workers & Pages overview.
-   - `CLOUDFLARE_PAGES_PROJECT`: the project name from step 1.
+   - `CLOUDFLARE_PAGES_PROJECT`: the project's name from step 1
+     (`finance-tracker`), not its URL. The deploy stops if it looks like a URL.
    - `EXPO_PUBLIC_AUTH0_DOMAIN`, `EXPO_PUBLIC_AUTH0_CLIENT_ID`,
      `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`: the same
      values as in `.env.local`. They are public, so they are variables, not
      secrets.
 4. **Register the URL in Auth0.** In the "Finance Tracker (web app)"
-   application, add the deployed origin (e.g.
-   `https://finance-tracker.pages.dev`, no path and no trailing slash) to
+   application, add the project's URL from step 1 (here
+   `https://finance-tracker-drr.pages.dev`, no path and no trailing slash) to
    **Allowed Callback URLs**, **Allowed Logout URLs** and **Allowed Web
    Origins**.
 5. **Deploy** with **Run workflow**, or by merging to `main`.
