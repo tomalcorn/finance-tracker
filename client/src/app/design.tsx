@@ -20,14 +20,6 @@ const SAMPLE_TABS = [
   { key: 'settings', label: 'Settings', icon: { ios: 'gearshape.fill', web: 'settings' } },
 ] as const satisfies readonly GlassTabItem[];
 
-/** Colours drawn behind the sample tab bar, so its blur and translucency show. */
-const STAGE_STRIPES = [
-  'accent',
-  'warning',
-  'negative',
-  'positive',
-] as const satisfies readonly (keyof Palette)[];
-
 /** A gallery of the theme and every shared component, with sample data, for reviewing the design. */
 export default function DesignScreen() {
   const { colors } = useAppTheme();
@@ -43,9 +35,23 @@ export default function DesignScreen() {
 
       <Card title="Tab bar">
         <View style={[styles.tabStage, { backgroundColor: colors.background }]}>
-          {STAGE_STRIPES.map((stripe) => (
-            <View key={stripe} style={[styles.stripe, { backgroundColor: colors[stripe] }]} />
-          ))}
+          <Card list>
+            <ListRow
+              title="Coffee"
+              subtitle="Pret · Today"
+              trailing={<Amount value={-3.4} signed />}
+            />
+            <ListRow
+              title="Rent"
+              subtitle="Joint · 1 Nov"
+              trailing={<Amount value={-950} signed />}
+            />
+            <ListRow
+              title="Refund"
+              subtitle="Amazon · 30 Oct"
+              trailing={<Amount value={24.99} signed />}
+            />
+          </Card>
           <GlassTabBar items={SAMPLE_TABS} selectedKey={tab} onSelect={setTab} />
         </View>
       </Card>
@@ -136,13 +142,11 @@ export default function DesignScreen() {
 
 const styles = StyleSheet.create({
   tabStage: {
-    height: 160,
+    height: 200,
     borderRadius: RADIUS.md,
     overflow: 'hidden',
-    justifyContent: 'space-evenly',
-    paddingHorizontal: SPACING.lg,
+    padding: SPACING.md,
   },
-  stripe: { height: 14, borderRadius: RADIUS.pill, width: '70%' },
   swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
   swatch: { width: 88, gap: SPACING.xs },
   chip: { height: 40, borderRadius: RADIUS.sm, borderWidth: StyleSheet.hairlineWidth },

@@ -38,7 +38,7 @@ export const LIGHT: Palette = {
   positive: '#15803D',
   negative: '#B42318',
   warning: '#A15C07',
-  glass: 'rgba(255, 255, 255, 0.72)',
+  glass: 'rgba(255, 255, 255, 0.45)',
   glassBorder: 'rgba(28, 27, 25, 0.08)',
 };
 
@@ -55,7 +55,7 @@ export const DARK: Palette = {
   positive: '#5BD48A',
   negative: '#F2877D',
   warning: '#F2B455',
-  glass: 'rgba(38, 43, 42, 0.68)',
+  glass: 'rgba(38, 43, 42, 0.45)',
   glassBorder: 'rgba(255, 255, 255, 0.1)',
 };
 
