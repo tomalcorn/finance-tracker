@@ -1,8 +1,13 @@
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Button, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/AuthProvider';
+import { Amount } from '@/components/Amount';
+import { AppText } from '@/components/AppText';
+import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { ListRow } from '@/components/ListRow';
+import { Screen } from '@/components/Screen';
 import { useRepositories, useRows } from '@/hooks/repositories';
 
 /** The start of the name of every quick button created by the probe, so that it deletes only those. */
@@ -50,47 +55,57 @@ function QuickButtonProbe() {
   const remove = () => run(() => quickButtons.delete(probeRows.map((row) => row.id)));
 
   return (
-    <View style={styles.probe}>
-      <Text>Quick buttons: {countOf(rows)}</Text>
-      {probeRows.map((row) => (
-        <Text key={row.id}>
-          {row.name} · £{row.expense}
-        </Text>
-      ))}
-      <Button title="Add a probe button" onPress={add} />
-      <Button title="Add £1 to the first" onPress={edit} disabled={probeRows.length === 0} />
-      <Button title="Delete probe buttons" onPress={remove} disabled={probeRows.length === 0} />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
+    <>
+      <Card title="Data probe" list>
+        <ListRow title={`Quick buttons: ${countOf(rows)}`} />
+        {probeRows.map((row) => (
+          <ListRow key={row.id} title={row.name} trailing={<Amount value={row.expense ?? 0} />} />
+        ))}
+      </Card>
+      <Button title="Add a probe button" variant="secondary" onPress={add} />
+      <Button
+        title="Add £1 to the first"
+        variant="secondary"
+        onPress={edit}
+        disabled={probeRows.length === 0}
+      />
+      <Button
+        title="Delete probe buttons"
+        variant="destructive"
+        onPress={remove}
+        disabled={probeRows.length === 0}
+      />
+      {error ? <AppText tone="negative">{error}</AppText> : null}
+    </>
   );
 }
 
 export default function SettingsScreen() {
   const { state, logout } = useAuth();
+  const router = useRouter();
   const payments = useRows(useRepositories().payments('personal'));
   const user = state.status === 'signedIn' ? state.user : null;
 
   return (
-    <View style={styles.container}>
-      <Text role="heading" style={styles.title}>
-        Settings
-      </Text>
-      <Text>Coming in #302.</Text>
-      <Text>Signed in as {user?.email ?? user?.sub}</Text>
-      <Text>Personal payments visible: {countOf(payments)}</Text>
+    <Screen>
+      <AppText tone="muted">Coming in #302.</AppText>
+      <Card title="Account" list>
+        <ListRow title="Signed in as" subtitle={user?.email ?? user?.sub} />
+        <ListRow
+          title="Personal payments visible"
+          trailing={<AppText tone="muted">{countOf(payments)}</AppText>}
+        />
+      </Card>
       <QuickButtonProbe />
-      <Button title="Log out" onPress={logout} />
-      <Link href="/docs" style={styles.link}>
-        Docs
-      </Link>
-    </View>
+      <Card title="More" list>
+        <ListRow title="Docs" onPress={() => router.push('/docs')} />
+        <ListRow
+          title="Design"
+          subtitle="The theme and shared components"
+          onPress={() => router.push('/design')}
+        />
+      </Card>
+      <Button title="Log out" variant="destructive" onPress={logout} />
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
-  title: { fontSize: 24, fontWeight: '600' },
-  probe: { alignItems: 'center', gap: 8 },
-  error: { color: '#b00020', textAlign: 'center' },
-  link: { padding: 16 },
-});

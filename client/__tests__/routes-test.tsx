@@ -52,4 +52,10 @@ describe('routes when signed in', () => {
 
     expect(await screen.findByText(`Coming in #${issue}.`)).toBeOnTheScreen();
   });
+
+  it('/design renders the component gallery', async () => {
+    await renderRouter(APP_DIR, { initialUrl: '/design', wrapper: SignedIn });
+
+    expect(await screen.findByText('Colours')).toBeOnTheScreen();
+  });
 });
