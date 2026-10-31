@@ -3,7 +3,7 @@
   "shortName": "Finance",
   "themeColor": "#0F766E",
   "backgroundColor": "#0F766E",
-  "mark": { "text": "£", "color": "#FFFFFF" },
+  "mark": { "color": "#FFFFFF" },
   "startupImages": [
     { "width": 440, "height": 956, "pixelRatio": 3 },
     { "width": 420, "height": 912, "pixelRatio": 3 },
