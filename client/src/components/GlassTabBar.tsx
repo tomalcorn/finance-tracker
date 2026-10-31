@@ -47,8 +47,8 @@ export function useTabBarClearance(): number {
 // react-native-web forwards to the element. Without it the bar is still translucent, just not frosted.
 const BLUR = Platform.select<ViewStyle>({
   web: {
-    backdropFilter: 'blur(14px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(14px) saturate(180%)',
+    backdropFilter: 'blur(12px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(12px) saturate(180%)',
   } as ViewStyle,
   default: {},
 });
