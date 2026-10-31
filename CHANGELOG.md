@@ -1,3 +1,9 @@
+## v1.32.0 (2026-10-31)
+
+### Feat
+
+- **client**: add a sheet for add and edit forms (#330)
+
 ## v1.31.1 (2026-10-31)
 
 ### Fix
