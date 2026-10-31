@@ -1,3 +1,9 @@
+## v1.31.0 (2026-10-31)
+
+### Feat
+
+- **client**: add the theme and first shared components (#327)
+
 ## v1.30.1 (2026-10-31)
 
 ### Fix
