@@ -5,7 +5,6 @@ import { Amount } from '@/components/Amount';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
-import { DenseTable, type DenseColumn } from '@/components/DenseTable';
 import { GlassTabBar, type GlassTabItem } from '@/components/GlassTabBar';
 import { ListRow } from '@/components/ListRow';
 import { ProgressBar } from '@/components/ProgressBar';
@@ -33,19 +32,6 @@ const SAMPLE_PAYMENTS: SamplePayment[] = [
 ];
 
 const NEW_PAYMENT: SamplePayment = { id: '', date: '', name: '', category: '', amount: 0 };
-
-const PAYMENT_COLUMNS: DenseColumn<SamplePayment>[] = [
-  { key: 'date', label: 'Date', width: 60, render: (payment) => payment.date },
-  { key: 'name', label: 'Name', render: (payment) => payment.name },
-  { key: 'category', label: 'Category', render: (payment) => payment.category },
-  {
-    key: 'amount',
-    label: 'Amount',
-    width: 100,
-    align: 'right',
-    render: (payment) => <Amount value={payment.amount} variant="caption" signed />,
-  },
-];
 
 /** A gallery of the theme and every shared component, with sample data, for reviewing the design. */
 export default function DesignScreen() {
@@ -165,17 +151,22 @@ export default function DesignScreen() {
         <Button title="Disabled" onPress={() => {}} disabled />
       </Card>
 
-      <Card title="Table and sheet">
+      <Card title="Sheet">
         <AppText variant="caption" tone="muted">
-          Tap a row to edit it, or add a new one. On a phone the sheet slides up; on a wide window
-          it opens as a dialog.
+          Tap a payment to edit it, or add a new one. On a phone the sheet slides up; on a wide
+          window it opens as a dialog.
         </AppText>
-        <DenseTable
-          columns={PAYMENT_COLUMNS}
-          rows={SAMPLE_PAYMENTS}
-          rowKey={(payment) => payment.id}
-          onRowPress={setEditing}
-        />
+        <Card list>
+          {SAMPLE_PAYMENTS.map((payment) => (
+            <ListRow
+              key={payment.id}
+              title={payment.name}
+              subtitle={`${payment.category} · ${payment.date}`}
+              trailing={<Amount value={payment.amount} signed />}
+              onPress={() => setEditing(payment)}
+            />
+          ))}
+        </Card>
         <Button title="Add a payment" variant="secondary" onPress={() => setEditing(NEW_PAYMENT)} />
       </Card>
 
