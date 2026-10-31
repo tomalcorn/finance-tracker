@@ -1,3 +1,9 @@
+## v1.33.0 (2026-10-31)
+
+### Feat
+
+- **client**: replace the placeholder app icon with a rising chart (#331)
+
 ## v1.32.0 (2026-10-31)
 
 ### Feat
