@@ -1,3 +1,9 @@
+## v1.30.1 (2026-10-31)
+
+### Fix
+
+- **client**: stop a deploy given the Pages URL instead of its name (#326)
+
 ## v1.30.0 (2026-10-25)
 
 ### Feat
