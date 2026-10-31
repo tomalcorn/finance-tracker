@@ -5,10 +5,12 @@ import { Amount } from '@/components/Amount';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { DenseTable, type DenseColumn } from '@/components/DenseTable';
 import { GlassTabBar, type GlassTabItem } from '@/components/GlassTabBar';
 import { ListRow } from '@/components/ListRow';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
+import { Sheet } from '@/components/Sheet';
 import { TextField } from '@/components/TextField';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING, type Palette } from '@/theme/tokens';
@@ -20,11 +22,37 @@ const SAMPLE_TABS = [
   { key: 'settings', label: 'Settings', icon: { ios: 'gearshape.fill', web: 'settings' } },
 ] as const satisfies readonly GlassTabItem[];
 
+type SamplePayment = { id: string; date: string; name: string; category: string; amount: number };
+
+const SAMPLE_PAYMENTS: SamplePayment[] = [
+  { id: '1', date: '28 Oct', name: 'Tesco', category: 'Groceries', amount: -46.2 },
+  { id: '2', date: '25 Oct', name: 'Salary', category: 'Income', amount: 2450 },
+  { id: '3', date: '24 Oct', name: 'Trainline', category: 'Transport', amount: -38.5 },
+  { id: '4', date: '21 Oct', name: 'Netflix', category: 'Subscriptions', amount: -10.99 },
+  { id: '5', date: '19 Oct', name: 'Dishoom', category: 'Eating out', amount: -64 },
+];
+
+const NEW_PAYMENT: SamplePayment = { id: '', date: '', name: '', category: '', amount: 0 };
+
+const PAYMENT_COLUMNS: DenseColumn<SamplePayment>[] = [
+  { key: 'date', label: 'Date', width: 60, render: (payment) => payment.date },
+  { key: 'name', label: 'Name', render: (payment) => payment.name },
+  { key: 'category', label: 'Category', render: (payment) => payment.category },
+  {
+    key: 'amount',
+    label: 'Amount',
+    width: 100,
+    align: 'right',
+    render: (payment) => <Amount value={payment.amount} variant="caption" signed />,
+  },
+];
+
 /** A gallery of the theme and every shared component, with sample data, for reviewing the design. */
 export default function DesignScreen() {
   const { colors } = useAppTheme();
   const [amount, setAmount] = useState('12.50');
   const [tab, setTab] = useState<string>(SAMPLE_TABS[0].key);
+  const [editing, setEditing] = useState<SamplePayment | null>(null);
 
   return (
     <Screen title="Design" back>
@@ -136,6 +164,41 @@ export default function DesignScreen() {
         <Button title="Delete" variant="destructive" onPress={() => {}} />
         <Button title="Disabled" onPress={() => {}} disabled />
       </Card>
+
+      <Card title="Table and sheet">
+        <AppText variant="caption" tone="muted">
+          Tap a row to edit it, or add a new one. On a phone the sheet slides up; on a wide window
+          it opens as a dialog.
+        </AppText>
+        <DenseTable
+          columns={PAYMENT_COLUMNS}
+          rows={SAMPLE_PAYMENTS}
+          rowKey={(payment) => payment.id}
+          onRowPress={setEditing}
+        />
+        <Button title="Add a payment" variant="secondary" onPress={() => setEditing(NEW_PAYMENT)} />
+      </Card>
+
+      <Sheet
+        visible={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing?.id ? `Edit ${editing.name}` : 'Add a payment'}
+        footer={
+          <>
+            <Button title="Save" onPress={() => setEditing(null)} />
+            <Button title="Cancel" variant="plain" onPress={() => setEditing(null)} />
+          </>
+        }
+      >
+        <TextField label="Name" defaultValue={editing?.name} placeholder="e.g. Coffee" />
+        <TextField
+          label="Amount"
+          defaultValue={editing?.id ? Math.abs(editing.amount).toFixed(2) : ''}
+          inputMode="decimal"
+          placeholder="0.00"
+        />
+        <TextField label="Category" defaultValue={editing?.category} />
+      </Sheet>
     </Screen>
   );
 }

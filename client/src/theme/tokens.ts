@@ -87,3 +87,9 @@ export const TYPOGRAPHY: Record<TextVariant, TextStyle> = {
 
 /** The widest a screen's content column grows on a desktop window. */
 export const MAX_CONTENT_WIDTH = 640;
+
+/** The window width from which layouts switch from phone to wide (tablet and desktop) forms. */
+export const WIDE_BREAKPOINT = 768;
+
+/** The dimmed layer behind a sheet or dialog. */
+export const BACKDROP = 'rgba(0, 0, 0, 0.4)';
