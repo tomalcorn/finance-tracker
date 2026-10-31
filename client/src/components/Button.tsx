@@ -25,18 +25,19 @@ const VARIANT_COLOURS: Record<ButtonVariant, { fill: keyof Palette | null; text:
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
-/** How far a held button sinks, and how much it dims at the bottom. */
-const PRESSED_SCALE = 0.96;
-const PRESSED_OPACITY = 0.82;
+/** How far a held button shrinks, and how much it dims at the bottom. */
+const PRESSED_SCALE = 0.92;
+const PRESSED_OPACITY = 0.88;
 const DISABLED_OPACITY = 0.4;
 
 /** The shortest time a tap holds the button down, so even a quick one visibly lands. */
 const MIN_PRESS_MS = 90;
 
 const PRESS = { stiffness: 600, damping: 38, mass: 1, useNativeDriver: USE_NATIVE_DRIVER };
-const RELEASE = { stiffness: 260, damping: 16, mass: 1, useNativeDriver: USE_NATIVE_DRIVER };
+/** Underdamped, so the button re-expands about 2% past full size before settling. */
+const RELEASE = { stiffness: 260, damping: 13, mass: 1, useNativeDriver: USE_NATIVE_DRIVER };
 
-/** A tappable button in one of the theme's styles, which sinks under the finger and springs back. */
+/** A tappable button in one of the theme's styles, which shrinks under the finger and springs back. */
 export function Button({ title, onPress, variant = 'primary', disabled = false }: ButtonProps) {
   const { colors } = useAppTheme();
   const { fill, text } = VARIANT_COLOURS[variant];
