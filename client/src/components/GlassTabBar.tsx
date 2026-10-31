@@ -47,8 +47,8 @@ export function useTabBarClearance(): number {
 // react-native-web forwards to the element. Without it the bar is still translucent, just not frosted.
 const BLUR = Platform.select<ViewStyle>({
   web: {
-    backdropFilter: 'blur(24px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+    backdropFilter: 'blur(12px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(12px) saturate(180%)',
   } as ViewStyle,
   default: {},
 });
@@ -79,8 +79,8 @@ export function GlassTabBar({
     Animated.spring(position, {
       toValue: selectedIndex,
       useNativeDriver: Platform.OS !== 'web',
-      speed: 20,
-      bounciness: 6,
+      speed: 32,
+      bounciness: 2,
     }).start();
   }, [position, selectedIndex]);
 

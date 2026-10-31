@@ -87,7 +87,7 @@ export default function SettingsScreen() {
   const user = state.status === 'signedIn' ? state.user : null;
 
   return (
-    <Screen>
+    <Screen title="Settings">
       <AppText tone="muted">Coming in #302.</AppText>
       <Card title="Account" list>
         <ListRow title="Signed in as" subtitle={user?.email ?? user?.sub} />
