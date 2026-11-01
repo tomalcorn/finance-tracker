@@ -7,9 +7,11 @@ import { nearlySpent, roots, totalIncome, trackerIcon } from '@/budget/trackers'
 import { AppText } from '@/components/AppText';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
-import type { OwnershipType } from '@/domain/entities';
+import { today, type OwnershipType } from '@/domain/entities';
 import { useRepositories, useRows } from '@/hooks/repositories';
+import { filterPayments, monthOf, totals } from '@/payments/paymentList';
 import { formatAmount } from '@/theme/formatAmount';
+import { formatMonth } from '@/theme/formatDate';
 import { SPACING } from '@/theme/tokens';
 
 type FinancesScreenProps = { ownership: OwnershipType };
@@ -58,7 +60,10 @@ export function FinancesScreen({ ownership }: FinancesScreenProps) {
   );
 }
 
-/** The budget: income in, how it is split, and a row per tracker opening its detail. */
+/**
+ * The budget: income in, how it is split, a row per tracker opening its detail, and this month's
+ * payments.
+ */
 function Overview({ ownership }: FinancesScreenProps) {
   const repositories = useRepositories();
   const router = useRouter();
@@ -75,6 +80,10 @@ function Overview({ ownership }: FinancesScreenProps) {
   const trackers = roots(categories.data);
   const income = totalIncome(incomeSources.data);
   const lastMonth = incomeSources.data[0]?.income_roll_up_period === 'previous_month';
+
+  function openPayments() {
+    router.push(ownership === 'personal' ? '/personal/payments' : '/joint/payments');
+  }
 
   function openAllocation() {
     router.push(ownership === 'personal' ? '/personal/allocation' : '/joint/allocation');
@@ -120,10 +129,45 @@ function Overview({ ownership }: FinancesScreenProps) {
         )}
       </Card>
 
+      <PaymentsCard ownership={ownership} onPress={openPayments} />
+
       <AppText variant="caption" tone="muted">
-        Payments, bank accounts and subscriptions are still on the Streamlit app for now.
+        Bank accounts and subscriptions are still on the Streamlit app for now.
       </AppText>
     </>
+  );
+}
+
+/** What went out and came in this month, and how much is still to check, opening the payments. */
+function PaymentsCard({ ownership, onPress }: FinancesScreenProps & { onPress: () => void }) {
+  const payments = useRows(useRepositories().payments(ownership));
+  const now = today();
+  const thisMonth = filterPayments(payments.data ?? [], {
+    month: monthOf(now),
+    kind: 'all',
+    search: '',
+  });
+  const { out, in: incoming } = totals(thisMonth);
+  const unchecked = thisMonth.filter((payment) => !payment.checked).length;
+
+  return (
+    <Card title="Payments" label="Payments" onPress={onPress}>
+      {payments.error ? (
+        <AppText tone="negative">Could not load your payments: {payments.error.message}</AppText>
+      ) : payments.isPending ? (
+        <AppText tone="muted">Loading…</AppText>
+      ) : (
+        <>
+          <AppText variant="heading">
+            {formatAmount(out)} <AppText tone="muted">out in {formatMonth(now)}</AppText>
+          </AppText>
+          <AppText tone="muted">
+            {formatAmount(incoming)} in
+            {unchecked > 0 ? ` · ${unchecked} not checked yet` : ''}
+          </AppText>
+        </>
+      )}
+    </Card>
   );
 }
 
