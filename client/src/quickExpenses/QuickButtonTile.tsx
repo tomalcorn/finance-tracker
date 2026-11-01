@@ -1,0 +1,154 @@
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+
+import { AppText } from '@/components/AppText';
+import type { QuickButtonView } from '@/domain/readModels';
+import { useAppTheme } from '@/theme/theme';
+import { formatAmount } from '@/theme/formatAmount';
+import { RADIUS, SPACING } from '@/theme/tokens';
+
+type QuickButtonTileProps = {
+  button: QuickButtonView;
+  /** Tapping opens the button's settings instead of logging. */
+  editing: boolean;
+  /** Logging is under way, so the tile shows a spinner and ignores taps. */
+  busy: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+};
+
+/** What a tap on the button will log: its amount, or that it asks first. */
+function detail(button: QuickButtonView): string {
+  if (button.mode === 'prompt') {
+    return button.expense === null ? 'Asks for details' : `${formatAmount(button.expense)} · asks`;
+  }
+  return formatAmount(button.expense ?? 0);
+}
+
+/** The first letter or digit of a name, for a button with no icon of its own. */
+export function initial(name: string): string {
+  return name.match(/[\p{L}\p{N}]/u)?.[0]?.toUpperCase() ?? '';
+}
+
+/**
+ * One quick button: a large tap target that logs its payment, or opens its settings to edit. It
+ * takes an equal share of its row with its siblings, or with an empty `flex: 1` view.
+ */
+export function QuickButtonTile({
+  button,
+  editing,
+  busy,
+  onPress,
+  onLongPress,
+}: QuickButtonTileProps) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View style={styles.cell}>
+      <Pressable
+        role="button"
+        aria-label={editing ? `Edit ${button.name}` : button.name}
+        aria-busy={busy}
+        disabled={busy}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        style={({ pressed }) => [
+          styles.tile,
+          {
+            backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
+            borderColor: editing ? colors.accent : colors.border,
+          },
+          editing && styles.editing,
+          pressed && styles.pressed,
+        ]}
+      >
+        <View style={styles.top}>
+          {button.icon ? (
+            <AppText style={styles.icon}>{button.icon}</AppText>
+          ) : (
+            <View aria-hidden style={[styles.badge, { backgroundColor: colors.accentSoft }]}>
+              <AppText variant="label" tone="accent">
+                {initial(button.name)}
+              </AppText>
+            </View>
+          )}
+          {editing ? (
+            <AppText variant="caption" tone="accent">
+              Edit
+            </AppText>
+          ) : null}
+        </View>
+        <AppText variant="label" numberOfLines={2}>
+          {button.name}
+        </AppText>
+        {busy ? (
+          <ActivityIndicator color={colors.accent} style={styles.spinner} />
+        ) : (
+          <AppText variant="caption" tone="muted" numberOfLines={1} style={styles.amount}>
+            {detail(button)}
+          </AppText>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+/** A dashed tile at the end of the grid, for adding a button. */
+export function NewButtonTile({ onPress }: { onPress: () => void }) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View style={styles.cell}>
+      <Pressable
+        role="button"
+        aria-label="New button"
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.tile,
+          styles.newTile,
+          { borderColor: colors.accent },
+          pressed && { backgroundColor: colors.accentSoft },
+        ]}
+      >
+        <AppText variant="heading" tone="accent">
+          +
+        </AppText>
+        <AppText variant="label" tone="accent">
+          New button
+        </AppText>
+      </Pressable>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  // Takes the tile's share of the row. The padding and border sit inside it, so a lone tile is no
+  // wider than an empty cell beside it.
+  cell: { flex: 1 },
+  tile: {
+    flex: 1,
+    minHeight: 104,
+    padding: SPACING.md,
+    gap: SPACING.xs,
+    borderRadius: RADIUS.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  editing: { borderWidth: 1.5 },
+  pressed: { transform: [{ scale: 0.97 }] },
+  top: { flexDirection: 'row', justifyContent: 'space-between', minHeight: 26 },
+  icon: { fontSize: 22, lineHeight: 26 },
+  badge: {
+    width: 26,
+    height: 26,
+    borderRadius: RADIUS.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  amount: { fontVariant: ['tabular-nums'] },
+  spinner: { alignSelf: 'flex-start' },
+  newTile: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+});

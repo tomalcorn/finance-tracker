@@ -125,7 +125,7 @@ describe('signed in', () => {
     });
 
     await renderWithAuth('/', auth);
-    await screen.findByText('Coming in #295.');
+    await screen.findByRole('heading', { name: 'Quick Expenses' });
 
     expect(replace).toHaveBeenLastCalledWith('/');
   });
@@ -134,7 +134,7 @@ describe('signed in', () => {
     const app = renderWithAuth('/sign-in', fakeAuth({ getUser: async () => USER }));
     await app;
 
-    await screen.findByText('Coming in #295.');
+    await screen.findByRole('heading', { name: 'Quick Expenses' });
     expect(app.getPathname()).toBe('/');
   });
 });

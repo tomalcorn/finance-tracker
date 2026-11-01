@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Amount } from '@/components/Amount';
@@ -10,8 +10,13 @@ import { GlassTabBar, type GlassTabItem } from '@/components/GlassTabBar';
 import { ListRow } from '@/components/ListRow';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
+import { SegmentedControl } from '@/components/SegmentedControl';
+import { SelectField } from '@/components/SelectField';
 import { Sheet } from '@/components/Sheet';
 import { TextField } from '@/components/TextField';
+import { Toast, type ToastMessage } from '@/components/Toast';
+import type { QuickButtonView } from '@/domain/readModels';
+import { NewButtonTile, QuickButtonTile } from '@/quickExpenses/QuickButtonTile';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING, type Palette } from '@/theme/tokens';
 
@@ -34,176 +39,301 @@ const SAMPLE_PAYMENTS: SamplePayment[] = [
 
 const NEW_PAYMENT: SamplePayment = { id: '', date: '', name: '', category: '', amount: 0 };
 
+const SAMPLE_BUTTON: QuickButtonView = {
+  id: 'sample-coffee',
+  user_id: 'sample',
+  name: 'Coffee',
+  _created_at: '2026-10-01T09:30:12.345678+00:00',
+  ownership_type: 'personal',
+  joint_account_id: null,
+  mode: 'log',
+  payment_name: null,
+  expense: 3.4,
+  bank_account_id: null,
+  category_id: null,
+  icon: '☕',
+  display_order: 0,
+};
+
+const SAMPLE_BUTTONS = [
+  SAMPLE_BUTTON,
+  {
+    ...SAMPLE_BUTTON,
+    id: 'sample-groceries',
+    name: 'Groceries',
+    mode: 'prompt',
+    expense: null,
+    icon: '🛒',
+  },
+] as const satisfies readonly QuickButtonView[];
+
+const LEDGERS = [
+  { value: 'personal', label: 'Personal' },
+  { value: 'joint', label: 'Joint' },
+] as const;
+
+const SAMPLE_BANK_ACCOUNTS = [
+  { value: 'current', label: 'Current' },
+  { value: 'savings', label: 'Savings' },
+];
+
+const SAMPLE_CATEGORIES = [
+  { value: 'expenses', label: 'Expenses' },
+  { value: 'groceries', label: 'Expenses - Groceries' },
+  { value: 'transport', label: 'Expenses - Transport' },
+];
+
 /** A gallery of the theme and every shared component, with sample data, for reviewing the design. */
 export default function DesignScreen() {
   const { colors } = useAppTheme();
   const [amount, setAmount] = useState('12.50');
   const [tab, setTab] = useState<string>(SAMPLE_TABS[0].key);
   const [editing, setEditing] = useState<SamplePayment | null>(null);
+  const [ledger, setLedger] = useState<(typeof LEDGERS)[number]['value']>('personal');
+  const [bankAccount, setBankAccount] = useState<string | null>('current');
+  const [category, setCategory] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const dismissToast = useCallback(() => setToast(null), []);
+
+  function say(text: string, actionLabel?: string) {
+    setToast((current) => ({
+      id: (current?.id ?? 0) + 1,
+      text,
+      action: actionLabel ? { label: actionLabel, onPress: () => {} } : undefined,
+    }));
+  }
 
   return (
-    <Screen title="Design" back>
-      <AppText tone="muted">
-        The theme and shared components, with sample data. Switch the device to dark mode to see the
-        dark palette.
-      </AppText>
+    <View style={styles.fill}>
+      <Screen title="Design" back>
+        <AppText tone="muted">
+          The theme and shared components, with sample data. Switch the device to dark mode to see
+          the dark palette.
+        </AppText>
 
-      <Card title="Tab bar">
-        <View style={[styles.tabStage, { backgroundColor: colors.background }]}>
-          <Card list>
-            <ListRow
-              title="Coffee"
-              subtitle="Pret · Today"
-              trailing={<Amount value={-3.4} signed />}
-            />
-            <ListRow
-              title="Rent"
-              subtitle="Joint · 1 Nov"
-              trailing={<Amount value={-950} signed />}
-            />
-            <ListRow
-              title="Refund"
-              subtitle="Amazon · 30 Oct"
-              trailing={<Amount value={24.99} signed />}
-            />
-          </Card>
-          <GlassTabBar items={SAMPLE_TABS} selectedKey={tab} onSelect={setTab} />
-        </View>
-      </Card>
-
-      <Card title="App icon">
-        <View style={styles.icons}>
-          <AppIcon size={64} />
-          <AppIcon size={40} />
-          <AppIcon size={24} />
-        </View>
-      </Card>
-
-      <Card title="Colours">
-        <View style={styles.swatches}>
-          {(Object.keys(colors) as (keyof Palette)[]).map((name) => (
-            <View key={name} style={styles.swatch}>
-              <View
-                style={[styles.chip, { backgroundColor: colors[name], borderColor: colors.border }]}
+        <Card title="Tab bar">
+          <View style={[styles.tabStage, { backgroundColor: colors.background }]}>
+            <Card list>
+              <ListRow
+                title="Coffee"
+                subtitle="Pret · Today"
+                trailing={<Amount value={-3.4} signed />}
               />
+              <ListRow
+                title="Rent"
+                subtitle="Joint · 1 Nov"
+                trailing={<Amount value={-950} signed />}
+              />
+              <ListRow
+                title="Refund"
+                subtitle="Amazon · 30 Oct"
+                trailing={<Amount value={24.99} signed />}
+              />
+            </Card>
+            <GlassTabBar items={SAMPLE_TABS} selectedKey={tab} onSelect={setTab} />
+          </View>
+        </Card>
+
+        <Card title="Quick buttons">
+          <View style={styles.tiles}>
+            <QuickButtonTile
+              button={SAMPLE_BUTTONS[0]}
+              editing={false}
+              busy={false}
+              onPress={() => say('Coffee — £3.40 logged', 'Undo')}
+              onLongPress={() => {}}
+            />
+            <QuickButtonTile
+              button={SAMPLE_BUTTONS[1]}
+              editing={false}
+              busy={false}
+              onPress={() => say('Groceries asks for details first')}
+              onLongPress={() => {}}
+            />
+          </View>
+          <View style={styles.tiles}>
+            <QuickButtonTile
+              button={SAMPLE_BUTTONS[0]}
+              editing
+              busy={false}
+              onPress={() => {}}
+              onLongPress={() => {}}
+            />
+            <QuickButtonTile
+              button={{ ...SAMPLE_BUTTONS[1], icon: null }}
+              editing={false}
+              busy={false}
+              onPress={() => {}}
+              onLongPress={() => {}}
+            />
+          </View>
+          <View style={styles.tiles}>
+            <NewButtonTile onPress={() => {}} />
+            <View style={styles.fill} />
+          </View>
+        </Card>
+
+        <Card title="Choices">
+          <SegmentedControl label="Ledger" value={ledger} options={LEDGERS} onChange={setLedger} />
+          <SelectField
+            label="Bank account"
+            value={bankAccount}
+            options={SAMPLE_BANK_ACCOUNTS}
+            onChange={setBankAccount}
+          />
+          <SelectField
+            label="Category"
+            value={category}
+            options={SAMPLE_CATEGORIES}
+            onChange={setCategory}
+            noneLabel="None"
+          />
+        </Card>
+
+        <Card title="App icon">
+          <View style={styles.icons}>
+            <AppIcon size={64} />
+            <AppIcon size={40} />
+            <AppIcon size={24} />
+          </View>
+        </Card>
+
+        <Card title="Colours">
+          <View style={styles.swatches}>
+            {(Object.keys(colors) as (keyof Palette)[]).map((name) => (
+              <View key={name} style={styles.swatch}>
+                <View
+                  style={[
+                    styles.chip,
+                    { backgroundColor: colors[name], borderColor: colors.border },
+                  ]}
+                />
+                <AppText variant="caption" tone="muted">
+                  {name}
+                </AppText>
+              </View>
+            ))}
+          </View>
+        </Card>
+
+        <Card title="Type">
+          <AppText variant="title">Title</AppText>
+          <AppText variant="heading">Heading</AppText>
+          <AppText>Body text for sentences and row titles.</AppText>
+          <AppText variant="label">Label</AppText>
+          <AppText variant="caption" tone="muted">
+            Caption, for supporting detail
+          </AppText>
+        </Card>
+
+        <Card title="This month" list>
+          <ListRow
+            title="Groceries"
+            subtitle="Tesco · 28 Oct"
+            trailing={<Amount value={-46.2} signed />}
+          />
+          <ListRow
+            title="Salary"
+            subtitle="Income · 25 Oct"
+            trailing={<Amount value={2450} signed />}
+          />
+          <ListRow
+            title="Netflix"
+            subtitle="Subscription · 21 Oct"
+            trailing={<Amount value={-10.99} signed />}
+            onPress={() => {}}
+          />
+        </Card>
+
+        <Card title="Budgets">
+          <View style={styles.budget}>
+            <View style={styles.budgetHeader}>
+              <AppText variant="label">Eating out</AppText>
               <AppText variant="caption" tone="muted">
-                {name}
+                £64 of £120
               </AppText>
             </View>
-          ))}
-        </View>
-      </Card>
-
-      <Card title="Type">
-        <AppText variant="title">Title</AppText>
-        <AppText variant="heading">Heading</AppText>
-        <AppText>Body text for sentences and row titles.</AppText>
-        <AppText variant="label">Label</AppText>
-        <AppText variant="caption" tone="muted">
-          Caption, for supporting detail
-        </AppText>
-      </Card>
-
-      <Card title="This month" list>
-        <ListRow
-          title="Groceries"
-          subtitle="Tesco · 28 Oct"
-          trailing={<Amount value={-46.2} signed />}
-        />
-        <ListRow
-          title="Salary"
-          subtitle="Income · 25 Oct"
-          trailing={<Amount value={2450} signed />}
-        />
-        <ListRow
-          title="Netflix"
-          subtitle="Subscription · 21 Oct"
-          trailing={<Amount value={-10.99} signed />}
-          onPress={() => {}}
-        />
-      </Card>
-
-      <Card title="Budgets">
-        <View style={styles.budget}>
-          <View style={styles.budgetHeader}>
-            <AppText variant="label">Eating out</AppText>
-            <AppText variant="caption" tone="muted">
-              £64 of £120
-            </AppText>
+            <ProgressBar progress={64 / 120} />
           </View>
-          <ProgressBar progress={64 / 120} />
-        </View>
-        <View style={styles.budget}>
-          <View style={styles.budgetHeader}>
-            <AppText variant="label">Transport</AppText>
-            <AppText variant="caption" tone="muted">
-              £92 of £100
-            </AppText>
+          <View style={styles.budget}>
+            <View style={styles.budgetHeader}>
+              <AppText variant="label">Transport</AppText>
+              <AppText variant="caption" tone="muted">
+                £92 of £100
+              </AppText>
+            </View>
+            <ProgressBar progress={0.92} warn />
           </View>
-          <ProgressBar progress={0.92} warn />
-        </View>
-      </Card>
-
-      <Card title="Form">
-        <TextField label="Name" placeholder="e.g. Coffee" />
-        <TextField
-          label="Amount"
-          value={amount}
-          onChangeText={setAmount}
-          inputMode="decimal"
-          error={Number.isNaN(Number(amount)) ? 'Enter an amount in pounds.' : undefined}
-        />
-        <Button title="Save" onPress={() => {}} />
-        <Button title="Cancel" variant="secondary" onPress={() => {}} />
-        <Button title="Not now" variant="plain" onPress={() => {}} />
-        <Button title="Delete" variant="destructive" onPress={() => {}} />
-        <Button title="Disabled" onPress={() => {}} disabled />
-      </Card>
-
-      <Card title="Sheet">
-        <AppText variant="caption" tone="muted">
-          Tap a payment to edit it, or add a new one. On a phone the sheet slides up; on a wide
-          window it opens as a dialog.
-        </AppText>
-        <Card list>
-          {SAMPLE_PAYMENTS.map((payment) => (
-            <ListRow
-              key={payment.id}
-              title={payment.name}
-              subtitle={`${payment.category} · ${payment.date}`}
-              trailing={<Amount value={payment.amount} signed />}
-              onPress={() => setEditing(payment)}
-            />
-          ))}
         </Card>
-        <Button title="Add a payment" variant="secondary" onPress={() => setEditing(NEW_PAYMENT)} />
-      </Card>
 
-      <Sheet
-        visible={editing !== null}
-        onClose={() => setEditing(null)}
-        title={editing?.id ? `Edit ${editing.name}` : 'Add a payment'}
-        footer={
-          <>
-            <Button title="Save" onPress={() => setEditing(null)} />
-            <Button title="Cancel" variant="plain" onPress={() => setEditing(null)} />
-          </>
-        }
-      >
-        <TextField label="Name" defaultValue={editing?.name} placeholder="e.g. Coffee" />
-        <TextField
-          label="Amount"
-          defaultValue={editing?.id ? Math.abs(editing.amount).toFixed(2) : ''}
-          inputMode="decimal"
-          placeholder="0.00"
-        />
-        <TextField label="Category" defaultValue={editing?.category} />
-      </Sheet>
-    </Screen>
+        <Card title="Form">
+          <TextField label="Name" placeholder="e.g. Coffee" />
+          <TextField
+            label="Amount"
+            value={amount}
+            onChangeText={setAmount}
+            inputMode="decimal"
+            error={Number.isNaN(Number(amount)) ? 'Enter an amount in pounds.' : undefined}
+          />
+          <Button title="Save" onPress={() => {}} />
+          <Button title="Cancel" variant="secondary" onPress={() => {}} />
+          <Button title="Not now" variant="plain" onPress={() => {}} />
+          <Button title="Delete" variant="destructive" onPress={() => {}} />
+          <Button title="Disabled" onPress={() => {}} disabled />
+        </Card>
+
+        <Card title="Sheet">
+          <AppText variant="caption" tone="muted">
+            Tap a payment to edit it, or add a new one. On a phone the sheet slides up; on a wide
+            window it opens as a dialog.
+          </AppText>
+          <Card list>
+            {SAMPLE_PAYMENTS.map((payment) => (
+              <ListRow
+                key={payment.id}
+                title={payment.name}
+                subtitle={`${payment.category} · ${payment.date}`}
+                trailing={<Amount value={payment.amount} signed />}
+                onPress={() => setEditing(payment)}
+              />
+            ))}
+          </Card>
+          <Button
+            title="Add a payment"
+            variant="secondary"
+            onPress={() => setEditing(NEW_PAYMENT)}
+          />
+        </Card>
+
+        <Sheet
+          visible={editing !== null}
+          onClose={() => setEditing(null)}
+          title={editing?.id ? `Edit ${editing.name}` : 'Add a payment'}
+          footer={
+            <>
+              <Button title="Save" onPress={() => setEditing(null)} />
+              <Button title="Cancel" variant="plain" onPress={() => setEditing(null)} />
+            </>
+          }
+        >
+          <TextField label="Name" defaultValue={editing?.name} placeholder="e.g. Coffee" />
+          <TextField
+            label="Amount"
+            defaultValue={editing?.id ? Math.abs(editing.amount).toFixed(2) : ''}
+            inputMode="decimal"
+            placeholder="0.00"
+          />
+          <TextField label="Category" defaultValue={editing?.category} />
+        </Sheet>
+      </Screen>
+      <Toast toast={toast} onDismiss={dismissToast} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  tiles: { flexDirection: 'row', gap: SPACING.md },
   tabStage: {
     height: 200,
     borderRadius: RADIUS.md,
