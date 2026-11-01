@@ -1,3 +1,9 @@
+## v1.37.0 (2026-11-01)
+
+### Feat
+
+- **client**: income sources and Bank It (#339)
+
 ## v1.36.0 (2026-11-01)
 
 ### Feat
