@@ -104,7 +104,7 @@ export function ButtonForm({
             label="Icon"
             value={draft.icon}
             onChangeText={(icon) => update({ icon })}
-            placeholder="☕"
+            placeholder="Emoji"
             maxLength={4}
           />
         </View>

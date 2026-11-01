@@ -24,6 +24,11 @@ function detail(button: QuickButtonView): string {
   return formatAmount(button.expense ?? 0);
 }
 
+/** The first letter of a name, for a button with no icon of its own. */
+export function initial(name: string): string {
+  return Array.from(name.trim())[0]?.toUpperCase() ?? '';
+}
+
 /** One quick button: a large tap target that logs its payment, or opens its settings to edit. */
 export function QuickButtonTile({
   button,
@@ -53,7 +58,15 @@ export function QuickButtonTile({
       ]}
     >
       <View style={styles.top}>
-        <AppText style={styles.icon}>{button.icon ?? ''}</AppText>
+        {button.icon ? (
+          <AppText style={styles.icon}>{button.icon}</AppText>
+        ) : (
+          <View aria-hidden style={[styles.badge, { backgroundColor: colors.accentSoft }]}>
+            <AppText variant="label" tone="accent">
+              {initial(button.name)}
+            </AppText>
+          </View>
+        )}
         {editing ? (
           <AppText variant="caption" tone="accent">
             Edit
@@ -113,6 +126,13 @@ const styles = StyleSheet.create({
   pressed: { transform: [{ scale: 0.97 }] },
   top: { flexDirection: 'row', justifyContent: 'space-between', minHeight: 26 },
   icon: { fontSize: 22, lineHeight: 26 },
+  badge: {
+    width: 26,
+    height: 26,
+    borderRadius: RADIUS.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   amount: { fontVariant: ['tabular-nums'] },
   spinner: { alignSelf: 'flex-start' },
   newTile: {

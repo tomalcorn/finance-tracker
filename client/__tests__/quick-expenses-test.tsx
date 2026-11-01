@@ -165,6 +165,20 @@ describe('logging', () => {
   });
 });
 
+describe('tiles', () => {
+  it('shows a button’s icon', async () => {
+    await renderQuickExpenses();
+
+    expect(await screen.findByText('☕')).toBeOnTheScreen();
+  });
+
+  it('marks a button with no icon by its initial', async () => {
+    await renderQuickExpenses();
+
+    expect(await screen.findByText('G', { includeHiddenElements: true })).toBeOnTheScreen();
+  });
+});
+
 describe('managing buttons', () => {
   it('adds a button', async () => {
     await renderQuickExpenses();

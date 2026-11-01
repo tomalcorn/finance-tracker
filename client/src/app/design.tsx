@@ -159,7 +159,17 @@ export default function DesignScreen() {
               onPress={() => {}}
               onLongPress={() => {}}
             />
+            <QuickButtonTile
+              button={{ ...SAMPLE_BUTTONS[1], icon: null }}
+              editing={false}
+              busy={false}
+              onPress={() => {}}
+              onLongPress={() => {}}
+            />
+          </View>
+          <View style={styles.tiles}>
             <NewButtonTile onPress={() => {}} />
+            <View style={styles.fill} />
           </View>
         </Card>
 
