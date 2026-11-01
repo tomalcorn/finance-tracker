@@ -1,3 +1,9 @@
+## v1.34.0 (2026-11-01)
+
+### Feat
+
+- **client**: drag the sheet to close, the app icon on sign-in, and a lower tab bar (#335)
+
 ## v1.33.0 (2026-10-31)
 
 ### Feat
