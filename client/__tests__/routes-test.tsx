@@ -41,8 +41,13 @@ function SignedIn({ children }: { children: ReactNode }) {
 }
 
 describe('routes when signed in', () => {
+  it('/ renders Quick Expenses', async () => {
+    await renderRouter(APP_DIR, { initialUrl: '/', wrapper: SignedIn });
+
+    expect(await screen.findByText('No quick buttons yet')).toBeOnTheScreen();
+  });
+
   it.each([
-    ['/', 295],
     ['/personal', 293],
     ['/joint', 301],
     ['/settings', 302],

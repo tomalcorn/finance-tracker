@@ -16,6 +16,8 @@ type ScreenProps = {
   back?: boolean;
   /** Centre the content vertically, for a screen with little on it. */
   centred?: boolean;
+  /** Beside the title, e.g. an Edit button. */
+  action?: ReactNode;
 };
 
 /**
@@ -23,7 +25,7 @@ type ScreenProps = {
  * clear of the status bar at the top. Inside the tabs, its content scrolls under the floating tab
  * bar but always clears it.
  */
-export function Screen({ children, title, back = false, centred = false }: ScreenProps) {
+export function Screen({ children, title, back = false, centred = false, action }: ScreenProps) {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const clearance = useTabBarClearance();
@@ -41,7 +43,14 @@ export function Screen({ children, title, back = false, centred = false }: Scree
         {back || title ? (
           <View style={styles.heading}>
             {back ? <BackLink /> : null}
-            {title ? <AppText variant="title">{title}</AppText> : null}
+            {title || action ? (
+              <View style={styles.titleRow}>
+                <AppText variant="title" style={styles.title}>
+                  {title}
+                </AppText>
+                {action}
+              </View>
+            ) : null}
           </View>
         ) : null}
         {children}
@@ -72,6 +81,8 @@ const styles = StyleSheet.create({
   centred: { justifyContent: 'center' },
   column: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, gap: SPACING.lg },
   heading: { gap: SPACING.xs, marginTop: SPACING.sm },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  title: { flex: 1 },
   back: { alignSelf: 'flex-start' },
   pressed: { opacity: 0.6 },
 });
