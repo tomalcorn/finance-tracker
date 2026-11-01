@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { BankItForm } from '@/budget/BankItForm';
 import { BudgetRow } from '@/budget/BudgetRow';
 import { BudgetForm, CategoryForm } from '@/budget/CategoryForm';
 import { categoryDraftRow, trackerBudgetError, type CategoryDraft } from '@/budget/categoryDraft';
@@ -13,22 +14,30 @@ import { Card } from '@/components/Card';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
 import { Sheet } from '@/components/Sheet';
+import { Toast, type ToastMessage } from '@/components/Toast';
 import type { OwnershipType } from '@/domain/entities';
 import type { CategoryView } from '@/domain/readModels';
 import { useRepositories, useRows } from '@/hooks/repositories';
+import { nameOptions } from '@/lookups';
 import { formatAmount, parseAmount } from '@/theme/formatAmount';
 import { SPACING } from '@/theme/tokens';
+import { bankOneOffs } from '@/useCases/bankOneOffs';
 
 type TrackerScreenProps = { ownership: OwnershipType };
 
-/** What the sheet is for: the tracker's own budget, or adding a subcategory. */
-type SheetTarget = { kind: 'budget' } | { kind: 'new' };
+/** What the sheet is for: the tracker's own budget, adding a subcategory, or banking pots. */
+type SheetTarget = { kind: 'budget' } | { kind: 'new' } | { kind: 'bank' };
 
 /** One budget tracker: its figures for the month, and the subcategories it is broken into. */
 export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const categoriesRepository = useRepositories().categories(ownership);
+  const repositories = useRepositories();
+  const categoriesRepository = repositories.categories(ownership);
   const categories = useRows(categoriesRepository);
+  const paymentsRepository = repositories.payments(ownership);
+  const bankAccounts = useRows(repositories.bankAccounts(ownership));
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const dismissToast = useCallback(() => setToast(null), []);
   const router = useRouter();
   const [sheet, setSheet] = useState<{ target: SheetTarget; key: number } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -53,6 +62,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const subcategories = childrenOf(categories.data ?? [], tracker.id);
   const adds = takesSubcategories(tracker);
   const allocated = subcategories.reduce((total, category) => total + category.budget, 0);
+  const bankable = subcategories.filter((category) => category.budget > 0);
 
   function open(target: SheetTarget) {
     setSheet((current) => ({ target, key: (current?.key ?? 0) + 1 }));
@@ -81,12 +91,25 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
     closeSheet();
   }
 
+  async function bank(chosen: CategoryView[], bankAccountId: string) {
+    const written = await bankOneOffs(paymentsRepository, chosen, bankAccountId);
+    closeSheet();
+    const total = written.reduce((sum, payment) => sum + payment.expense, 0);
+    setToast((current) => ({ id: (current?.id ?? 0) + 1, text: `${formatAmount(total)} banked` }));
+  }
+
   const target = sheet?.target;
   const sheetTitle =
-    target?.kind === 'budget' ? `${tracker.name} budget` : pots ? 'New pot' : 'New subcategory';
+    target?.kind === 'budget'
+      ? `${tracker.name} budget`
+      : target?.kind === 'bank'
+        ? 'Bank it'
+        : pots
+          ? 'New pot'
+          : 'New subcategory';
 
   return (
-    <>
+    <View style={styles.fill}>
       <Screen title={tracker.name} back>
         <Card>
           <Figures>
@@ -158,6 +181,9 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
           </Card>
         ) : null}
 
+        {pots && subcategories.length > 0 ? (
+          <Button title="Bank it" onPress={() => open({ kind: 'bank' })} />
+        ) : null}
         {adds ? (
           <Button
             title={pots ? 'Add a pot' : 'Add a subcategory'}
@@ -176,6 +202,14 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
             onSave={saveBudget}
             onCancel={closeSheet}
           />
+        ) : target?.kind === 'bank' ? (
+          <BankItForm
+            key={sheet?.key}
+            pots={bankable}
+            bankAccounts={nameOptions(bankAccounts.data ?? [])}
+            onBank={bank}
+            onCancel={closeSheet}
+          />
         ) : target ? (
           <CategoryForm
             key={sheet?.key}
@@ -188,10 +222,12 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
           />
         ) : null}
       </Sheet>
-    </>
+      <Toast toast={toast} onDismiss={dismissToast} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   empty: { padding: SPACING.lg },
 });

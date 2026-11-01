@@ -327,3 +327,112 @@ describe('pots', () => {
     expect(await screen.findByText('Saved, £20.00 extra')).toBeOnTheScreen();
   });
 });
+
+const SALARY_ID = '2b3c4d5e-0000-4000-8000-000000000001';
+const BANK_ACCOUNT_ID = '3c4d5e6f-0000-4000-8000-000000000001';
+
+/** A stored income from the salary. */
+function income(id: string, name: string, amount: number, date: string) {
+  return {
+    ...expense(id, name, 0, date, EXPENSES_ID),
+    payment_type: 'income',
+    income: amount,
+    category_id: null,
+    income_source_id: SALARY_ID,
+  };
+}
+
+describe('income sources', () => {
+  it('are listed on the income split', async () => {
+    await renderAt('/personal/allocation');
+
+    expect(await screen.findByText('Funds Expenses')).toBeOnTheScreen();
+  });
+
+  it('are added with the trackers they fund', async () => {
+    await renderAt('/personal/allocation');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Add an income source' }));
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Freelance');
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Savings' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('Freelance added');
+
+    expect(tables.income_sources).toEqual([
+      expect.objectContaining({ name: 'Freelance', budget_tracker_ids: [SAVINGS_ID] }),
+    ]);
+  });
+
+  it('open on the month’s payments from them', async () => {
+    tables.payments = [income('4d5e6f70-0000-4000-8000-000000000009', 'Payday', 2500, today())];
+
+    await renderAt(`/personal/income/${SALARY_ID}`);
+
+    expect(await screen.findByText('Payday')).toBeOnTheScreen();
+  });
+
+  it('can be deleted when nothing is booked to them', async () => {
+    await renderAt(`/personal/income/${SALARY_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
+
+    expect(await screen.findByRole('button', { name: 'Delete' })).toBeOnTheScreen();
+  });
+
+  it('can’t be deleted while payments are booked to them', async () => {
+    tables.payments = [
+      income('4d5e6f70-0000-4000-8000-000000000009', 'Payday', 2500, '2020-01-31'),
+    ];
+    await renderAt(`/personal/income/${SALARY_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
+
+    expect(
+      await screen.findByText('It can’t be deleted while payments are booked to it.'),
+    ).toBeOnTheScreen();
+  });
+});
+
+describe('bank it', () => {
+  const BIKE_ID = '1a2b3c4d-0000-4000-8000-000000000006';
+
+  beforeEach(() => {
+    tables.categories_view?.push(
+      viewRow({
+        ...OWNED,
+        id: BIKE_ID,
+        name: 'Bike',
+        parent_id: ONE_OFFS_ID,
+        accrual: 'multi_month',
+        budget: 50,
+        cost: 600,
+      }),
+    );
+    tables.bank_accounts_view = [
+      { ...OWNED, id: BANK_ACCOUNT_ID, name: 'Current', starting_balance: 0, current_balance: 0 },
+    ];
+  });
+
+  it('pays the planned amount into each chosen pot', async () => {
+    await renderAt(`/personal/tracker/${ONE_OFFS_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Bank it' }));
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Bank £50.00' }));
+    await screen.findByText('£50.00 banked');
+
+    expect(tables.payments).toEqual([
+      expect.objectContaining({
+        name: 'Bank: Bike',
+        expense: 50,
+        category_id: BIKE_ID,
+        bank_account_id: BANK_ACCOUNT_ID,
+      }),
+    ]);
+  });
+
+  it('banks nothing once every pot is unticked', async () => {
+    await renderAt(`/personal/tracker/${ONE_OFFS_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Bank it' }));
+
+    await fireEvent.press(await screen.findByRole('checkbox', { name: 'Bike' }));
+
+    expect(screen.getByRole('button', { name: 'Bank' })).toBeDisabled();
+  });
+});

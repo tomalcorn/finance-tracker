@@ -23,3 +23,16 @@ export class IncompleteQuickPaymentError extends QuickPaymentError {
 
 /** The payment failed its rules, or could not be written. */
 export class QuickPaymentWriteError extends QuickPaymentError {}
+
+/** Pots could not be banked. */
+export class BankOneOffsError extends UseCaseError {}
+
+/** A pot was asked to be banked with nothing planned for it this month. */
+export class NothingToBankError extends BankOneOffsError {
+  readonly potName: string;
+
+  constructor(potName: string) {
+    super(`"${potName}" has nothing planned to bank this month.`);
+    this.potName = potName;
+  }
+}
