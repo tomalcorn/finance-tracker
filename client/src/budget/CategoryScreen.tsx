@@ -1,9 +1,15 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { CategoryForm } from '@/budget/CategoryForm';
-import { categoryDraftRow, type CategoryDraft } from '@/budget/categoryDraft';
+import {
+  categoryDraftRow,
+  signedAmountError,
+  trackerBudgetError,
+  type CategoryDraft,
+} from '@/budget/categoryDraft';
+import { EditableFigure, FigureCards } from '@/budget/EditableFigure';
 import { Figure, Figures } from '@/budget/Figures';
 import { nearlySpent, paymentsCountedIn } from '@/budget/trackers';
 import { Amount } from '@/components/Amount';
@@ -23,8 +29,9 @@ import { SPACING } from '@/theme/tokens';
 type CategoryScreenProps = { ownership: OwnershipType };
 
 /**
- * One subcategory: its figures, the payments counted towards them, and its settings to edit. A
- * monthly subcategory counts this month's payments; a pot counts everything paid into it.
+ * One subcategory: its figures, its amounts to edit in place, and the payments counted towards
+ * them. A monthly subcategory counts this month's payments; a pot counts everything paid into it.
+ * Edit renames or deletes it.
  */
 export function CategoryScreen({ ownership }: CategoryScreenProps) {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -64,6 +71,13 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
     setEditOpen(true);
   }
 
+  async function saveField(field: 'budget' | 'cost' | 'starting_balance', amount: number) {
+    if (!category) return;
+    await categoriesRepository.save(
+      await categoriesRepository.build([{ ...category, [field]: amount }]),
+    );
+  }
+
   async function save(draft: CategoryDraft) {
     if (!category || !root) return;
     const row = categoryDraftRow(draft, root, pot, category);
@@ -90,34 +104,72 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
         action={<Button title="Edit" variant="plain" onPress={edit} />}
       >
         <AppText tone="muted">{root.name}</AppText>
-        <Card>
-          {pot ? (
-            <Figures>
-              <Figure label="Cost" value={category.cost} />
-              <Figure label="Saved" value={category.accrued} />
-              <Figure label={goalReached ? 'Extra' : 'To go'} value={category.remaining} />
-            </Figures>
-          ) : (
-            <Figures>
-              <Figure label="Budget" value={category.budget} />
-              <Figure label="Spent" value={category.accrued} />
-              <Figure
-                label={category.remaining < 0 ? 'Over budget' : 'Left'}
-                value={category.remaining}
-                negative={category.remaining < 0}
+        {pot ? (
+          <>
+            <Card>
+              <Figures>
+                <Figure label="Saved" value={category.accrued} />
+                <Figure label={goalReached ? 'Extra' : 'To go'} value={category.remaining} />
+              </Figures>
+              <ProgressBar progress={category.progress / 100} />
+              <AppText variant="caption" tone="muted">
+                {Math.round(category.progress)}% of the cost saved
+              </AppText>
+            </Card>
+            <FigureCards>
+              <EditableFigure
+                label="Cost"
+                value={category.cost}
+                validate={trackerBudgetError}
+                onSave={(amount) => saveField('cost', amount)}
               />
-            </Figures>
-          )}
-          <ProgressBar
-            progress={category.progress / 100}
-            warn={!pot && (nearlySpent(category) || category.remaining < 0)}
-          />
-          <AppText variant="caption" tone="muted">
-            {pot
-              ? `${formatAmount(category.budget)} planned this month${category.starting_balance ? ` · started with ${formatAmount(category.starting_balance)}` : ''}`
-              : `${Math.round(category.progress)}% used · ${Math.round(category.split)}% of ${root.name}`}
-          </AppText>
-        </Card>
+              <EditableFigure
+                label="Planned"
+                caption="This month"
+                value={category.budget}
+                validate={trackerBudgetError}
+                onSave={(amount) => saveField('budget', amount)}
+              />
+              <EditableFigure
+                label="Opening"
+                caption="Saved before"
+                value={category.starting_balance}
+                validate={signedAmountError}
+                onSave={(amount) => saveField('starting_balance', amount)}
+              />
+            </FigureCards>
+          </>
+        ) : (
+          <View style={styles.summary}>
+            <View style={styles.figures}>
+              <Card>
+                <Figures>
+                  <Figure label="Spent" value={category.accrued} />
+                  <Figure
+                    label={category.remaining < 0 ? 'Over budget' : 'Left'}
+                    value={category.remaining}
+                    negative={category.remaining < 0}
+                  />
+                </Figures>
+                <ProgressBar
+                  progress={category.progress / 100}
+                  warn={nearlySpent(category) || category.remaining < 0}
+                />
+                <AppText variant="caption" tone="muted">
+                  {Math.round(category.progress)}% used · {Math.round(category.split)}% of{' '}
+                  {root.name}
+                </AppText>
+              </Card>
+            </View>
+            <EditableFigure
+              label="Budget"
+              caption="Monthly"
+              value={category.budget}
+              validate={trackerBudgetError}
+              onSave={(amount) => saveField('budget', amount)}
+            />
+          </View>
+        )}
 
         <Card
           title={`${pot ? 'Paid in' : `Payments in ${formatMonth(now)}`}${counted.length > 0 ? ` · ${formatAmount(total)}` : ''}`}
@@ -167,4 +219,7 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
 
 const styles = StyleSheet.create({
   message: { padding: SPACING.lg },
+  // The figures beside the budget card: twice its width, and the two the same height.
+  summary: { flexDirection: 'row', gap: SPACING.md },
+  figures: { flex: 2 },
 });

@@ -81,3 +81,11 @@ export function trackerBudgetError(text: string): string | undefined {
   if (parseAmount(text) === null) return 'Enter a budget, or 0.';
   return nonNegative(text);
 }
+
+/** Check an amount as typed that may be negative, e.g. a pot's starting balance. */
+export function signedAmountError(text: string): string | undefined {
+  const amount = parseAmount(text);
+  if (amount === null) return 'Enter an amount, or 0.';
+  if (Number.isNaN(amount)) return 'Enter an amount in pounds, e.g. 50.';
+  return undefined;
+}

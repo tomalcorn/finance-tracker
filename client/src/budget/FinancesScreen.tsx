@@ -121,8 +121,7 @@ function Overview({ ownership }: FinancesScreenProps) {
       </Card>
 
       <AppText variant="caption" tone="muted">
-        Income sources, payments, bank accounts and subscriptions are still on the Streamlit app for
-        now.
+        Payments, bank accounts and subscriptions are still on the Streamlit app for now.
       </AppText>
     </>
   );

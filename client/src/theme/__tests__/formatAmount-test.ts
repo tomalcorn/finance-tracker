@@ -1,4 +1,14 @@
-import { formatAmount, parseAmount } from '@/theme/formatAmount';
+import { formatAmount, formatAmountCompact, parseAmount } from '@/theme/formatAmount';
+
+describe('formatAmountCompact', () => {
+  it('leaves off pence when there are none', () => {
+    expect(formatAmountCompact(1200)).toBe('£1,200');
+  });
+
+  it('keeps pence when there are some', () => {
+    expect(formatAmountCompact(1234.5)).toBe('£1,234.50');
+  });
+});
 
 describe('parseAmount', () => {
   it.each([
