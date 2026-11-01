@@ -149,6 +149,46 @@ describe('budget overview', () => {
   });
 });
 
+describe('income split', () => {
+  it('opens from the overview', async () => {
+    await renderAt('/personal');
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Income split' }));
+
+    expect(await screen.findByText('Monthly budgets')).toBeOnTheScreen();
+  });
+
+  it('shows what is unallocated in the ring', async () => {
+    await renderAt('/personal/allocation');
+
+    expect(await screen.findByText('unallocated')).toBeOnTheScreen();
+  });
+
+  it('follows a budget as it is typed', async () => {
+    await renderAt('/personal/allocation');
+
+    await fireEvent.changeText(await screen.findByLabelText('Savings budget'), '1500');
+
+    expect(await screen.findByText('over-allocated')).toBeOnTheScreen();
+  });
+
+  it('saves the budgets that changed', async () => {
+    await renderAt('/personal/allocation');
+    await fireEvent.changeText(await screen.findByLabelText('Savings budget'), '600');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Save budgets' }));
+    await screen.findByText('Budgets saved');
+
+    expect(tables.categories).toEqual([expect.objectContaining({ id: SAVINGS_ID, budget: 600 })]);
+  });
+
+  it('won’t save until a budget changes', async () => {
+    await renderAt('/personal/allocation');
+
+    expect(await screen.findByRole('button', { name: 'Save budgets' })).toBeDisabled();
+  });
+});
+
 describe('tracker detail', () => {
   it('adds a subcategory', async () => {
     await renderAt(`/personal/tracker/${EXPENSES_ID}`);

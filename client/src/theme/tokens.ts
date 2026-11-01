@@ -8,6 +8,8 @@ export type Palette = {
   surface: string;
   /** A recessed area inside a surface: input fields, progress tracks. */
   surfaceMuted: string;
+  /** A surface under the pointer, a shade off `surface` towards `surfaceMuted`. */
+  surfaceHover: string;
   text: string;
   textMuted: string;
   border: string;
@@ -29,6 +31,7 @@ export const LIGHT: Palette = {
   background: '#F6F5F2',
   surface: '#FFFFFF',
   surfaceMuted: '#EFEDE8',
+  surfaceHover: '#F9F8F5',
   text: '#1C1B19',
   textMuted: '#625F59',
   border: '#E2DFD8',
@@ -46,6 +49,7 @@ export const DARK: Palette = {
   background: '#111413',
   surface: '#1B1F1E',
   surfaceMuted: '#262B2A',
+  surfaceHover: '#212625',
   text: '#ECEDEB',
   textMuted: '#A0A7A4',
   border: '#2F3534',

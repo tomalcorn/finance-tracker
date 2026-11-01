@@ -6,13 +6,13 @@ import { useAppTheme } from '@/theme/theme';
 import { formatAmount } from '@/theme/formatAmount';
 import { RADIUS, SPACING } from '@/theme/tokens';
 
-/** Each tracker's colour, the same as on the Streamlit allocation ring. */
+/** Each tracker’s colour, the same as on the Streamlit allocation ring. */
 const TRACKER_COLOURS: Record<'light' | 'dark', Record<string, string>> = {
   light: { Expenses: '#2a78d6', Joint: '#eb6834', 'One-offs': '#1baf7a', Savings: '#eda100' },
   dark: { Expenses: '#3987e5', Joint: '#d95926', 'One-offs': '#199e70', Savings: '#c98500' },
 };
 
-const UNALLOCATED = { light: '#8a897f', dark: '#7a7972' };
+export const UNALLOCATED = { light: '#8a897f', dark: '#7a7972' };
 
 /** The colour that stands for a tracker, wherever its share of income is drawn. */
 export function useTrackerColour(): (name: string) => string {

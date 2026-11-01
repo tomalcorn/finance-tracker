@@ -76,6 +76,10 @@ function Overview({ ownership }: FinancesScreenProps) {
   const income = totalIncome(incomeSources.data);
   const lastMonth = incomeSources.data[0]?.income_roll_up_period === 'previous_month';
 
+  function openAllocation() {
+    router.push(ownership === 'personal' ? '/personal/allocation' : '/joint/allocation');
+  }
+
   function open(id: string) {
     router.push(
       ownership === 'personal'
@@ -86,7 +90,7 @@ function Overview({ ownership }: FinancesScreenProps) {
 
   return (
     <>
-      <Card title="Income split">
+      <Card title="Income split" label="Income split" onPress={openAllocation}>
         <AppText variant="heading">
           {formatAmount(income)}{' '}
           <AppText tone="muted">in {lastMonth ? 'last month' : 'this month'}</AppText>

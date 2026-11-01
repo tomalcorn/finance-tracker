@@ -2,6 +2,7 @@ import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { interactiveBackground } from '@/components/interaction';
 import { ProgressBar } from '@/components/ProgressBar';
 import { useAppTheme } from '@/theme/theme';
 import { formatAmount } from '@/theme/formatAmount';
@@ -57,7 +58,10 @@ export function BudgetRow({
       aria-label={onPress ? title : undefined}
       disabled={!onPress}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.surfaceMuted }]}
+      style={(state) => [
+        styles.row,
+        { backgroundColor: onPress ? interactiveBackground(state, colors) : 'transparent' },
+      ]}
     >
       {icon ? <SymbolView name={icon} size={22} tintColor={iconColour ?? colors.accent} /> : null}
       <View style={styles.body}>

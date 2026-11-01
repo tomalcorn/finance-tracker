@@ -1,7 +1,8 @@
 import { Children, Fragment, type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { interactiveBackground } from '@/components/interaction';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING } from '@/theme/tokens';
 
@@ -11,12 +12,24 @@ type CardProps = {
   title?: string;
   /** Lay the children out edge to edge with a divider between each, for a list of rows. */
   list?: boolean;
+  /** Make the whole card a button, e.g. to open more detail. */
+  onPress?: () => void;
+  /** Names the card as a button, when it has `onPress`. */
+  label?: string;
 };
 
 /** A rounded surface grouping related content, or a list of `ListRow`s. */
-export function Card({ children, title, list = false }: CardProps) {
+export function Card({ children, title, list = false, onPress, label }: CardProps) {
   const { colors } = useAppTheme();
   const items = Children.toArray(children);
+  const content = list
+    ? items.map((item, index) => (
+        <Fragment key={index}>
+          {index > 0 ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
+          {item}
+        </Fragment>
+      ))
+    : children;
 
   return (
     <View style={styles.group}>
@@ -25,24 +38,33 @@ export function Card({ children, title, list = false }: CardProps) {
           {title}
         </AppText>
       ) : null}
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-          !list && styles.padded,
-        ]}
-      >
-        {list
-          ? items.map((item, index) => (
-              <Fragment key={index}>
-                {index > 0 ? (
-                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                ) : null}
-                {item}
-              </Fragment>
-            ))
-          : children}
-      </View>
+      {onPress ? (
+        <Pressable
+          role="button"
+          aria-label={label ?? title}
+          onPress={onPress}
+          style={(state) => [
+            styles.card,
+            {
+              backgroundColor: interactiveBackground(state, colors, colors.surface),
+              borderColor: colors.border,
+            },
+            !list && styles.padded,
+          ]}
+        >
+          {content}
+        </Pressable>
+      ) : (
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            !list && styles.padded,
+          ]}
+        >
+          {content}
+        </View>
+      )}
     </View>
   );
 }
