@@ -284,14 +284,54 @@ describe('subcategory', () => {
     expect(await screen.findByText('No payments this month.')).toBeOnTheScreen();
   });
 
-  it('is edited from its own screen', async () => {
+  it('changes its budget in place', async () => {
+    await renderAt(`/personal/category/${GROCERIES_ID}`);
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Monthly budget £400.00, edit' }),
+    );
+    await fireEvent.changeText(screen.getByLabelText('Monthly budget'), '450');
+
+    await fireEvent(screen.getByLabelText('Monthly budget'), 'submitEditing');
+
+    expect(
+      await screen.findByRole('button', { name: 'Monthly budget £450.00, edit' }),
+    ).toBeOnTheScreen();
+  });
+
+  it('saves nothing on Escape', async () => {
+    await renderAt(`/personal/category/${GROCERIES_ID}`);
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Monthly budget £400.00, edit' }),
+    );
+    const input = screen.getByLabelText('Monthly budget');
+    await fireEvent.changeText(input, '999');
+
+    await fireEvent(input, 'keyPress', { nativeEvent: { key: 'Escape' } });
+    await fireEvent(input, 'blur');
+
+    expect(tables.categories).toBeUndefined();
+  });
+
+  it('won’t save an amount that isn’t one', async () => {
+    await renderAt(`/personal/category/${GROCERIES_ID}`);
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Monthly budget £400.00, edit' }),
+    );
+    await fireEvent.changeText(screen.getByLabelText('Monthly budget'), '-5');
+
+    await fireEvent(screen.getByLabelText('Monthly budget'), 'submitEditing');
+
+    expect(screen.getByText('Enter an amount of 0 or more.')).toBeOnTheScreen();
+  });
+
+  it('is renamed from Edit', async () => {
     await renderAt(`/personal/category/${GROCERIES_ID}`);
     await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
-    await fireEvent.changeText(screen.getByLabelText('Monthly budget'), '450');
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Food shop');
 
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
-    expect(await screen.findByLabelText('£450.00 budget')).toBeOnTheScreen();
+    expect(await screen.findByRole('heading', { name: 'Food shop' })).toBeOnTheScreen();
   });
 
   it('is deleted once confirmed', async () => {
@@ -306,6 +346,29 @@ describe('subcategory', () => {
 });
 
 describe('pots', () => {
+  it('change their plan in place', async () => {
+    tables.categories_view?.push(
+      viewRow({
+        ...OWNED,
+        id: '1a2b3c4d-0000-4000-8000-000000000007',
+        name: 'Sofa',
+        parent_id: ONE_OFFS_ID,
+        accrual: 'multi_month',
+        budget: 0,
+        cost: 800,
+      }),
+    );
+    await renderAt('/personal/category/1a2b3c4d-0000-4000-8000-000000000007');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Planned £0.00, edit' }));
+    await fireEvent.changeText(screen.getByLabelText('Planned'), '75');
+    await fireEvent(screen.getByLabelText('Planned'), 'submitEditing');
+    await screen.findByRole('button', { name: 'Planned £75.00, edit' });
+
+    expect(tables.categories).toEqual([
+      expect.objectContaining({ name: 'Sofa', budget: 75, cost: 800 }),
+    ]);
+  });
+
   it('shows a pot saved beyond its cost as saved, not overspent', async () => {
     tables.categories_view?.push({
       ...viewRow({

@@ -24,7 +24,10 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** A subcategory's settings: a monthly budget, or a pot's target and plan. */
+/**
+ * A subcategory's settings. A new one takes its name and amounts: a monthly budget, or a pot's
+ * target and plan. An existing one is renamed or deleted here, its amounts edited on its screen.
+ */
 export function CategoryForm({
   category,
   root,
@@ -89,7 +92,7 @@ export function CategoryForm({
         placeholder={pot ? 'e.g. New bike' : 'e.g. Groceries'}
         error={shown.name}
       />
-      {pot ? (
+      {category ? null : pot ? (
         <>
           <TextField
             label="Cost"
