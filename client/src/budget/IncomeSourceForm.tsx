@@ -84,7 +84,7 @@ export function IncomeSourceForm({
         error={touched ? nameError : undefined}
       />
       <CheckList
-        label="Funds"
+        label="Funds the following Budget Trackers"
         options={trackers.map((tracker) => ({ value: tracker.id, label: tracker.name }))}
         selected={draft.trackerIds}
         onChange={(trackerIds) => setDraft((current) => ({ ...current, trackerIds }))}
