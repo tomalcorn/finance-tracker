@@ -24,7 +24,7 @@ function tracker(name: string, budget: number): CategoryView {
 }
 
 describe('AllocationBar', () => {
-  it('lists the trackers from the largest budget to the smallest', async () => {
+  it('lists the trackers from the largest budget to the smallest, then what is unallocated', async () => {
     await render(
       <AllocationBar
         trackers={[tracker('Expenses', 350), tracker('Joint', 1400), tracker('Savings', 565)]}
@@ -33,19 +33,27 @@ describe('AllocationBar', () => {
     );
 
     expect(
-      screen.getAllByText(/^(Expenses|Joint|Savings) /).map((node) => node.props.children[0]),
-    ).toEqual(['Joint', 'Savings', 'Expenses']);
+      screen
+        .getAllByText(/^(Expenses|Joint|Savings|Unallocated) /)
+        .map((node) => node.props.children),
+    ).toEqual(['Joint £1,400.00', 'Savings £565.00', 'Expenses £350.00', 'Unallocated £685.00']);
   });
 
-  it('says how much is not yet allocated', async () => {
+  it('shows what is left unallocated in the legend', async () => {
     await render(<AllocationBar trackers={[tracker('Expenses', 350)]} income={500} />);
 
-    expect(screen.getByText('£150.00 not yet allocated')).toBeOnTheScreen();
+    expect(screen.getByText('Unallocated £150.00')).toBeOnTheScreen();
   });
 
   it('calls out budgets that add up to more than came in', async () => {
     await render(<AllocationBar trackers={[tracker('Expenses', 600)]} income={500} />);
 
     expect(screen.getByText('£100.00 more allocated than came in')).toBeOnTheScreen();
+  });
+
+  it('leaves unallocated out when every pound is allocated', async () => {
+    await render(<AllocationBar trackers={[tracker('Expenses', 500)]} income={500} />);
+
+    expect(screen.queryByText(/^Unallocated/)).not.toBeOnTheScreen();
   });
 });

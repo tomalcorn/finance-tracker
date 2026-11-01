@@ -131,7 +131,7 @@ describe('budget overview', () => {
   it('shows the income being split', async () => {
     await renderAt('/personal');
 
-    expect(await screen.findByText('£500.00 not yet allocated')).toBeOnTheScreen();
+    expect(await screen.findByText('Unallocated £500.00')).toBeOnTheScreen();
   });
 
   it('lists the trackers, with what each has left', async () => {

@@ -38,13 +38,14 @@ export function AllocationBar({ trackers, income }: AllocationBarProps) {
   const left = income - allocated;
   const whole = Math.max(income, allocated);
   const largestFirst = [...trackers].sort((a, b) => b.budget - a.budget);
+  const unallocatedColour = UNALLOCATED[dark ? 'dark' : 'light'];
   const segments = [
     ...largestFirst.map((tracker) => ({
       key: tracker.id,
       value: tracker.budget,
       colour: colourOf(tracker.name),
     })),
-    { key: 'unallocated', value: Math.max(left, 0), colour: UNALLOCATED[dark ? 'dark' : 'light'] },
+    { key: 'unallocated', value: Math.max(left, 0), colour: unallocatedColour },
   ].filter((segment) => segment.value > 0);
 
   return (
@@ -59,25 +60,42 @@ export function AllocationBar({ trackers, income }: AllocationBarProps) {
           ? segments.map((segment) => (
               <View
                 key={segment.key}
-                style={{ flex: segment.value / whole, backgroundColor: segment.colour }}
+                style={[
+                  styles.segment,
+                  { flex: segment.value / whole, backgroundColor: segment.colour },
+                ]}
               />
             ))
           : null}
       </View>
       <View style={styles.legend}>
         {largestFirst.map((tracker) => (
-          <View key={tracker.id} style={styles.key}>
-            <View style={[styles.swatch, { backgroundColor: colourOf(tracker.name) }]} />
-            <AppText variant="caption" tone="muted">
-              {tracker.name} {formatAmount(tracker.budget)}
-            </AppText>
-          </View>
+          <LegendKey
+            key={tracker.id}
+            colour={colourOf(tracker.name)}
+            label={`${tracker.name} ${formatAmount(tracker.budget)}`}
+          />
         ))}
+        {left > 0 ? (
+          <LegendKey colour={unallocatedColour} label={`Unallocated ${formatAmount(left)}`} />
+        ) : null}
       </View>
-      <AppText variant="caption" tone={left < 0 ? 'negative' : 'muted'}>
-        {left < 0
-          ? `${formatAmount(-left)} more allocated than came in`
-          : `${formatAmount(left)} not yet allocated`}
+      {left < 0 ? (
+        <AppText variant="caption" tone="negative">
+          {formatAmount(-left)} more allocated than came in
+        </AppText>
+      ) : null}
+    </View>
+  );
+}
+
+/** A swatch and what it stands for. */
+function LegendKey({ colour, label }: { colour: string; label: string }) {
+  return (
+    <View style={styles.key}>
+      <View style={[styles.swatch, { backgroundColor: colour }]} />
+      <AppText variant="caption" tone="muted">
+        {label}
       </AppText>
     </View>
   );
@@ -85,6 +103,8 @@ export function AllocationBar({ trackers, income }: AllocationBarProps) {
 
 const styles = StyleSheet.create({
   allocation: { gap: SPACING.sm },
+  // However small its share, a segment stays wide enough to see.
+  segment: { minWidth: 6 },
   bar: { height: 12, borderRadius: RADIUS.pill, overflow: 'hidden', flexDirection: 'row', gap: 2 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: SPACING.md, rowGap: SPACING.xs },
   key: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
