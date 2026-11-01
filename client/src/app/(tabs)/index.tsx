@@ -154,7 +154,7 @@ export default function QuickExpensesScreen() {
         <AppText tone="muted">
           {editing
             ? 'Tap a button to change or remove it.'
-            : 'Tap a button to log the expense it stands for. Hold one to edit it.'}
+            : 'Tap to log an expense. Hold to edit the button.'}
         </AppText>
 
         {buttons.error ? (
