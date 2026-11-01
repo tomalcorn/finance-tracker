@@ -29,7 +29,10 @@ export function initial(name: string): string {
   return name.match(/[\p{L}\p{N}]/u)?.[0]?.toUpperCase() ?? '';
 }
 
-/** One quick button: a large tap target that logs its payment, or opens its settings to edit. */
+/**
+ * One quick button: a large tap target that logs its payment, or opens its settings to edit. It
+ * takes an equal share of its row with its siblings, or with an empty `flex: 1` view.
+ */
 export function QuickButtonTile({
   button,
   editing,
@@ -40,50 +43,52 @@ export function QuickButtonTile({
   const { colors } = useAppTheme();
 
   return (
-    <Pressable
-      role="button"
-      aria-label={editing ? `Edit ${button.name}` : button.name}
-      aria-busy={busy}
-      disabled={busy}
-      onPress={onPress}
-      onLongPress={onLongPress}
-      style={({ pressed }) => [
-        styles.tile,
-        {
-          backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
-          borderColor: editing ? colors.accent : colors.border,
-        },
-        editing && styles.editing,
-        pressed && styles.pressed,
-      ]}
-    >
-      <View style={styles.top}>
-        {button.icon ? (
-          <AppText style={styles.icon}>{button.icon}</AppText>
-        ) : (
-          <View aria-hidden style={[styles.badge, { backgroundColor: colors.accentSoft }]}>
-            <AppText variant="label" tone="accent">
-              {initial(button.name)}
+    <View style={styles.cell}>
+      <Pressable
+        role="button"
+        aria-label={editing ? `Edit ${button.name}` : button.name}
+        aria-busy={busy}
+        disabled={busy}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        style={({ pressed }) => [
+          styles.tile,
+          {
+            backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
+            borderColor: editing ? colors.accent : colors.border,
+          },
+          editing && styles.editing,
+          pressed && styles.pressed,
+        ]}
+      >
+        <View style={styles.top}>
+          {button.icon ? (
+            <AppText style={styles.icon}>{button.icon}</AppText>
+          ) : (
+            <View aria-hidden style={[styles.badge, { backgroundColor: colors.accentSoft }]}>
+              <AppText variant="label" tone="accent">
+                {initial(button.name)}
+              </AppText>
+            </View>
+          )}
+          {editing ? (
+            <AppText variant="caption" tone="accent">
+              Edit
             </AppText>
-          </View>
-        )}
-        {editing ? (
-          <AppText variant="caption" tone="accent">
-            Edit
-          </AppText>
-        ) : null}
-      </View>
-      <AppText variant="label" numberOfLines={2}>
-        {button.name}
-      </AppText>
-      {busy ? (
-        <ActivityIndicator color={colors.accent} style={styles.spinner} />
-      ) : (
-        <AppText variant="caption" tone="muted" numberOfLines={1} style={styles.amount}>
-          {detail(button)}
+          ) : null}
+        </View>
+        <AppText variant="label" numberOfLines={2}>
+          {button.name}
         </AppText>
-      )}
-    </Pressable>
+        {busy ? (
+          <ActivityIndicator color={colors.accent} style={styles.spinner} />
+        ) : (
+          <AppText variant="caption" tone="muted" numberOfLines={1} style={styles.amount}>
+            {detail(button)}
+          </AppText>
+        )}
+      </Pressable>
+    </View>
   );
 }
 
@@ -92,28 +97,33 @@ export function NewButtonTile({ onPress }: { onPress: () => void }) {
   const { colors } = useAppTheme();
 
   return (
-    <Pressable
-      role="button"
-      aria-label="New button"
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.tile,
-        styles.newTile,
-        { borderColor: colors.accent },
-        pressed && { backgroundColor: colors.accentSoft },
-      ]}
-    >
-      <AppText variant="heading" tone="accent">
-        +
-      </AppText>
-      <AppText variant="label" tone="accent">
-        New button
-      </AppText>
-    </Pressable>
+    <View style={styles.cell}>
+      <Pressable
+        role="button"
+        aria-label="New button"
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.tile,
+          styles.newTile,
+          { borderColor: colors.accent },
+          pressed && { backgroundColor: colors.accentSoft },
+        ]}
+      >
+        <AppText variant="heading" tone="accent">
+          +
+        </AppText>
+        <AppText variant="label" tone="accent">
+          New button
+        </AppText>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Takes the tile's share of the row. The padding and border sit inside it, so a lone tile is no
+  // wider than an empty cell beside it.
+  cell: { flex: 1 },
   tile: {
     flex: 1,
     minHeight: 104,
