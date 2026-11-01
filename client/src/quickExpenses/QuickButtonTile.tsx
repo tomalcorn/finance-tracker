@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { interactiveBackground } from '@/components/interaction';
 import type { QuickButtonView } from '@/domain/readModels';
 import { useAppTheme } from '@/theme/theme';
 import { formatAmount } from '@/theme/formatAmount';
@@ -51,14 +52,14 @@ export function QuickButtonTile({
         disabled={busy}
         onPress={onPress}
         onLongPress={onLongPress}
-        style={({ pressed }) => [
+        style={(state) => [
           styles.tile,
           {
-            backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
+            backgroundColor: interactiveBackground(state, colors, colors.surface),
             borderColor: editing ? colors.accent : colors.border,
           },
           editing && styles.editing,
-          pressed && styles.pressed,
+          state.pressed && styles.pressed,
         ]}
       >
         <View style={styles.top}>
@@ -102,11 +103,11 @@ export function NewButtonTile({ onPress }: { onPress: () => void }) {
         role="button"
         aria-label="New button"
         onPress={onPress}
-        style={({ pressed }) => [
+        style={(state) => [
           styles.tile,
           styles.newTile,
-          { borderColor: colors.accent },
-          pressed && { backgroundColor: colors.accentSoft },
+          { borderColor: colors.accent, backgroundColor: interactiveBackground(state, colors) },
+          state.pressed && { backgroundColor: colors.accentSoft },
         ]}
       >
         <AppText variant="heading" tone="accent">

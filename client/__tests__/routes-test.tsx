@@ -47,9 +47,19 @@ describe('routes when signed in', () => {
     expect(await screen.findByText('No quick buttons yet')).toBeOnTheScreen();
   });
 
+  it('/personal renders the budget overview', async () => {
+    await renderRouter(APP_DIR, { initialUrl: '/personal', wrapper: SignedIn });
+
+    expect(await screen.findByText('Budget trackers')).toBeOnTheScreen();
+  });
+
+  it('/joint explains there is no joint account yet', async () => {
+    await renderRouter(APP_DIR, { initialUrl: '/joint', wrapper: SignedIn });
+
+    expect(await screen.findByText('You don’t have a joint account yet.')).toBeOnTheScreen();
+  });
+
   it.each([
-    ['/personal', 293],
-    ['/joint', 301],
     ['/settings', 302],
     ['/docs', 303],
   ])('%s renders the screen built in #%i', async (url, issue) => {

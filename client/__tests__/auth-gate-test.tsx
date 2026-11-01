@@ -113,7 +113,7 @@ describe('signed in', () => {
     const app = renderWithAuth('/', auth);
     await app;
 
-    await screen.findByText('Coming in #301.');
+    await screen.findByText('You don’t have a joint account yet.');
     expect(app.getPathname()).toBe('/joint');
   });
 
@@ -172,7 +172,7 @@ describe('a navigation state change while the session loads', () => {
   it('opens the route that was asked for once signed in', async () => {
     const { app } = await renderWithStateChangeWhileLoading('/joint', USER);
 
-    await screen.findByText('Coming in #301.');
+    await screen.findByText('You don’t have a joint account yet.');
     expect(app.getPathname()).toBe('/joint');
   });
 });
