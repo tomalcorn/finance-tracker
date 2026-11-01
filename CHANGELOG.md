@@ -1,3 +1,9 @@
+## v1.36.0 (2026-11-01)
+
+### Feat
+
+- **client**: budget overview and tracker screens (#338)
+
 ## v1.35.0 (2026-11-01)
 
 ### Feat
