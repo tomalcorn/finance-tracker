@@ -24,9 +24,9 @@ function detail(button: QuickButtonView): string {
   return formatAmount(button.expense ?? 0);
 }
 
-/** The first letter of a name, for a button with no icon of its own. */
+/** The first letter or digit of a name, for a button with no icon of its own. */
 export function initial(name: string): string {
-  return Array.from(name.trim())[0]?.toUpperCase() ?? '';
+  return name.match(/[\p{L}\p{N}]/u)?.[0]?.toUpperCase() ?? '';
 }
 
 /** One quick button: a large tap target that logs its payment, or opens its settings to edit. */
