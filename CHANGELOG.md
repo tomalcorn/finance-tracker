@@ -1,3 +1,9 @@
+## v1.35.0 (2026-11-01)
+
+### Feat
+
+- **client**: build the Quick Expenses screen (#336)
+
 ## v1.34.0 (2026-11-01)
 
 ### Feat
