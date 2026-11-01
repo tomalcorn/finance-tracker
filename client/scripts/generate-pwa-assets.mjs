@@ -7,33 +7,24 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 const pwa = JSON.parse(readFileSync(new URL('../src/pwa.json', import.meta.url), 'utf8'));
 const publicDir = new URL('../public/', import.meta.url);
 
-/** The chart's points, left to right, in the mark's 100-unit square. */
-const CHART = [
-  [20, 70],
-  [36, 52],
-  [50, 60],
-  [80, 30],
-];
-const CHART_FLOOR = 80;
-const LINE_WIDTH = 6;
-const END_DOT_RADIUS = 6;
-const FILL_OPACITY = 0.35;
-
-/** A rising line chart, with a fill that fades out beneath it, drawn in a 100-unit square. */
+/**
+ * A rising line chart, with a fill that fades out beneath it, drawn in a 100-unit square. The same
+ * shape as `components/AppIcon.tsx`, from the same `mark` settings.
+ */
 function mark() {
-  const points = CHART.map(([x, y]) => `${x} ${y}`).join(' L');
-  const [[firstX], [lastX, lastY]] = [CHART[0], CHART.at(-1)];
-  const color = pwa.mark.color;
+  const { color, chart, floor, lineWidth, dotRadius, fillOpacity } = pwa.mark;
+  const points = chart.map(([x, y]) => `${x} ${y}`).join(' L');
+  const [[firstX], [lastX, lastY]] = [chart[0], chart.at(-1)];
   return `<defs>
     <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="${color}" stop-opacity="${FILL_OPACITY}"/>
+      <stop offset="0" stop-color="${color}" stop-opacity="${fillOpacity}"/>
       <stop offset="1" stop-color="${color}" stop-opacity="0"/>
     </linearGradient>
   </defs>
-  <path d="M${points} V${CHART_FLOOR} H${firstX} Z" fill="url(#fade)"/>
-  <path d="M${points}" fill="none" stroke="${color}" stroke-width="${LINE_WIDTH}"
+  <path d="M${points} V${floor} H${firstX} Z" fill="url(#fade)"/>
+  <path d="M${points}" fill="none" stroke="${color}" stroke-width="${lineWidth}"
     stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="${lastX}" cy="${lastY}" r="${END_DOT_RADIUS}" fill="${color}"/>`;
+  <circle cx="${lastX}" cy="${lastY}" r="${dotRadius}" fill="${color}"/>`;
 }
 
 /** The mark, `markSize` pixels square, centred on the background colour, as a PNG of `width` × `height`. */

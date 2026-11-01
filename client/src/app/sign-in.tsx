@@ -2,16 +2,15 @@ import { Redirect, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/AuthProvider';
+import { AppIcon } from '@/components/AppIcon';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { CenteredStatus } from '@/components/CenteredStatus';
 import { Screen } from '@/components/Screen';
-import { useAppTheme } from '@/theme/theme';
-import { RADIUS, SPACING } from '@/theme/tokens';
+import { SPACING } from '@/theme/tokens';
 
 export default function SignInScreen() {
   const { state, login } = useAuth();
-  const { colors } = useAppTheme();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
   switch (state.status) {
@@ -25,10 +24,8 @@ export default function SignInScreen() {
       return (
         <Screen centred>
           <View style={styles.brand}>
-            <View style={[styles.mark, { backgroundColor: colors.accent }]}>
-              <AppText variant="title" style={{ color: colors.onAccent }}>
-                £
-              </AppText>
+            <View style={styles.icon}>
+              <AppIcon size={64} />
             </View>
             <AppText variant="title">Finance Tracker</AppText>
             <AppText tone="muted">Budgets, bills and savings in one place.</AppText>
@@ -46,13 +43,6 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   brand: { alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.lg },
-  mark: {
-    width: 64,
-    height: 64,
-    borderRadius: RADIUS.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.sm,
-  },
+  icon: { marginBottom: SPACING.sm },
   centre: { textAlign: 'center' },
 });

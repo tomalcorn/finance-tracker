@@ -1,14 +1,16 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
   useWindowDimensions,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -31,6 +33,17 @@ const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 const OPEN = { stiffness: 380, damping: 36, mass: 1, useNativeDriver: USE_NATIVE_DRIVER };
 const CLOSE_MS = 180;
 const MAX_DIALOG_WIDTH = 480;
+/** How far, or how fast in px/ms, a drag down must go for the sheet to close on release. */
+const DISMISS_DISTANCE = 120;
+const DISMISS_VELOCITY = 0.8;
+/** Dragging up past the open position moves the sheet this much for every 100px of finger travel. */
+const OVERDRAG_RATIO = 0.1;
+
+// The browser would otherwise take a touch drag on the handle as a page scroll or pull-to-refresh.
+const NO_TOUCH_SCROLL = Platform.select<ViewStyle>({
+  web: { touchAction: 'none', userSelect: 'none' } as ViewStyle,
+  default: {},
+});
 
 /**
  * A panel over the current screen, for adding or editing something: a sheet sliding up from the
@@ -44,12 +57,31 @@ export function Sheet({ visible, onClose, title, children, footer }: SheetProps)
   const wide = width >= WIDE_BREAKPOINT;
   const [mounted, setMounted] = useState(visible);
   const [progress] = useState(() => new Animated.Value(0));
+  const [drag] = useState(() => new Animated.Value(0));
+  const dragHandlers = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, { dx, dy }) =>
+          Math.abs(dy) > 4 && Math.abs(dy) > Math.abs(dx),
+        onPanResponderMove: (_, { dy }) => drag.setValue(dy),
+        onPanResponderRelease: (_, { dy, vy }) => {
+          if (dy > DISMISS_DISTANCE || vy > DISMISS_VELOCITY) {
+            onClose();
+            return;
+          }
+          Animated.spring(drag, { toValue: 0, ...OPEN }).start();
+        },
+        onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, ...OPEN }).start(),
+      }),
+    [drag, onClose],
+  );
 
   if (visible && !mounted) setMounted(true);
 
   useEffect(() => {
     if (!mounted) return;
     if (visible) {
+      drag.setValue(0);
       Animated.spring(progress, { toValue: 1, ...OPEN }).start();
       return;
     }
@@ -60,7 +92,7 @@ export function Sheet({ visible, onClose, title, children, footer }: SheetProps)
     }).start(({ finished }) => {
       if (finished) setMounted(false);
     });
-  }, [mounted, progress, visible]);
+  }, [drag, mounted, progress, visible]);
 
   const panelMotion = wide
     ? {
@@ -71,7 +103,15 @@ export function Sheet({ visible, onClose, title, children, footer }: SheetProps)
       }
     : {
         transform: [
-          { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] }) },
+          {
+            translateY: Animated.add(
+              progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] }),
+              drag.interpolate({
+                inputRange: [-100, 0, 100],
+                outputRange: [-100 * OVERDRAG_RATIO, 0, 100],
+              }),
+            ),
+          },
         ],
       };
 
@@ -112,16 +152,21 @@ export function Sheet({ visible, onClose, title, children, footer }: SheetProps)
             panelMotion,
           ]}
         >
-          {wide ? null : <View style={[styles.grabber, { backgroundColor: colors.border }]} />}
-          <View style={styles.header}>
-            <AppText variant="heading" style={styles.title}>
-              {title}
-            </AppText>
-            <Pressable role="button" onPress={onClose} hitSlop={SPACING.md}>
-              <AppText variant="label" tone="accent">
-                Close
+          <View
+            {...(wide ? {} : dragHandlers.panHandlers)}
+            style={[styles.handleArea, !wide && NO_TOUCH_SCROLL]}
+          >
+            {wide ? null : <View style={[styles.grabber, { backgroundColor: colors.border }]} />}
+            <View style={styles.header}>
+              <AppText variant="heading" style={styles.title}>
+                {title}
               </AppText>
-            </Pressable>
+              <Pressable role="button" onPress={onClose} hitSlop={SPACING.md}>
+                <AppText variant="label" tone="accent">
+                  Close
+                </AppText>
+              </Pressable>
+            </View>
           </View>
           <ScrollView
             keyboardShouldPersistTaps="handled"
@@ -154,6 +199,7 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.lg,
   },
   grabber: { alignSelf: 'center', width: 36, height: 5, borderRadius: RADIUS.pill },
+  handleArea: { gap: SPACING.md },
   header: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   title: { flex: 1 },
   scroll: { flexGrow: 0 },

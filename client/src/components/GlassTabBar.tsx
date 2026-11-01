@@ -25,10 +25,12 @@ type GlassTabBarProps = {
 const BAR_HEIGHT = 64;
 const BAR_PADDING = 6;
 const MAX_BAR_WIDTH = 420;
+/** How far the bar may dip into the bottom safe area: it stops just above the home indicator. */
+const SAFE_AREA_OVERLAP = 20;
 
 /** How far above the bottom edge the floating bar sits, given the bottom safe-area inset. */
 function barOffset(bottomInset: number): number {
-  return Math.max(bottomInset - SPACING.md, SPACING.md);
+  return Math.max(bottomInset - SAFE_AREA_OVERLAP, SPACING.md);
 }
 
 /** The space a screen leaves below its content so the floating bar never covers it. */
