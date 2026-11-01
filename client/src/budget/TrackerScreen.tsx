@@ -1,10 +1,11 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { BudgetRow } from '@/budget/BudgetRow';
 import { BudgetForm, CategoryForm } from '@/budget/CategoryForm';
 import { categoryDraftRow, trackerBudgetError, type CategoryDraft } from '@/budget/categoryDraft';
+import { Figure, Figures } from '@/budget/Figures';
 import { childrenOf, holdsPots, nearlySpent, takesSubcategories } from '@/budget/trackers';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -20,14 +21,15 @@ import { SPACING } from '@/theme/tokens';
 
 type TrackerScreenProps = { ownership: OwnershipType };
 
-/** What the sheet is editing: the tracker's own budget, or one of its subcategories. */
-type SheetTarget = { kind: 'budget' } | { kind: 'category'; category: CategoryView | null };
+/** What the sheet is for: the tracker's own budget, or adding a subcategory. */
+type SheetTarget = { kind: 'budget' } | { kind: 'new' };
 
 /** One budget tracker: its figures for the month, and the subcategories it is broken into. */
 export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const categoriesRepository = useRepositories().categories(ownership);
   const categories = useRows(categoriesRepository);
+  const router = useRouter();
   const [sheet, setSheet] = useState<{ target: SheetTarget; key: number } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const closeSheet = useCallback(() => setSheetOpen(false), []);
@@ -57,16 +59,19 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
     setSheetOpen(true);
   }
 
-  async function saveCategory(draft: CategoryDraft, category: CategoryView | null) {
+  async function addCategory(draft: CategoryDraft) {
     if (!tracker) return;
-    const row = categoryDraftRow(draft, tracker, pots, category);
+    const row = categoryDraftRow(draft, tracker, pots, null);
     await categoriesRepository.save(await categoriesRepository.build([row]));
     closeSheet();
   }
 
-  async function deleteCategory(category: CategoryView) {
-    await categoriesRepository.delete([category.id]);
-    closeSheet();
+  function show(category: CategoryView) {
+    router.push(
+      ownership === 'personal'
+        ? { pathname: '/personal/category/[id]', params: { id: category.id } }
+        : { pathname: '/joint/category/[id]', params: { id: category.id } },
+    );
   }
 
   async function saveBudget(text: string) {
@@ -77,21 +82,14 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   }
 
   const target = sheet?.target;
-  const editing = target?.kind === 'category' ? target.category : null;
   const sheetTitle =
-    target?.kind === 'budget'
-      ? `${tracker.name} budget`
-      : editing
-        ? `Edit ${editing.name}`
-        : pots
-          ? 'New pot'
-          : 'New subcategory';
+    target?.kind === 'budget' ? `${tracker.name} budget` : pots ? 'New pot' : 'New subcategory';
 
   return (
     <>
       <Screen title={tracker.name} back>
         <Card>
-          <View style={styles.figures}>
+          <Figures>
             <Figure label="Budget" value={tracker.budget} />
             <Figure label="Spent" value={tracker.accrued} />
             <Figure
@@ -99,7 +97,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
               value={tracker.remaining}
               negative={tracker.remaining < 0}
             />
-          </View>
+          </Figures>
           <ProgressBar
             progress={tracker.progress / 100}
             warn={nearlySpent(tracker) || tracker.remaining < 0}
@@ -142,7 +140,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
                     leftLabel="to go"
                     goal
                     progress={category.progress}
-                    onPress={() => open({ kind: 'category', category })}
+                    onPress={() => show(category)}
                   />
                 ) : (
                   <BudgetRow
@@ -152,7 +150,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
                     left={category.remaining}
                     progress={category.progress}
                     warn={nearlySpent(category)}
-                    onPress={() => open({ kind: 'category', category })}
+                    onPress={() => show(category)}
                   />
                 ),
               )
@@ -164,7 +162,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
           <Button
             title={pots ? 'Add a pot' : 'Add a subcategory'}
             variant="secondary"
-            onPress={() => open({ kind: 'category', category: null })}
+            onPress={() => open({ kind: 'new' })}
           />
         ) : null}
       </Screen>
@@ -181,11 +179,11 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
         ) : target ? (
           <CategoryForm
             key={sheet?.key}
-            category={editing}
+            category={null}
             root={tracker}
             pot={pots}
-            onSave={(draft) => saveCategory(draft, editing)}
-            onDelete={() => (editing ? deleteCategory(editing) : Promise.resolve())}
+            onSave={addCategory}
+            onDelete={() => Promise.resolve()}
             onCancel={closeSheet}
           />
         ) : null}
@@ -194,35 +192,6 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   );
 }
 
-/** One headline figure: a small label over an amount. */
-function Figure({
-  label,
-  value,
-  negative = false,
-}: {
-  label: string;
-  value: number;
-  negative?: boolean;
-}) {
-  return (
-    <View
-      accessible
-      aria-label={`${formatAmount(Math.abs(value))} ${label.toLowerCase()}`}
-      style={styles.figure}
-    >
-      <AppText variant="caption" tone="muted">
-        {label}
-      </AppText>
-      <AppText variant="heading" tone={negative ? 'negative' : 'default'} style={styles.amount}>
-        {formatAmount(Math.abs(value))}
-      </AppText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  figures: { flexDirection: 'row', gap: SPACING.md },
-  figure: { flex: 1, gap: 2 },
-  amount: { fontVariant: ['tabular-nums'] },
   empty: { padding: SPACING.lg },
 });

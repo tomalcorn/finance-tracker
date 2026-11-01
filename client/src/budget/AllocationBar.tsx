@@ -27,9 +27,9 @@ type AllocationBarProps = {
 };
 
 /**
- * Income split between the trackers: one bar, a segment per tracker's budget, and what is left
- * unallocated. Once the budgets add up to more than the income, the bar is scaled to the budgets and
- * the overspend is called out.
+ * Income split between the trackers: one bar, a segment per tracker’s budget from the largest down,
+ * then what is left unallocated. Once the budgets add up to more than the income, the bar is scaled
+ * to the budgets and the overspend is called out.
  */
 export function AllocationBar({ trackers, income }: AllocationBarProps) {
   const { colors, dark } = useAppTheme();
@@ -37,8 +37,9 @@ export function AllocationBar({ trackers, income }: AllocationBarProps) {
   const allocated = trackers.reduce((total, tracker) => total + tracker.budget, 0);
   const left = income - allocated;
   const whole = Math.max(income, allocated);
+  const largestFirst = [...trackers].sort((a, b) => b.budget - a.budget);
   const segments = [
-    ...trackers.map((tracker) => ({
+    ...largestFirst.map((tracker) => ({
       key: tracker.id,
       value: tracker.budget,
       colour: colourOf(tracker.name),
@@ -64,7 +65,7 @@ export function AllocationBar({ trackers, income }: AllocationBarProps) {
           : null}
       </View>
       <View style={styles.legend}>
-        {trackers.map((tracker) => (
+        {largestFirst.map((tracker) => (
           <View key={tracker.id} style={styles.key}>
             <View style={[styles.swatch, { backgroundColor: colourOf(tracker.name) }]} />
             <AppText variant="caption" tone="muted">

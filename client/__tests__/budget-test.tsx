@@ -8,6 +8,7 @@ import type { Services } from '@/composition/createServices';
 import { ServicesFactoryProvider } from '@/composition/ServicesProvider';
 import type { StoredRow, TableGateway } from '@/data/gateway';
 import { createRepositories } from '@/data/repositories';
+import { today } from '@/domain/entities';
 
 const APP_DIR = './src/app';
 const USER_ID = 'auth0|test';
@@ -195,21 +196,72 @@ describe('tracker detail', () => {
     expect(await screen.findByLabelText('£1,300.00 budget')).toBeOnTheScreen();
   });
 
-  it('deletes a subcategory once confirmed', async () => {
-    await renderAt(`/personal/tracker/${EXPENSES_ID}`);
-    await fireEvent.press(await screen.findByRole('button', { name: 'Groceries' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
-
-    expect(await screen.findByText(/No subcategories yet/)).toBeOnTheScreen();
-  });
-
   it('offers no subcategories on a tracker that is one pot', async () => {
     await renderAt(`/personal/tracker/${SAVINGS_ID}`);
     await screen.findByRole('button', { name: 'Change budget' });
 
     expect(screen.queryByRole('button', { name: 'Add a subcategory' })).not.toBeOnTheScreen();
+  });
+});
+
+/** A stored expense booked to a category. */
+function expense(id: string, name: string, amount: number, date: string, categoryId: string) {
+  return {
+    ...OWNED,
+    id,
+    name,
+    payment_date: date,
+    payment_type: 'expense',
+    expense: amount,
+    income: 0,
+    checked: false,
+    bank_account_id: '3c4d5e6f-0000-4000-8000-000000000001',
+    category_id: categoryId,
+    income_source_id: null,
+    subscription_id: null,
+    linked_payment_id: null,
+  };
+}
+
+describe('subcategory', () => {
+  it('lists this month’s payments booked to it', async () => {
+    tables.payments = [
+      expense('4d5e6f70-0000-4000-8000-000000000001', 'Tesco', 46.2, today(), GROCERIES_ID),
+      expense('4d5e6f70-0000-4000-8000-000000000002', 'Aldi', 30, '2020-01-15', GROCERIES_ID),
+      expense('4d5e6f70-0000-4000-8000-000000000003', 'Bus', 2, today(), EXPENSES_ID),
+    ];
+    await renderAt(`/personal/category/${GROCERIES_ID}`);
+    await screen.findByText('Tesco');
+
+    expect(screen.queryByText('Aldi')).not.toBeOnTheScreen();
+  });
+
+  it('is opened from its tracker', async () => {
+    await renderAt(`/personal/tracker/${EXPENSES_ID}`);
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Groceries' }));
+
+    expect(await screen.findByText('No payments this month.')).toBeOnTheScreen();
+  });
+
+  it('is edited from its own screen', async () => {
+    await renderAt(`/personal/category/${GROCERIES_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
+    await fireEvent.changeText(screen.getByLabelText('Monthly budget'), '450');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByLabelText('£450.00 budget')).toBeOnTheScreen();
+  });
+
+  it('is deleted once confirmed', async () => {
+    await renderAt(`/personal/category/${GROCERIES_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(await screen.findByText(/No subcategories yet/)).toBeOnTheScreen();
   });
 });
 

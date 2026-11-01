@@ -1,11 +1,12 @@
 import {
   childrenOf,
+  paymentsCountedIn,
   roots,
   takesSubcategories,
   totalAllocated,
   totalIncome,
 } from '@/budget/trackers';
-import type { CategoryView, IncomeSourceView } from '@/domain/readModels';
+import type { CategoryView, IncomeSourceView, PaymentView } from '@/domain/readModels';
 
 function category(id: string, name: string, parentId: string | null = null): CategoryView {
   return {
@@ -84,5 +85,50 @@ describe('totals', () => {
 
   it('adds up the trackers’ budgets', () => {
     expect(totalAllocated([category('1', 'Expenses'), category('2', 'Savings')])).toBe(200);
+  });
+});
+
+describe('paymentsCountedIn', () => {
+  const groceries = category('1', 'Groceries', '9');
+  const bike = { ...category('2', 'Bike', '8'), accrual: 'multi_month' as const };
+
+  function payment(id: string, categoryId: string, date: string): PaymentView {
+    return {
+      id,
+      user_id: 'auth0|test',
+      name: id,
+      _created_at: '2026-10-01T09:30:12.345678+00:00',
+      ownership_type: 'personal',
+      joint_account_id: null,
+      payment_date: date,
+      payment_type: 'expense',
+      expense: 10,
+      income: 0,
+      checked: false,
+      bank_account_id: 'b',
+      category_id: categoryId,
+      income_source_id: null,
+      subscription_id: null,
+      linked_payment_id: null,
+    };
+  }
+
+  const payments = [
+    payment('old', '1', '2026-10-31'),
+    payment('first', '1', '2026-11-01'),
+    payment('latest', '1', '2026-11-20'),
+    payment('other', '3', '2026-11-05'),
+    payment('banked', '2', '2026-03-01'),
+  ];
+
+  it('counts a monthly subcategory’s payments this month, newest first', () => {
+    expect(paymentsCountedIn(payments, groceries, '2026-11-25').map((p) => p.id)).toEqual([
+      'latest',
+      'first',
+    ]);
+  });
+
+  it('counts everything paid into a pot', () => {
+    expect(paymentsCountedIn(payments, bike, '2026-11-25').map((p) => p.id)).toEqual(['banked']);
   });
 });

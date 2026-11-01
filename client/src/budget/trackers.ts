@@ -1,6 +1,7 @@
 import type { SymbolViewProps } from 'expo-symbols';
 
-import type { CategoryView, IncomeSourceView } from '@/domain/readModels';
+import type { CategoryView, IncomeSourceView, PaymentView } from '@/domain/readModels';
+import { sameMonth } from '@/theme/formatDate';
 
 /** The budget trackers every workspace is seeded with, in the order they are shown. */
 export const TRACKER_ORDER = ['Expenses', 'Joint', 'One-offs', 'Savings'] as const;
@@ -55,6 +56,26 @@ export function totalIncome(incomeSources: readonly IncomeSourceView[]): number 
 /** The sum of the trackers' monthly budgets. */
 export function totalAllocated(trackers: readonly CategoryView[]): number {
   return trackers.reduce((total, tracker) => total + tracker.budget, 0);
+}
+
+/**
+ * The payments counted towards a subcategory, newest first: a pot's every payment, since it
+ * fills up across months, or this month's for anything else.
+ */
+export function paymentsCountedIn(
+  payments: readonly PaymentView[],
+  category: CategoryView,
+  today: string,
+): PaymentView[] {
+  const pot = category.accrual === 'multi_month';
+  return payments
+    .filter(
+      (payment) =>
+        payment.payment_type === 'expense' &&
+        payment.category_id === category.id &&
+        (pot || sameMonth(payment.payment_date, today)),
+    )
+    .sort((a, b) => b.payment_date.localeCompare(a.payment_date) || a.name.localeCompare(b.name));
 }
 
 /** Whether a budget is close enough to spent to warn: 90% used, or more. */
