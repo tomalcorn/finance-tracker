@@ -1,5 +1,6 @@
 import type { PaymentView } from '@/domain/readModels';
 import {
+  byCategory,
   byDay,
   filterPayments,
   monthOf,
@@ -100,6 +101,30 @@ describe('byDay', () => {
 
   it('nets each day', () => {
     expect(byDay([LUNCH, COFFEE, SALARY]).map((day) => day.net)).toEqual([-11.4, 2500]);
+  });
+});
+
+describe('byCategory', () => {
+  const GROCERIES = payment('Groceries', '2026-11-02', { expense: 40, category_id: 'groceries' });
+  const UNFILED = payment('Unfiled', '2026-11-04', { expense: 5 });
+
+  it('puts the category spent on most first', () => {
+    expect(byCategory([UNFILED, GROCERIES]).map((group) => group.categoryId)).toEqual([
+      'groceries',
+      null,
+    ]);
+  });
+
+  it('adds up what each category spent', () => {
+    expect(byCategory([GROCERIES, LUNCH, UNFILED]).map((group) => group.total)).toEqual([40, 13]);
+  });
+
+  it('keeps the payments’ order within a category', () => {
+    expect(byCategory([LUNCH, COFFEE])[0]?.payments).toEqual([LUNCH, COFFEE]);
+  });
+
+  it('leaves income out', () => {
+    expect(byCategory([SALARY])).toEqual([]);
   });
 });
 

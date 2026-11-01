@@ -62,6 +62,29 @@ export function byDay(payments: readonly PaymentView[]): PaymentDay[] {
   return days;
 }
 
+/** One category's spending: its id (null for none), its expenses in order, and their total. */
+export type CategorySpend = { categoryId: string | null; payments: PaymentView[]; total: number };
+
+/**
+ * The expenses among some payments, grouped by category, the most spent first, each group keeping
+ * the payments' order. Income is left out.
+ */
+export function byCategory(payments: readonly PaymentView[]): CategorySpend[] {
+  const groups = new Map<string | null, CategorySpend>();
+  for (const payment of payments) {
+    if (payment.payment_type !== 'expense') continue;
+    const group = groups.get(payment.category_id) ?? {
+      categoryId: payment.category_id,
+      payments: [],
+      total: 0,
+    };
+    group.payments.push(payment);
+    group.total += payment.expense;
+    groups.set(payment.category_id, group);
+  }
+  return [...groups.values()].sort((a, b) => b.total - a.total);
+}
+
 /** What went out and came in across some payments, each as a positive amount. */
 export function totals(payments: readonly PaymentView[]): { out: number; in: number } {
   return payments.reduce(

@@ -229,6 +229,36 @@ describe('payments list', () => {
   });
 });
 
+describe('spending by category', () => {
+  it('groups money out by category', async () => {
+    await renderAt('/personal/payments');
+    await screen.findByRole('button', { name: 'Coffee' });
+
+    await fireEvent.press(screen.getByRole('radio', { name: 'By category' }));
+
+    expect(screen.getByText('1 payment · 100% of spending')).toBeOnTheScreen();
+  });
+
+  it('leaves money in out', async () => {
+    await renderAt('/personal/payments');
+    await screen.findByRole('button', { name: 'Coffee' });
+
+    await fireEvent.press(screen.getByRole('radio', { name: 'By category' }));
+
+    expect(screen.queryByRole('button', { name: 'Salary' })).not.toBeOnTheScreen();
+  });
+
+  it('opens a category to its payments', async () => {
+    await renderAt('/personal/payments');
+    await screen.findByRole('button', { name: 'Coffee' });
+    await fireEvent.press(screen.getByRole('radio', { name: 'By category' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Groceries' }));
+
+    expect(screen.getByRole('button', { name: 'Coffee' })).toBeOnTheScreen();
+  });
+});
+
 describe('adding a payment', () => {
   async function addExpense(name: string, amount: string) {
     await fireEvent.press(await screen.findByRole('button', { name: 'Add' }));

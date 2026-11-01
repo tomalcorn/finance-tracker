@@ -16,10 +16,12 @@ import { today, type OwnershipType } from '@/domain/entities';
 import type { PaymentView } from '@/domain/readModels';
 import { useRepositories, useRows } from '@/hooks/repositories';
 import { categoryOptions, nameOptions } from '@/lookups';
+import { CategoryGroup } from '@/payments/CategoryGroup';
 import { PaymentForm } from '@/payments/PaymentForm';
 import { PaymentRow } from '@/payments/PaymentRow';
 import { paymentDraftOf, paymentRow, type PaymentDraft } from '@/payments/paymentDraft';
 import {
+  byCategory,
   byDay,
   filterPayments,
   monthOf,
@@ -38,6 +40,14 @@ const KINDS: readonly { value: PaymentKind; label: string }[] = [
   { value: 'income', label: 'In' },
 ];
 
+/** How the month is laid out: a list of days, or what was spent in each category. */
+type Layout = 'days' | 'categories';
+
+const LAYOUTS: readonly { value: Layout; label: string }[] = [
+  { value: 'days', label: 'By day' },
+  { value: 'categories', label: 'By category' },
+];
+
 const PREVIOUS: SymbolViewProps['name'] = { ios: 'chevron.left', web: 'chevron_left' };
 const NEXT: SymbolViewProps['name'] = { ios: 'chevron.right', web: 'chevron_right' };
 
@@ -50,8 +60,9 @@ function messageOf(error: unknown): string {
 }
 
 /**
- * A month of payments, money out and in, grouped by day with the newest first. Each can be ticked
- * as checked from the list, or opened to edit or delete; Add opens an empty one.
+ * A month of payments, money out and in, grouped by day with the newest first, or the money out
+ * broken down by category, the most spent first. Each payment can be ticked as checked from the
+ * list, or opened to edit or delete; Add opens an empty one.
  */
 export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
   const repositories = useRepositories();
@@ -61,7 +72,9 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
   const categories = useRows(repositories.categories(ownership));
   const incomeSources = useRows(repositories.incomeSources(ownership));
   const [month, setMonth] = useState(() => monthOf(today()));
+  const [layout, setLayout] = useState<Layout>('days');
   const [kind, setKind] = useState<PaymentKind>('all');
+  const [expanded, setExpanded] = useState<ReadonlySet<string | null>>(() => new Set());
   const [search, setSearch] = useState('');
   const [sheet, setSheet] = useState<(SheetTarget & { key: number }) | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -88,10 +101,31 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
       .join(' · ');
   }
 
+  /** A payment in its category's group, which already names the category. */
+  function describeInCategory(payment: PaymentView): string {
+    const account = labels.get(payment.bank_account_id);
+    return [formatDay(payment.payment_date), account].filter(Boolean).join(' · ');
+  }
+
+  function toggleGroup(categoryId: string | null) {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (!next.delete(categoryId)) next.add(categoryId);
+      return next;
+    });
+  }
+
   const all = payments.data ?? [];
   const inMonth = filterPayments(all, { month, kind: 'all', search: '' });
-  const shown = filterPayments(all, { month, kind, search }, describe);
+  const byCategories = layout === 'categories';
+  const shown = filterPayments(
+    all,
+    { month, kind: byCategories ? 'expense' : kind, search },
+    describe,
+  );
   const days = byDay(shown);
+  const groups = byCategory(shown);
+  const spent = groups.reduce((sum, group) => sum + group.total, 0);
   const monthTotals = totals(inMonth);
   const monthDate = `${month}-01`;
 
@@ -133,7 +167,7 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
   }
 
   const lookupError = bankAccounts.error ?? categories.error ?? incomeSources.error;
-  const searching = search.trim() !== '' || kind !== 'all';
+  const searching = search.trim() !== '' || (!byCategories && kind !== 'all');
 
   return (
     <View style={styles.fill}>
@@ -164,7 +198,14 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
           </Figures>
         </Card>
 
-        <SegmentedControl label="Show" value={kind} options={KINDS} onChange={setKind} />
+        <SegmentedControl label="Group" value={layout} options={LAYOUTS} onChange={setLayout} />
+        {byCategories ? (
+          <AppText variant="caption" tone="muted">
+            Money out, by the budget tracker or category it came out of.
+          </AppText>
+        ) : (
+          <SegmentedControl label="Show" value={kind} options={KINDS} onChange={setKind} />
+        )}
         <TextField
           label="Search"
           value={search}
@@ -180,13 +221,35 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
           <AppText tone="negative">Could not load your payments: {payments.error.message}</AppText>
         ) : payments.isPending ? (
           <AppText tone="muted">Loading…</AppText>
-        ) : days.length === 0 ? (
+        ) : shown.length === 0 ? (
           <Card>
             <AppText tone="muted">
               {searching
                 ? 'Nothing here matches.'
-                : `No payments in ${formatMonthYear(monthDate)}. Add one to start.`}
+                : byCategories
+                  ? `Nothing spent in ${formatMonthYear(monthDate)}.`
+                  : `No payments in ${formatMonthYear(monthDate)}. Add one to start.`}
             </AppText>
+          </Card>
+        ) : byCategories ? (
+          <Card list>
+            {groups.map((group) => (
+              <CategoryGroup
+                key={group.categoryId ?? ''}
+                group={group}
+                label={
+                  group.categoryId === null
+                    ? 'No category'
+                    : (labels.get(group.categoryId) ?? 'Unknown category')
+                }
+                spent={spent}
+                expanded={expanded.has(group.categoryId)}
+                onToggle={() => toggleGroup(group.categoryId)}
+                describe={describeInCategory}
+                onOpenPayment={open}
+                onToggleChecked={(payment) => void toggleChecked(payment)}
+              />
+            ))}
           </Card>
         ) : (
           days.map((day) => (
