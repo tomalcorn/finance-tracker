@@ -286,24 +286,18 @@ describe('subcategory', () => {
 
   it('changes its budget in place', async () => {
     await renderAt(`/personal/category/${GROCERIES_ID}`);
-    await fireEvent.press(
-      await screen.findByRole('button', { name: 'Monthly budget £400.00, edit' }),
-    );
-    await fireEvent.changeText(screen.getByLabelText('Monthly budget'), '450');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Budget £400.00, edit' }));
+    await fireEvent.changeText(screen.getByLabelText('Budget'), '450');
 
-    await fireEvent(screen.getByLabelText('Monthly budget'), 'submitEditing');
+    await fireEvent(screen.getByLabelText('Budget'), 'submitEditing');
 
-    expect(
-      await screen.findByRole('button', { name: 'Monthly budget £450.00, edit' }),
-    ).toBeOnTheScreen();
+    expect(await screen.findByRole('button', { name: 'Budget £450.00, edit' })).toBeOnTheScreen();
   });
 
   it('saves nothing on Escape', async () => {
     await renderAt(`/personal/category/${GROCERIES_ID}`);
-    await fireEvent.press(
-      await screen.findByRole('button', { name: 'Monthly budget £400.00, edit' }),
-    );
-    const input = screen.getByLabelText('Monthly budget');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Budget £400.00, edit' }));
+    const input = screen.getByLabelText('Budget');
     await fireEvent.changeText(input, '999');
 
     await fireEvent(input, 'keyPress', { nativeEvent: { key: 'Escape' } });
@@ -314,12 +308,10 @@ describe('subcategory', () => {
 
   it('won’t save an amount that isn’t one', async () => {
     await renderAt(`/personal/category/${GROCERIES_ID}`);
-    await fireEvent.press(
-      await screen.findByRole('button', { name: 'Monthly budget £400.00, edit' }),
-    );
-    await fireEvent.changeText(screen.getByLabelText('Monthly budget'), '-5');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Budget £400.00, edit' }));
+    await fireEvent.changeText(screen.getByLabelText('Budget'), '-5');
 
-    await fireEvent(screen.getByLabelText('Monthly budget'), 'submitEditing');
+    await fireEvent(screen.getByLabelText('Budget'), 'submitEditing');
 
     expect(screen.getByText('Enter an amount of 0 or more.')).toBeOnTheScreen();
   });

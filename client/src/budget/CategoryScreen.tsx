@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { CategoryForm } from '@/budget/CategoryForm';
 import {
@@ -104,65 +104,71 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
         action={<Button title="Edit" variant="plain" onPress={edit} />}
       >
         <AppText tone="muted">{root.name}</AppText>
-        <Card>
-          {pot ? (
-            <Figures>
-              <Figure label="Saved" value={category.accrued} />
-              <Figure label={goalReached ? 'Extra' : 'To go'} value={category.remaining} />
-            </Figures>
-          ) : (
-            <Figures>
-              <Figure label="Spent" value={category.accrued} />
-              <Figure
-                label={category.remaining < 0 ? 'Over budget' : 'Left'}
-                value={category.remaining}
-                negative={category.remaining < 0}
-              />
-            </Figures>
-          )}
-          <ProgressBar
-            progress={category.progress / 100}
-            warn={!pot && (nearlySpent(category) || category.remaining < 0)}
-          />
-          <AppText variant="caption" tone="muted">
-            {pot
-              ? `${Math.round(category.progress)}% of the cost saved`
-              : `${Math.round(category.progress)}% used · ${Math.round(category.split)}% of ${root.name}`}
-          </AppText>
-        </Card>
-
         {pot ? (
-          <FigureCards>
-            <EditableFigure
-              label="Cost"
-              value={category.cost}
-              validate={trackerBudgetError}
-              onSave={(amount) => saveField('cost', amount)}
-            />
-            <EditableFigure
-              label="Planned"
-              caption="This month"
-              value={category.budget}
-              validate={trackerBudgetError}
-              onSave={(amount) => saveField('budget', amount)}
-            />
-            <EditableFigure
-              label="Opening"
-              caption="Saved before"
-              value={category.starting_balance}
-              validate={signedAmountError}
-              onSave={(amount) => saveField('starting_balance', amount)}
-            />
-          </FigureCards>
+          <>
+            <Card>
+              <Figures>
+                <Figure label="Saved" value={category.accrued} />
+                <Figure label={goalReached ? 'Extra' : 'To go'} value={category.remaining} />
+              </Figures>
+              <ProgressBar progress={category.progress / 100} />
+              <AppText variant="caption" tone="muted">
+                {Math.round(category.progress)}% of the cost saved
+              </AppText>
+            </Card>
+            <FigureCards>
+              <EditableFigure
+                label="Cost"
+                value={category.cost}
+                validate={trackerBudgetError}
+                onSave={(amount) => saveField('cost', amount)}
+              />
+              <EditableFigure
+                label="Planned"
+                caption="This month"
+                value={category.budget}
+                validate={trackerBudgetError}
+                onSave={(amount) => saveField('budget', amount)}
+              />
+              <EditableFigure
+                label="Opening"
+                caption="Saved before"
+                value={category.starting_balance}
+                validate={signedAmountError}
+                onSave={(amount) => saveField('starting_balance', amount)}
+              />
+            </FigureCards>
+          </>
         ) : (
-          <FigureCards>
+          <View style={styles.summary}>
+            <View style={styles.figures}>
+              <Card>
+                <Figures>
+                  <Figure label="Spent" value={category.accrued} />
+                  <Figure
+                    label={category.remaining < 0 ? 'Over budget' : 'Left'}
+                    value={category.remaining}
+                    negative={category.remaining < 0}
+                  />
+                </Figures>
+                <ProgressBar
+                  progress={category.progress / 100}
+                  warn={nearlySpent(category) || category.remaining < 0}
+                />
+                <AppText variant="caption" tone="muted">
+                  {Math.round(category.progress)}% used · {Math.round(category.split)}% of{' '}
+                  {root.name}
+                </AppText>
+              </Card>
+            </View>
             <EditableFigure
-              label="Monthly budget"
+              label="Budget"
+              caption="Monthly"
               value={category.budget}
               validate={trackerBudgetError}
               onSave={(amount) => saveField('budget', amount)}
             />
-          </FigureCards>
+          </View>
         )}
 
         <Card
@@ -213,4 +219,7 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
 
 const styles = StyleSheet.create({
   message: { padding: SPACING.lg },
+  // The figures beside the budget card: twice its width, and the two the same height.
+  summary: { flexDirection: 'row', gap: SPACING.md },
+  figures: { flex: 2 },
 });
