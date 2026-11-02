@@ -19,6 +19,7 @@ import { CategoryGroup } from '@/payments/CategoryGroup';
 import { PaymentForm } from '@/payments/PaymentForm';
 import { PaymentRow } from '@/payments/PaymentRow';
 import { SearchSuggestions } from '@/payments/SearchSuggestions';
+import { useOptimisticChecks } from '@/payments/useOptimisticChecks';
 import { paymentDraftOf, paymentRow, type PaymentDraft } from '@/payments/paymentDraft';
 import {
   byCategory,
@@ -91,6 +92,12 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
   const closeSheet = useCallback(() => setSheetOpen(false), []);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const dismissToast = useCallback(() => setToast(null), []);
+  const checks = useOptimisticChecks(
+    async (payment, checked) => {
+      await paymentsRepository.save(await paymentsRepository.build([{ ...payment, checked }]));
+    },
+    (payment, error) => notify(`Could not update ${payment.name}: ${messageOf(error)}`),
+  );
 
   const bankAccountOptions = nameOptions(bankAccounts.data ?? []);
   const categoryChoices = categoryOptions(categories.data ?? []);
@@ -125,7 +132,7 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
     });
   }
 
-  const all = payments.data ?? [];
+  const all = checks.applyTo(payments.data ?? []);
   const inMonth = filterPayments(all, { month, kind: 'all' });
   const searchFields = paymentSearchFields({
     names: [...new Set(inMonth.map((payment) => payment.name))],
@@ -177,16 +184,6 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
     await paymentsRepository.delete([payment.id]);
     closeSheet();
     notify(`${payment.name} deleted`);
-  }
-
-  async function toggleChecked(payment: PaymentView) {
-    try {
-      await paymentsRepository.save(
-        await paymentsRepository.build([{ ...payment, checked: !payment.checked }]),
-      );
-    } catch (error) {
-      notify(`Could not update ${payment.name}: ${messageOf(error)}`);
-    }
   }
 
   const lookupError = bankAccounts.error ?? categories.error ?? incomeSources.error;
@@ -275,7 +272,7 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
                 onToggle={() => toggleGroup(group.categoryId)}
                 describe={describeInCategory}
                 onOpenPayment={open}
-                onToggleChecked={(payment) => void toggleChecked(payment)}
+                onToggleChecked={(payment) => void checks.toggle(payment)}
               />
             ))}
           </Card>
@@ -295,7 +292,7 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
                   payment={payment}
                   subtitle={describe(payment)}
                   onPress={() => open(payment)}
-                  onToggleChecked={() => void toggleChecked(payment)}
+                  onToggleChecked={() => void checks.toggle(payment)}
                 />
               ))}
             </Card>

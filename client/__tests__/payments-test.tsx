@@ -1,12 +1,12 @@
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, renderRouter, screen, within } from 'expo-router/testing-library';
+import { fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import type { ReactNode } from 'react';
 
 import type { AuthClient } from '@/auth/authClient';
 import { queryCache } from '@/composition/queryCache';
 import type { Services } from '@/composition/createServices';
 import { ServicesFactoryProvider } from '@/composition/ServicesProvider';
-import type { StoredRow, TableGateway } from '@/data/gateway';
+import { GatewayError, type StoredRow, type TableGateway } from '@/data/gateway';
 import { createRepositories } from '@/data/repositories';
 import { today } from '@/domain/entities';
 import { monthOf, shiftMonth } from '@/payments/paymentList';
@@ -70,6 +70,7 @@ function memoryGateway(tables: Record<string, StoredRow[]>): TableGateway {
       );
     },
     async upsert(table, rows) {
+      await beforeWrite();
       const stored = tables[table] ?? [];
       for (const row of rows as StoredRow[]) {
         const index = stored.findIndex((existing) => existing.id === row.id);
@@ -93,6 +94,8 @@ function memoryGateway(tables: Record<string, StoredRow[]>): TableGateway {
 }
 
 let tables: Record<string, StoredRow[]>;
+/** Awaited before each write, to hold one back or make it fail. */
+let beforeWrite: () => Promise<void>;
 
 function renderAt(initialUrl: string) {
   const create = (): Services => {
@@ -116,6 +119,7 @@ function renderAt(initialUrl: string) {
 const lastMonth = `${shiftMonth(monthOf(today()), -1)}-28`;
 
 beforeEach(() => {
+  beforeWrite = async () => {};
   tables = {
     payments: [
       payment(COFFEE_ID, 'Coffee', today(), 3.4),
@@ -368,6 +372,64 @@ describe('spending by category', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Groceries' }));
 
     expect(screen.getByRole('button', { name: 'Coffee' })).toBeOnTheScreen();
+  });
+});
+
+describe('ticking a payment', () => {
+  /** Hold writes back until the function returned is called. */
+  function holdWrites(): () => void {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    beforeWrite = () => held;
+    return release;
+  }
+
+  const tick = () => screen.findByRole('checkbox', { name: 'Coffee checked' });
+
+  it('shows at once, before it is saved', async () => {
+    const release = holdWrites();
+    await renderAt('/personal/payments');
+
+    await fireEvent.press(await tick());
+
+    expect(await tick()).toBeChecked();
+
+    release();
+    await waitFor(() => expect(stored(COFFEE_ID)?.checked).toBe(true));
+  });
+
+  it('stays ticked once saved', async () => {
+    await renderAt('/personal/payments');
+
+    await fireEvent.press(await tick());
+    await waitFor(() => expect(stored(COFFEE_ID)?.checked).toBe(true));
+
+    expect(await tick()).toBeChecked();
+  });
+
+  it('stores the last tap when tapped again while saving', async () => {
+    const release = holdWrites();
+    await renderAt('/personal/payments');
+    await fireEvent.press(await tick());
+    await fireEvent.press(await tick());
+
+    release();
+
+    await waitFor(() => expect(stored(COFFEE_ID)?.checked).toBe(false));
+  });
+
+  it('goes back if it can’t be saved', async () => {
+    beforeWrite = async () => {
+      throw new GatewayError('offline');
+    };
+    await renderAt('/personal/payments');
+
+    await fireEvent.press(await tick());
+    await screen.findByText(/^Could not update Coffee/);
+
+    expect(await tick()).not.toBeChecked();
   });
 });
 
