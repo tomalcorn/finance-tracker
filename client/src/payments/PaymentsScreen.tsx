@@ -1,10 +1,9 @@
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Figure, Figures } from '@/budget/Figures';
 import { AppText } from '@/components/AppText';
-import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { interactiveBackground } from '@/components/interaction';
 import { Screen } from '@/components/Screen';
@@ -19,20 +18,29 @@ import { categoryOptions, nameOptions } from '@/lookups';
 import { CategoryGroup } from '@/payments/CategoryGroup';
 import { PaymentForm } from '@/payments/PaymentForm';
 import { PaymentRow } from '@/payments/PaymentRow';
+import { SearchSuggestions } from '@/payments/SearchSuggestions';
 import { paymentDraftOf, paymentRow, type PaymentDraft } from '@/payments/paymentDraft';
 import {
   byCategory,
   byDay,
+  closingBalances,
   filterPayments,
   monthOf,
   shiftMonth,
   totals,
   type PaymentKind,
 } from '@/payments/paymentList';
+import {
+  matchesSearch,
+  parseSearch,
+  paymentSearchFields,
+  searchSuggestions,
+  type SearchSuggestion,
+} from '@/payments/paymentSearch';
 import { useAppTheme } from '@/theme/theme';
 import { formatAmount } from '@/theme/formatAmount';
 import { formatDay, formatMonthYear } from '@/theme/formatDate';
-import { SPACING } from '@/theme/tokens';
+import { RADIUS, SPACING } from '@/theme/tokens';
 
 const KINDS: readonly { value: PaymentKind; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -50,6 +58,7 @@ const LAYOUTS: readonly { value: Layout; label: string }[] = [
 
 const PREVIOUS: SymbolViewProps['name'] = { ios: 'chevron.left', web: 'chevron_left' };
 const NEXT: SymbolViewProps['name'] = { ios: 'chevron.right', web: 'chevron_right' };
+const PLUS: SymbolViewProps['name'] = { ios: 'plus', web: 'add' };
 
 type PaymentsScreenProps = { ownership: OwnershipType };
 
@@ -76,6 +85,7 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
   const [kind, setKind] = useState<PaymentKind>('all');
   const [expanded, setExpanded] = useState<ReadonlySet<string | null>>(() => new Set());
   const [search, setSearch] = useState('');
+  const searchBox = useRef<TextInput>(null);
   const [sheet, setSheet] = useState<(SheetTarget & { key: number }) | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const closeSheet = useCallback(() => setSheetOpen(false), []);
@@ -116,18 +126,31 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
   }
 
   const all = payments.data ?? [];
-  const inMonth = filterPayments(all, { month, kind: 'all', search: '' });
+  const inMonth = filterPayments(all, { month, kind: 'all' });
+  const searchFields = paymentSearchFields({
+    names: [...new Set(inMonth.map((payment) => payment.name))],
+    bankAccounts: bankAccountOptions.map((option) => option.label),
+    categories: categoryChoices.map((option) => option.label),
+    incomeSources: incomeSourceOptions.map((option) => option.label),
+    labelOf: (id) => labels.get(id),
+  });
+  const parsedSearch = parseSearch(search, searchFields);
+  const suggestions = searchSuggestions(search, searchFields);
   const byCategories = layout === 'categories';
-  const shown = filterPayments(
-    all,
-    { month, kind: byCategories ? 'expense' : kind, search },
-    describe,
+  const shown = filterPayments(all, { month, kind: byCategories ? 'expense' : kind }, (payment) =>
+    matchesSearch(payment, parsedSearch, describe),
   );
   const days = byDay(shown);
   const groups = byCategory(shown);
   const spent = groups.reduce((sum, group) => sum + group.total, 0);
   const monthTotals = totals(inMonth);
   const monthDate = `${month}-01`;
+
+  function chooseSuggestion(suggestion: SearchSuggestion | undefined) {
+    if (!suggestion) return;
+    setSearch(suggestion.query);
+    searchBox.current?.focus();
+  }
 
   function notify(text: string) {
     setToast((current) => ({ id: (current?.id ?? 0) + 1, text }));
@@ -171,11 +194,7 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
 
   return (
     <View style={styles.fill}>
-      <Screen
-        title="Payments"
-        back
-        action={<Button title="Add" variant="plain" onPress={() => open(null)} />}
-      >
+      <Screen title="Payments" back>
         <Card>
           <View style={styles.stepper}>
             <MonthButton
@@ -206,13 +225,22 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
         ) : (
           <SegmentedControl label="Show" value={kind} options={KINDS} onChange={setKind} />
         )}
-        <TextField
-          label="Search"
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Name, category or account"
-          autoCorrect={false}
-        />
+        <View style={styles.searchRow}>
+          <View style={styles.searchField}>
+            <TextField
+              ref={searchBox}
+              label="Search"
+              value={search}
+              onChangeText={setSearch}
+              onSubmitEditing={() => chooseSuggestion(suggestions[0])}
+              placeholder="Search, or type @ to filter"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          <AddTile onPress={() => open(null)} />
+        </View>
+        <SearchSuggestions suggestions={suggestions} onChoose={chooseSuggestion} />
 
         {lookupError ? (
           <AppText tone="negative">Could not load the names: {lookupError.message}</AppText>
@@ -253,7 +281,14 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
           </Card>
         ) : (
           days.map((day) => (
-            <Card key={day.date} title={`${formatDay(day.date)} · ${formatAmount(day.net)}`} list>
+            <Card
+              key={day.date}
+              title={`${formatDay(day.date)} · ${formatAmount(day.net)}`}
+              titleDetail={closingBalances(day, bankAccounts.data ?? [], all)
+                .map(({ name, balance }) => `${name} ${formatAmount(balance)}`)
+                .join(' · ')}
+              list
+            >
               {day.payments.map((payment) => (
                 <PaymentRow
                   key={payment.id}
@@ -292,6 +327,27 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
   );
 }
 
+/** The tile beside the search that starts a new payment. */
+function AddTile({ onPress }: { onPress: () => void }) {
+  const { colors } = useAppTheme();
+  return (
+    <Pressable
+      role="button"
+      aria-label="Add"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.addTile,
+        { backgroundColor: colors.accent, opacity: pressed ? 0.8 : 1 },
+      ]}
+    >
+      <SymbolView name={PLUS} size={18} tintColor={colors.onAccent} />
+      <AppText variant="label" style={{ color: colors.onAccent }}>
+        Add
+      </AppText>
+    </Pressable>
+  );
+}
+
 type MonthButtonProps = { icon: SymbolViewProps['name']; label: string; onPress: () => void };
 
 /** A round button stepping the month back or on. */
@@ -315,6 +371,17 @@ function MonthButton({ icon, label, onPress }: MonthButtonProps) {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  searchRow: { flexDirection: 'row', alignItems: 'flex-end', gap: SPACING.md },
+  searchField: { flex: 1 },
+  addTile: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   month: { flex: 1, textAlign: 'center' },
   monthButton: {

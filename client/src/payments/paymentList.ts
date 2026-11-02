@@ -1,10 +1,10 @@
-import type { PaymentView } from '@/domain/readModels';
+import type { BankAccountView, PaymentView } from '@/domain/readModels';
 
 /** Which payments a list shows: all of them, only money out, or only money in. */
 export type PaymentKind = 'all' | 'expense' | 'income';
 
-/** What narrows the list: a month as `YYYY-MM`, a kind, and text to look for. */
-export type PaymentFilter = { month: string; kind: PaymentKind; search: string };
+/** What narrows the list: a month as `YYYY-MM`, and a kind. */
+export type PaymentFilter = { month: string; kind: PaymentKind };
 
 /** One day of the list: its date, its payments newest first, and their net. */
 export type PaymentDay = { date: string; payments: PaymentView[]; net: number };
@@ -24,26 +24,16 @@ export function newestFirst(a: PaymentView, b: PaymentView): number {
   return a._created_at < b._created_at ? 1 : -1;
 }
 
-/**
- * The payments the filter lets through, newest first.
- *
- * Args:
- *   describe: The text searched besides a payment's name, e.g. its category and account.
- */
+/** The payments the filter lets through and `matches` accepts, newest first. */
 export function filterPayments(
   payments: readonly PaymentView[],
   filter: PaymentFilter,
-  describe: (payment: PaymentView) => string = () => '',
+  matches: (payment: PaymentView) => boolean = () => true,
 ): PaymentView[] {
-  const search = filter.search.trim().toLocaleLowerCase();
   return payments
     .filter((payment) => payment.payment_date.startsWith(`${filter.month}-`))
     .filter((payment) => filter.kind === 'all' || payment.payment_type === filter.kind)
-    .filter(
-      (payment) =>
-        search === '' ||
-        `${payment.name} ${describe(payment)}`.toLocaleLowerCase().includes(search),
-    )
+    .filter(matches)
     .sort(newestFirst);
 }
 
@@ -94,6 +84,49 @@ export function totals(payments: readonly PaymentView[]): { out: number; in: num
         : { ...sum, out: sum.out + payment.expense },
     { out: 0, in: 0 },
   );
+}
+
+/** One account's balance at the end of a day. */
+export type ClosingBalance = { name: string; balance: number };
+
+/**
+ * The end-of-day balance of each account with a payment in `day`, in name order: its starting
+ * balance plus the net of every payment up to and including that day.
+ *
+ * Args:
+ *   day: The day as listed, so only the accounts it shows are included.
+ *   payments: Every payment, not just those listed, so a filter can't change a balance.
+ */
+export function closingBalances(
+  day: PaymentDay,
+  accounts: readonly BankAccountView[],
+  payments: readonly PaymentView[],
+): ClosingBalance[] {
+  const moved = new Set(day.payments.map((payment) => payment.bank_account_id));
+  return accounts
+    .filter((account) => moved.has(account.id))
+    .map((account) => ({
+      name: account.name,
+      balance: payments
+        .filter(
+          (payment) => payment.bank_account_id === account.id && payment.payment_date <= day.date,
+        )
+        .reduce((sum, payment) => sum + signedAmount(payment), account.starting_balance),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * How many days up to `today` have payments but none ticked. Ticking one payment checks off its
+ * day, and a day still to come can't be checked yet.
+ */
+export function uncheckedDays(payments: readonly PaymentView[], today: string): number {
+  const due = payments.filter((payment) => payment.payment_date <= today);
+  const days = new Set(due.map((payment) => payment.payment_date));
+  for (const payment of due) {
+    if (payment.checked) days.delete(payment.payment_date);
+  }
+  return days.size;
 }
 
 /** The month of a `YYYY-MM-DD` date, as `YYYY-MM`. */

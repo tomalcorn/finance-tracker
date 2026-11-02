@@ -9,7 +9,7 @@ import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
 import { today, type OwnershipType } from '@/domain/entities';
 import { useRepositories, useRows } from '@/hooks/repositories';
-import { filterPayments, monthOf, totals } from '@/payments/paymentList';
+import { filterPayments, monthOf, totals, uncheckedDays } from '@/payments/paymentList';
 import { formatAmount } from '@/theme/formatAmount';
 import { formatMonth } from '@/theme/formatDate';
 import { SPACING } from '@/theme/tokens';
@@ -138,17 +138,13 @@ function Overview({ ownership }: FinancesScreenProps) {
   );
 }
 
-/** What went out and came in this month, and how much is still to check, opening the payments. */
+/** What went out and came in this month, and the days still to check, opening the payments. */
 function PaymentsCard({ ownership, onPress }: FinancesScreenProps & { onPress: () => void }) {
   const payments = useRows(useRepositories().payments(ownership));
   const now = today();
-  const thisMonth = filterPayments(payments.data ?? [], {
-    month: monthOf(now),
-    kind: 'all',
-    search: '',
-  });
+  const thisMonth = filterPayments(payments.data ?? [], { month: monthOf(now), kind: 'all' });
   const { out, in: incoming } = totals(thisMonth);
-  const unchecked = thisMonth.filter((payment) => !payment.checked).length;
+  const unchecked = uncheckedDays(thisMonth, now);
 
   return (
     <Card title="Payments" label="Payments" onPress={onPress}>
@@ -163,7 +159,7 @@ function PaymentsCard({ ownership, onPress }: FinancesScreenProps & { onPress: (
           </AppText>
           <AppText tone="muted">
             {formatAmount(incoming)} in
-            {unchecked > 0 ? ` · ${unchecked} not checked yet` : ''}
+            {unchecked > 0 ? ` · ${unchecked} ${unchecked === 1 ? 'day' : 'days'} unchecked` : ''}
           </AppText>
         </>
       )}

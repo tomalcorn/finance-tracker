@@ -15,6 +15,7 @@ const APP_DIR = './src/app';
 const USER_ID = 'auth0|test';
 const CREATED_AT = '2026-10-01T09:30:12.345678+00:00';
 const BANK_ID = '3c4d5e6f-0000-4000-8000-000000000001';
+const AMEX_ID = '3c4d5e6f-0000-4000-8000-000000000002';
 const GROCERIES_ID = '1a2b3c4d-0000-4000-8000-000000000004';
 const SALARY_SOURCE_ID = '2b3c4d5e-0000-4000-8000-000000000001';
 const COFFEE_ID = '4d5e6f70-0000-4000-8000-000000000001';
@@ -122,7 +123,7 @@ beforeEach(() => {
       payment(RENT_ID, 'Rent', lastMonth, 900),
     ],
     bank_accounts_view: [
-      { ...OWNED, id: BANK_ID, name: 'Monzo', starting_balance: 0, current_balance: 0 },
+      { ...OWNED, id: BANK_ID, name: 'Monzo', starting_balance: 1000, current_balance: 0 },
     ],
     categories_view: [
       {
@@ -163,6 +164,12 @@ describe('payments overview', () => {
     await renderAt('/personal');
 
     expect(await screen.findByText(/^£3\.40 out in/)).toBeOnTheScreen();
+  });
+
+  it('counts the days still to check', async () => {
+    await renderAt('/personal');
+
+    expect(await screen.findByText(/1 day unchecked$/)).toBeOnTheScreen();
   });
 
   it('opens the payments', async () => {
@@ -220,12 +227,117 @@ describe('payments list', () => {
     expect(screen.queryByRole('button', { name: 'Coffee' })).not.toBeOnTheScreen();
   });
 
+  it('shows the account’s balance at the end of each day', async () => {
+    await renderAt('/personal/payments');
+
+    expect(await screen.findByText('Monzo £2,596.60')).toBeOnTheScreen();
+  });
+
+  it('counts earlier months, and no later days, in a day’s balance', async () => {
+    await renderAt('/personal/payments');
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Previous month' }));
+
+    expect(await screen.findByText('Monzo £100.00')).toBeOnTheScreen();
+  });
+
+  it('keeps a day’s balance whatever the search hides', async () => {
+    await renderAt('/personal/payments');
+    await screen.findByText('Monzo £2,596.60');
+
+    await fireEvent.changeText(screen.getByLabelText('Search'), 'coffee');
+
+    expect(screen.getByText('Monzo £2,596.60')).toBeOnTheScreen();
+  });
+
   it('ticks a payment as checked from the list', async () => {
     await renderAt('/personal/payments');
 
     await fireEvent.press(await screen.findByRole('checkbox', { name: 'Coffee checked' }));
 
     expect(stored(COFFEE_ID)).toEqual(expect.objectContaining({ checked: true }));
+  });
+});
+
+describe('filtering a search', () => {
+  beforeEach(() => {
+    tables.bank_accounts_view?.push({
+      ...OWNED,
+      id: AMEX_ID,
+      name: 'Amex',
+      starting_balance: 0,
+      current_balance: 0,
+    });
+  });
+
+  async function typeSearch(text: string) {
+    await renderAt('/personal/payments');
+    await screen.findByRole('button', { name: 'Coffee' });
+    await fireEvent.changeText(screen.getByLabelText('Search'), text);
+  }
+
+  it('narrows to one account', async () => {
+    await typeSearch('@account:Amex');
+
+    expect(screen.queryByRole('button', { name: 'Coffee' })).not.toBeOnTheScreen();
+  });
+
+  it('shows only the filtered account’s balance', async () => {
+    tables.payments?.push({
+      ...payment('4d5e6f70-0000-4000-8000-000000000004', 'Shoes', today(), 20),
+      bank_account_id: AMEX_ID,
+    });
+
+    await typeSearch('@account:Amex');
+
+    expect(screen.queryByText(/Monzo £/)).not.toBeOnTheScreen();
+  });
+
+  it('counts the filtered account’s payments the filter hides', async () => {
+    tables.payments?.push(
+      {
+        ...payment('4d5e6f70-0000-4000-8000-000000000004', 'Shoes', today(), 20),
+        bank_account_id: AMEX_ID,
+      },
+      {
+        ...payment('4d5e6f70-0000-4000-8000-000000000005', 'Hat', today(), 5),
+        bank_account_id: AMEX_ID,
+      },
+    );
+
+    await typeSearch('@account:Amex @name:Shoes');
+
+    expect(screen.getByText('Amex -£25.00')).toBeOnTheScreen();
+  });
+
+  it('prompts for a field after @', async () => {
+    await typeSearch('@');
+
+    expect(screen.getByRole('button', { name: '@account:' })).toBeOnTheScreen();
+  });
+
+  it('prompts for a value once a field is chosen', async () => {
+    await typeSearch('@');
+
+    await fireEvent.press(screen.getByRole('button', { name: '@account:' }));
+
+    expect(screen.getByRole('button', { name: 'Amex' })).toBeOnTheScreen();
+  });
+
+  it('applies the value chosen', async () => {
+    await typeSearch('@account:');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Amex' }));
+
+    expect(screen.queryByRole('button', { name: 'Coffee' })).not.toBeOnTheScreen();
+  });
+
+  it('stops prompting once a value is chosen', async () => {
+    await typeSearch('@account:');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Amex' }));
+
+    expect(screen.queryByRole('button', { name: 'Amex' })).not.toBeOnTheScreen();
   });
 });
 
