@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, type Ref } from 'react';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { AppText } from '@/components/AppText';
@@ -9,6 +9,7 @@ type TextFieldProps = Omit<TextInputProps, 'style'> & {
   label: string;
   /** Shown under the field, which is then outlined in the negative colour. */
   error?: string;
+  ref?: Ref<TextInput>;
 };
 
 /** A labelled text input, with room for a validation message. */

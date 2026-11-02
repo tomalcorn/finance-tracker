@@ -10,6 +10,8 @@ type CardProps = {
   children: ReactNode;
   /** A small heading above the card. */
   title?: string;
+  /** Beside the heading, or under it when there is no room. */
+  titleDetail?: string;
   /** Lay the children out edge to edge with a divider between each, for a list of rows. */
   list?: boolean;
   /** Make the whole card a button, e.g. to open more detail. */
@@ -19,7 +21,7 @@ type CardProps = {
 };
 
 /** A rounded surface grouping related content, or a list of `ListRow`s. */
-export function Card({ children, title, list = false, onPress, label }: CardProps) {
+export function Card({ children, title, titleDetail, list = false, onPress, label }: CardProps) {
   const { colors } = useAppTheme();
   const items = Children.toArray(children);
   const content = list
@@ -34,9 +36,12 @@ export function Card({ children, title, list = false, onPress, label }: CardProp
   return (
     <View style={styles.group}>
       {title ? (
-        <AppText variant="label" tone="muted" style={styles.title}>
-          {title}
-        </AppText>
+        <View style={styles.heading}>
+          <AppText variant="label" tone="muted">
+            {title}
+          </AppText>
+          {titleDetail ? <AppText variant="label">{titleDetail}</AppText> : null}
+        </View>
       ) : null}
       {onPress ? (
         <Pressable
@@ -71,7 +76,13 @@ export function Card({ children, title, list = false, onPress, label }: CardProp
 
 const styles = StyleSheet.create({
   group: { gap: SPACING.sm },
-  title: { paddingHorizontal: SPACING.xs },
+  heading: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    columnGap: SPACING.md,
+    paddingHorizontal: SPACING.xs,
+  },
   card: { borderRadius: RADIUS.lg, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   padded: { padding: SPACING.lg, gap: SPACING.md },
   divider: { height: StyleSheet.hairlineWidth, marginLeft: SPACING.lg },

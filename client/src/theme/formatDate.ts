@@ -6,6 +6,7 @@ function calendarDate(date: string): Date {
 
 const DAY = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const MONTH = new Intl.DateTimeFormat('en-GB', { month: 'long' });
+const MONTH_YEAR = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' });
 
 /** Format a `YYYY-MM-DD` date for a list, e.g. `Sat 1 Nov`. */
 export function formatDay(date: string): string {
@@ -15,6 +16,11 @@ export function formatDay(date: string): string {
 /** The month's name of a `YYYY-MM-DD` date, e.g. `November`. */
 export function formatMonth(date: string): string {
   return MONTH.format(calendarDate(date));
+}
+
+/** The month and year of a `YYYY-MM-DD` date, e.g. `November 2026`. */
+export function formatMonthYear(date: string): string {
+  return MONTH_YEAR.format(calendarDate(date));
 }
 
 /** Whether two `YYYY-MM-DD` dates fall in the same calendar month. */
