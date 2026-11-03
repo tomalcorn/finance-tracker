@@ -8,6 +8,7 @@ import type { Services } from '@/composition/createServices';
 import { ServicesFactoryProvider } from '@/composition/ServicesProvider';
 import { GatewayError, type StoredRow, type TableGateway } from '@/data/gateway';
 import { createRepositories } from '@/data/repositories';
+import { today } from '@/domain/entities';
 
 const APP_DIR = './src/app';
 const USER_ID = 'auth0|test';
@@ -151,11 +152,11 @@ beforeEach(() => {
   };
 });
 
-describe('overview card', () => {
+describe('tiles', () => {
   it('shows the total across accounts', async () => {
     await renderAt('/personal');
 
-    expect(await screen.findByText(/^£1,050\.50 in total/)).toBeOnTheScreen();
+    expect(await screen.findByText('£1,050.50 total')).toBeOnTheScreen();
   });
 
   it('shows what each account holds', async () => {
@@ -164,46 +165,28 @@ describe('overview card', () => {
     expect(await screen.findByText('-£200.00')).toBeOnTheScreen();
   });
 
-  it('says when there are no accounts', async () => {
-    tables.bank_accounts_view = [];
+  it('says how an account has moved', async () => {
+    tables.payments = [{ ...payment(MONZO_ID), payment_date: today() }];
 
     await renderAt('/personal');
 
-    expect(await screen.findByText('No bank accounts yet.')).toBeOnTheScreen();
+    expect(
+      await screen.findByRole('button', { name: /^Monzo, £1,250\.50, -£3 / }),
+    ).toBeOnTheScreen();
   });
 
-  it('opens the accounts', async () => {
+  it('shows why the trends could not load', async () => {
+    tables.payments = [{ ...OWNED, id: 'not-a-row' }];
+
     await renderAt('/personal');
 
-    await fireEvent.press(await screen.findByRole('button', { name: /^Bank accounts/ }));
-
-    expect(await screen.findByRole('button', { name: 'Add a bank account' })).toBeOnTheScreen();
-  });
-});
-
-describe('list', () => {
-  it('shows the total across accounts', async () => {
-    await renderAt('/personal/accounts');
-
-    expect(await screen.findByText('£1,050.50')).toBeOnTheScreen();
-  });
-
-  it('counts the accounts', async () => {
-    await renderAt('/personal/accounts');
-
-    expect(await screen.findByText('Across 2 accounts')).toBeOnTheScreen();
-  });
-
-  it('shows where an account started', async () => {
-    await renderAt('/personal/accounts');
-
-    expect(await screen.findByText('Started at £1,000.00')).toBeOnTheScreen();
+    expect(await screen.findByText(/^Could not load the trends/)).toBeOnTheScreen();
   });
 
   it('invites adding the first account', async () => {
     tables.bank_accounts_view = [];
 
-    await renderAt('/personal/accounts');
+    await renderAt('/personal');
 
     expect(await screen.findByText(/^No bank accounts yet\. Add one/)).toBeOnTheScreen();
   });
@@ -211,7 +194,7 @@ describe('list', () => {
   it('shows why the accounts could not load', async () => {
     tables.bank_accounts_view = [{ ...OWNED, id: 'not-a-row' }];
 
-    await renderAt('/personal/accounts');
+    await renderAt('/personal');
 
     expect(await screen.findByText(/^Could not load your accounts/)).toBeOnTheScreen();
   });
@@ -223,15 +206,15 @@ describe('list', () => {
       ...JOINT,
     });
 
-    await renderAt('/joint/accounts');
+    await renderAt('/joint');
 
-    expect(await screen.findByText('Across 1 account')).toBeOnTheScreen();
+    expect(await screen.findByText('£75.00 total')).toBeOnTheScreen();
   });
 });
 
 describe('adding', () => {
   async function openNew() {
-    await renderAt('/personal/accounts');
+    await renderAt('/personal');
     await fireEvent.press(await screen.findByRole('button', { name: 'Add a bank account' }));
   }
 
@@ -284,7 +267,7 @@ describe('adding', () => {
 
 describe('editing', () => {
   async function openMonzo() {
-    await renderAt('/personal/accounts');
+    await renderAt('/personal');
     await fireEvent.press(await screen.findByRole('button', { name: /^Monzo/ }));
   }
 
@@ -312,7 +295,7 @@ describe('editing', () => {
 
 describe('deleting', () => {
   it('removes an unused account after confirming', async () => {
-    await renderAt('/personal/accounts');
+    await renderAt('/personal');
     await fireEvent.press(await screen.findByRole('button', { name: /^Monzo/ }));
     await fireEvent.press(await screen.findByRole('button', { name: 'Delete' }));
 
@@ -337,7 +320,7 @@ describe('deleting', () => {
         category_id: null,
       },
     ];
-    await renderAt('/personal/accounts');
+    await renderAt('/personal');
     await fireEvent.press(await screen.findByRole('button', { name: /^Monzo/ }));
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Delete' }));
@@ -347,7 +330,7 @@ describe('deleting', () => {
 
   it('isn’t offered with a payment on the account', async () => {
     tables.payments = [payment(MONZO_ID)];
-    await renderAt('/personal/accounts');
+    await renderAt('/personal');
 
     await fireEvent.press(await screen.findByRole('button', { name: /^Monzo/ }));
 
@@ -356,7 +339,7 @@ describe('deleting', () => {
 
   it('isn’t offered with a subscription on the account', async () => {
     tables.subscriptions_view = [subscription({})];
-    await renderAt('/personal/accounts');
+    await renderAt('/personal');
 
     await fireEvent.press(await screen.findByRole('button', { name: /^Monzo/ }));
 
@@ -375,7 +358,7 @@ describe('deleting', () => {
         joint_income_source_id: JOINT_SOURCE_ID,
       }),
     ];
-    await renderAt('/joint/accounts');
+    await renderAt('/joint');
 
     await fireEvent.press(await screen.findByRole('button', { name: /^Joint Santander/ }));
 
@@ -384,7 +367,7 @@ describe('deleting', () => {
 
   it('shows why the database refused', async () => {
     deleteFailure = new GatewayError('violates foreign key constraint');
-    await renderAt('/personal/accounts');
+    await renderAt('/personal');
     await fireEvent.press(await screen.findByRole('button', { name: /^Monzo/ }));
     await fireEvent.press(await screen.findByRole('button', { name: 'Delete' }));
 

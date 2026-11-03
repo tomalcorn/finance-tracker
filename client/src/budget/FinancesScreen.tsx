@@ -1,14 +1,15 @@
 import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { byName, totalBalance } from '@/bankAccounts/bankAccountList';
+import { BankAccountsSection } from '@/bankAccounts/BankAccountsSection';
 import { AllocationBar, useTrackerColour } from '@/budget/AllocationBar';
 import { BudgetRow } from '@/budget/BudgetRow';
 import { nearlySpent, roots, totalIncome, trackerIcon } from '@/budget/trackers';
-import { Amount } from '@/components/Amount';
 import { AppText } from '@/components/AppText';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
+import { Toast, type ToastMessage } from '@/components/Toast';
 import { today, type OwnershipType } from '@/domain/entities';
 import { useRepositories, useRows } from '@/hooks/repositories';
 import { filterPayments, monthOf, totals, uncheckedDays } from '@/payments/paymentList';
@@ -28,46 +29,51 @@ const TITLES: Record<OwnershipType, string> = { personal: 'Personal', joint: 'Jo
 export function FinancesScreen({ ownership }: FinancesScreenProps) {
   const jointAccounts = useRows(useRepositories().jointAccounts());
   const account = jointAccounts.data?.[0];
-
-  if (ownership === 'personal') {
-    return (
-      <Screen title={TITLES.personal}>
-        <Overview ownership="personal" />
-      </Screen>
-    );
-  }
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const dismissToast = useCallback(() => setToast(null), []);
+  const notify = useCallback((text: string) => {
+    setToast((current) => ({ id: (current?.id ?? 0) + 1, text }));
+  }, []);
 
   return (
-    <Screen title={TITLES.joint}>
-      {jointAccounts.error ? (
-        <AppText tone="negative">
-          Could not load your joint account: {jointAccounts.error.message}
-        </AppText>
-      ) : jointAccounts.isPending ? (
-        <AppText tone="muted">Loading…</AppText>
-      ) : account ? (
-        <>
-          <AppText tone="muted">Shared account · {account.name}</AppText>
-          <Overview ownership="joint" />
-        </>
-      ) : (
-        <Card>
-          <AppText>You don’t have a joint account yet.</AppText>
-          <AppText tone="muted">
-            Once you’re a member of one, its shared budget shows here. Joint accounts are set up by
-            hand for now: ask for one to be created, and say who should be on it.
+    <View style={styles.fill}>
+      <Screen title={TITLES[ownership]}>
+        {ownership === 'personal' ? (
+          <Overview ownership="personal" onNotify={notify} />
+        ) : jointAccounts.error ? (
+          <AppText tone="negative">
+            Could not load your joint account: {jointAccounts.error.message}
           </AppText>
-        </Card>
-      )}
-    </Screen>
+        ) : jointAccounts.isPending ? (
+          <AppText tone="muted">Loading…</AppText>
+        ) : account ? (
+          <>
+            <AppText tone="muted">Shared account · {account.name}</AppText>
+            <Overview ownership="joint" onNotify={notify} />
+          </>
+        ) : (
+          <Card>
+            <AppText>You don’t have a joint account yet.</AppText>
+            <AppText tone="muted">
+              Once you’re a member of one, its shared budget shows here. Joint accounts are set up
+              by hand for now: ask for one to be created, and say who should be on it.
+            </AppText>
+          </Card>
+        )}
+      </Screen>
+      <Toast toast={toast} onDismiss={dismissToast} />
+    </View>
   );
 }
 
 /**
- * The budget: income in, how it is split, a row per tracker opening its detail, and this month's
- * payments.
+ * The budget: income in, how it is split, a row per tracker opening its detail, this month's
+ * payments, and the bank accounts.
  */
-function Overview({ ownership }: FinancesScreenProps) {
+function Overview({
+  ownership,
+  onNotify,
+}: FinancesScreenProps & { onNotify: (text: string) => void }) {
   const repositories = useRepositories();
   const router = useRouter();
   const colourOf = useTrackerColour();
@@ -90,10 +96,6 @@ function Overview({ ownership }: FinancesScreenProps) {
 
   function openSubscriptions() {
     router.push(ownership === 'personal' ? '/personal/subscriptions' : '/joint/subscriptions');
-  }
-
-  function openBankAccounts() {
-    router.push(ownership === 'personal' ? '/personal/accounts' : '/joint/accounts');
   }
 
   function openAllocation() {
@@ -142,7 +144,7 @@ function Overview({ ownership }: FinancesScreenProps) {
 
       <PaymentsCard ownership={ownership} onPress={openPayments} />
       <SubscriptionsCard ownership={ownership} onPress={openSubscriptions} />
-      <BankAccountsCard ownership={ownership} onPress={openBankAccounts} />
+      <BankAccountsSection ownership={ownership} onNotify={onNotify} />
     </>
   );
 }
@@ -204,40 +206,7 @@ function SubscriptionsCard({ ownership, onPress }: FinancesScreenProps & { onPre
   );
 }
 
-/** What each account holds now and the total, opening the accounts. */
-function BankAccountsCard({ ownership, onPress }: FinancesScreenProps & { onPress: () => void }) {
-  const accounts = useRows(useRepositories().bankAccounts(ownership));
-  const rows = byName(accounts.data ?? []);
-
-  return (
-    <Card title="Bank accounts" label="Bank accounts" onPress={onPress}>
-      {accounts.error ? (
-        <AppText tone="negative">Could not load your accounts: {accounts.error.message}</AppText>
-      ) : accounts.isPending ? (
-        <AppText tone="muted">Loading…</AppText>
-      ) : rows.length === 0 ? (
-        <AppText tone="muted">No bank accounts yet.</AppText>
-      ) : (
-        <>
-          <AppText variant="heading">
-            {formatAmount(totalBalance(rows))} <AppText tone="muted">in total</AppText>
-          </AppText>
-          {rows.map((account) => (
-            <View key={account.id} style={styles.balance}>
-              <AppText tone="muted" numberOfLines={1} style={styles.balanceName}>
-                {account.name}
-              </AppText>
-              <Amount value={account.current_balance} />
-            </View>
-          ))}
-        </>
-      )}
-    </Card>
-  );
-}
-
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   empty: { padding: SPACING.lg },
-  balance: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.md },
-  balanceName: { flexShrink: 1 },
 });

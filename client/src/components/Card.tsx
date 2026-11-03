@@ -35,14 +35,7 @@ export function Card({ children, title, titleDetail, list = false, onPress, labe
 
   return (
     <View style={styles.group}>
-      {title ? (
-        <View style={styles.heading}>
-          <AppText variant="label" tone="muted">
-            {title}
-          </AppText>
-          {titleDetail ? <AppText variant="label">{titleDetail}</AppText> : null}
-        </View>
-      ) : null}
+      {title ? <CardHeading title={title} detail={titleDetail} /> : null}
       {onPress ? (
         <Pressable
           role="button"
@@ -70,6 +63,18 @@ export function Card({ children, title, titleDetail, list = false, onPress, labe
           {content}
         </View>
       )}
+    </View>
+  );
+}
+
+/** The small heading above a card, or above a group of cards. */
+export function CardHeading({ title, detail }: { title: string; detail?: string }) {
+  return (
+    <View style={styles.heading}>
+      <AppText variant="label" tone="muted">
+        {title}
+      </AppText>
+      {detail ? <AppText variant="label">{detail}</AppText> : null}
     </View>
   );
 }
