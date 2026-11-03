@@ -1,3 +1,9 @@
+## v1.40.0 (2026-11-03)
+
+### Feat
+
+- **subscriptions**: reconcile through the SQL function (#342)
+
 ## v1.39.0 (2026-11-03)
 
 ### Feat
