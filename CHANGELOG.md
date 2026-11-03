@@ -1,3 +1,9 @@
+## v1.39.0 (2026-11-03)
+
+### Feat
+
+- **client**: subscriptions screen and SQL reconcile (#341)
+
 ## v1.38.0 (2026-11-02)
 
 ### Feat
