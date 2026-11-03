@@ -1,11 +1,14 @@
 import type { CacheInvalidator } from '@/data/cache';
 import type { TableGateway } from '@/data/gateway';
 import {
+  cacheKey,
   createRepository,
+  translateError,
   type RepoContext,
   type RepoOwnership,
   type RepoSpec,
 } from '@/data/repository';
+import { PAYMENT_DERIVED } from '@/data/tables';
 import {
   BankAccountSchema,
   CategorySchema,
@@ -85,6 +88,27 @@ export function createRepositories(deps: {
   }
 
   return {
+    userId: deps.userId,
+
+    async reconcileSubscriptions(ownership) {
+      await translateError('Reconciling subscriptions', () =>
+        deps.gateway.call('reconcile_subscriptions', {
+          p_user_id: deps.userId,
+          p_ownership: ownership,
+        }),
+      );
+      // A personal contribution books an income on the joint side too.
+      const halves: readonly OwnershipType[] =
+        ownership === 'personal' ? ['personal', 'joint'] : ['joint'];
+      await deps.cache.invalidate(
+        halves.flatMap((half) =>
+          ['payments' as const, ...PAYMENT_DERIVED].map((source) =>
+            cacheKey(deps.userId, half, source),
+          ),
+        ),
+      );
+    },
+
     bankAccounts: repositoryPerOwnership({
       entity: BankAccountSchema,
       view: BankAccountViewSchema,

@@ -74,6 +74,7 @@ function memoryGateway(tables: Record<string, StoredRow[]>): TableGateway {
     async delete(table, ids) {
       tables[table] = (tables[table] ?? []).filter((row) => !ids.includes(row.id as string));
     },
+    async call() {},
   };
 }
 

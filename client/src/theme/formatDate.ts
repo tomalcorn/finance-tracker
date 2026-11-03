@@ -5,12 +5,26 @@ function calendarDate(date: string): Date {
 }
 
 const DAY = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const DAY_OF_MONTH = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
 const MONTH = new Intl.DateTimeFormat('en-GB', { month: 'long' });
 const MONTH_YEAR = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' });
+
+/** Whether `text` is a real calendar date written `YYYY-MM-DD`. */
+export function isCalendarDate(text: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+  const [year = 0, month = 0, day = 0] = text.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getMonth() === month - 1 && date.getDate() === day;
+}
 
 /** Format a `YYYY-MM-DD` date for a list, e.g. `Sat 1 Nov`. */
 export function formatDay(date: string): string {
   return DAY.format(calendarDate(date));
+}
+
+/** Format a `YYYY-MM-DD` date with no weekday, where space is tight, e.g. `1 Nov`. */
+export function formatDayOfMonth(date: string): string {
+  return DAY_OF_MONTH.format(calendarDate(date));
 }
 
 /** The month's name of a `YYYY-MM-DD` date, e.g. `November`. */

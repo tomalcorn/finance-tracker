@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { ReadSource, TableName } from '@/data/tables';
+import type { FunctionName, ReadSource, TableName } from '@/data/tables';
 
 /** A stored row as returned by the database, before parsing by any schema. */
 export type StoredRow = Record<string, unknown>;
@@ -17,6 +17,9 @@ export interface TableGateway {
   upsert(table: TableName, rows: readonly object[]): Promise<void>;
 
   delete(table: TableName, ids: readonly string[]): Promise<void>;
+
+  /** Run a database function, for a change spanning more rows than a table write can. */
+  call(name: FunctionName, args: Readonly<Record<string, string>>): Promise<void>;
 }
 
 /** A gateway request failed. Translated into a `RepositoryError` by the repository. */
@@ -77,6 +80,10 @@ export function supabaseGateway(client: SupabaseClient): TableGateway {
           .delete()
           .in('id', [...ids]),
       );
+    },
+
+    async call(name, args) {
+      await run(`Calling ${name}`, client.rpc(name, args));
     },
   };
 }

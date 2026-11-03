@@ -1,16 +1,13 @@
 import { useState } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
-
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { DateField } from '@/components/DateField';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { SelectField, type SelectOption } from '@/components/SelectField';
+import { SwitchField } from '@/components/SwitchField';
 import { TextField } from '@/components/TextField';
 import type { PaymentView } from '@/domain/readModels';
 import { paymentDraftErrors, type PaymentDraft, type PaymentType } from '@/payments/paymentDraft';
-import { useAppTheme } from '@/theme/theme';
-import { SPACING } from '@/theme/tokens';
 
 const TYPES: readonly { value: PaymentType; label: string }[] = [
   { value: 'expense', label: 'Money out' },
@@ -50,7 +47,6 @@ export function PaymentForm({
   onDelete,
   onCancel,
 }: PaymentFormProps) {
-  const { colors } = useAppTheme();
   const [typed, setDraft] = useState(initial);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -178,20 +174,12 @@ export function PaymentForm({
           ? 'Which income source this income goes against.'
           : 'The budget tracker or category this comes out of.'}
       </AppText>
-      <View style={styles.toggle}>
-        <View style={styles.toggleText}>
-          <AppText variant="label">Checked</AppText>
-          <AppText variant="caption" tone="muted">
-            Tick once you’ve matched it against your real bank balance.
-          </AppText>
-        </View>
-        <Switch
-          aria-label="Checked"
-          value={draft.checked}
-          onValueChange={(checked) => change({ checked })}
-          trackColor={{ true: colors.accent, false: colors.surfaceMuted }}
-        />
-      </View>
+      <SwitchField
+        label="Checked"
+        caption="Tick once you’ve matched it against your real bank balance."
+        value={draft.checked}
+        onChange={(checked) => change({ checked })}
+      />
       {failure ? <AppText tone="negative">{failure}</AppText> : null}
       <Button title={payment ? 'Save' : 'Add payment'} onPress={save} disabled={saving} />
       {payment ? (
@@ -201,8 +189,3 @@ export function PaymentForm({
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  toggle: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  toggleText: { flex: 1, gap: 2 },
-});
