@@ -2,15 +2,14 @@
 
 A contribution to a joint account is two rows, one on each side: a personal
 expense and a matching joint income, each pointing at the other through
-``linked_payment_id``. Both the one-off Contribute action and the recurring
-contribution a subscription books need exactly that pair written the same way,
-so the ordering the foreign key forces lives here rather than in either use
-case.
+``linked_payment_id``. The ordering the foreign key forces lives here, for the
+one-off Contribute action; a recurring contribution is booked by the
+``reconcile_subscriptions`` database function instead.
 
 Free functions rather than a collaborator class: there is no state to hold, and
-each caller already has the two repositories to hand. Errors are left alone —
-every function raises the port's ``RepositoryError`` and each use case
-translates it into its own failure type at its own boundary.
+the caller already has the two repositories to hand. Errors are left alone —
+every function raises the port's ``RepositoryError`` and the use case translates
+it into its own failure type at its own boundary.
 """
 
 from typing import TYPE_CHECKING

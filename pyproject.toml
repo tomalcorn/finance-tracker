@@ -8,7 +8,6 @@ dependencies = [
     "datetime",
     "pandas-stubs",
     "pyjwt",
-    "python-dateutil",
     "st-supabase-connection",
     "streamlit[auth]",
     "streamlit-extras",

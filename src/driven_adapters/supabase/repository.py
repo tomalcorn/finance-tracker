@@ -141,10 +141,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
             self._account_loaded = True
         return self._account_id
 
-    def _cache_key(
-        self,
-        table: "table_names.ViewNames | table_names.TableNames",
-    ) -> str:
+    def _cache_key(self, table: "table_names.CacheKeySource") -> str:
         """Return this mode's cache key for a table or view.
 
         Raises:
@@ -163,7 +160,7 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
     @staticmethod
     def _joint_cache_key(
         account_id: uuid.UUID,
-        table: "table_names.ViewNames | table_names.TableNames",
+        table: "table_names.CacheKeySource",
     ) -> str:
         """Return the account-scoped key every member of an account computes."""
         return f"joint:{account_id}:{table}"
@@ -421,6 +418,67 @@ class SupabaseRepository[EntityT: pydantic.BaseModel, ViewT: pydantic.BaseModel]
         return values
 
 
+class SupabaseSubscriptionRepository(
+    SupabaseRepository[entities.SubscriptionModel, read_models.SubscriptionView],
+):
+    """The subscriptions repository, which also reconciles their payments.
+
+    Satisfies ``ports.reconciliation.SubscriptionReconciler``.
+    """
+
+    def reconcile_subscriptions(self) -> None:
+        """Run the ``reconcile_subscriptions`` function if it may have work to do.
+
+        The function reports nothing back, so every run has to bust the payment
+        keys, and the page calls this on every rerun. The run is therefore cached
+        like a read: it happens on the first call, after a write to payments or
+        subscriptions in this half busts its key, and once the cached run expires.
+
+        Raises:
+            RepositoryError: The function call failed.
+
+        """
+        function = table_names.FunctionNames.RECONCILE_SUBSCRIPTIONS
+        try:
+            self._cache.get_from_or_load_cache(
+                self._cache_key(function),
+                self._run_reconcile,
+            )
+        except adapter_errors.AdapterError as e:
+            msg = f"Failed to reconcile subscriptions: {e}"
+            raise errors.RepositoryError(msg) from e
+
+    def _run_reconcile(self) -> bool:
+        """Call the function and bust what it restates (a cache-miss loader).
+
+        Returns:
+            ``True``, as the value cached to mark the run as done.
+
+        """
+        client.call_function(
+            str(table_names.FunctionNames.RECONCILE_SUBSCRIPTIONS),
+            {"p_user_id": self._user_id, "p_ownership": str(self._ownership)},
+            self._connection,
+        )
+        self._cache.invalidate(self._keys_restated_by_reconcile())
+        return True
+
+    def _keys_restated_by_reconcile(self) -> list[str]:
+        """Return this half's payment keys, plus the joint ones after a personal run.
+
+        A personal run reaches the joint half because a contribution's income leg
+        is a joint payment. A joint run writes only joint rows.
+        """
+        written = table_names.WRITTEN_BY_RECONCILE
+        own = [self._cache_key(source) for source in written]
+        if self._ownership is not entities.OwnershipType.PERSONAL:
+            return own
+        account_id = self._joint_account_id()
+        if account_id is None:
+            return own
+        return own + [self._joint_cache_key(account_id, source) for source in written]
+
+
 def bank_account_repository(
     user_id: str,
     cache: "cache_mod.CacheGateway",
@@ -495,9 +553,9 @@ def subscription_repository(
     cache: "cache_mod.CacheGateway",
     connection: "st_supabase_connection.SupabaseConnection",
     ownership: entities.OwnershipType,
-) -> SupabaseRepository[entities.SubscriptionModel, read_models.SubscriptionView]:
+) -> SupabaseSubscriptionRepository:
     """Build the subscriptions repository."""
-    return SupabaseRepository(
+    return SupabaseSubscriptionRepository(
         user_id,
         RepoSpec(
             parse=entities.SubscriptionModel.model_validate,

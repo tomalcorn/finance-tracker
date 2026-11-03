@@ -33,7 +33,6 @@ class _StubStreamlit:
 _BOUNDARY_ERRORS = [
     port_errors.RepositoryError("read failed"),
     use_case_errors.UseCaseError("use case failed"),
-    use_case_errors.ReconciliationError("reconcile failed"),
     use_case_errors.DataAccessError("data access failed"),
     use_case_errors.AmountToBankLTEZeroError("Groceries"),
 ]

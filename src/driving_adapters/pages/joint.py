@@ -110,7 +110,7 @@ with error_boundary.boundary("saving your latest changes"):
     )
 
 with error_boundary.boundary("reconciling your subscriptions"):
-    wiring.reconcile_subscriptions_use_case(_JOINT).execute()
+    wiring.subscription_reconciler(_JOINT).reconcile_subscriptions()
 
 
 with summary_container, error_boundary.boundary("loading your summary"):
