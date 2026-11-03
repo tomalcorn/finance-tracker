@@ -1,9 +1,11 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { byName, totalBalance } from '@/bankAccounts/bankAccountList';
 import { AllocationBar, useTrackerColour } from '@/budget/AllocationBar';
 import { BudgetRow } from '@/budget/BudgetRow';
 import { nearlySpent, roots, totalIncome, trackerIcon } from '@/budget/trackers';
+import { Amount } from '@/components/Amount';
 import { AppText } from '@/components/AppText';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
@@ -90,6 +92,10 @@ function Overview({ ownership }: FinancesScreenProps) {
     router.push(ownership === 'personal' ? '/personal/subscriptions' : '/joint/subscriptions');
   }
 
+  function openBankAccounts() {
+    router.push(ownership === 'personal' ? '/personal/accounts' : '/joint/accounts');
+  }
+
   function openAllocation() {
     router.push(ownership === 'personal' ? '/personal/allocation' : '/joint/allocation');
   }
@@ -136,10 +142,7 @@ function Overview({ ownership }: FinancesScreenProps) {
 
       <PaymentsCard ownership={ownership} onPress={openPayments} />
       <SubscriptionsCard ownership={ownership} onPress={openSubscriptions} />
-
-      <AppText variant="caption" tone="muted">
-        Bank accounts are still on the Streamlit app for now.
-      </AppText>
+      <BankAccountsCard ownership={ownership} onPress={openBankAccounts} />
     </>
   );
 }
@@ -201,6 +204,40 @@ function SubscriptionsCard({ ownership, onPress }: FinancesScreenProps & { onPre
   );
 }
 
+/** What each account holds now and the total, opening the accounts. */
+function BankAccountsCard({ ownership, onPress }: FinancesScreenProps & { onPress: () => void }) {
+  const accounts = useRows(useRepositories().bankAccounts(ownership));
+  const rows = byName(accounts.data ?? []);
+
+  return (
+    <Card title="Bank accounts" label="Bank accounts" onPress={onPress}>
+      {accounts.error ? (
+        <AppText tone="negative">Could not load your accounts: {accounts.error.message}</AppText>
+      ) : accounts.isPending ? (
+        <AppText tone="muted">Loading…</AppText>
+      ) : rows.length === 0 ? (
+        <AppText tone="muted">No bank accounts yet.</AppText>
+      ) : (
+        <>
+          <AppText variant="heading">
+            {formatAmount(totalBalance(rows))} <AppText tone="muted">in total</AppText>
+          </AppText>
+          {rows.map((account) => (
+            <View key={account.id} style={styles.balance}>
+              <AppText tone="muted" numberOfLines={1} style={styles.balanceName}>
+                {account.name}
+              </AppText>
+              <Amount value={account.current_balance} />
+            </View>
+          ))}
+        </>
+      )}
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
   empty: { padding: SPACING.lg },
+  balance: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.md },
+  balanceName: { flexShrink: 1 },
 });

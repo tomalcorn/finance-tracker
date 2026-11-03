@@ -234,6 +234,12 @@ describe('save', () => {
     ]);
   });
 
+  it('invalidates the quick buttons when an account goes, which cascades to them', async () => {
+    await repositories().bankAccounts('personal').delete([BANK_ACCOUNT_ID]);
+
+    expect(cache.invalidated).toContainEqual([USER_ID, 'personal', 'quick_buttons']);
+  });
+
   it('does nothing for no entities', async () => {
     await repositories().quickButtons('personal').save([]);
 
