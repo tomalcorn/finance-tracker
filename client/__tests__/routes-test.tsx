@@ -21,7 +21,12 @@ const SIGNED_IN_AUTH: AuthClient = {
 function emptyRepositories(userId: string) {
   return createRepositories({
     userId,
-    gateway: { select: async () => [], upsert: async () => {}, delete: async () => {} },
+    gateway: {
+      select: async () => [],
+      upsert: async () => {},
+      delete: async () => {},
+      call: async () => {},
+    },
     cache: { invalidate: async () => {} },
   });
 }
@@ -66,6 +71,21 @@ describe('routes when signed in', () => {
     await renderRouter(APP_DIR, { initialUrl: url, wrapper: SignedIn });
 
     expect(await screen.findByText(`Coming in #${issue}.`)).toBeOnTheScreen();
+  });
+
+  it.each([
+    ['/personal/payments', '/personal'],
+    ['/personal/subscriptions', '/personal'],
+    ['/personal/allocation', '/personal'],
+    ['/joint/payments', '/joint'],
+    ['/joint/subscriptions', '/joint'],
+  ])('goes back from %s, opened directly, to %s', async (url, overview) => {
+    const app = renderRouter(APP_DIR, { initialUrl: url, wrapper: SignedIn });
+    await app;
+
+    await fireEvent.press(await screen.findByRole('link', { name: '‹ Back' }));
+
+    expect(app.getPathname()).toBe(overview);
   });
 
   it('switches screen when a tab is pressed', async () => {

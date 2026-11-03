@@ -1,6 +1,7 @@
 import type { RawRow } from '@/domain/entities';
 import type { PaymentView } from '@/domain/readModels';
 import { parseAmount } from '@/theme/formatAmount';
+import { isCalendarDate } from '@/theme/formatDate';
 
 /** Money out or money in. */
 export type PaymentType = PaymentView['payment_type'];
@@ -48,14 +49,6 @@ export function paymentDraftOf(payment: PaymentView | null, date: string): Payme
   };
 }
 
-/** Whether `text` is a real calendar date written `YYYY-MM-DD`. */
-function isDate(text: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
-  const [year = 0, month = 0, day = 0] = text.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.getMonth() === month - 1 && date.getDate() === day;
-}
-
 /**
  * Check a draft by the rules a payment is saved under: a name, a date, a bank account, and an
  * amount that may be negative (money coming back) but not zero.
@@ -67,7 +60,7 @@ export function paymentDraftErrors(draft: PaymentDraft): PaymentDraftErrors {
   if (amount === null) errors.amount = 'Enter the amount.';
   else if (Number.isNaN(amount)) errors.amount = 'Enter an amount in pounds, e.g. 3.40.';
   else if (amount === 0) errors.amount = 'An amount can’t be zero.';
-  if (!isDate(draft.date)) errors.date = 'Enter a date, e.g. 2026-11-01.';
+  if (!isCalendarDate(draft.date)) errors.date = 'Enter a date, e.g. 2026-11-01.';
   if (draft.bankAccountId === null) errors.bankAccountId = 'Choose the account it moved through.';
   return errors;
 }

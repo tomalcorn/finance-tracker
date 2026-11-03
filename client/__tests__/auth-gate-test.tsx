@@ -16,7 +16,12 @@ const USER: AuthUser = { sub: 'auth0|test', email: 'test@example.com' };
 function emptyRepositories(userId: string) {
   return createRepositories({
     userId,
-    gateway: { select: async () => [], upsert: async () => {}, delete: async () => {} },
+    gateway: {
+      select: async () => [],
+      upsert: async () => {},
+      delete: async () => {},
+      call: async () => {},
+    },
     cache: { invalidate: async () => {} },
   });
 }

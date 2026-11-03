@@ -141,7 +141,7 @@ export function createRepository<EntityT extends object, ViewT>(
  * Run a gateway call. If the gateway fails, rethrow its error as a
  * `RepositoryError`; let any other error through unchanged.
  */
-async function translateError<T>(action: string, call: () => Promise<T>): Promise<T> {
+export async function translateError<T>(action: string, call: () => Promise<T>): Promise<T> {
   try {
     return await call();
   } catch (error) {

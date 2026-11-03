@@ -29,6 +29,13 @@ import type { Repository } from '@/ports/repository';
  * repository.
  */
 export type Repositories = {
+  /** Whose rows these are. */
+  userId: string;
+  /**
+   * Bring one half's subscriptions and their payments into line: book what is due, and remove
+   * what no longer should be. Safe to run at any time.
+   */
+  reconcileSubscriptions(ownership: OwnershipType): Promise<void>;
   bankAccounts(ownership: OwnershipType): Repository<BankAccount, BankAccountView>;
   categories(ownership: OwnershipType): Repository<Category, CategoryView>;
   incomeSources(ownership: OwnershipType): Repository<IncomeSource, IncomeSourceView>;

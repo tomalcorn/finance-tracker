@@ -10,6 +10,7 @@ import { Screen } from '@/components/Screen';
 import { today, type OwnershipType } from '@/domain/entities';
 import { useRepositories, useRows } from '@/hooks/repositories';
 import { filterPayments, monthOf, totals, uncheckedDays } from '@/payments/paymentList';
+import { isContribution, monthlyTotal, statusOf } from '@/subscriptions/subscriptionList';
 import { formatAmount } from '@/theme/formatAmount';
 import { formatMonth } from '@/theme/formatDate';
 import { SPACING } from '@/theme/tokens';
@@ -85,6 +86,10 @@ function Overview({ ownership }: FinancesScreenProps) {
     router.push(ownership === 'personal' ? '/personal/payments' : '/joint/payments');
   }
 
+  function openSubscriptions() {
+    router.push(ownership === 'personal' ? '/personal/subscriptions' : '/joint/subscriptions');
+  }
+
   function openAllocation() {
     router.push(ownership === 'personal' ? '/personal/allocation' : '/joint/allocation');
   }
@@ -130,9 +135,10 @@ function Overview({ ownership }: FinancesScreenProps) {
       </Card>
 
       <PaymentsCard ownership={ownership} onPress={openPayments} />
+      <SubscriptionsCard ownership={ownership} onPress={openSubscriptions} />
 
       <AppText variant="caption" tone="muted">
-        Bank accounts and subscriptions are still on the Streamlit app for now.
+        Bank accounts are still on the Streamlit app for now.
       </AppText>
     </>
   );
@@ -162,6 +168,34 @@ function PaymentsCard({ ownership, onPress }: FinancesScreenProps & { onPress: (
             {unchecked > 0 ? ` · ${unchecked} ${unchecked === 1 ? 'day' : 'days'} unchecked` : ''}
           </AppText>
         </>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * What subscriptions cost a month and how many are running, opening them. A joint contribution is
+ * money moved rather than spent, so it doesn't count.
+ */
+function SubscriptionsCard({ ownership, onPress }: FinancesScreenProps & { onPress: () => void }) {
+  const subscriptions = useRows(useRepositories().subscriptions(ownership));
+  const now = today();
+  const rows = (subscriptions.data ?? []).filter((row) => !isContribution(row));
+  const running = rows.filter((row) => statusOf(row, now) === 'active').length;
+
+  return (
+    <Card title="Subscriptions" label="Subscriptions" onPress={onPress}>
+      {subscriptions.error ? (
+        <AppText tone="negative">
+          Could not load your subscriptions: {subscriptions.error.message}
+        </AppText>
+      ) : subscriptions.isPending ? (
+        <AppText tone="muted">Loading…</AppText>
+      ) : (
+        <AppText variant="heading">
+          {formatAmount(monthlyTotal(rows, now))}{' '}
+          <AppText tone="muted">a month · {running} running</AppText>
+        </AppText>
       )}
     </Card>
   );

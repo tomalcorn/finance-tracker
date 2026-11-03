@@ -17,8 +17,11 @@ export type ViewName =
 /** Where a repository reads from: a view, or the table itself when it has none. */
 export type ReadSource = TableName | ViewName;
 
+/** A database function the app calls. */
+export type FunctionName = 'reconcile_subscriptions';
+
 /** The views that sum payments, so any write to payments restates them. */
-const PAYMENT_DERIVED: readonly ReadSource[] = [
+export const PAYMENT_DERIVED: readonly ReadSource[] = [
   'bank_accounts_view',
   'categories_view',
   'income_sources_view',

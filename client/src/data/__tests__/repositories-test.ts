@@ -1,7 +1,7 @@
 import type { CacheInvalidator } from '@/data/cache';
 import { GatewayError, type StoredRow, type TableGateway } from '@/data/gateway';
 import { createRepositories } from '@/data/repositories';
-import type { ReadSource } from '@/data/tables';
+import type { FunctionName, ReadSource } from '@/data/tables';
 import { InvalidRowError, NoJointAccountError, RepositoryError } from '@/ports/errors';
 import type { CacheKey } from '@/ports/repository';
 
@@ -48,6 +48,11 @@ class FakeGateway implements TableGateway {
 
   async delete(source: ReadSource, ids: readonly string[]) {
     this.calls.push({ method: 'delete', source, arg: ids });
+    if (this.failWith) throw this.failWith;
+  }
+
+  async call(name: FunctionName, args: Readonly<Record<string, string>>) {
+    this.calls.push({ method: 'call', source: name, arg: args });
     if (this.failWith) throw this.failWith;
   }
 }
@@ -251,6 +256,50 @@ describe('delete', () => {
     await repositories().subscriptions('personal').delete([BUTTON_ID]);
 
     expect(cache.invalidated).toContainEqual([USER_ID, 'joint', 'payments']);
+  });
+});
+
+describe('reconcileSubscriptions', () => {
+  it('runs the database function for the user and half', async () => {
+    await repositories().reconcileSubscriptions('joint');
+
+    expect(gateway.calls.at(-1)).toEqual({
+      method: 'call',
+      source: 'reconcile_subscriptions',
+      arg: { p_user_id: USER_ID, p_ownership: 'joint' },
+    });
+  });
+
+  it('invalidates the payments it may have booked', async () => {
+    await repositories().reconcileSubscriptions('joint');
+
+    expect(cache.invalidated).toContainEqual([USER_ID, 'joint', 'payments']);
+  });
+
+  it('invalidates the balances those payments move', async () => {
+    await repositories().reconcileSubscriptions('joint');
+
+    expect(cache.invalidated).toContainEqual([USER_ID, 'joint', 'bank_accounts_view']);
+  });
+
+  it('invalidates the joint side after a personal run, for contributions', async () => {
+    await repositories().reconcileSubscriptions('personal');
+
+    expect(cache.invalidated).toContainEqual([USER_ID, 'joint', 'payments']);
+  });
+
+  it('leaves the personal side alone after a joint run', async () => {
+    await repositories().reconcileSubscriptions('joint');
+
+    expect(cache.invalidated).not.toContainEqual([USER_ID, 'personal', 'payments']);
+  });
+
+  it('translates a failure into a RepositoryError', async () => {
+    gateway.failWith = new GatewayError('timeout');
+
+    await expect(repositories().reconcileSubscriptions('personal')).rejects.toBeInstanceOf(
+      RepositoryError,
+    );
   });
 });
 

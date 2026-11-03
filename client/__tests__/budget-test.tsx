@@ -76,6 +76,7 @@ function memoryGateway(tables: Record<string, StoredRow[]>): TableGateway {
       if (table === 'categories')
         tables.categories_view = (tables.categories_view ?? []).filter(keep);
     },
+    async call() {},
   };
 }
 
