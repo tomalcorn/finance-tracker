@@ -80,6 +80,29 @@ def fetch_table(
         start += PAGE_SIZE
 
 
+def call_function(
+    function_name: str,
+    params: "entities.JsonDict",
+    connection: "st_supabase_connection.SupabaseConnection",
+) -> None:
+    """Call a database function, ignoring anything it returns.
+
+    Args:
+        function_name: The name of the function to call.
+        params: The function's arguments, by parameter name.
+        connection: The Supabase connection to use.
+
+    Raises:
+        errors.SupabaseAdapterError: the Supabase call did not complete.
+
+    """
+    try:
+        connection.client.rpc(function_name, params).execute()
+    except Exception as e:
+        msg = f"Supabase call to '{function_name}' failed: {e}"
+        raise errors.SupabaseAdapterError(msg) from e
+
+
 def upsert_rows(
     table_name: str,
     rows: "list[entities.JsonDict]",

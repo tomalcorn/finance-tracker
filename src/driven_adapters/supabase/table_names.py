@@ -40,6 +40,16 @@ class ViewNames(enum.StrEnum):
     SUBSCRIPTIONS = "subscriptions_view"
 
 
+class FunctionNames(enum.StrEnum):
+    """Callable database functions in the Supabase schema."""
+
+    RECONCILE_SUBSCRIPTIONS = enum.auto()
+
+
+type CacheKeySource = ViewNames | TableNames | FunctionNames
+"""Anything a repository derives a cache key from."""
+
+
 _PAYMENT_DERIVED_VIEWS: list[ViewNames] = [
     ViewNames.BANK_ACCOUNTS,
     ViewNames.CATEGORIES,
@@ -50,8 +60,20 @@ _PAYMENT_DERIVED_VIEWS: list[ViewNames] = [
 """The views that sum payments, so any write to them restates all five."""
 
 
-CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
-    TableNames.PAYMENTS: [*_PAYMENT_DERIVED_VIEWS],
+WRITTEN_BY_RECONCILE: list[CacheKeySource] = [
+    TableNames.PAYMENTS,
+    *_PAYMENT_DERIVED_VIEWS,
+]
+"""What a run of ``reconcile_subscriptions`` restates in each half written to."""
+
+
+CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[CacheKeySource]] = {
+    # reconcile_subscriptions reads payments and subscriptions, so a write to
+    # either is what makes its last run out of date.
+    TableNames.PAYMENTS: [
+        *_PAYMENT_DERIVED_VIEWS,
+        FunctionNames.RECONCILE_SUBSCRIPTIONS,
+    ],
     TableNames.BANK_ACCOUNTS: [ViewNames.BANK_ACCOUNTS],
     TableNames.EXPENSE_SOURCES: [
         ViewNames.EXPENSE_SOURCES,
@@ -74,6 +96,7 @@ CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
         ViewNames.SUBSCRIPTIONS,
         TableNames.PAYMENTS,
         *_PAYMENT_DERIVED_VIEWS,
+        FunctionNames.RECONCILE_SUBSCRIPTIONS,
     ],
     TableNames.ONE_OFFS: [ViewNames.ONE_OFFS],
     # A write at either level restates both: a child's spend rolls up into its
@@ -111,14 +134,14 @@ CACHE_KEYS_AFFECTED_BY: dict[TableNames, list[ViewNames | TableNames]] = {
 }
 
 
-CASCADES_ACROSS_OWNERSHIP: dict[TableNames, list[ViewNames | TableNames]] = {
+CASCADES_ACROSS_OWNERSHIP: dict[TableNames, list[CacheKeySource]] = {
     # Deleting a personal subscription cascades away *joint* payment rows: a
     # joint contribution's income leg is owned by the joint account but carries
     # the personal subscription's id, so the FK reaches across the ownership
     # split that normally keeps one repository inside one half.
     #
-    # This is the one place a personal write moves a joint row, so it is the one
-    # place a personal repository has to bust a joint key — otherwise the other
-    # member's page serves an income whose subscription is gone until the TTL.
+    # A personal repository has to bust a joint key here, and after a personal
+    # reconcile, which books that same income leg — otherwise the other member's
+    # page serves an income whose subscription is gone until the TTL.
     TableNames.SUBSCRIPTIONS: [TableNames.PAYMENTS, *_PAYMENT_DERIVED_VIEWS],
 }

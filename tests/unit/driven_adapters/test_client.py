@@ -201,6 +201,31 @@ def test_fetch_table_translates_a_transport_failure(
     assert exc_info.value.__cause__ is boom
 
 
+def test_call_function_calls_the_named_function_with_its_arguments() -> None:
+    # Arrange
+    mock_conn = mock.MagicMock()
+
+    # Act
+    client.call_function("do_it", {"p_arg": "x"}, _connection(mock_conn))
+
+    # Assert
+    mock_conn.client.rpc.assert_called_once_with("do_it", {"p_arg": "x"})
+
+
+def test_call_function_translates_a_transport_failure() -> None:
+    # Arrange
+    boom = ConnectionError("network down")
+    mock_conn = mock.MagicMock()
+    mock_conn.client.rpc.return_value.execute.side_effect = boom
+
+    # Act
+    with pytest.raises(errors.SupabaseAdapterError) as exc_info:
+        client.call_function("do_it", {}, _connection(mock_conn))
+
+    # Assert - the transport error is preserved as the chained cause
+    assert exc_info.value.__cause__ is boom
+
+
 def test_upsert_rows_translates_a_transport_failure() -> None:
     # Arrange
     boom = ConnectionError("network down")

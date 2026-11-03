@@ -7,6 +7,7 @@ security), so the repository no longer filters rows itself.
 """
 
 import datetime
+import typing
 import uuid
 from collections.abc import Callable, Iterable
 from unittest import mock
@@ -821,3 +822,226 @@ class TestCascadeAcrossOwnership:
 
         # Assert
         assert not any(key.startswith("joint:") for key in cache.invalidated)
+
+
+class _MemoisingCache:
+    """CacheGateway stub behaving like the real one: a hit skips the loader."""
+
+    def __init__(self, joint_accounts: list[dict[str, object]]) -> None:
+        self._entries: dict[str, object] = {_JOINT_ACCOUNTS_KEY: joint_accounts}
+        self.invalidated: list[str] = []
+
+    def get_from_or_load_cache[T](self, key: str, loader: Callable[[], T]) -> T:
+        if key not in self._entries:
+            self._entries[key] = loader()
+        return typing.cast("T", self._entries[key])
+
+    def invalidate(self, keys: Iterable[str]) -> None:
+        for key in keys:
+            self.invalidated.append(key)
+            self._entries.pop(key, None)
+
+
+class TestReconcileSubscriptions:
+    """A run calls the database function and busts what the function restates."""
+
+    @pytest.fixture(name="account")
+    def _account(self) -> uuid.UUID:
+        return uuid.uuid4()
+
+    @pytest.fixture(name="function_calls")
+    def _function_calls(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> list[tuple[str, dict[str, object]]]:
+        calls: list[tuple[str, dict[str, object]]] = []
+
+        def _record(
+            function_name: str,
+            params: dict[str, object],
+            connection: object,  # noqa: ARG001 - the record is of what was asked for
+        ) -> None:
+            calls.append((function_name, params))
+
+        monkeypatch.setattr(repository.client, "call_function", _record)
+        return calls
+
+    @pytest.fixture(name="member_cache")
+    def _member_cache(self, account: uuid.UUID) -> _MemoisingCache:
+        return _MemoisingCache([{"id": str(account)}])
+
+    @pytest.fixture(name="restated_keys")
+    def _restated_keys(self) -> Callable[[str], set[str]]:
+        def restated_keys(prefix: str) -> set[str]:
+            return {
+                f"{prefix}:{source}"
+                for source in (
+                    table_names.TableNames.PAYMENTS,
+                    table_names.ViewNames.BANK_ACCOUNTS,
+                    table_names.ViewNames.CATEGORIES,
+                    table_names.ViewNames.EXPENSE_SOURCES,
+                    table_names.ViewNames.INCOME_SOURCES,
+                    table_names.ViewNames.BUDGET_TRACKER,
+                )
+            }
+
+        return restated_keys
+
+    @pytest.mark.parametrize("ownership", [_PERSONAL, _JOINT])
+    def test_calls_the_function_for_this_user_and_half(
+        self,
+        ownership: entities.OwnershipType,
+        member_cache: _MemoisingCache,
+        function_calls: list[tuple[str, dict[str, object]]],
+    ) -> None:
+        # Arrange
+        repo = repository.subscription_repository(
+            _USER_ID,
+            member_cache,
+            _CONN,
+            ownership,
+        )
+
+        # Act
+        repo.reconcile_subscriptions()
+
+        # Assert
+        assert function_calls == [
+            (
+                "reconcile_subscriptions",
+                {"p_user_id": _USER_ID, "p_ownership": ownership.value},
+            ),
+        ]
+
+    @pytest.mark.usefixtures("function_calls")
+    def test_a_personal_run_busts_both_halves(
+        self,
+        account: uuid.UUID,
+        member_cache: _MemoisingCache,
+        restated_keys: Callable[[str], set[str]],
+    ) -> None:
+        # Arrange
+        repo = repository.subscription_repository(
+            _USER_ID,
+            member_cache,
+            _CONN,
+            _PERSONAL,
+        )
+
+        # Act
+        repo.reconcile_subscriptions()
+
+        # Assert - a contribution books a joint income
+        assert set(member_cache.invalidated) == (
+            restated_keys(_USER_ID) | restated_keys(f"joint:{account}")
+        )
+
+    @pytest.mark.usefixtures("function_calls")
+    def test_a_joint_run_busts_only_the_joint_half(
+        self,
+        account: uuid.UUID,
+        member_cache: _MemoisingCache,
+        restated_keys: Callable[[str], set[str]],
+    ) -> None:
+        # Arrange
+        repo = repository.subscription_repository(
+            _USER_ID,
+            member_cache,
+            _CONN,
+            _JOINT,
+        )
+
+        # Act
+        repo.reconcile_subscriptions()
+
+        # Assert
+        assert set(member_cache.invalidated) == restated_keys(f"joint:{account}")
+
+    @pytest.mark.usefixtures("function_calls")
+    def test_a_user_with_no_joint_account_busts_only_their_own_half(
+        self,
+        restated_keys: Callable[[str], set[str]],
+    ) -> None:
+        # Arrange
+        cache = _MemoisingCache([])
+        repo = repository.subscription_repository(_USER_ID, cache, _CONN, _PERSONAL)
+
+        # Act
+        repo.reconcile_subscriptions()
+
+        # Assert
+        assert set(cache.invalidated) == restated_keys(_USER_ID)
+
+    def test_a_rerun_with_nothing_written_does_not_call_the_function_again(
+        self,
+        member_cache: _MemoisingCache,
+        function_calls: list[tuple[str, dict[str, object]]],
+    ) -> None:
+        # Arrange
+        repo = repository.subscription_repository(
+            _USER_ID,
+            member_cache,
+            _CONN,
+            _PERSONAL,
+        )
+        repo.reconcile_subscriptions()
+
+        # Act
+        repo.reconcile_subscriptions()
+
+        # Assert
+        assert len(function_calls) == 1
+
+    @pytest.mark.parametrize(
+        "factory",
+        [repository.subscription_repository, repository.payment_repository],
+        ids=["subscription", "payment"],
+    )
+    def test_a_write_makes_the_next_run_call_the_function(
+        self,
+        factory: Callable[..., repository.SupabaseRepository],
+        member_cache: _MemoisingCache,
+        function_calls: list[tuple[str, dict[str, object]]],
+    ) -> None:
+        # Arrange
+        repo = repository.subscription_repository(
+            _USER_ID,
+            member_cache,
+            mock.MagicMock(),
+            _PERSONAL,
+        )
+        repo.reconcile_subscriptions()
+        written = factory(_USER_ID, member_cache, mock.MagicMock(), _PERSONAL)
+
+        # Act
+        written.apply_deletions([str(uuid.uuid4())])
+        repo.reconcile_subscriptions()
+
+        # Assert
+        assert len(function_calls) == 2  # noqa: PLR2004 - one run before the write, one after
+
+    def test_a_failed_call_becomes_a_repository_error(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        member_cache: _MemoisingCache,
+    ) -> None:
+        # Arrange
+        boom = adapter_errors.SupabaseAdapterError("boom")
+        monkeypatch.setattr(
+            repository.client,
+            "call_function",
+            mock.MagicMock(side_effect=boom),
+        )
+        repo = repository.subscription_repository(
+            _USER_ID,
+            member_cache,
+            _CONN,
+            _PERSONAL,
+        )
+
+        # Act
+        with pytest.raises(errors.RepositoryError) as exc_info:
+            repo.reconcile_subscriptions()
+
+        # Assert
+        assert exc_info.value.__cause__ is boom

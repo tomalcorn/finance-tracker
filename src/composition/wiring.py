@@ -17,7 +17,6 @@ from use_cases import (
     initialise_workspace,
     log_quick_payment,
     manage_user_settings,
-    reconcile_subscriptions,
     summarise_finances,
 )
 
@@ -26,7 +25,7 @@ if TYPE_CHECKING:
 
     from domain import read_models
     from driving_adapters.components.dfes import data_source as data_source_mod
-    from ports import authentication, repository
+    from ports import authentication, reconciliation, repository
 
 
 class SessionSupabaseConnection(st_supabase_connection.SupabaseConnection):
@@ -227,34 +226,11 @@ def budget_tracker_id_name_map(
     return {str(model.id): str(model.name) for model in repo.get_all() if model.is_root}
 
 
-def reconcile_subscriptions_use_case(
+def subscription_reconciler(
     ownership: entities.OwnershipType = entities.OwnershipType.PERSONAL,
-) -> reconcile_subscriptions.ReconcileSubscriptionsUseCase:
-    """Build ReconcileSubscriptionsUseCase wired to Supabase repositories.
-
-    The joint payments repository is handed over only in ``PERSONAL`` mode: a
-    joint contribution is a personal standing order, so the joint instance must
-    not be able to book one. It is built unconditionally for that mode — the
-    repository resolves its account lazily, and a user with no joint account can
-    have no contribution subscription for it to write.
-    """
-    deps = _repo_deps()
-    joint_payment_repo = (
-        supabase_repos.payment_repository(*deps, entities.OwnershipType.JOINT)
-        if ownership is entities.OwnershipType.PERSONAL
-        else None
-    )
-    return reconcile_subscriptions.ReconcileSubscriptionsUseCase(
-        subscription_repo=supabase_repos.subscription_repository(
-            *deps,
-            ownership,
-        ),
-        payment_repo=supabase_repos.payment_repository(
-            *deps,
-            ownership,
-        ),
-        joint_payment_repo=joint_payment_repo,
-    )
+) -> "reconciliation.SubscriptionReconciler":
+    """Reconciler for the subscriptions of one half of the user's finances."""
+    return supabase_repos.subscription_repository(*_repo_deps(), ownership)
 
 
 def workspace_init_use_case() -> initialise_workspace.InitialiseUserWorkspaceUseCase:
