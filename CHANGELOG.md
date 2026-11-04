@@ -1,3 +1,9 @@
+## v1.44.0 (2026-11-04)
+
+### Feat
+
+- **client**: contribute to the joint account (#347)
+
 ## v1.43.0 (2026-11-04)
 
 ### Feat
