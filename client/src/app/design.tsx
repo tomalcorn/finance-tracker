@@ -19,6 +19,7 @@ import { TextField } from '@/components/TextField';
 import { Toast, type ToastMessage } from '@/components/Toast';
 import type { QuickButtonView } from '@/domain/readModels';
 import { NewButtonTile, QuickButtonTile } from '@/quickExpenses/QuickButtonTile';
+import { SummaryTiles } from '@/summary/SummarySection';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING, type Palette } from '@/theme/tokens';
 
@@ -58,6 +59,15 @@ const NEW_TREND: BalanceTrend = {
   partial: true,
   balances: [500, 500],
   change: 0,
+};
+
+const SAMPLE_SUMMARY = {
+  totalBalance: 4136.75,
+  balanceHistory: [3120, 3480, 3010, 3650, 3890, 4136.75],
+  totalBudget: 2000,
+  remainingBudget: 812.4,
+  spent: 1187.6,
+  spentHistory: [1320, 1450, 980, 1610, 1050, 1187.6],
 };
 
 const NEW_PAYMENT: SamplePayment = { id: '', date: '', name: '', category: '', amount: 0 };
@@ -133,6 +143,8 @@ export default function DesignScreen() {
           The theme and shared components, with sample data. Switch the device to dark mode to see
           the dark palette.
         </AppText>
+
+        <SummaryTiles summary={SAMPLE_SUMMARY} />
 
         <Card title="Tab bar">
           <View style={[styles.tabStage, { backgroundColor: colors.background }]}>

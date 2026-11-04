@@ -14,6 +14,7 @@ import { today, type OwnershipType } from '@/domain/entities';
 import { useRepositories, useRows } from '@/hooks/repositories';
 import { filterPayments, monthOf, totals, uncheckedDays } from '@/payments/paymentList';
 import { isContribution, monthlyTotal, statusOf } from '@/subscriptions/subscriptionList';
+import { SummarySection } from '@/summary/SummarySection';
 import { formatAmount } from '@/theme/formatAmount';
 import { formatMonth } from '@/theme/formatDate';
 import { SPACING } from '@/theme/tokens';
@@ -67,7 +68,7 @@ export function FinancesScreen({ ownership }: FinancesScreenProps) {
 }
 
 /**
- * The budget: income in, how it is split, a row per tracker opening its detail, this month's
+ * The summary, then the budget: income in, how it is split, a row per tracker opening its detail, this month's
  * payments, and the bank accounts.
  */
 function Overview({
@@ -112,6 +113,8 @@ function Overview({
 
   return (
     <>
+      <SummarySection ownership={ownership} />
+
       <Card title="Income split" label="Income split" onPress={openAllocation}>
         <AppText variant="heading">
           {formatAmount(income)}{' '}
