@@ -265,6 +265,45 @@ describe('delete', () => {
   });
 });
 
+describe('contributeToJoint', () => {
+  const CONTRIBUTION = {
+    amount: 150,
+    fromBankAccountId: 'from',
+    toBankAccountId: 'to',
+    incomeSourceId: 'source',
+    paymentDate: '2026-11-01',
+  };
+
+  it('calls the database function with the contribution', async () => {
+    await repositories().contributeToJoint(CONTRIBUTION);
+
+    expect(gateway.calls.at(-1)).toEqual({
+      method: 'call',
+      source: 'contribute_to_joint',
+      arg: {
+        p_user_id: USER_ID,
+        p_amount: 150,
+        p_from_bank_account_id: 'from',
+        p_to_bank_account_id: 'to',
+        p_income_source_id: 'source',
+        p_payment_date: '2026-11-01',
+      },
+    });
+  });
+
+  it.each(['personal', 'joint'] as const)('refreshes the %s payments', async (half) => {
+    await repositories().contributeToJoint(CONTRIBUTION);
+
+    expect(cache.invalidated).toContainEqual([USER_ID, half, 'payments']);
+  });
+
+  it.each(['personal', 'joint'] as const)('refreshes the %s balances', async (half) => {
+    await repositories().contributeToJoint(CONTRIBUTION);
+
+    expect(cache.invalidated).toContainEqual([USER_ID, half, 'bank_accounts_view']);
+  });
+});
+
 describe('reconcileSubscriptions', () => {
   it('runs the database function for the user and half', async () => {
     await repositories().reconcileSubscriptions('joint');

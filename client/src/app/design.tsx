@@ -21,7 +21,7 @@ import { Toast, type ToastMessage } from '@/components/Toast';
 import type { QuickButtonView } from '@/domain/readModels';
 import { NewButtonTile, QuickButtonTile } from '@/quickExpenses/QuickButtonTile';
 import { SummaryTiles } from '@/summary/SummarySection';
-import { useAppTheme } from '@/theme/theme';
+import { HalfThemeProvider, useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING, type Palette } from '@/theme/tokens';
 
 const SAMPLE_TABS = [
@@ -215,6 +215,14 @@ export default function DesignScreen() {
         <Card title="Balance chart">
           <BalanceChart points={SAMPLE_HISTORY} />
         </Card>
+
+        <HalfThemeProvider half="joint">
+          <Card title="Joint half">
+            <SummaryTiles summary={SAMPLE_SUMMARY} />
+            <Button title="Contribute" onPress={() => {}} />
+            <Button title="Add a bank account" variant="secondary" onPress={() => {}} />
+          </Card>
+        </HalfThemeProvider>
 
         <Card title="Choices">
           <SegmentedControl label="Ledger" value={ledger} options={LEDGERS} onChange={setLedger} />

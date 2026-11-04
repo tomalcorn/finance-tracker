@@ -23,6 +23,16 @@ import type {
 } from '@/domain/readModels';
 import type { Repository } from '@/ports/repository';
 
+/** Money moved from a personal account into the joint one, on one date. */
+export type Contribution = {
+  amount: number;
+  fromBankAccountId: string;
+  toBankAccountId: string;
+  incomeSourceId: string;
+  /** `YYYY-MM-DD`. */
+  paymentDate: string;
+};
+
 /**
  * Every aggregate's repository for the signed-in user. An owned aggregate takes
  * the ownership half to serve; asking twice for the same half returns the same
@@ -36,6 +46,8 @@ export type Repositories = {
    * what no longer should be. Safe to run at any time.
    */
   reconcileSubscriptions(ownership: OwnershipType): Promise<void>;
+  /** Book a contribution in one go: a personal expense and a joint income, linked to each other. */
+  contributeToJoint(contribution: Contribution): Promise<void>;
   bankAccounts(ownership: OwnershipType): Repository<BankAccount, BankAccountView>;
   categories(ownership: OwnershipType): Repository<Category, CategoryView>;
   incomeSources(ownership: OwnershipType): Repository<IncomeSource, IncomeSourceView>;

@@ -15,18 +15,20 @@ import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
 import { Sheet } from '@/components/Sheet';
 import { Toast, type ToastMessage } from '@/components/Toast';
+import { ContributeSheetContent } from '@/contributions/ContributeSheetContent';
 import type { OwnershipType } from '@/domain/entities';
 import type { CategoryView } from '@/domain/readModels';
 import { useRepositories, useRows } from '@/hooks/repositories';
 import { nameOptions } from '@/lookups';
+import type { Contribution } from '@/ports/repositories';
 import { formatAmount, parseAmount } from '@/theme/formatAmount';
 import { SPACING } from '@/theme/tokens';
 import { bankOneOffs } from '@/useCases/bankOneOffs';
 
 type TrackerScreenProps = { ownership: OwnershipType };
 
-/** What the sheet is for: the tracker's own budget, adding a subcategory, or banking pots. */
-type SheetTarget = { kind: 'budget' } | { kind: 'new' } | { kind: 'bank' };
+/** What the sheet is for: the tracker's budget, a new subcategory, banking pots, or contributing. */
+type SheetTarget = { kind: 'budget' } | { kind: 'new' } | { kind: 'bank' } | { kind: 'contribute' };
 
 /** One budget tracker: its figures for the month, and the subcategories it is broken into. */
 export function TrackerScreen({ ownership }: TrackerScreenProps) {
@@ -36,6 +38,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const categories = useRows(categoriesRepository);
   const paymentsRepository = repositories.payments(ownership);
   const bankAccounts = useRows(repositories.bankAccounts(ownership));
+  const jointAccounts = useRows(repositories.jointAccounts());
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const dismissToast = useCallback(() => setToast(null), []);
   const router = useRouter();
@@ -63,6 +66,8 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const adds = takesSubcategories(tracker);
   const allocated = subcategories.reduce((total, category) => total + category.budget, 0);
   const bankable = subcategories.filter((category) => category.budget > 0);
+  const jointAccount = jointAccounts.data?.[0];
+  const contributes = ownership === 'personal' && tracker.name === 'Joint' && jointAccount;
 
   function open(target: SheetTarget) {
     setSheet((current) => ({ target, key: (current?.key ?? 0) + 1 }));
@@ -98,15 +103,26 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
     setToast((current) => ({ id: (current?.id ?? 0) + 1, text: `${formatAmount(total)} banked` }));
   }
 
+  async function contribute(contribution: Contribution) {
+    await repositories.contributeToJoint(contribution);
+    closeSheet();
+    setToast((current) => ({
+      id: (current?.id ?? 0) + 1,
+      text: `${formatAmount(contribution.amount)} contributed to ${jointAccount?.name}`,
+    }));
+  }
+
   const target = sheet?.target;
   const sheetTitle =
     target?.kind === 'budget'
       ? `${tracker.name} budget`
       : target?.kind === 'bank'
         ? 'Bank it'
-        : pots
-          ? 'New pot'
-          : 'New subcategory';
+        : target?.kind === 'contribute'
+          ? 'Contribute'
+          : pots
+            ? 'New pot'
+            : 'New subcategory';
 
   return (
     <View style={styles.fill}>
@@ -181,6 +197,9 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
           </Card>
         ) : null}
 
+        {contributes ? (
+          <Button title="Contribute" onPress={() => open({ kind: 'contribute' })} />
+        ) : null}
         {pots && subcategories.length > 0 ? (
           <Button title="Bank it" onPress={() => open({ kind: 'bank' })} />
         ) : null}
@@ -208,6 +227,12 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
             pots={bankable}
             bankAccounts={nameOptions(bankAccounts.data ?? [])}
             onBank={bank}
+            onCancel={closeSheet}
+          />
+        ) : target?.kind === 'contribute' ? (
+          <ContributeSheetContent
+            key={sheet?.key}
+            onContribute={contribute}
             onCancel={closeSheet}
           />
         ) : target ? (

@@ -87,6 +87,16 @@ export function createRepositories(deps: {
     return () => (repo ??= createRepository(spec, context('unowned')));
   }
 
+  async function invalidatePayments(halves: readonly OwnershipType[]) {
+    await deps.cache.invalidate(
+      halves.flatMap((half) =>
+        ['payments' as const, ...PAYMENT_DERIVED].map((source) =>
+          cacheKey(deps.userId, half, source),
+        ),
+      ),
+    );
+  }
+
   return {
     userId: deps.userId,
 
@@ -98,15 +108,21 @@ export function createRepositories(deps: {
         }),
       );
       // A personal contribution books an income on the joint side too.
-      const halves: readonly OwnershipType[] =
-        ownership === 'personal' ? ['personal', 'joint'] : ['joint'];
-      await deps.cache.invalidate(
-        halves.flatMap((half) =>
-          ['payments' as const, ...PAYMENT_DERIVED].map((source) =>
-            cacheKey(deps.userId, half, source),
-          ),
-        ),
+      await invalidatePayments(ownership === 'personal' ? ['personal', 'joint'] : ['joint']);
+    },
+
+    async contributeToJoint(contribution) {
+      await translateError('Contributing to the joint account', () =>
+        deps.gateway.call('contribute_to_joint', {
+          p_user_id: deps.userId,
+          p_amount: contribution.amount,
+          p_from_bank_account_id: contribution.fromBankAccountId,
+          p_to_bank_account_id: contribution.toBankAccountId,
+          p_income_source_id: contribution.incomeSourceId,
+          p_payment_date: contribution.paymentDate,
+        }),
       );
+      await invalidatePayments(['personal', 'joint']);
     },
 
     bankAccounts: repositoryPerOwnership({

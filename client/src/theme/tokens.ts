@@ -63,6 +63,21 @@ export const DARK: Palette = {
   glassBorder: 'rgba(255, 255, 255, 0.1)',
 };
 
+/** The accent colours that mark the joint half, over either palette. */
+export type HalfAccent = Pick<Palette, 'accent' | 'accentSoft' | 'onAccent'>;
+
+export const LIGHT_JOINT: HalfAccent = {
+  accent: '#C2410C',
+  accentSoft: '#FDEDE2',
+  onAccent: '#FFFFFF',
+};
+
+export const DARK_JOINT: HalfAccent = {
+  accent: '#F4A26D',
+  accentSoft: '#452413',
+  onAccent: '#2A1206',
+};
+
 export const SPACING = {
   xs: 4,
   sm: 8,

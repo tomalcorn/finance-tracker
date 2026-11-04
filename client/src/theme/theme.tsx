@@ -1,8 +1,8 @@
 import { DarkTheme, DefaultTheme, type Theme as NavigationTheme } from 'expo-router';
-import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { DARK, LIGHT, type Palette } from '@/theme/tokens';
+import { DARK, DARK_JOINT, LIGHT, LIGHT_JOINT, type Palette } from '@/theme/tokens';
 
 export type AppTheme = {
   dark: boolean;
@@ -35,6 +35,28 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
   const hydrated = useHydrated();
   const theme = hydrated && scheme === 'dark' ? DARK_THEME : LIGHT_THEME;
   return <AppThemeContext.Provider value={theme}>{children}</AppThemeContext.Provider>;
+}
+
+/**
+ * Colour everything inside as one half of the finances, so the two can't be mistaken for each other:
+ * the joint half takes its own accent, and the personal half keeps the theme's.
+ */
+export function HalfThemeProvider({
+  half,
+  children,
+}: {
+  half: 'personal' | 'joint';
+  children: ReactNode;
+}) {
+  const theme = useAppTheme();
+  const value = useMemo(
+    () =>
+      half === 'joint'
+        ? { ...theme, colors: { ...theme.colors, ...(theme.dark ? DARK_JOINT : LIGHT_JOINT) } }
+        : theme,
+    [half, theme],
+  );
+  return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;
 }
 
 /** The current theme: the light one outside an `AppThemeProvider`. */
