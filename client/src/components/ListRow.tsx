@@ -8,16 +8,19 @@ import { SPACING } from '@/theme/tokens';
 type ListRowProps = {
   title: string;
   subtitle?: string;
+  /** Shown at the start of the row, e.g. an icon. */
+  leading?: ReactNode;
   /** Shown at the end of the row, e.g. an `Amount`. */
   trailing?: ReactNode;
   onPress?: () => void;
 };
 
 /** One row of a list: a title, an optional subtitle and something at the end. Use inside `<Card list>`. */
-export function ListRow({ title, subtitle, trailing, onPress }: ListRowProps) {
+export function ListRow({ title, subtitle, leading, trailing, onPress }: ListRowProps) {
   const { colors } = useAppTheme();
   const content = (
     <>
+      {leading}
       <View style={styles.text}>
         <AppText numberOfLines={1}>{title}</AppText>
         {subtitle ? (

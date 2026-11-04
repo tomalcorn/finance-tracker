@@ -70,10 +70,10 @@ describe('routes when signed in', () => {
     expect(await screen.findByText('Signed in as')).toBeOnTheScreen();
   });
 
-  it('/docs renders the screen built in #303', async () => {
+  it('/docs lists the guides', async () => {
     await renderRouter(APP_DIR, { initialUrl: '/docs', wrapper: SignedIn });
 
-    expect(await screen.findByText('Coming in #303.')).toBeOnTheScreen();
+    expect(await screen.findByText('Getting started')).toBeOnTheScreen();
   });
 
   it.each([

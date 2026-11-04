@@ -47,10 +47,17 @@ export function SettingsScreen() {
                 <IncomeMonthSetting ownership="joint" onSaved={notify} />
               </>
             ) : (
-              <AppText tone="muted">
-                You don’t have a joint account yet. Once you’re a member of one, its settings appear
-                here.
-              </AppText>
+              <>
+                <AppText tone="muted">
+                  You don’t have a joint account yet. Once you’re a member of one, its settings
+                  appear here.
+                </AppText>
+                <Button
+                  title="Read the Joint Accounts guide"
+                  variant="plain"
+                  onPress={() => router.push('/docs/joint_accounts')}
+                />
+              </>
             )}
           </Card>
         </HalfThemeProvider>
