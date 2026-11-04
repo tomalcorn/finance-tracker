@@ -2,10 +2,18 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useMemo } from 'react';
 
 import { useServices } from '@/composition/ServicesProvider';
-import { RepositoriesContext, useKeepReconciled } from '@/hooks/repositories';
+import {
+  RepositoriesContext,
+  useKeepReconciled,
+  useKeepWorkspaceSetUp,
+} from '@/hooks/repositories';
 
-/** Book the subscription payments now due as soon as the app opens, on whichever screen. */
-function ReconcileOnOpen() {
+/**
+ * As soon as the app opens, on whichever screen, give a new user their workspace and book the
+ * subscription payments now due.
+ */
+function PrepareOnOpen() {
+  useKeepWorkspaceSetUp();
   useKeepReconciled();
   return null;
 }
@@ -18,7 +26,7 @@ export function DataProvider({ userId, children }: { userId: string; children: R
   return (
     <QueryClientProvider client={services.queryClient}>
       <RepositoriesContext.Provider value={repositories}>
-        <ReconcileOnOpen />
+        <PrepareOnOpen />
         {children}
       </RepositoriesContext.Provider>
     </QueryClientProvider>

@@ -11,7 +11,7 @@ import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
 import { Toast, type ToastMessage } from '@/components/Toast';
 import { today, type OwnershipType } from '@/domain/entities';
-import { useRepositories, useRows } from '@/hooks/repositories';
+import { useRepositories, useRows, useWorkspaceSetup } from '@/hooks/repositories';
 import { filterPayments, monthOf, totals, uncheckedDays } from '@/payments/paymentList';
 import { isContribution, monthlyTotal, statusOf } from '@/subscriptions/subscriptionList';
 import { SummarySection } from '@/summary/SummarySection';
@@ -80,6 +80,7 @@ function Overview({
   const colourOf = useTrackerColour();
   const categories = useRows(repositories.categories(ownership));
   const incomeSources = useRows(repositories.incomeSources(ownership));
+  const setup = useWorkspaceSetup(ownership);
 
   if (categories.error || incomeSources.error) {
     const error = categories.error ?? incomeSources.error;
@@ -113,6 +114,9 @@ function Overview({
 
   return (
     <>
+      {setup.error ? (
+        <AppText tone="negative">Could not finish setting up: {setup.error.message}</AppText>
+      ) : null}
       <SummarySection ownership={ownership} />
 
       <Card title="Income split" label="Income split" onPress={openAllocation}>
