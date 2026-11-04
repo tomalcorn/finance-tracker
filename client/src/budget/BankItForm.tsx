@@ -44,7 +44,7 @@ export function BankItForm({ pots, bankAccounts, onBank, onCancel }: BankItFormP
       <>
         <AppText>You need a bank account to bank from.</AppText>
         <AppText tone="muted">
-          Add one on the Streamlit app, then come back to bank your pots.
+          Add one under Bank accounts on the overview, then come back to bank your pots.
         </AppText>
         <Button title="Close" variant="plain" onPress={onCancel} />
       </>

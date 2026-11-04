@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import type { BalanceTrend } from '@/bankAccounts/balanceTrend';
+import { BankAccountTile, BankAccountTileSpacer } from '@/bankAccounts/BankAccountTile';
 import { Amount } from '@/components/Amount';
 import { AppIcon } from '@/components/AppIcon';
 import { AppText } from '@/components/AppText';
@@ -36,6 +38,27 @@ const SAMPLE_PAYMENTS: SamplePayment[] = [
   { id: '4', date: '21 Oct', name: 'Netflix', category: 'Subscriptions', amount: -10.99 },
   { id: '5', date: '19 Oct', name: 'Dishoom', category: 'Eating out', amount: -64 },
 ];
+
+const RISING_TREND: BalanceTrend = {
+  from: '2026-08-03',
+  partial: false,
+  balances: [980, 890, 860, 2100, 1890, 1510, 1190, 2600, 2240, 1820, 1510, 2940, 2450, 1984.2],
+  change: 1004.2,
+};
+
+const FALLING_TREND: BalanceTrend = {
+  from: '2026-08-03',
+  partial: false,
+  balances: [-40, -120, -180, -150, -260, -320, -300, -410, -520, -640, -610, -760, -812.45],
+  change: -772.45,
+};
+
+const NEW_TREND: BalanceTrend = {
+  from: '2026-10-12',
+  partial: true,
+  balances: [500, 500],
+  change: 0,
+};
 
 const NEW_PAYMENT: SamplePayment = { id: '', date: '', name: '', category: '', amount: 0 };
 
@@ -172,6 +195,13 @@ export default function DesignScreen() {
             <View style={styles.fill} />
           </View>
         </Card>
+
+        <View style={styles.accountTiles}>
+          <BankAccountTile name="Monzo" balance={1984.2} trend={RISING_TREND} onPress={() => {}} />
+          <BankAccountTile name="Amex" balance={-812.45} trend={FALLING_TREND} onPress={() => {}} />
+          <BankAccountTile name="Saver" balance={500} trend={NEW_TREND} onPress={() => {}} />
+          <BankAccountTileSpacer />
+        </View>
 
         <Card title="Choices">
           <SegmentedControl label="Ledger" value={ledger} options={LEDGERS} onChange={setLedger} />
@@ -332,6 +362,7 @@ export default function DesignScreen() {
 }
 
 const styles = StyleSheet.create({
+  accountTiles: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
   fill: { flex: 1 },
   tiles: { flexDirection: 'row', gap: SPACING.md },
   tabStage: {
