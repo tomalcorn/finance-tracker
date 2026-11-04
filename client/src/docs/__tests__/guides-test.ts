@@ -1,29 +1,17 @@
+import { lexer, walkTokens, type MarkedToken, type Token } from 'marked';
+
 import { GUIDES, guideBySlug } from '@/docs/guides';
-import { parseMarkdown, type Block, type Inline } from '@/docs/parseMarkdown';
 
-function inlinesOf(block: Block): Inline[] {
-  switch (block.kind) {
-    case 'paragraph':
-    case 'quote':
-      return block.inlines;
-    case 'list':
-      return block.items.flat();
-    case 'table':
-      return [...block.header, ...block.rows.flat()].flat();
-    case 'heading':
-      return [];
-  }
-}
+const DRAWN_BLOCKS = ['space', 'heading', 'paragraph', 'list', 'blockquote', 'table'];
 
-const guideInlines = GUIDES.flatMap((guide) =>
-  parseMarkdown(guide.body)
-    .flatMap(inlinesOf)
-    .map((inline) => ({ slug: guide.slug, inline })),
-);
-
-const links = guideInlines.flatMap(({ slug, inline }) =>
-  inline.kind === 'link' ? [{ slug, href: inline.href }] : [],
-);
+/** Every token in a guide, at any depth, with the guide it came from. */
+const tokens: { slug: string; token: MarkedToken }[] = GUIDES.flatMap((guide) => {
+  const found: Token[] = [];
+  walkTokens(lexer(guide.body), (token) => {
+    found.push(token);
+  });
+  return found.map((token) => ({ slug: guide.slug, token: token as MarkedToken }));
+});
 
 describe('GUIDES', () => {
   it('has all nine', () => {
@@ -42,19 +30,29 @@ describe('GUIDES', () => {
     expect(slug).toMatch(/^[a-z][a-z_]*$/);
   });
 
+  it.each(GUIDES.map((guide) => [guide.slug, guide.body]))(
+    '%s only uses blocks that can be drawn',
+    (_slug, body) => {
+      const undrawn = lexer(body).filter((token) => !DRAWN_BLOCKS.includes(token.type));
+
+      expect(undrawn.map((token) => token.raw)).toEqual([]);
+    },
+  );
+
   it('leaves no markdown unread', () => {
-    const unread = guideInlines.filter(
-      ({ inline }) => inline.kind === 'text' && /\*\*|\]\(|^#|^\|/.test(inline.text),
+    const unread = tokens.filter(
+      ({ token }) => token.type === 'text' && !token.tokens && /\*\*|\]\(/.test(token.text),
     );
 
-    expect(unread).toEqual([]);
+    expect(unread.map(({ slug, token }) => [slug, token.raw])).toEqual([]);
   });
 
   it('only links to guides that exist, the settings, or the web', () => {
-    const broken = links.filter(({ href }) => {
-      if (href === '/settings' || href.startsWith('https://')) return false;
-      const [, docs, slug] = href.split('/');
-      return docs !== 'docs' || !guideBySlug(slug);
+    const broken = tokens.flatMap(({ slug, token }) => {
+      if (token.type !== 'link') return [];
+      if (token.href === '/settings' || token.href.startsWith('https://')) return [];
+      const [, docs, target] = token.href.split('/');
+      return docs === 'docs' && guideBySlug(target) ? [] : [[slug, token.href]];
     });
 
     expect(broken).toEqual([]);
