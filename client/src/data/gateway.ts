@@ -19,7 +19,7 @@ export interface TableGateway {
   delete(table: TableName, ids: readonly string[]): Promise<void>;
 
   /** Run a database function, for a change spanning more rows than a table write can. */
-  call(name: FunctionName, args: Readonly<Record<string, string>>): Promise<void>;
+  call(name: FunctionName, args: Readonly<Record<string, string | number>>): Promise<void>;
 }
 
 /** A gateway request failed. Translated into a `RepositoryError` by the repository. */

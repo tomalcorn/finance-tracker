@@ -18,7 +18,7 @@ export type ViewName =
 export type ReadSource = TableName | ViewName;
 
 /** A database function the app calls. */
-export type FunctionName = 'reconcile_subscriptions';
+export type FunctionName = 'reconcile_subscriptions' | 'contribute_to_joint';
 
 /** The views that sum payments, so any write to payments restates them. */
 export const PAYMENT_DERIVED: readonly ReadSource[] = [

@@ -59,7 +59,7 @@ function subscription(id: string, name: string, amount: number, overrides: Store
 }
 
 let tables: Record<string, StoredRow[]>;
-let reconciled: Record<string, string>[];
+let reconciled: Record<string, string | number>[];
 
 /** A database in memory. A write to `subscriptions` is mirrored into its view. */
 function memoryGateway(): TableGateway {

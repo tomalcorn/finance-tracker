@@ -12,6 +12,7 @@ import {
   type GlassTabItem,
 } from '@/components/GlassTabBar';
 import { DataProvider } from '@/composition/DataProvider';
+import { HalfThemeProvider } from '@/theme/theme';
 
 /** The tabs in order: `key` is the route name, `label` the short name under the icon. */
 const TABS: readonly (GlassTabItem & { title: string })[] = [
@@ -74,12 +75,14 @@ function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   }
 
   return (
-    <GlassTabBar
-      items={TABS}
-      selectedKey={selected?.name ?? ''}
-      onSelect={select}
-      bottomInset={insets.bottom}
-    />
+    <HalfThemeProvider half={selected?.name === 'joint' ? 'joint' : 'personal'}>
+      <GlassTabBar
+        items={TABS}
+        selectedKey={selected?.name ?? ''}
+        onSelect={select}
+        bottomInset={insets.bottom}
+      />
+    </HalfThemeProvider>
   );
 }
 
