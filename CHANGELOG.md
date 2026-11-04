@@ -1,3 +1,9 @@
+## v1.42.0 (2026-11-04)
+
+### Feat
+
+- **client**: bank account page with a balance chart (#344)
+
 ## v1.41.0 (2026-11-04)
 
 ### Feat
