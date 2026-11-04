@@ -1,3 +1,9 @@
+## v1.45.0 (2026-11-04)
+
+### Feat
+
+- **client**: settings screen and first-run setup (#348)
+
 ## v1.44.0 (2026-11-04)
 
 ### Feat
