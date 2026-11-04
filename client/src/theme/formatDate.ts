@@ -7,6 +7,7 @@ function calendarDate(date: string): Date {
 const DAY = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const DAY_OF_MONTH = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
 const MONTH = new Intl.DateTimeFormat('en-GB', { month: 'long' });
+const MONTH_SHORT = new Intl.DateTimeFormat('en-GB', { month: 'short' });
 const MONTH_YEAR = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' });
 
 /** Whether `text` is a real calendar date written `YYYY-MM-DD`. */
@@ -30,6 +31,11 @@ export function formatDayOfMonth(date: string): string {
 /** The month's name of a `YYYY-MM-DD` date, e.g. `November`. */
 export function formatMonth(date: string): string {
   return MONTH.format(calendarDate(date));
+}
+
+/** The month's short name of a `YYYY-MM-DD` date, for a chart axis, e.g. `Nov`. */
+export function formatMonthShort(date: string): string {
+  return MONTH_SHORT.format(calendarDate(date));
 }
 
 /** The month and year of a `YYYY-MM-DD` date, e.g. `November 2026`. */

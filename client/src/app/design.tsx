@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import type { BalanceTrend } from '@/bankAccounts/balanceTrend';
+import { BalanceChart } from '@/bankAccounts/BalanceChart';
+import type { BalancePoint } from '@/bankAccounts/balanceTrend';
 import { BankAccountTile, BankAccountTileSpacer } from '@/bankAccounts/BankAccountTile';
 import { Amount } from '@/components/Amount';
 import { AppIcon } from '@/components/AppIcon';
@@ -39,26 +40,22 @@ const SAMPLE_PAYMENTS: SamplePayment[] = [
   { id: '5', date: '19 Oct', name: 'Dishoom', category: 'Eating out', amount: -64 },
 ];
 
-const RISING_TREND: BalanceTrend = {
-  from: '2026-08-03',
-  partial: false,
-  balances: [980, 890, 860, 2100, 1890, 1510, 1190, 2600, 2240, 1820, 1510, 2940, 2450, 1984.2],
-  change: 1004.2,
-};
+const RISING_TREND = [
+  980, 890, 860, 2100, 1890, 1510, 1190, 2600, 2240, 1820, 1510, 2940, 2450, 1984.2,
+];
 
-const FALLING_TREND: BalanceTrend = {
-  from: '2026-08-03',
-  partial: false,
-  balances: [-40, -120, -180, -150, -260, -320, -300, -410, -520, -640, -610, -760, -812.45],
-  change: -772.45,
-};
+const FALLING_TREND = [
+  -40, -120, -180, -150, -260, -320, -300, -410, -520, -640, -610, -760, -812.45,
+];
 
-const NEW_TREND: BalanceTrend = {
-  from: '2026-10-12',
-  partial: true,
-  balances: [500, 500],
-  change: 0,
-};
+const NEW_TREND = [500, 500];
+
+/** Three months of a balance falling by the day and refilled on the 25th. */
+const SAMPLE_HISTORY: BalancePoint[] = Array.from({ length: 93 }, (_, index) => {
+  const date = new Date(Date.UTC(2026, 7, 3 + index)).toISOString().slice(0, 10);
+  const sinceSalary = (Number(date.slice(8)) + 6) % 31;
+  return { date, balance: 900 + index * 8 + 1600 - sinceSalary * 52 };
+});
 
 const NEW_PAYMENT: SamplePayment = { id: '', date: '', name: '', category: '', amount: 0 };
 
@@ -202,6 +199,10 @@ export default function DesignScreen() {
           <BankAccountTile name="Saver" balance={500} trend={NEW_TREND} onPress={() => {}} />
           <BankAccountTileSpacer />
         </View>
+
+        <Card title="Balance chart">
+          <BalanceChart points={SAMPLE_HISTORY} />
+        </Card>
 
         <Card title="Choices">
           <SegmentedControl label="Ledger" value={ledger} options={LEDGERS} onChange={setLedger} />

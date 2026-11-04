@@ -1,6 +1,5 @@
 import { StyleSheet, View } from 'react-native';
 
-import { describeChange, type BalanceTrend } from '@/bankAccounts/balanceTrend';
 import { Amount } from '@/components/Amount';
 import { AppText } from '@/components/AppText';
 import { Card } from '@/components/Card';
@@ -11,8 +10,8 @@ import { SPACING } from '@/theme/tokens';
 type BankAccountTileProps = {
   name: string;
   balance: number;
-  /** How the balance has moved; `null` holds its place until the payments are known. */
-  trend: BalanceTrend | null;
+  /** The balances to draw, oldest first; `null` holds their place until the payments are known. */
+  trend: readonly number[] | null;
   onPress: () => void;
 };
 
@@ -20,15 +19,9 @@ const SPARKLINE_HEIGHT = 44;
 
 /** An account's current balance with a trend line under it, for laying out in a wrapping row. */
 export function BankAccountTile({ name, balance, trend, onPress }: BankAccountTileProps) {
-  const change = trend ? describeChange(trend) : null;
-  const tone = !trend || trend.change === 0 ? 'muted' : trend.change > 0 ? 'positive' : 'negative';
-
   return (
     <View style={styles.tile}>
-      <Card
-        label={[name, formatAmount(balance), change].filter(Boolean).join(', ')}
-        onPress={onPress}
-      >
+      <Card label={`${name}, ${formatAmount(balance)}`} onPress={onPress}>
         <View style={styles.figures}>
           <AppText variant="label" tone="muted" numberOfLines={1}>
             {name}
@@ -36,13 +29,10 @@ export function BankAccountTile({ name, balance, trend, onPress }: BankAccountTi
           <Amount value={balance} variant="heading" />
         </View>
         {trend ? (
-          <Sparkline values={trend.balances} height={SPARKLINE_HEIGHT} />
+          <Sparkline values={trend} height={SPARKLINE_HEIGHT} />
         ) : (
           <View style={styles.sparklineSpace} />
         )}
-        <AppText variant="caption" tone={tone}>
-          {change ?? ' '}
-        </AppText>
       </Card>
     </View>
   );
