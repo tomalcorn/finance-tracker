@@ -1,3 +1,9 @@
+## v1.43.0 (2026-11-04)
+
+### Feat
+
+- **client**: finance summary on the overview (#345)
+
 ## v1.42.0 (2026-11-04)
 
 ### Feat
