@@ -8,6 +8,8 @@ type SparklineProps = {
   /** The series, oldest first. */
   values: readonly number[];
   height?: number;
+  /** Shade the space under the line. */
+  area?: boolean;
 };
 
 type Point = { x: number; y: number };
@@ -15,6 +17,7 @@ type Point = { x: number; y: number };
 const LINE_WIDTH = 2;
 const DOT_RADIUS = 4;
 const DOT_RING = 2;
+const AREA_OPACITY = 0.15;
 /** Room around the plot for the end dot and its ring. */
 const INSET = DOT_RADIUS + DOT_RING;
 
@@ -36,11 +39,15 @@ export function sparklinePoints(values: readonly number[], width: number, height
 }
 
 /** A small line with no axes for how a value has moved, ending on a dot at the latest value. */
-export function Sparkline({ values, height = 44 }: SparklineProps) {
+export function Sparkline({ values, height = 44, area = false }: SparklineProps) {
   const { colors } = useAppTheme();
   const [width, setWidth] = useState(0);
   const points = width > 0 ? sparklinePoints(values, width, height) : [];
+  const start = points[0];
   const end = points.at(-1);
+  const line = points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x} ${point.y}`)
+    .join(' ');
 
   function measure(event: LayoutChangeEvent) {
     setWidth(event.nativeEvent.layout.width);
@@ -48,12 +55,17 @@ export function Sparkline({ values, height = 44 }: SparklineProps) {
 
   return (
     <View onLayout={measure} style={{ height }}>
-      {end ? (
+      {start && end ? (
         <Svg width={width} height={height}>
+          {area ? (
+            <Path
+              d={`${line} L${end.x} ${height} L${start.x} ${height} Z`}
+              fill={colors.accent}
+              fillOpacity={AREA_OPACITY}
+            />
+          ) : null}
           <Path
-            d={points
-              .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x} ${point.y}`)
-              .join(' ')}
+            d={line}
             fill="none"
             stroke={colors.accent}
             strokeWidth={LINE_WIDTH}

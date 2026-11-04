@@ -18,10 +18,20 @@ type CardProps = {
   onPress?: () => void;
   /** Names the card as a button, when it has `onPress`. */
   label?: string;
+  /** Stretch to the height of whatever holds it, e.g. to match the other cards in a row. */
+  fill?: boolean;
 };
 
 /** A rounded surface grouping related content, or a list of `ListRow`s. */
-export function Card({ children, title, titleDetail, list = false, onPress, label }: CardProps) {
+export function Card({
+  children,
+  title,
+  titleDetail,
+  list = false,
+  onPress,
+  label,
+  fill = false,
+}: CardProps) {
   const { colors } = useAppTheme();
   const items = Children.toArray(children);
   const content = list
@@ -34,7 +44,7 @@ export function Card({ children, title, titleDetail, list = false, onPress, labe
     : children;
 
   return (
-    <View style={styles.group}>
+    <View style={[styles.group, fill && styles.fill]}>
       {title ? <CardHeading title={title} detail={titleDetail} /> : null}
       {onPress ? (
         <Pressable
@@ -43,6 +53,7 @@ export function Card({ children, title, titleDetail, list = false, onPress, labe
           onPress={onPress}
           style={(state) => [
             styles.card,
+            fill && styles.fill,
             {
               backgroundColor: interactiveBackground(state, colors, colors.surface),
               borderColor: colors.border,
@@ -56,6 +67,7 @@ export function Card({ children, title, titleDetail, list = false, onPress, labe
         <View
           style={[
             styles.card,
+            fill && styles.fill,
             { backgroundColor: colors.surface, borderColor: colors.border },
             !list && styles.padded,
           ]}
@@ -81,6 +93,7 @@ export function CardHeading({ title, detail }: { title: string; detail?: string 
 
 const styles = StyleSheet.create({
   group: { gap: SPACING.sm },
+  fill: { flex: 1 },
   heading: {
     flexDirection: 'row',
     flexWrap: 'wrap',
