@@ -92,7 +92,7 @@ describe('signed out', () => {
   it('leaves docs readable', async () => {
     await renderWithAuth('/docs', fakeAuth());
 
-    expect(await screen.findByText('Coming in #303.')).toBeOnTheScreen();
+    expect(await screen.findByText('Getting started')).toBeOnTheScreen();
   });
 
   it('shows why the session could not be restored', async () => {

@@ -7,6 +7,7 @@ import { AllocationBar, useTrackerColour } from '@/budget/AllocationBar';
 import { BudgetRow } from '@/budget/BudgetRow';
 import { nearlySpent, roots, totalIncome, trackerIcon } from '@/budget/trackers';
 import { AppText } from '@/components/AppText';
+import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
 import { Toast, type ToastMessage } from '@/components/Toast';
@@ -29,6 +30,7 @@ const TITLES: Record<OwnershipType, string> = { personal: 'Personal', joint: 'Jo
  */
 export function FinancesScreen({ ownership }: FinancesScreenProps) {
   const jointAccounts = useRows(useRepositories().jointAccounts());
+  const router = useRouter();
   const account = jointAccounts.data?.[0];
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const dismissToast = useCallback(() => setToast(null), []);
@@ -59,6 +61,11 @@ export function FinancesScreen({ ownership }: FinancesScreenProps) {
               Once you’re a member of one, its shared budget shows here. Joint accounts are set up
               by hand for now: ask for one to be created, and say who should be on it.
             </AppText>
+            <Button
+              title="Read the Joint Accounts guide"
+              variant="plain"
+              onPress={() => router.push('/docs/joint_accounts')}
+            />
           </Card>
         )}
       </Screen>
