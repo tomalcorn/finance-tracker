@@ -8,7 +8,6 @@ import type { Services } from '@/composition/createServices';
 import { ServicesFactoryProvider } from '@/composition/ServicesProvider';
 import { GatewayError, type StoredRow, type TableGateway } from '@/data/gateway';
 import { createRepositories } from '@/data/repositories';
-import { today } from '@/domain/entities';
 
 const APP_DIR = './src/app';
 const USER_ID = 'auth0|test';
@@ -165,14 +164,25 @@ describe('tiles', () => {
     expect(await screen.findByText('-£200.00')).toBeOnTheScreen();
   });
 
-  it('says how an account has moved', async () => {
-    tables.payments = [{ ...payment(MONZO_ID), payment_date: today() }];
-
+  it('opens an account’s page', async () => {
     await renderAt('/personal');
 
-    expect(
-      await screen.findByRole('button', { name: /^Monzo, £1,250\.50, -£3 / }),
-    ).toBeOnTheScreen();
+    await fireEvent.press(await screen.findByRole('button', { name: /^Monzo/ }));
+
+    expect(await screen.findByText('Balance over the last 3 months')).toBeOnTheScreen();
+  });
+
+  it('opens a joint account’s page from the joint half', async () => {
+    tables.joint_accounts = [{ id: JOINT_ACCOUNT_ID, name: 'Household' }];
+    tables.bank_accounts_view?.push({
+      ...account(JOINT_BANK_ID, 'Joint Santander', 0, 75),
+      ...JOINT,
+    });
+    await renderAt('/joint');
+
+    await fireEvent.press(await screen.findByRole('button', { name: /^Joint Santander/ }));
+
+    expect(await screen.findByText('Balance over the last 3 months')).toBeOnTheScreen();
   });
 
   it('shows why the trends could not load', async () => {
@@ -265,11 +275,49 @@ describe('adding', () => {
   });
 });
 
-describe('editing', () => {
+describe('account page', () => {
   async function openMonzo() {
-    await renderAt('/personal');
-    await fireEvent.press(await screen.findByRole('button', { name: /^Monzo/ }));
+    await renderAt(`/personal/account/${MONZO_ID}`);
+    await screen.findByLabelText('Name');
   }
+
+  it('shows the balance', async () => {
+    await openMonzo();
+
+    expect(await screen.findByText('£1,250.50')).toBeOnTheScreen();
+  });
+
+  it('shows why the payments could not load', async () => {
+    tables.payments = [{ ...OWNED, id: 'not-a-row' }];
+
+    await openMonzo();
+
+    expect(await screen.findByText(/^Could not load the payments/)).toBeOnTheScreen();
+  });
+
+  it('says when the account no longer exists', async () => {
+    await renderAt(`/personal/account/${JOINT_BANK_ID}`);
+
+    expect(await screen.findByText('This account no longer exists.')).toBeOnTheScreen();
+  });
+
+  it('says when a save has gone through', async () => {
+    await openMonzo();
+
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Monzo Current');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('Saved')).toBeOnTheScreen();
+  });
+
+  it('retitles itself after a new name', async () => {
+    await openMonzo();
+
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Monzo Current');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('Monzo Current')).toBeOnTheScreen();
+  });
 
   it('saves a new name and starting balance', async () => {
     await openMonzo();
@@ -301,8 +349,17 @@ describe('deleting', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
 
-    await screen.findByText('Monzo deleted');
-    expect(tables.bank_accounts_view?.map((row) => row.id)).toEqual([AMEX_ID]);
+    await waitFor(() => expect(tables.bank_accounts_view?.map((row) => row.id)).toEqual([AMEX_ID]));
+  });
+
+  it('goes back to the overview', async () => {
+    await renderAt('/personal');
+    await fireEvent.press(await screen.findByRole('button', { name: /^Monzo/ }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Delete' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(await screen.findByText('-£200.00 total')).toBeOnTheScreen();
   });
 
   it('warns that its quick buttons go too', async () => {

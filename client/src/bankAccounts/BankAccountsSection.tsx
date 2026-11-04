@@ -1,71 +1,59 @@
+import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { balanceTrend } from '@/bankAccounts/balanceTrend';
+import { dailyBalances, sampled } from '@/bankAccounts/balanceTrend';
 import { BankAccountForm } from '@/bankAccounts/BankAccountForm';
 import { bankAccountRow, type BankAccountDraft } from '@/bankAccounts/bankAccountDraft';
-import { byName, isInUse, totalBalance } from '@/bankAccounts/bankAccountList';
+import { byName, totalBalance } from '@/bankAccounts/bankAccountList';
 import { BankAccountTile, BankAccountTileSpacer } from '@/bankAccounts/BankAccountTile';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card, CardHeading } from '@/components/Card';
 import { Sheet } from '@/components/Sheet';
 import { today, type OwnershipType } from '@/domain/entities';
-import type { BankAccountView } from '@/domain/readModels';
 import { useRepositories, useRows } from '@/hooks/repositories';
 import { formatAmount } from '@/theme/formatAmount';
 import { SPACING } from '@/theme/tokens';
 
 type BankAccountsSectionProps = {
   ownership: OwnershipType;
-  /** Reports an account added or deleted, once its sheet has closed. */
+  /** Reports an account added, once its sheet has closed. */
   onNotify: (text: string) => void;
 };
 
-/** A tile per account and their total, with each tile opening to edit or delete the account. */
+/** A tile per account and their total, with each tile opening the account's own page. */
 export function BankAccountsSection({ ownership, onNotify }: BankAccountsSectionProps) {
+  const router = useRouter();
   const repositories = useRepositories();
   const accountsRepository = repositories.bankAccounts(ownership);
   const accounts = useRows(accountsRepository);
   const payments = useRows(repositories.payments(ownership));
-  const subscriptions = useRows(repositories.subscriptions(ownership));
-  // A personal contribution's income leg can arrive in a joint account.
-  const personalSubscriptions = useRows(repositories.subscriptions('personal'));
-  const quickButtons = useRows(repositories.quickButtons(ownership));
-  const [sheet, setSheet] = useState<{ account: BankAccountView | null; key: number } | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const closeSheet = useCallback(() => setSheetOpen(false), []);
+  const [addKey, setAddKey] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
+  const closeAdd = useCallback(() => setAdding(false), []);
 
   const rows = byName(accounts.data ?? []);
-  const editing = sheet?.account ?? null;
   const now = today();
 
-  function open(account: BankAccountView | null) {
-    setSheet((current) => ({ account, key: (current?.key ?? 0) + 1 }));
-    setSheetOpen(true);
+  function startAdding() {
+    setAddKey((current) => (current ?? 0) + 1);
+    setAdding(true);
   }
 
-  async function save(draft: BankAccountDraft) {
-    const row = bankAccountRow(draft, editing);
+  function open(id: string) {
+    router.push(
+      ownership === 'personal'
+        ? { pathname: '/personal/account/[id]', params: { id } }
+        : { pathname: '/joint/account/[id]', params: { id } },
+    );
+  }
+
+  async function add(draft: BankAccountDraft) {
+    const row = bankAccountRow(draft, null);
     await accountsRepository.save(await accountsRepository.build([row]));
-    closeSheet();
-    if (!editing) onNotify(`${draft.name.trim()} added`);
-  }
-
-  async function remove() {
-    if (!editing) return;
-    await accountsRepository.delete([editing.id]);
-    closeSheet();
-    onNotify(`${editing.name} deleted`);
-  }
-
-  /** Known only once everything that could use the account has loaded. */
-  function deletable(account: BankAccountView): boolean {
-    if (!payments.data || !subscriptions.data || !personalSubscriptions.data) return false;
-    return !isInUse(account.id, payments.data, [
-      ...subscriptions.data,
-      ...personalSubscriptions.data,
-    ]);
+    closeAdd();
+    onNotify(`${draft.name.trim()} added`);
   }
 
   return (
@@ -87,8 +75,14 @@ export function BankAccountsSection({ ownership, onNotify }: BankAccountsSection
                 key={account.id}
                 name={account.name}
                 balance={account.current_balance}
-                trend={payments.data ? balanceTrend(account, payments.data, now) : null}
-                onPress={() => open(account)}
+                trend={
+                  payments.data
+                    ? sampled(dailyBalances(account, payments.data, now)).map(
+                        (point) => point.balance,
+                      )
+                    : null
+                }
+                onPress={() => open(account.id)}
               />
             ))}
             {rows.length % 2 === 1 ? <BankAccountTileSpacer /> : null}
@@ -99,26 +93,11 @@ export function BankAccountsSection({ ownership, onNotify }: BankAccountsSection
         </>
       )}
 
-      <Button title="Add a bank account" variant="secondary" onPress={() => open(null)} />
+      <Button title="Add a bank account" variant="secondary" onPress={startAdding} />
 
-      <Sheet
-        visible={sheetOpen}
-        onClose={closeSheet}
-        title={editing ? `Edit ${editing.name}` : 'New bank account'}
-      >
-        {sheet ? (
-          <BankAccountForm
-            key={sheet.key}
-            account={editing}
-            deletable={editing ? deletable(editing) : false}
-            quickButtons={
-              (quickButtons.data ?? []).filter((button) => button.bank_account_id === editing?.id)
-                .length
-            }
-            onSave={save}
-            onDelete={remove}
-            onCancel={closeSheet}
-          />
+      <Sheet visible={adding} onClose={closeAdd} title="New bank account">
+        {addKey !== null ? (
+          <BankAccountForm key={addKey} account={null} onSave={add} onCancel={closeAdd} />
         ) : null}
       </Sheet>
     </View>

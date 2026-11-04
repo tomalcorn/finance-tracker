@@ -14,15 +14,17 @@ import { formatAmount } from '@/theme/formatAmount';
 type BankAccountFormProps = {
   /** The account being edited, or null to add one. */
   account: BankAccountView | null;
-  /** Whether it can be deleted: the database refuses while payments or subscriptions use it. */
-  deletable: boolean;
   /** How many quick buttons log to it, which go too if it is deleted. */
-  quickButtons: number;
+  quickButtons?: number;
   /** Save the draft; rejects with a message to show when it can't. */
   onSave: (draft: BankAccountDraft) => Promise<void>;
-  /** Delete the account being edited; rejects with a message to show when it can't. */
-  onDelete: () => Promise<void>;
-  onCancel: () => void;
+  /**
+   * Delete the account being edited; rejects with a message to show when it can't. Left out while it
+   * can't be deleted, because the database refuses while payments or subscriptions use it.
+   */
+  onDelete?: () => Promise<void>;
+  /** Offers a way out, where the form isn't simply left behind. */
+  onCancel?: () => void;
 };
 
 function messageOf(error: unknown): string {
@@ -32,8 +34,7 @@ function messageOf(error: unknown): string {
 /** A bank account's name and starting balance. Delete asks to be confirmed. */
 export function BankAccountForm({
   account,
-  deletable,
-  quickButtons,
+  quickButtons = 0,
   onSave,
   onDelete,
   onCancel,
@@ -52,6 +53,7 @@ export function BankAccountForm({
       await action();
     } catch (error) {
       setFailure(messageOf(error));
+    } finally {
       setSaving(false);
     }
   }
@@ -62,7 +64,7 @@ export function BankAccountForm({
     void run(() => onSave(draft));
   }
 
-  if (confirmingDelete && account) {
+  if (confirmingDelete && account && onDelete) {
     return (
       <>
         <AppText>Delete “{account.name}”?</AppText>
@@ -109,15 +111,15 @@ export function BankAccountForm({
       </AppText>
       {failure ? <AppText tone="negative">{failure}</AppText> : null}
       <Button title={account ? 'Save' : 'Add'} onPress={save} disabled={saving} />
-      {account && deletable ? (
+      {account && onDelete ? (
         <Button title="Delete" variant="destructive" onPress={() => setConfirmingDelete(true)} />
       ) : null}
-      {account && !deletable ? (
+      {account && !onDelete ? (
         <AppText variant="caption" tone="muted">
           It can’t be deleted while payments or subscriptions use it.
         </AppText>
       ) : null}
-      <Button title="Cancel" variant="plain" onPress={onCancel} />
+      {onCancel ? <Button title="Cancel" variant="plain" onPress={onCancel} /> : null}
     </>
   );
 }
