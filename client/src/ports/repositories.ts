@@ -46,6 +46,11 @@ export type Repositories = {
    * what no longer should be. Safe to run at any time.
    */
   reconcileSubscriptions(ownership: OwnershipType): Promise<void>;
+  /**
+   * Give one half whatever it is missing of its budget trackers and settings. What exists is left
+   * alone, so it is safe to run at any time. Without a joint account the joint half has nothing to do.
+   */
+  initialiseWorkspace(ownership: OwnershipType): Promise<void>;
   /** Book a contribution in one go: a personal expense and a joint income, linked to each other. */
   contributeToJoint(contribution: Contribution): Promise<void>;
   bankAccounts(ownership: OwnershipType): Repository<BankAccount, BankAccountView>;

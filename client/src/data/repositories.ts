@@ -111,6 +111,20 @@ export function createRepositories(deps: {
       await invalidatePayments(ownership === 'personal' ? ['personal', 'joint'] : ['joint']);
     },
 
+    async initialiseWorkspace(ownership) {
+      await translateError('Setting up your workspace', () =>
+        deps.gateway.call('initialise_workspace', {
+          p_user_id: deps.userId,
+          p_ownership: ownership,
+        }),
+      );
+      await deps.cache.invalidate(
+        (['categories_view', 'user_settings'] as const).map((source) =>
+          cacheKey(deps.userId, ownership, source),
+        ),
+      );
+    },
+
     async contributeToJoint(contribution) {
       await translateError('Contributing to the joint account', () =>
         deps.gateway.call('contribute_to_joint', {

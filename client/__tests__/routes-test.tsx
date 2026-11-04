@@ -64,13 +64,16 @@ describe('routes when signed in', () => {
     expect(await screen.findByText('You don’t have a joint account yet.')).toBeOnTheScreen();
   });
 
-  it.each([
-    ['/settings', 302],
-    ['/docs', 303],
-  ])('%s renders the screen built in #%i', async (url, issue) => {
-    await renderRouter(APP_DIR, { initialUrl: url, wrapper: SignedIn });
+  it('/settings renders the settings', async () => {
+    await renderRouter(APP_DIR, { initialUrl: '/settings', wrapper: SignedIn });
 
-    expect(await screen.findByText(`Coming in #${issue}.`)).toBeOnTheScreen();
+    expect(await screen.findByText('Signed in as')).toBeOnTheScreen();
+  });
+
+  it('/docs renders the screen built in #303', async () => {
+    await renderRouter(APP_DIR, { initialUrl: '/docs', wrapper: SignedIn });
+
+    expect(await screen.findByText('Coming in #303.')).toBeOnTheScreen();
   });
 
   it.each([
@@ -93,7 +96,7 @@ describe('routes when signed in', () => {
 
     await fireEvent.press(await screen.findByRole('tab', { name: 'Settings' }));
 
-    expect(await screen.findByText('Coming in #302.')).toBeOnTheScreen();
+    expect(await screen.findByText('Signed in as')).toBeOnTheScreen();
   });
 
   it('/design renders the component gallery', async () => {

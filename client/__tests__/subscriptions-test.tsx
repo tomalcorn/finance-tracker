@@ -86,8 +86,8 @@ function memoryGateway(): TableGateway {
       const name = table === 'subscriptions' ? 'subscriptions_view' : table;
       tables[name] = (tables[name] ?? []).filter((row) => !ids.includes(row.id as string));
     },
-    async call(_name, args) {
-      reconciled.push({ ...args });
+    async call(name, args) {
+      if (name === 'reconcile_subscriptions') reconciled.push({ ...args });
     },
   };
 }

@@ -265,6 +265,30 @@ describe('delete', () => {
   });
 });
 
+describe('initialiseWorkspace', () => {
+  it('runs the database function for the user and half', async () => {
+    await repositories().initialiseWorkspace('joint');
+
+    expect(gateway.calls.at(-1)).toEqual({
+      method: 'call',
+      source: 'initialise_workspace',
+      arg: { p_user_id: USER_ID, p_ownership: 'joint' },
+    });
+  });
+
+  it.each(['categories_view', 'user_settings'])('refreshes %s', async (source) => {
+    await repositories().initialiseWorkspace('personal');
+
+    expect(cache.invalidated).toContainEqual([USER_ID, 'personal', source]);
+  });
+
+  it('leaves the other half alone', async () => {
+    await repositories().initialiseWorkspace('personal');
+
+    expect(cache.invalidated.filter(([, half]) => half === 'joint')).toEqual([]);
+  });
+});
+
 describe('contributeToJoint', () => {
   const CONTRIBUTION = {
     amount: 150,
