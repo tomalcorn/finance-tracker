@@ -5,6 +5,17 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Sheet } from '@/components/Sheet';
 
+let mockKeyboardInset = 0;
+jest.mock('@/components/keyboardInset', () => ({
+  useKeyboardInset: () => mockKeyboardInset,
+}));
+
+let mockWindowHeight = 844;
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => ({ width: 390, height: mockWindowHeight, scale: 3, fontScale: 1 }),
+}));
+
 /** An iPhone-sized window, with the notch and home indicator insets. */
 const METRICS = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -16,6 +27,11 @@ function renderInApp(sheet: ReactElement) {
 }
 
 describe('Sheet', () => {
+  afterEach(() => {
+    mockKeyboardInset = 0;
+    mockWindowHeight = 844;
+  });
+
   it('shows its title and content when visible', async () => {
     await renderInApp(
       <Sheet visible onClose={() => {}} title="Add a payment">
@@ -70,5 +86,21 @@ describe('Sheet', () => {
     );
 
     expect(screen.getByText('Save')).toBeOnTheScreen();
+  });
+
+  it('keeps its full height above the keyboard on the web', async () => {
+    // On iOS Safari the keyboard covers 375px of an 844px window. react-native-web already
+    // reports the window as the 469px left above it, so the sheet mustn't take the keyboard off
+    // a second time (#351).
+    mockKeyboardInset = 375;
+    mockWindowHeight = 469;
+
+    await renderInApp(
+      <Sheet visible onClose={() => {}} title="Add a payment">
+        <Text>Form goes here</Text>
+      </Sheet>,
+    );
+
+    expect(screen.getByTestId('sheet-panel')).toHaveStyle({ maxHeight: 469 * 0.9 });
   });
 });

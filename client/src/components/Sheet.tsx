@@ -139,12 +139,16 @@ export function Sheet({ visible, onClose, title, children, footer }: SheetProps)
           />
         </Animated.View>
         <Animated.View
+          testID="sheet-panel"
           style={[
             styles.panel,
             wide ? styles.dialog : styles.sheet,
             {
               backgroundColor: colors.surface,
-              maxHeight: (height - keyboardInset) * 0.9,
+              // `height` is already what the keyboard leaves visible: react-native-web measures the
+              // window from `visualViewport`. Taking the inset off again shrank the sheet to its
+              // header whenever the keyboard opened on the phone (#351).
+              maxHeight: height * 0.9,
               paddingBottom: wide
                 ? SPACING.lg
                 : SPACING.lg + (keyboardInset > 0 ? 0 : insets.bottom),
