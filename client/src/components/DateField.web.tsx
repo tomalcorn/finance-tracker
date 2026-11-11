@@ -3,7 +3,6 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import type { DateFieldProps } from '@/components/DateField';
-import { fieldBorderColor, useFieldFocus } from '@/components/fieldFocus';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/theme/tokens';
 
@@ -18,7 +17,6 @@ const SYSTEM_FONT =
 export function DateField({ label, value, onChange, error }: DateFieldProps) {
   const { dark, colors } = useAppTheme();
   const id = useId();
-  const { focused, focusHandlers } = useFieldFocus();
 
   return (
     <View style={styles.field}>
@@ -31,7 +29,6 @@ export function DateField({ label, value, onChange, error }: DateFieldProps) {
         aria-invalid={error ? true : undefined}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        {...focusHandlers}
         style={{
           fontSize: TYPOGRAPHY.body.fontSize,
           lineHeight: `${TYPOGRAPHY.body.lineHeight}px`,
@@ -39,7 +36,7 @@ export function DateField({ label, value, onChange, error }: DateFieldProps) {
           boxSizing: 'border-box',
           padding: `${SPACING.sm}px ${SPACING.md}px`,
           borderRadius: RADIUS.md,
-          border: `1.5px solid ${fieldBorderColor(colors, { error, focused })}`,
+          border: `1.5px solid ${error ? colors.negative : 'transparent'}`,
           outline: 'none',
           fontFamily: SYSTEM_FONT,
           color: colors.text,

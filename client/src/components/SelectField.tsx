@@ -2,7 +2,6 @@ import { useId, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { NO_FOCUS_RING, fieldBorderColor, useFieldFocus } from '@/components/fieldFocus';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING } from '@/theme/tokens';
 
@@ -38,7 +37,6 @@ export function SelectField({
   const { colors } = useAppTheme();
   const id = useId();
   const [open, setOpen] = useState(false);
-  const { focused, focusHandlers } = useFieldFocus();
   const choices = noneLabel ? [{ value: '', label: noneLabel }, ...options] : options;
   const selected = options.find((option) => option.value === value);
   const shown = selected?.label ?? noneLabel ?? placeholder;
@@ -58,7 +56,7 @@ export function SelectField({
           styles.box,
           {
             backgroundColor: colors.surfaceMuted,
-            borderColor: fieldBorderColor(colors, { error, focused: focused || open }),
+            borderColor: error ? colors.negative : 'transparent',
           },
         ]}
       >
@@ -68,8 +66,7 @@ export function SelectField({
           aria-expanded={open}
           aria-invalid={error ? true : undefined}
           onPress={() => setOpen(!open)}
-          {...focusHandlers}
-          style={[styles.current, NO_FOCUS_RING]}
+          style={styles.current}
         >
           <AppText tone={selected ? 'default' : 'muted'} numberOfLines={1} style={styles.text}>
             {shown}
