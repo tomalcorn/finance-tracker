@@ -1,14 +1,13 @@
 import { useId, useSyncExternalStore } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { AppText } from '@/components/AppText';
 import { CalendarDateField } from '@/components/CalendarDateField';
 import type { DateFieldProps } from '@/components/DateField';
-import { DateFieldHeader, DateFieldValue, fieldBox } from '@/components/dateFieldParts';
-import { fieldBorderColor, useFieldFocus } from '@/components/fieldFocus';
+import { DateChips, DateFieldValue } from '@/components/dateFieldParts';
+import { Field, FieldBox } from '@/components/Field';
+import { useFieldFocus } from '@/components/fieldFocus';
 import { today as todayDate } from '@/domain/entities';
 import { useAppTheme } from '@/theme/theme';
-import { SPACING } from '@/theme/tokens';
 
 const COARSE_POINTER = '(pointer: coarse)';
 
@@ -49,31 +48,28 @@ function TouchDateField({
   optional = false,
   quickPicks = true,
 }: DateFieldProps) {
-  const { dark, colors } = useAppTheme();
+  const { dark } = useAppTheme();
   const labelId = useId();
   const { focused, focusHandlers } = useFieldFocus();
   const today = todayDate();
 
   return (
-    <View style={styles.field}>
-      <DateFieldHeader
-        label={label}
-        labelId={labelId}
-        value={value}
-        onChange={onChange}
-        optional={optional}
-        today={today}
-        quickPicks={quickPicks}
-      />
-      <View
-        style={[
-          fieldBox,
-          {
-            backgroundColor: colors.surfaceMuted,
-            borderColor: fieldBorderColor(colors, { error, focused }),
-          },
-        ]}
-      >
+    <Field
+      label={label}
+      labelId={labelId}
+      error={error}
+      labelActions={
+        <DateChips
+          label={label}
+          value={value}
+          today={today}
+          quickPicks={quickPicks}
+          optional={optional}
+          onChange={onChange}
+        />
+      }
+    >
+      <FieldBox error={error} focused={focused}>
         <View aria-hidden>
           <DateFieldValue value={value} today={today} />
         </View>
@@ -99,16 +95,7 @@ function TouchDateField({
             colorScheme: dark ? 'dark' : 'light',
           }}
         />
-      </View>
-      {error ? (
-        <AppText variant="caption" tone="negative">
-          {error}
-        </AppText>
-      ) : null}
-    </View>
+      </FieldBox>
+    </Field>
   );
 }
-
-const styles = StyleSheet.create({
-  field: { gap: SPACING.xs },
-});

@@ -1,6 +1,8 @@
+import { dateParts, dayNumber } from '@/domain/dates';
+
 /** A `YYYY-MM-DD` date as a local calendar date, without the UTC shift `new Date(text)` applies. */
 function calendarDate(date: string): Date {
-  const [year = 0, month = 1, day = 1] = date.split('-').map(Number);
+  const [year, month, day] = dateParts(date);
   return new Date(year, month - 1, day);
 }
 
@@ -13,8 +15,8 @@ const MONTH_YEAR = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'nume
 /** Whether `text` is a real calendar date written `YYYY-MM-DD`. */
 export function isCalendarDate(text: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
-  const [year = 0, month = 0, day = 0] = text.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
+  const [, month, day] = dateParts(text);
+  const date = calendarDate(text);
   return date.getMonth() === month - 1 && date.getDate() === day;
 }
 
@@ -54,17 +56,6 @@ const LONG_DAY = new Intl.DateTimeFormat('en-GB', {
   month: 'long',
   year: 'numeric',
 });
-
-/** A `YYYY-MM-DD` date as a count of days, free of time zones and daylight saving. */
-function dayNumber(date: string): number {
-  const [year = 0, month = 1, day = 1] = date.split('-').map(Number);
-  return Date.UTC(year, month - 1, day) / 86_400_000;
-}
-
-/** The `YYYY-MM-DD` date `days` days after `date` (before it, when negative). */
-export function addDays(date: string, days: number): string {
-  return new Date((dayNumber(date) + days) * 86_400_000).toISOString().slice(0, 10);
-}
 
 /** `Today`, `Yesterday` or `Tomorrow` for a `YYYY-MM-DD` date that is one of them, else null. */
 export function relativeDayName(date: string, today: string): string | null {

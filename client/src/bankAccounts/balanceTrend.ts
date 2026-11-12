@@ -1,3 +1,4 @@
+import { addDays, addMonths, dateOfDay, dateParts, dayNumber } from '@/domain/dates';
 import type { BankAccountView, PaymentView } from '@/domain/readModels';
 
 /** How many months back an account's history reaches. */
@@ -6,23 +7,13 @@ export const TREND_MONTHS = 3;
 /** Roughly how many days apart a sampled history's balances are. */
 const SAMPLE_DAYS = 7;
 
-const MS_PER_DAY = 86_400_000;
-
 /** What an account held at the end of a day. */
 export type BalancePoint = { date: string; balance: number };
 
-function dayNumber(date: string): number {
-  const [year = 0, month = 1, day = 1] = date.split('-').map(Number);
-  return Date.UTC(year, month - 1, day) / MS_PER_DAY;
-}
-
-function dateOf(day: number): string {
-  return new Date(day * MS_PER_DAY).toISOString().slice(0, 10);
-}
-
+/** The same day `months` months back; a day the earlier month lacks runs on into the next. */
 function monthsBefore(date: string, months: number): string {
-  const [year = 0, month = 1, day = 1] = date.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1 - months, day)).toISOString().slice(0, 10);
+  const [, , day] = dateParts(date);
+  return addDays(addMonths(date, -months), day - 1);
 }
 
 function toPence(amount: number): number {
@@ -64,7 +55,7 @@ export function dailyBalances(
   const points: BalancePoint[] = [];
   let balance = account.current_balance;
   for (let day = last; day >= first; day -= 1) {
-    points.unshift({ date: dateOf(day), balance: toPence(balance) });
+    points.unshift({ date: dateOfDay(day), balance: toPence(balance) });
     balance -= moved.get(day) ?? 0;
   }
   return points;

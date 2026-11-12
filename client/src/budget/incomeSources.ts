@@ -1,3 +1,4 @@
+import { addMonths } from '@/domain/dates';
 import type { IncomeRollUpPeriod, RawRow } from '@/domain/entities';
 import type { CategoryView, IncomeSourceView, PaymentView } from '@/domain/readModels';
 import { sameMonth } from '@/theme/formatDate';
@@ -8,9 +9,7 @@ export type IncomeSourceDraft = { name: string; trackerIds: string[] };
 /** A date in the month whose income the budgets are split out of: this month, or the one before. */
 export function rollUpDate(today: string, period: IncomeRollUpPeriod): string {
   if (period === 'current_month') return today;
-  const [year = 0, month = 1] = today.split('-').map(Number);
-  const previous = month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`;
-  return `${previous}-01`;
+  return addMonths(today, -1);
 }
 
 /** The income payments counted towards a source in its roll-up month, newest first. */

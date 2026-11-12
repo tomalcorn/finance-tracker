@@ -1,3 +1,4 @@
+import { dateParts } from '@/domain/dates';
 import type { BankAccountView, PaymentView } from '@/domain/readModels';
 
 /** Which payments a list shows: all of them, only money out, or only money in. */
@@ -136,7 +137,7 @@ export function monthOf(date: string): string {
 
 /** The month `count` months after a `YYYY-MM` month (before, when negative). */
 export function shiftMonth(month: string, count: number): string {
-  const [year = 0, number = 1] = month.split('-').map(Number);
+  const [year, number] = dateParts(month);
   const index = year * 12 + (number - 1) + count;
   return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
 }

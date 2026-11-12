@@ -3,57 +3,48 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import type { DateFieldProps } from '@/components/DateField';
+import { FIELD_ROW_HEIGHT } from '@/components/Field';
 import { NO_FOCUS_RING } from '@/components/fieldFocus';
 import { interactiveBackground, type InteractionState } from '@/components/interaction';
-import { addDays, formatFieldDay, isCalendarDate, relativeDayName } from '@/theme/formatDate';
+import { addDays } from '@/domain/dates';
+import { formatFieldDay, isCalendarDate, relativeDayName } from '@/theme/formatDate';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING } from '@/theme/tokens';
 
 const CALENDAR: SymbolViewProps['name'] = { ios: 'calendar', web: 'calendar_today' };
 
-/** The height inside a date field's 1.5px border, so the field stands as tall as a `TextField`. */
-export const FIELD_INNER_HEIGHT = 41;
-
 /** Shown in a date field with no date in it. */
-export const NO_DATE = 'No date';
+const NO_DATE = 'No date';
 
-type HeaderProps = Pick<DateFieldProps, 'label' | 'value' | 'onChange' | 'optional'> & {
-  labelId: string;
+type DateChipsProps = Pick<DateFieldProps, 'label' | 'value' | 'onChange'> & {
   today: string;
-  /** Offer Today and Yesterday as one-tap choices. */
+  /** Offer Today and Yesterday. */
   quickPicks: boolean;
+  /** Offer Clear while a date is set. */
+  optional: boolean;
 };
 
 /**
- * A date field's label, with chips beside it that set the date in one tap: Today and Yesterday,
- * and Clear when the date is optional and set.
+ * The chips beside a date field's label, which set the date in one tap: Today and Yesterday, and
+ * Clear when the date is optional and set.
  */
-export function DateFieldHeader({
-  label,
-  labelId,
-  value,
-  onChange,
-  optional,
-  today,
-  quickPicks,
-}: HeaderProps) {
-  const chips: { label: string; date: string }[] = [];
-  if (quickPicks) {
-    chips.push({ label: 'Today', date: today }, { label: 'Yesterday', date: addDays(today, -1) });
-  }
+export function DateChips({ label, value, onChange, today, quickPicks, optional }: DateChipsProps) {
+  const picks = quickPicks
+    ? [
+        { name: 'Today', date: today },
+        { name: 'Yesterday', date: addDays(today, -1) },
+      ]
+    : [];
 
   return (
-    <View style={styles.header}>
-      <AppText variant="label" nativeID={labelId} style={styles.label}>
-        {label}
-      </AppText>
-      {chips.map((chip) => (
+    <>
+      {picks.map(({ name, date }) => (
         <Chip
-          key={chip.label}
-          label={chip.label}
-          accessibleLabel={`${label}: ${chip.label.toLowerCase()}`}
-          selected={value === chip.date}
-          onPress={() => onChange(chip.date)}
+          key={name}
+          label={name}
+          accessibleLabel={`${label}: ${name.toLowerCase()}`}
+          selected={value === date}
+          onPress={() => onChange(date)}
         />
       ))}
       {optional && value !== '' ? (
@@ -63,7 +54,7 @@ export function DateFieldHeader({
           onPress={() => onChange('')}
         />
       ) : null}
-    </View>
+    </>
   );
 }
 
@@ -103,13 +94,24 @@ function Chip({ label, accessibleLabel, selected, onPress }: ChipProps) {
   );
 }
 
+/**
+ * A date in words: the day, e.g. `Thu 12 Nov`, and `Today`, `Yesterday` or `Tomorrow` when it is
+ * one of them.
+ */
+type Words = { relative: string | null; day: string };
+
+/** A field's date in words, or null for text that isn't a date. */
+function dateInWords(value: string, today: string): Words | null {
+  if (!isCalendarDate(value)) return null;
+  return { relative: relativeDayName(value, today), day: formatFieldDay(value, today) };
+}
+
 /** What is spoken for a field's date: the day in words, or that there is none. */
 export function spokenDate(value: string, today: string): string {
   if (value === '') return NO_DATE;
-  if (!isCalendarDate(value)) return value;
-  const relative = relativeDayName(value, today);
-  const day = formatFieldDay(value, today);
-  return relative ? `${relative}, ${day}` : day;
+  const words = dateInWords(value, today);
+  if (words === null) return value;
+  return words.relative ? `${words.relative}, ${words.day}` : words.day;
 }
 
 type ValueProps = { value: string; today: string; trailing?: SymbolViewProps['name'] };
@@ -120,45 +122,37 @@ type ValueProps = { value: string; today: string; trailing?: SymbolViewProps['na
  */
 export function DateFieldValue({ value, today, trailing }: ValueProps) {
   const { colors } = useAppTheme();
-  const date = isCalendarDate(value) ? value : null;
-  const relative = date ? relativeDayName(date, today) : null;
-
   return (
     <View style={styles.value}>
       <SymbolView name={CALENDAR} size={18} tintColor={colors.textMuted} />
       <View style={styles.text} aria-live="polite">
-        {value === '' ? (
-          <AppText tone="muted" numberOfLines={1}>
-            {NO_DATE}
-          </AppText>
-        ) : date === null ? (
-          <AppText numberOfLines={1}>{value}</AppText>
-        ) : (
-          <AppText numberOfLines={1}>
-            {relative ? (
-              <>
-                {relative}
-                <AppText tone="muted">{`  ${formatFieldDay(date, today)}`}</AppText>
-              </>
-            ) : (
-              formatFieldDay(date, today)
-            )}
-          </AppText>
-        )}
+        <DateWords value={value} today={today} />
       </View>
       {trailing ? <SymbolView name={trailing} size={20} tintColor={colors.textMuted} /> : null}
     </View>
   );
 }
 
-/** The box around a date field, as `TextField` and `SelectField` draw theirs. */
-export const fieldBox = StyleSheet.create({
-  box: { borderRadius: RADIUS.md, borderWidth: 1.5, overflow: 'hidden' },
-}).box;
+function DateWords({ value, today }: Pick<ValueProps, 'value' | 'today'>) {
+  if (value === '') {
+    return (
+      <AppText tone="muted" numberOfLines={1}>
+        {NO_DATE}
+      </AppText>
+    );
+  }
+  const words = dateInWords(value, today);
+  if (words === null) return <AppText numberOfLines={1}>{value}</AppText>;
+  if (words.relative === null) return <AppText numberOfLines={1}>{words.day}</AppText>;
+  return (
+    <AppText numberOfLines={1}>
+      {words.relative}
+      <AppText tone="muted">{`  ${words.day}`}</AppText>
+    </AppText>
+  );
+}
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  label: { flex: 1 },
   chip: {
     minHeight: 26,
     justifyContent: 'center',
@@ -168,7 +162,7 @@ const styles = StyleSheet.create({
   },
   chipText: { fontWeight: '600' },
   value: {
-    minHeight: FIELD_INNER_HEIGHT,
+    minHeight: FIELD_ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,

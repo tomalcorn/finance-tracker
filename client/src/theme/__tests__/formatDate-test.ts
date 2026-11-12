@@ -1,16 +1,4 @@
-import { addDays, formatFieldDay, formatLongDay, relativeDayName } from '@/theme/formatDate';
-
-describe('addDays', () => {
-  it('moves across the end of a month and a year', () => {
-    expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
-    expect(addDays('2027-01-01', -1)).toBe('2026-12-31');
-  });
-
-  it('moves a whole day across a change of the clocks', () => {
-    expect(addDays('2026-03-29', 1)).toBe('2026-03-30');
-    expect(addDays('2026-10-25', -1)).toBe('2026-10-24');
-  });
-});
+import { formatFieldDay, formatLongDay, relativeDayName } from '@/theme/formatDate';
 
 describe('relativeDayName', () => {
   it('names today, yesterday and tomorrow', () => {
