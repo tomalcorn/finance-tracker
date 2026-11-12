@@ -20,4 +20,16 @@ describe('ProgressBar', () => {
 
     expect(screen.getByRole('progressbar')).toHaveProp('aria-valuenow', 0);
   });
+
+  it('reports where a planned amount would take it', async () => {
+    await render(<ProgressBar progress={0.4} planned={0.25} />);
+
+    expect(screen.getByRole('progressbar')).toHaveProp('aria-valuetext', '40%, 65% after plan');
+  });
+
+  it('stops a planned amount at full', async () => {
+    await render(<ProgressBar progress={0.9} planned={0.5} />);
+
+    expect(screen.getByRole('progressbar')).toHaveProp('aria-valuetext', '90%, 100% after plan');
+  });
 });

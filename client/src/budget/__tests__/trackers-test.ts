@@ -1,6 +1,8 @@
 import {
   childrenOf,
   paymentsCountedIn,
+  plansFit,
+  potPlan,
   roots,
   takesSubcategories,
   totalAllocated,
@@ -130,5 +132,73 @@ describe('paymentsCountedIn', () => {
 
   it('counts everything paid into a pot', () => {
     expect(paymentsCountedIn(payments, bike, '2026-11-25').map((p) => p.id)).toEqual(['banked']);
+  });
+});
+
+describe('potPlan', () => {
+  function pot(saved: number, cost: number, planned: number): CategoryView {
+    return {
+      ...category('1', 'Bike', '9'),
+      accrual: 'multi_month',
+      budget: planned,
+      cost,
+      accrued: saved,
+      remaining: cost - saved,
+      progress: (saved / cost) * 100,
+    };
+  }
+
+  it('says what is left to go once the plan is banked', () => {
+    expect(potPlan(pot(300, 800, 150))).toMatchObject({
+      after: 350,
+      plannedProgress: 18.75,
+      summary: '£350.00 to go after this month',
+    });
+  });
+
+  it('says when the plan reaches the goal', () => {
+    expect(potPlan(pot(700, 800, 100))?.summary).toBe('Goal reached this month');
+  });
+
+  it('says how much more than needed the plan is, and stops the bar at the goal', () => {
+    expect(potPlan(pot(700, 800, 130))).toMatchObject({
+      after: -30,
+      plannedProgress: 12.5,
+      summary: 'Goal reached this month, £30.00 more than needed',
+    });
+  });
+
+  it('has nothing to show with nothing planned, or once the pot is saved', () => {
+    expect(potPlan(pot(300, 800, 0))).toBeNull();
+    expect(potPlan(pot(800, 800, 50))).toBeNull();
+  });
+
+  it('previews an amount in place of the pot’s own plan', () => {
+    expect(potPlan(pot(300, 800, 150), 200.1)?.after).toBe(299.9);
+    expect(potPlan(pot(300, 800, 150), 0)).toBeNull();
+  });
+});
+
+describe('plansFit', () => {
+  const tracker = { ...category('9', 'One-offs'), budget: 200 };
+  const pot = (planned: number) => ({ ...category(String(planned), 'Pot', '9'), budget: planned });
+
+  it('says how much of the budget the plans leave', () => {
+    expect(plansFit(tracker, [pot(100), pot(50)]).summary).toBe(
+      '£150.00 planned across pots · £50.00 of the budget unplanned',
+    );
+  });
+
+  it('says when the plans use all of the budget', () => {
+    expect(plansFit(tracker, [pot(120), pot(80)]).summary).toBe(
+      '£200.00 planned across pots · all of the budget',
+    );
+  });
+
+  it('says when the plans are more than the budget', () => {
+    expect(plansFit(tracker, [pot(180), pot(50)])).toMatchObject({
+      left: -30,
+      summary: '£230.00 planned across pots · £30.00 more than the budget',
+    });
   });
 });

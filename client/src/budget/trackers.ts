@@ -1,6 +1,7 @@
 import type { SymbolViewProps } from 'expo-symbols';
 
 import type { CategoryView, IncomeSourceView, PaymentView } from '@/domain/readModels';
+import { formatAmount } from '@/theme/formatAmount';
 import { sameMonth } from '@/theme/formatDate';
 
 /** The budget trackers every workspace is seeded with, in the order they are shown. */
@@ -81,4 +82,58 @@ export function paymentsCountedIn(
 /** Whether a budget is close enough to spent to warn: 90% used, or more. */
 export function nearlySpent(category: CategoryView): boolean {
   return category.progress >= 90;
+}
+
+/** Rounds to whole pence, so sums of amounts don't leave a stray fraction of a penny. */
+function pence(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
+/** What banking this month's plan would do to a pot. */
+export type PotPlan = {
+  /** What is planned for the pot this month. */
+  planned: number;
+  /** What is left to save once the plan is banked. Negative when the plan is more than needed. */
+  after: number;
+  /** The plan as a percentage of the pot's cost, capped at what is still to go. */
+  plannedProgress: number;
+  /** The projection in words, e.g. "£36.00 to go after this month". */
+  summary: string;
+};
+
+/**
+ * What a pot's plan for the month would leave to go, or null when there is nothing to show:
+ * nothing planned, or the pot already saved. `planned` stands in for the pot's own plan while
+ * it is being edited.
+ */
+export function potPlan(pot: CategoryView, planned: number = pot.budget): PotPlan | null {
+  if (!(planned > 0) || pot.remaining <= 0) return null;
+  const after = pence(pot.remaining - planned);
+  return {
+    planned,
+    after,
+    plannedProgress: pot.cost > 0 ? (Math.min(planned, pot.remaining) / pot.cost) * 100 : 0,
+    summary:
+      after > 0
+        ? `${formatAmount(after)} to go after this month`
+        : after === 0
+          ? 'Goal reached this month'
+          : `Goal reached this month, ${formatAmount(-after)} more than needed`,
+  };
+}
+
+/** Whether the pots' plans fit the tracker's budget, in words. */
+export function plansFit(tracker: CategoryView, pots: readonly CategoryView[]) {
+  const planned = pence(pots.reduce((total, pot) => total + pot.budget, 0));
+  const left = pence(tracker.budget - planned);
+  return {
+    planned,
+    left,
+    summary:
+      left < 0
+        ? `${formatAmount(planned)} planned across pots · ${formatAmount(-left)} more than the budget`
+        : left === 0
+          ? `${formatAmount(planned)} planned across pots · all of the budget`
+          : `${formatAmount(planned)} planned across pots · ${formatAmount(left)} of the budget unplanned`,
+  };
 }

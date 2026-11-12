@@ -320,6 +320,15 @@ export default function DesignScreen() {
             </View>
             <ProgressBar progress={0.92} warn />
           </View>
+          <View style={styles.budget}>
+            <View style={styles.budgetHeader}>
+              <AppText variant="label">Bike</AppText>
+              <AppText variant="caption" tone="muted">
+                £300 of £800 · £150 planned
+              </AppText>
+            </View>
+            <ProgressBar progress={300 / 800} planned={150 / 800} />
+          </View>
         </Card>
 
         <Card title="Form">

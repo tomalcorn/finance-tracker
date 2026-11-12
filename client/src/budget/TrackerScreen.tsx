@@ -7,7 +7,14 @@ import { BudgetRow } from '@/budget/BudgetRow';
 import { BudgetForm, CategoryForm } from '@/budget/CategoryForm';
 import { categoryDraftRow, trackerBudgetError, type CategoryDraft } from '@/budget/categoryDraft';
 import { Figure, Figures } from '@/budget/Figures';
-import { childrenOf, holdsPots, nearlySpent, takesSubcategories } from '@/budget/trackers';
+import {
+  childrenOf,
+  holdsPots,
+  nearlySpent,
+  plansFit,
+  potPlan,
+  takesSubcategories,
+} from '@/budget/trackers';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -65,6 +72,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const subcategories = childrenOf(categories.data ?? [], tracker.id);
   const adds = takesSubcategories(tracker);
   const allocated = subcategories.reduce((total, category) => total + category.budget, 0);
+  const fit = pots && subcategories.length > 0 ? plansFit(tracker, subcategories) : null;
   const bankable = subcategories.filter((category) => category.budget > 0);
   const jointAccount = jointAccounts.data?.[0];
   const contributes = ownership === 'personal' && tracker.name === 'Joint' && jointAccount;
@@ -144,6 +152,11 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
           <AppText variant="caption" tone="muted">
             {Math.round(tracker.progress)}% used · {Math.round(tracker.split)}% of income
           </AppText>
+          {fit ? (
+            <AppText variant="caption" tone={fit.left < 0 ? 'negative' : 'muted'}>
+              {fit.summary}
+            </AppText>
+          ) : null}
           <Button
             title="Change budget"
             variant="secondary"
@@ -169,12 +182,15 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
                   : 'No subcategories yet. Add one to break this tracker down.'}
               </AppText>
             ) : (
-              subcategories.map((category) =>
-                pots ? (
+              subcategories.map((category) => {
+                const plan = pots ? potPlan(category) : null;
+                return pots ? (
                   <BudgetRow
                     key={category.id}
                     title={category.name}
                     caption={`${formatAmount(category.accrued)} of ${formatAmount(category.cost)} saved · ${formatAmount(category.budget)} planned`}
+                    note={plan?.summary}
+                    plannedProgress={plan?.plannedProgress}
                     left={category.remaining}
                     leftLabel="to go"
                     goal
@@ -191,8 +207,8 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
                     warn={nearlySpent(category)}
                     onPress={() => show(category)}
                   />
-                ),
-              )
+                );
+              })
             )}
           </Card>
         ) : null}
