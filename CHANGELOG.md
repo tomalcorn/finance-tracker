@@ -1,3 +1,10 @@
+## v1.46.1 (2026-11-12)
+
+### Fix
+
+- **client**: draw field focus inside the field so it isn't clipped (#356)
+- **client**: keep the sheet's height when the keyboard opens (#355)
+
 ## v1.46.0 (2026-11-04)
 
 ### Feat
