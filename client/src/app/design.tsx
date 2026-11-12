@@ -9,6 +9,7 @@ import { AppIcon } from '@/components/AppIcon';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { DateField } from '@/components/DateField';
 import { GlassTabBar, type GlassTabItem } from '@/components/GlassTabBar';
 import { ListRow } from '@/components/ListRow';
 import { ProgressBar } from '@/components/ProgressBar';
@@ -18,6 +19,7 @@ import { SelectField } from '@/components/SelectField';
 import { Sheet } from '@/components/Sheet';
 import { TextField } from '@/components/TextField';
 import { Toast, type ToastMessage } from '@/components/Toast';
+import { today } from '@/domain/entities';
 import type { QuickButtonView } from '@/domain/readModels';
 import { NewButtonTile, QuickButtonTile } from '@/quickExpenses/QuickButtonTile';
 import { SummaryTiles } from '@/summary/SummarySection';
@@ -117,6 +119,9 @@ const SAMPLE_CATEGORIES = [
 export default function DesignScreen() {
   const { colors } = useAppTheme();
   const [amount, setAmount] = useState('12.50');
+  const [date, setDate] = useState(today);
+  const [endDate, setEndDate] = useState('');
+  const [sheetDate, setSheetDate] = useState(today);
   const [tab, setTab] = useState<string>(SAMPLE_TABS[0].key);
   const [editing, setEditing] = useState<SamplePayment | null>(null);
   const [ledger, setLedger] = useState<(typeof LEDGERS)[number]['value']>('personal');
@@ -326,6 +331,14 @@ export default function DesignScreen() {
             inputMode="decimal"
             error={Number.isNaN(Number(amount)) ? 'Enter an amount in pounds.' : undefined}
           />
+          <DateField label="Date" value={date} onChange={setDate} />
+          <DateField
+            label="Ends"
+            value={endDate}
+            onChange={setEndDate}
+            optional
+            quickPicks={false}
+          />
           <Button title="Save" onPress={() => {}} />
           <Button title="Cancel" variant="secondary" onPress={() => {}} />
           <Button title="Not now" variant="plain" onPress={() => {}} />
@@ -375,6 +388,7 @@ export default function DesignScreen() {
             placeholder="0.00"
           />
           <TextField label="Category" defaultValue={editing?.category} />
+          <DateField label="Date" value={sheetDate} onChange={setSheetDate} />
         </Sheet>
       </Screen>
       <Toast toast={toast} onDismiss={dismissToast} />

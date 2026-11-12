@@ -187,6 +187,8 @@ export function SubscriptionForm({
         value={draft.endDate}
         onChange={(endDate) => change({ endDate })}
         error={errors.endDate}
+        optional
+        quickPicks={false}
       />
       <AppText variant="caption" tone="muted">
         The last date it is due. Leave it empty if it is ongoing.

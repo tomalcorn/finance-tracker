@@ -47,3 +47,41 @@ export function formatMonthYear(date: string): string {
 export function sameMonth(a: string, b: string): boolean {
   return a.slice(0, 7) === b.slice(0, 7);
 }
+
+const LONG_DAY = new Intl.DateTimeFormat('en-GB', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+/** A `YYYY-MM-DD` date as a count of days, free of time zones and daylight saving. */
+function dayNumber(date: string): number {
+  const [year = 0, month = 1, day = 1] = date.split('-').map(Number);
+  return Date.UTC(year, month - 1, day) / 86_400_000;
+}
+
+/** The `YYYY-MM-DD` date `days` days after `date` (before it, when negative). */
+export function addDays(date: string, days: number): string {
+  return new Date((dayNumber(date) + days) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** `Today`, `Yesterday` or `Tomorrow` for a `YYYY-MM-DD` date that is one of them, else null. */
+export function relativeDayName(date: string, today: string): string | null {
+  const offset = dayNumber(date) - dayNumber(today);
+  if (offset === 0) return 'Today';
+  if (offset === -1) return 'Yesterday';
+  if (offset === 1) return 'Tomorrow';
+  return null;
+}
+
+/** Format a `YYYY-MM-DD` date for a field, e.g. `Sat 1 Nov`, adding the year outside `today`'s. */
+export function formatFieldDay(date: string, today: string): string {
+  const day = formatDay(date);
+  return date.slice(0, 4) === today.slice(0, 4) ? day : `${day} ${date.slice(0, 4)}`;
+}
+
+/** Format a `YYYY-MM-DD` date in full, for assistive technology, e.g. `Saturday 1 November 2026`. */
+export function formatLongDay(date: string): string {
+  return LONG_DAY.format(calendarDate(date));
+}

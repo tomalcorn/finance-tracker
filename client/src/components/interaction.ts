@@ -2,8 +2,11 @@ import type { PressableStateCallbackType } from 'react-native';
 
 import type { Palette } from '@/theme/tokens';
 
-/** A `Pressable`'s state, with the pointer hover that react-native-web adds on the web. */
-export type InteractionState = PressableStateCallbackType & { hovered?: boolean };
+/** A `Pressable`'s state, with the pointer hover and focus that react-native-web adds on the web. */
+export type InteractionState = PressableStateCallbackType & {
+  hovered?: boolean;
+  focused?: boolean;
+};
 
 /**
  * The background of a tappable surface: darker while held, a shade off while the pointer is over
