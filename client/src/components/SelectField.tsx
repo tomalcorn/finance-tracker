@@ -1,9 +1,10 @@
 import { useId, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { FIELD_ROW_HEIGHT, Field, FieldBox } from '@/components/Field';
 import { useAppTheme } from '@/theme/theme';
-import { RADIUS, SPACING } from '@/theme/tokens';
+import { SPACING } from '@/theme/tokens';
 
 /** One choice in a `SelectField`. */
 export type SelectOption = { value: string; label: string };
@@ -47,19 +48,8 @@ export function SelectField({
   }
 
   return (
-    <View style={styles.field}>
-      <AppText variant="label" nativeID={id}>
-        {label}
-      </AppText>
-      <View
-        style={[
-          styles.box,
-          {
-            backgroundColor: colors.surfaceMuted,
-            borderColor: error ? colors.negative : 'transparent',
-          },
-        ]}
-      >
+    <Field label={label} labelId={id} error={error}>
+      <FieldBox error={error}>
         <Pressable
           role="button"
           aria-labelledby={id}
@@ -96,21 +86,14 @@ export function SelectField({
               );
             })
           : null}
-      </View>
-      {error ? (
-        <AppText variant="caption" tone="negative">
-          {error}
-        </AppText>
-      ) : null}
-    </View>
+      </FieldBox>
+    </Field>
   );
 }
 
 const styles = StyleSheet.create({
-  field: { gap: SPACING.xs },
-  box: { borderRadius: RADIUS.md, borderWidth: 1.5, overflow: 'hidden' },
   current: {
-    minHeight: 41,
+    minHeight: FIELD_ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,

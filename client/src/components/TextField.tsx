@@ -1,7 +1,7 @@
 import { useId, type Ref } from 'react';
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
 
-import { AppText } from '@/components/AppText';
+import { FIELD_BORDER_WIDTH, Field } from '@/components/Field';
 import { NO_FOCUS_RING, fieldBorderColor, useFieldFocus } from '@/components/fieldFocus';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/theme/tokens';
@@ -20,10 +20,7 @@ export function TextField({ label, error, onFocus, onBlur, ...props }: TextField
   const { focused, focusHandlers } = useFieldFocus({ onFocus, onBlur });
 
   return (
-    <View style={styles.field}>
-      <AppText variant="label" nativeID={id}>
-        {label}
-      </AppText>
+    <Field label={label} labelId={id} error={error}>
       <TextInput
         aria-labelledby={id}
         aria-invalid={error ? true : undefined}
@@ -41,22 +38,16 @@ export function TextField({ label, error, onFocus, onBlur, ...props }: TextField
         {...props}
         {...focusHandlers}
       />
-      {error ? (
-        <AppText variant="caption" tone="negative">
-          {error}
-        </AppText>
-      ) : null}
-    </View>
+    </Field>
   );
 }
 
 const styles = StyleSheet.create({
-  field: { gap: SPACING.xs },
   input: {
     minHeight: 44,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.md,
-    borderWidth: 1.5,
+    borderWidth: FIELD_BORDER_WIDTH,
   },
 });
