@@ -1,3 +1,9 @@
+## v1.47.0 (2026-11-12)
+
+### Feat
+
+- **client**: redesign the date field (#357)
+
 ## v1.46.1 (2026-11-12)
 
 ### Fix
