@@ -2,6 +2,7 @@ import { useId, type Ref } from 'react';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { NO_FOCUS_RING, fieldBorderColor, useFieldFocus } from '@/components/fieldFocus';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/theme/tokens';
 
@@ -12,10 +13,11 @@ type TextFieldProps = Omit<TextInputProps, 'style'> & {
   ref?: Ref<TextInput>;
 };
 
-/** A labelled text input, with room for a validation message. */
-export function TextField({ label, error, ...props }: TextFieldProps) {
+/** A labelled text input, outlined in the accent while focused, with room for a validation message. */
+export function TextField({ label, error, onFocus, onBlur, ...props }: TextFieldProps) {
   const { colors } = useAppTheme();
   const id = useId();
+  const { focused, focusHandlers } = useFieldFocus({ onFocus, onBlur });
 
   return (
     <View style={styles.field}>
@@ -29,13 +31,15 @@ export function TextField({ label, error, ...props }: TextFieldProps) {
         style={[
           TYPOGRAPHY.body,
           styles.input,
+          NO_FOCUS_RING,
           {
             color: colors.text,
             backgroundColor: colors.surfaceMuted,
-            borderColor: error ? colors.negative : 'transparent',
+            borderColor: fieldBorderColor(colors, { error, focused }),
           },
         ]}
         {...props}
+        {...focusHandlers}
       />
       {error ? (
         <AppText variant="caption" tone="negative">

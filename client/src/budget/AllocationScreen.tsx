@@ -12,6 +12,7 @@ import { Amount } from '@/components/Amount';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { NO_FOCUS_RING, fieldBorderColor, useFieldFocus } from '@/components/fieldFocus';
 import { ListRow } from '@/components/ListRow';
 import { Screen } from '@/components/Screen';
 import { Sheet } from '@/components/Sheet';
@@ -198,6 +199,7 @@ type BudgetLineProps = {
 function BudgetLine({ tracker, text, budget, income, error, onChange }: BudgetLineProps) {
   const { colors } = useAppTheme();
   const colourOf = useTrackerColour();
+  const { focused, focusHandlers } = useFieldFocus();
   const share = income > 0 ? Math.round((budget / income) * 100) : 0;
 
   return (
@@ -216,13 +218,15 @@ function BudgetLine({ tracker, text, budget, income, error, onChange }: BudgetLi
         onChangeText={onChange}
         inputMode="decimal"
         selectTextOnFocus
+        {...focusHandlers}
         style={[
           TYPOGRAPHY.body,
           styles.input,
+          NO_FOCUS_RING,
           {
             color: colors.text,
             backgroundColor: colors.surfaceMuted,
-            borderColor: error ? colors.negative : 'transparent',
+            borderColor: fieldBorderColor(colors, { error, focused }),
           },
         ]}
       />
