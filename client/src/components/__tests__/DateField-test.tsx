@@ -143,6 +143,128 @@ describe('DateField', () => {
     expect(screen.queryByLabelText('November 2026', { exact: true })).toBeNull();
   });
 
+  it('opens the year’s months from the month’s banner, and picks one', async () => {
+    const onChange = jest.fn();
+    await render(<Harness initial="2026-11-12" onChange={onChange} />);
+    await fireEvent.press(screen.getByRole('button', { name: /^Date, / }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'November 2026, choose a month' }));
+
+    expect(screen.getByText('2026')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /^\w+ 2026/ })).toHaveLength(12);
+    expect(screen.getByRole('button', { name: 'November 2026, current' })).toHaveProp(
+      'aria-current',
+      'date',
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'March 2026' }));
+
+    expect(screen.getByText('March 2026')).toBeTruthy();
+    expect(onChange).not.toHaveBeenCalled();
+    await fireEvent.press(day('2026-03-14'));
+    expect(onChange).toHaveBeenCalledWith('2026-03-14');
+  });
+
+  it('steps through years on the months page', async () => {
+    await render(<Harness initial="2026-11-12" />);
+    await fireEvent.press(screen.getByRole('button', { name: /^Date, / }));
+    await fireEvent.press(screen.getByRole('button', { name: /choose a month$/ }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous year' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous year' }));
+
+    expect(screen.getByText('2024')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'February 2024' }));
+    expect(screen.getByText('February 2024')).toBeTruthy();
+  });
+
+  it('opens a page of years from the year’s banner, and pages back through them', async () => {
+    const onChange = jest.fn();
+    await render(<Harness initial="2026-11-12" onChange={onChange} />);
+    await fireEvent.press(screen.getByRole('button', { name: /^Date, / }));
+    await fireEvent.press(screen.getByRole('button', { name: /choose a month$/ }));
+
+    await fireEvent.press(screen.getByRole('button', { name: '2026, choose a year' }));
+
+    expect(screen.getByText('2016 – 2027')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '2026, current' })).toHaveProp(
+      'aria-current',
+      'date',
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Earlier years' }));
+    expect(screen.getByText('2004 – 2015')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: '2011' }));
+    expect(screen.getByText('2011')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'June 2011' }));
+    await fireEvent.press(day('2011-06-03'));
+
+    expect(onChange).toHaveBeenCalledWith('2011-06-03');
+  });
+
+  it('keeps the month it was on when another year is picked', async () => {
+    await render(<Harness initial="2026-11-12" />);
+    await fireEvent.press(screen.getByRole('button', { name: /^Date, / }));
+    await fireEvent.press(screen.getByRole('button', { name: /choose a month$/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /choose a year$/ }));
+
+    await fireEvent.press(screen.getByRole('button', { name: '2025' }));
+
+    expect(screen.getByLabelText('November 2025')).toHaveProp('focusable', true);
+    expect(screen.getByLabelText('January 2025')).toHaveProp('focusable', false);
+  });
+
+  it('marks the chosen month and year', async () => {
+    await render(<Harness initial="2025-04-20" />);
+    await fireEvent.press(screen.getByRole('button', { name: /^Date, / }));
+    await fireEvent.press(screen.getByRole('button', { name: 'April 2025, choose a month' }));
+
+    expect(screen.getByLabelText('April 2025').parent).toHaveProp('aria-selected', true);
+    expect(screen.getByLabelText('May 2025').parent).toHaveProp('aria-selected', false);
+
+    await fireEvent.press(screen.getByRole('button', { name: '2025, choose a year' }));
+    expect(screen.getByLabelText('2025').parent).toHaveProp('aria-selected', true);
+  });
+
+  it('steps back out a level at a time on Escape', async () => {
+    await render(<Harness initial="2026-11-12" />);
+    await fireEvent.press(screen.getByRole('button', { name: /^Date, / }));
+    await fireEvent.press(screen.getByRole('button', { name: /choose a month$/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /choose a year$/ }));
+
+    const escape = (grid: string) =>
+      fireEvent(screen.getByLabelText(grid, { exact: true }), 'keyDown', {
+        key: 'Escape',
+        preventDefault() {},
+      });
+
+    await escape('Years 2016 to 2027');
+    expect(screen.getByLabelText('Months of 2026', { exact: true })).toBeTruthy();
+    await escape('Months of 2026');
+    expect(grid('November 2026')).toBeTruthy();
+  });
+
+  it('moves between tiles with the arrow keys, onto the next page at an edge', async () => {
+    await render(<Harness initial="2026-11-12" />);
+    await fireEvent.press(screen.getByRole('button', { name: /^Date, / }));
+    await fireEvent.press(screen.getByRole('button', { name: /choose a month$/ }));
+
+    const key = (grid: string, name: string) =>
+      fireEvent(screen.getByLabelText(grid, { exact: true }), 'keyDown', {
+        key: name,
+        preventDefault() {},
+      });
+
+    await key('Months of 2026', 'ArrowUp');
+    expect(screen.getByLabelText('August 2026')).toHaveProp('focusable', true);
+
+    await key('Months of 2026', 'ArrowDown');
+    await key('Months of 2026', 'ArrowDown');
+    expect(screen.getByText('2027')).toBeTruthy();
+    expect(screen.getByLabelText('February 2027')).toHaveProp('focusable', true);
+  });
+
   it('can be cleared when the date is optional', async () => {
     const onChange = jest.fn();
     await render(<Harness initial="2026-12-01" optional onChange={onChange} />);
