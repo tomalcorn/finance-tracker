@@ -25,13 +25,25 @@ type EditableFigureProps = {
   onSave: (amount: number) => Promise<void>;
   /** Under the amount, e.g. what it means. */
   caption?: string;
+  /**
+   * Told each amount as it is typed, while it is one that could be saved, and null once editing
+   * ends, so what depends on the amount can preview it.
+   */
+  onDraft?: (amount: number | null) => void;
 };
 
 /**
  * An amount on a card that turns into its own input when tapped. Return or leaving the field
  * saves it, and Escape puts it back.
  */
-export function EditableFigure({ label, value, validate, onSave, caption }: EditableFigureProps) {
+export function EditableFigure({
+  label,
+  value,
+  validate,
+  onSave,
+  caption,
+  onDraft,
+}: EditableFigureProps) {
   const { colors } = useAppTheme();
   const [text, setText] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -47,18 +59,29 @@ export function EditableFigure({ label, value, validate, onSave, caption }: Edit
     setText(value.toFixed(2));
   }
 
+  function type(next: string) {
+    setText(next);
+    const amount = parseAmount(next);
+    if (!validate(next) && amount !== null && !Number.isNaN(amount)) onDraft?.(amount);
+  }
+
+  function stop() {
+    setText(null);
+    onDraft?.(null);
+  }
+
   async function finish() {
     if (text === null || saving || cancelled.current) return;
     const amount = parseAmount(text);
     if (error || amount === null || Number.isNaN(amount)) return;
     if (amount === value) {
-      setText(null);
+      stop();
       return;
     }
     setSaving(true);
     try {
       await onSave(amount);
-      setText(null);
+      stop();
     } catch (failed) {
       setFailure(failed instanceof Error ? failed.message : String(failed));
     } finally {
@@ -82,13 +105,13 @@ export function EditableFigure({ label, value, validate, onSave, caption }: Edit
             aria-label={label}
             aria-invalid={error ? true : undefined}
             value={text}
-            onChangeText={setText}
+            onChangeText={type}
             onSubmitEditing={() => void finish()}
             onBlur={() => void finish()}
             onKeyPress={(event) => {
               if (event.nativeEvent.key !== 'Escape') return;
               cancelled.current = true;
-              setText(null);
+              stop();
             }}
             inputMode="decimal"
             autoFocus

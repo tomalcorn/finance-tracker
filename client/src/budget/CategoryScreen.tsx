@@ -11,7 +11,7 @@ import {
 } from '@/budget/categoryDraft';
 import { EditableFigure, FigureCards } from '@/budget/EditableFigure';
 import { Figure, Figures } from '@/budget/Figures';
-import { nearlySpent, paymentsCountedIn } from '@/budget/trackers';
+import { nearlySpent, paymentsCountedIn, potPlan } from '@/budget/trackers';
 import { Amount } from '@/components/Amount';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -43,6 +43,8 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
   const [editKey, setEditKey] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const closeEdit = useCallback(() => setEditOpen(false), []);
+  // The plan as it is being typed, so the projection follows it before it is saved.
+  const [plannedDraft, setPlannedDraft] = useState<number | null>(null);
 
   const category = categories.data?.find((row) => row.id === id);
   const root = categories.data?.find((row) => row.id === category?.parent_id);
@@ -65,6 +67,7 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
   const counted = paymentsCountedIn(payments.data ?? [], category, now);
   const total = counted.reduce((sum, payment) => sum + payment.expense, 0);
   const goalReached = pot && category.remaining <= 0;
+  const plan = pot ? potPlan(category, plannedDraft ?? category.budget) : null;
 
   function edit() {
     setEditKey((current) => (current ?? 0) + 1);
@@ -110,10 +113,20 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
               <Figures>
                 <Figure label="Saved" value={category.accrued} />
                 <Figure label={goalReached ? 'Extra' : 'To go'} value={category.remaining} />
+                {plan ? (
+                  <Figure
+                    label={plan.after < 0 ? 'Extra after plan' : 'After plan'}
+                    value={plan.after}
+                  />
+                ) : null}
               </Figures>
-              <ProgressBar progress={category.progress / 100} />
+              <ProgressBar
+                progress={category.progress / 100}
+                planned={(plan?.plannedProgress ?? 0) / 100}
+              />
               <AppText variant="caption" tone="muted">
                 {Math.round(category.progress)}% of the cost saved
+                {plan ? ` · ${plan.summary}` : ''}
               </AppText>
             </Card>
             <FigureCards>
@@ -129,6 +142,7 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
                 value={category.budget}
                 validate={trackerBudgetError}
                 onSave={(amount) => saveField('budget', amount)}
+                onDraft={setPlannedDraft}
               />
               <EditableFigure
                 label="Opening"

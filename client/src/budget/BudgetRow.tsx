@@ -12,6 +12,10 @@ type BudgetRowProps = {
   title: string;
   /** Supporting figures under the title, e.g. "£64 of £120 spent". */
   caption: string;
+  /** A second line under the caption, e.g. what a pot's plan will leave to go. */
+  note?: string;
+  /** A further percentage about to be added, drawn lighter on the bar. */
+  plannedProgress?: number;
   /** What is left, shown at the end and flagged once negative. */
   left: number;
   /** Labels `left`, e.g. "left" or "to go". */
@@ -32,6 +36,8 @@ type BudgetRowProps = {
 export function BudgetRow({
   title,
   caption,
+  note,
+  plannedProgress = 0,
   left,
   leftLabel = 'left',
   progress,
@@ -78,10 +84,19 @@ export function BudgetRow({
             {status}
           </AppText>
         </View>
-        <ProgressBar progress={progress / 100} warn={!goal && (warn || over)} />
+        <ProgressBar
+          progress={progress / 100}
+          planned={plannedProgress / 100}
+          warn={!goal && (warn || over)}
+        />
         <AppText variant="caption" tone="muted" numberOfLines={1}>
           {caption}
         </AppText>
+        {note ? (
+          <AppText variant="caption" tone="muted" numberOfLines={1}>
+            {note}
+          </AppText>
+        ) : null}
       </View>
       {onPress ? <AppText tone="muted">›</AppText> : null}
     </Pressable>
