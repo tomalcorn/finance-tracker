@@ -25,3 +25,12 @@ export function parseAmount(text: string): number | null {
   if (cleaned === '') return null;
   return /^-?(\d+\.?\d*|\.\d+)$/.test(cleaned) ? Number(cleaned) : NaN;
 }
+
+/**
+ * Flip the sign of an amount as typed, e.g. `3.40` to `-3.40` and back. A blank field becomes `-`,
+ * so the sign can be chosen before the amount is typed.
+ */
+export function flipSign(text: string): string {
+  const trimmed = text.trimStart();
+  return trimmed.startsWith('-') ? trimmed.slice(1) : `-${trimmed}`;
+}

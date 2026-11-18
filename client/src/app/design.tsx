@@ -5,6 +5,7 @@ import { BalanceChart } from '@/bankAccounts/BalanceChart';
 import type { BalancePoint } from '@/bankAccounts/balanceTrend';
 import { BankAccountTile, BankAccountTileSpacer } from '@/bankAccounts/BankAccountTile';
 import { Amount } from '@/components/Amount';
+import { AmountField } from '@/components/AmountField';
 import { AppIcon } from '@/components/AppIcon';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -324,11 +325,10 @@ export default function DesignScreen() {
 
         <Card title="Form">
           <TextField label="Name" placeholder="e.g. Coffee" />
-          <TextField
+          <AmountField
             label="Amount"
             value={amount}
             onChangeText={setAmount}
-            inputMode="decimal"
             error={Number.isNaN(Number(amount)) ? 'Enter an amount in pounds.' : undefined}
           />
           <DateField label="Date" value={date} onChange={setDate} />
