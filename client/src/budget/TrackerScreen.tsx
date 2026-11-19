@@ -14,6 +14,7 @@ import {
   plansFit,
   potPlan,
   takesSubcategories,
+  unbankedPlan,
 } from '@/budget/trackers';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -23,7 +24,7 @@ import { Screen } from '@/components/Screen';
 import { Sheet } from '@/components/Sheet';
 import { Toast, type ToastMessage } from '@/components/Toast';
 import { ContributeSheetContent } from '@/contributions/ContributeSheetContent';
-import type { OwnershipType } from '@/domain/entities';
+import { today, type OwnershipType } from '@/domain/entities';
 import type { CategoryView } from '@/domain/readModels';
 import { useRepositories, useRows } from '@/hooks/repositories';
 import { nameOptions } from '@/lookups';
@@ -44,6 +45,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const categoriesRepository = repositories.categories(ownership);
   const categories = useRows(categoriesRepository);
   const paymentsRepository = repositories.payments(ownership);
+  const payments = useRows(paymentsRepository);
   const bankAccounts = useRows(repositories.bankAccounts(ownership));
   const jointAccounts = useRows(repositories.jointAccounts());
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -73,6 +75,15 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const adds = takesSubcategories(tracker);
   const allocated = subcategories.reduce((total, category) => total + category.budget, 0);
   const fit = pots && subcategories.length > 0 ? plansFit(tracker, subcategories) : null;
+  // Each pot's plan still to bank this month, once the payments are in to tell what is banked.
+  const now = today();
+  const unbanked = new Map(
+    pots && payments.data
+      ? subcategories.map((pot) => [pot.id, unbankedPlan(payments.data, pot, now)])
+      : [],
+  );
+  const toBank = [...unbanked.values()].reduce((total, amount) => total + amount, 0);
+  const projected = tracker.budget > 0 ? ((tracker.accrued + toBank) / tracker.budget) * 100 : 0;
   const bankable = subcategories.filter((category) => category.budget > 0);
   const jointAccount = jointAccounts.data?.[0];
   const contributes = ownership === 'personal' && tracker.name === 'Joint' && jointAccount;
@@ -147,10 +158,13 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
           </Figures>
           <ProgressBar
             progress={tracker.progress / 100}
-            warn={nearlySpent(tracker) || tracker.remaining < 0}
+            planned={toBank > 0 ? (projected - tracker.progress) / 100 : 0}
+            warn={nearlySpent(tracker) || tracker.remaining < 0 || toBank > tracker.remaining}
           />
           <AppText variant="caption" tone="muted">
-            {Math.round(tracker.progress)}% used · {Math.round(tracker.split)}% of income
+            {Math.round(tracker.progress)}% used
+            {toBank > 0 ? ` · ${Math.round(projected)}% once plans are banked` : ''} ·{' '}
+            {Math.round(tracker.split)}% of income
           </AppText>
           {fit ? (
             <AppText variant="caption" tone={fit.left < 0 ? 'negative' : 'muted'}>
@@ -183,7 +197,9 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
               </AppText>
             ) : (
               subcategories.map((category) => {
-                const plan = pots ? potPlan(category) : null;
+                const toBankHere = unbanked.get(category.id);
+                const plan =
+                  pots && toBankHere !== undefined ? potPlan(category, toBankHere) : null;
                 return pots ? (
                   <BudgetRow
                     key={category.id}

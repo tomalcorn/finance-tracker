@@ -11,7 +11,7 @@ import {
 } from '@/budget/categoryDraft';
 import { EditableFigure, FigureCards } from '@/budget/EditableFigure';
 import { Figure, Figures } from '@/budget/Figures';
-import { nearlySpent, paymentsCountedIn, potPlan } from '@/budget/trackers';
+import { nearlySpent, paymentsCountedIn, potPlan, unbankedPlan } from '@/budget/trackers';
 import { Amount } from '@/components/Amount';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -67,7 +67,13 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
   const counted = paymentsCountedIn(payments.data ?? [], category, now);
   const total = counted.reduce((sum, payment) => sum + payment.expense, 0);
   const goalReached = pot && category.remaining <= 0;
-  const plan = pot ? potPlan(category, plannedDraft ?? category.budget) : null;
+  const plan =
+    pot && payments.data
+      ? potPlan(
+          category,
+          unbankedPlan(payments.data, category, now, plannedDraft ?? category.budget),
+        )
+      : null;
 
   function edit() {
     setEditKey((current) => (current ?? 0) + 1);

@@ -1,10 +1,12 @@
 import {
   childrenOf,
+  paidInThisMonth,
   paymentsCountedIn,
   plansFit,
   potPlan,
   roots,
   takesSubcategories,
+  unbankedPlan,
   totalAllocated,
   totalIncome,
 } from '@/budget/trackers';
@@ -27,6 +29,27 @@ function category(id: string, name: string, parentId: string | null = null): Cat
     remaining: 100,
     progress: 0,
     split: 0,
+  };
+}
+
+function payment(id: string, categoryId: string, date: string, expense = 10): PaymentView {
+  return {
+    id,
+    user_id: 'auth0|test',
+    name: id,
+    _created_at: '2026-10-01T09:30:12.345678+00:00',
+    ownership_type: 'personal',
+    joint_account_id: null,
+    payment_date: date,
+    payment_type: 'expense',
+    expense,
+    income: 0,
+    checked: false,
+    bank_account_id: 'b',
+    category_id: categoryId,
+    income_source_id: null,
+    subscription_id: null,
+    linked_payment_id: null,
   };
 }
 
@@ -93,27 +116,6 @@ describe('totals', () => {
 describe('paymentsCountedIn', () => {
   const groceries = category('1', 'Groceries', '9');
   const bike = { ...category('2', 'Bike', '8'), accrual: 'multi_month' as const };
-
-  function payment(id: string, categoryId: string, date: string): PaymentView {
-    return {
-      id,
-      user_id: 'auth0|test',
-      name: id,
-      _created_at: '2026-10-01T09:30:12.345678+00:00',
-      ownership_type: 'personal',
-      joint_account_id: null,
-      payment_date: date,
-      payment_type: 'expense',
-      expense: 10,
-      income: 0,
-      checked: false,
-      bank_account_id: 'b',
-      category_id: categoryId,
-      income_source_id: null,
-      subscription_id: null,
-      linked_payment_id: null,
-    };
-  }
 
   const payments = [
     payment('old', '1', '2026-10-31'),
@@ -200,5 +202,33 @@ describe('plansFit', () => {
       left: -30,
       summary: '£230.00 planned across pots · £30.00 more than the budget',
     });
+  });
+});
+
+describe('unbankedPlan', () => {
+  const bike = { ...category('2', 'Bike', '8'), accrual: 'multi_month' as const, budget: 150 };
+
+  it('is the whole plan before anything is paid in this month', () => {
+    const payments = [payment('last month', '2', '2026-10-31', 150)];
+
+    expect(unbankedPlan(payments, bike, '2026-11-25')).toBe(150);
+  });
+
+  it('is what is left of the plan once part of it is paid in', () => {
+    const payments = [payment('part', '2', '2026-11-03', 100), payment('other', '3', '2026-11-03')];
+
+    expect(paidInThisMonth(payments, bike, '2026-11-25')).toBe(100);
+    expect(unbankedPlan(payments, bike, '2026-11-25')).toBe(50);
+  });
+
+  it('is nothing once the plan is banked, or more than it is paid in', () => {
+    expect(unbankedPlan([payment('banked', '2', '2026-11-03', 150)], bike, '2026-11-25')).toBe(0);
+    expect(unbankedPlan([payment('extra', '2', '2026-11-03', 200)], bike, '2026-11-25')).toBe(0);
+  });
+
+  it('measures an amount being typed against what is already paid in', () => {
+    const payments = [payment('banked', '2', '2026-11-03', 150)];
+
+    expect(unbankedPlan(payments, bike, '2026-11-25', 200)).toBe(50);
   });
 });

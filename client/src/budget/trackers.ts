@@ -91,7 +91,7 @@ function pence(amount: number): number {
 
 /** What banking this month's plan would do to a pot. */
 export type PotPlan = {
-  /** What is planned for the pot this month. */
+  /** What is still to be banked into the pot this month. */
   planned: number;
   /** What is left to save once the plan is banked. Negative when the plan is more than needed. */
   after: number;
@@ -101,10 +101,42 @@ export type PotPlan = {
   summary: string;
 };
 
+/** What has been paid into a pot in `today`'s month, e.g. by banking its plan. */
+export function paidInThisMonth(
+  payments: readonly PaymentView[],
+  pot: CategoryView,
+  today: string,
+): number {
+  return pence(
+    payments
+      .filter(
+        (payment) =>
+          payment.payment_type === 'expense' &&
+          payment.category_id === pot.id &&
+          sameMonth(payment.payment_date, today),
+      )
+      .reduce((total, payment) => total + payment.expense, 0),
+  );
+}
+
+/**
+ * The part of a pot's plan not yet banked this month. Banking books the plan as a payment, so it
+ * is counted in what the pot has saved, and in what its tracker has spent, from then on; only
+ * what is still to be paid in is ahead. `planned` stands in for the pot's own plan.
+ */
+export function unbankedPlan(
+  payments: readonly PaymentView[],
+  pot: CategoryView,
+  today: string,
+  planned: number = pot.budget,
+): number {
+  return Math.max(0, pence(planned - paidInThisMonth(payments, pot, today)));
+}
+
 /**
  * What a pot's plan for the month would leave to go, or null when there is nothing to show:
- * nothing planned, or the pot already saved. `planned` stands in for the pot's own plan while
- * it is being edited.
+ * nothing planned, or the pot already saved. `planned` is the plan still to bank, from
+ * `unbankedPlan`; the pot's own plan when not given.
  */
 export function potPlan(pot: CategoryView, planned: number = pot.budget): PotPlan | null {
   if (!(planned > 0) || pot.remaining <= 0) return null;
