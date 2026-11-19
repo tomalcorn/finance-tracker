@@ -1,3 +1,9 @@
+## v1.47.1 (2026-11-19)
+
+### Fix
+
+- **client**: add a ± button to amount fields so phones can enter negatives (#359)
+
 ## v1.47.0 (2026-11-12)
 
 ### Feat
