@@ -11,7 +11,6 @@ import {
   childrenOf,
   holdsPots,
   nearlySpent,
-  plansFit,
   potPlan,
   takesSubcategories,
   unbankedPlan,
@@ -83,10 +82,6 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   );
   const toBank = [...unbanked.values()].reduce((total, amount) => total + amount, 0);
   const projected = tracker.budget > 0 ? ((tracker.accrued + toBank) / tracker.budget) * 100 : 0;
-  const fit =
-    pots && subcategories.length > 0 && payments.data
-      ? plansFit(tracker, subcategories, toBank)
-      : null;
   const bankable = subcategories.filter((category) => category.budget > 0);
   const jointAccount = jointAccounts.data?.[0];
   const contributes = ownership === 'personal' && tracker.name === 'Joint' && jointAccount;
@@ -166,9 +161,10 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
             labels={{
               progress: `Spent ${formatAmount(tracker.accrued)}`,
               planned: `Plans to bank ${formatAmount(toBank)}`,
-              rest: fit
-                ? `Left unplanned ${formatAmount(fit.left)}`
-                : `Left ${formatAmount(tracker.remaining)}`,
+              rest:
+                toBank > 0
+                  ? `Left after plans ${formatAmount(tracker.remaining - toBank)}`
+                  : `Left ${formatAmount(tracker.remaining)}`,
             }}
           />
           <AppText variant="caption" tone="muted">
@@ -176,11 +172,6 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
             {toBank > 0 ? ` · ${Math.round(projected)}% once plans are banked` : ''} ·{' '}
             {Math.round(tracker.split)}% of income
           </AppText>
-          {fit ? (
-            <AppText variant="caption" tone={fit.left < 0 ? 'negative' : 'muted'}>
-              {fit.summary}
-            </AppText>
-          ) : null}
           <Button
             title="Change budget"
             variant="secondary"

@@ -153,23 +153,3 @@ export function potPlan(pot: CategoryView, planned: number = pot.budget): PotPla
           : `Goal reached this month, ${formatAmount(-after)} more than needed`,
   };
 }
-
-/**
- * Whether the pots' plans fit what is left of the tracker's budget, in words. `toBank` is the
- * part of the plans not yet banked this month, from `unbankedPlan`: what is banked is already
- * spent, so it has come out of what is left.
- */
-export function plansFit(tracker: CategoryView, pots: readonly CategoryView[], toBank: number) {
-  const planned = pence(pots.reduce((total, pot) => total + pot.budget, 0));
-  const left = pence(tracker.remaining - toBank);
-  return {
-    planned,
-    left,
-    summary:
-      left < 0
-        ? `${formatAmount(planned)} planned across pots · ${formatAmount(-left)} over budget once banked`
-        : left === 0
-          ? `${formatAmount(planned)} planned across pots · nothing left unplanned`
-          : `${formatAmount(planned)} planned across pots · ${formatAmount(left)} left unplanned`,
-  };
-}
