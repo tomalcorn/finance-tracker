@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
@@ -16,6 +16,9 @@ export type ProgressBarLabels = {
 };
 
 type Segment = keyof ProgressBarLabels;
+
+/** How long the pointer rests on a part before its label shows, so passing over shows nothing. */
+export const HOVER_DELAY_MS = 300;
 
 type ProgressBarProps = {
   /** How far along, from 0 to 1. Values outside that range are clamped. */
@@ -35,6 +38,23 @@ type ProgressBarProps = {
 export function ProgressBar({ progress, warn = false, planned = 0, labels }: ProgressBarProps) {
   const { colors } = useAppTheme();
   const [hovered, setHovered] = useState<Segment | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => cancel(), []);
+
+  function cancel() {
+    if (timer.current !== null) clearTimeout(timer.current);
+    timer.current = null;
+  }
+
+  function enter(segment: Segment) {
+    cancel();
+    timer.current = setTimeout(() => setHovered(segment), HOVER_DELAY_MS);
+  }
+
+  function leave(segment: Segment) {
+    cancel();
+    setHovered((current) => (current === segment ? null : current));
+  }
   const fraction = Math.min(Math.max(progress, 0), 1);
   const percent = Math.round(fraction * 100);
   const projected = Math.round(Math.min(fraction + Math.max(planned, 0), 1) * 100);
@@ -77,8 +97,8 @@ export function ProgressBar({ progress, warn = false, planned = 0, labels }: Pro
           key={segment}
           aria-hidden
           testID={`progress-${segment}`}
-          onPointerEnter={() => setHovered(segment)}
-          onPointerLeave={() => setHovered((current) => (current === segment ? null : current))}
+          onPointerEnter={() => enter(segment)}
+          onPointerLeave={() => leave(segment)}
           style={[styles.zone, { left: `${start}%`, width: `${end - start}%` }]}
         />
       ))}
