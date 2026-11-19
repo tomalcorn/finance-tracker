@@ -16,12 +16,21 @@ const STATUS_BAR_STYLE = `document.write('<meta name="apple-mobile-web-app-statu
 const PAGE_BACKGROUND = `body { background-color: ${LIGHT.background}; }
 @media (prefers-color-scheme: dark) { body { background-color: ${DARK.background}; } }`;
 
+// Opened from the home screen with a black-translucent status bar, iOS draws the page under the
+// bar but still sizes it as if the bar took its share, leaving a dead band at the bottom as tall as
+// the status bar. Growing the page by the top inset makes it reach the bottom edge. With an opaque
+// bar the inset is 0, so this changes nothing there.
+const FULL_HEIGHT_STANDALONE = `@media (display-mode: standalone) {
+  html { height: calc(100% + env(safe-area-inset-top)); }
+}`;
+
 /**
  * The HTML document around every page of the web build, rendered at export
  * time only. Its head makes the app installable: the manifest, the iOS
  * home-screen tags and start-up images, and, in a production build, the
  * service worker. It also paints the page the theme's background, so
- * overscrolling never shows white.
+ * overscrolling never shows white, and stretches it to the bottom edge when
+ * opened from the home screen.
  */
 export default function Root({ children }: PropsWithChildren) {
   return (
@@ -35,6 +44,7 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: PAGE_BACKGROUND }} />
+        <style dangerouslySetInnerHTML={{ __html: FULL_HEIGHT_STANDALONE }} />
 
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content={PWA.themeColor} />

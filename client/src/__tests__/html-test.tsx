@@ -28,6 +28,17 @@ describe('the HTML head', () => {
     expect(renderHead('production')).toContain("'black-translucent' : 'default'");
   });
 
+  it('stretches the home-screen app by the status bar, so it reaches the bottom edge', () => {
+    const head = renderHead('production');
+
+    expect(head).toMatch(
+      /@media \(display-mode: standalone\) \{\s*html \{ height: calc\(100% \+ env\(safe-area-inset-top\)\); \}/,
+    );
+    expect(head.indexOf('display-mode: standalone')).toBeGreaterThan(
+      head.indexOf('#root,body,html'),
+    );
+  });
+
   it('paints the page the dark background in dark mode', () => {
     expect(renderHead('production')).toContain(`background-color: ${DARK.background}`);
   });
