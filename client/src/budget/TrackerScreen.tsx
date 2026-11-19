@@ -163,6 +163,13 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
             progress={tracker.progress / 100}
             planned={toBank > 0 ? (projected - tracker.progress) / 100 : 0}
             warn={nearlySpent(tracker) || tracker.remaining < 0 || toBank > tracker.remaining}
+            labels={{
+              progress: `Spent ${formatAmount(tracker.accrued)}`,
+              planned: `Plans to bank ${formatAmount(toBank)}`,
+              rest: fit
+                ? `Left unplanned ${formatAmount(fit.left)}`
+                : `Left ${formatAmount(tracker.remaining)}`,
+            }}
           />
           <AppText variant="caption" tone="muted">
             {Math.round(tracker.progress)}% used
@@ -210,6 +217,13 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
                     caption={`${formatAmount(category.accrued)} of ${formatAmount(category.cost)} saved · ${formatAmount(category.budget)} planned`}
                     note={plan?.summary}
                     plannedProgress={plan?.plannedProgress}
+                    barLabels={{
+                      progress: `Saved ${formatAmount(category.accrued)}`,
+                      planned: plan ? `To bank ${formatAmount(plan.planned)}` : undefined,
+                      rest: plan
+                        ? `To go after plan ${formatAmount(plan.after)}`
+                        : `To go ${formatAmount(category.remaining)}`,
+                    }}
                     left={category.remaining}
                     leftLabel="to go"
                     goal
@@ -224,6 +238,10 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
                     left={category.remaining}
                     progress={category.progress}
                     warn={nearlySpent(category)}
+                    barLabels={{
+                      progress: `Spent ${formatAmount(category.accrued)}`,
+                      rest: `Left ${formatAmount(category.remaining)}`,
+                    }}
                     onPress={() => show(category)}
                   />
                 );

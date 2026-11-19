@@ -129,6 +129,13 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
               <ProgressBar
                 progress={category.progress / 100}
                 planned={(plan?.plannedProgress ?? 0) / 100}
+                labels={{
+                  progress: `Saved ${formatAmount(category.accrued)}`,
+                  planned: plan ? `To bank ${formatAmount(plan.planned)}` : undefined,
+                  rest: plan
+                    ? `To go after plan ${formatAmount(plan.after)}`
+                    : `To go ${formatAmount(category.remaining)}`,
+                }}
               />
               <AppText variant="caption" tone="muted">
                 {Math.round(category.progress)}% of the cost saved
@@ -174,6 +181,10 @@ export function CategoryScreen({ ownership }: CategoryScreenProps) {
                 <ProgressBar
                   progress={category.progress / 100}
                   warn={nearlySpent(category) || category.remaining < 0}
+                  labels={{
+                    progress: `Spent ${formatAmount(category.accrued)}`,
+                    rest: `Left ${formatAmount(category.remaining)}`,
+                  }}
                 />
                 <AppText variant="caption" tone="muted">
                   {Math.round(category.progress)}% used · {Math.round(category.split)}% of{' '}

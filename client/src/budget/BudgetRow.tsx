@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { interactiveBackground } from '@/components/interaction';
-import { ProgressBar } from '@/components/ProgressBar';
+import { ProgressBar, type ProgressBarLabels } from '@/components/ProgressBar';
 import { useAppTheme } from '@/theme/theme';
 import { formatAmount } from '@/theme/formatAmount';
 import { SPACING } from '@/theme/tokens';
@@ -16,6 +16,8 @@ type BudgetRowProps = {
   note?: string;
   /** A further percentage about to be added, drawn lighter on the bar. */
   plannedProgress?: number;
+  /** What each part of the bar is, shown on hover. */
+  barLabels?: ProgressBarLabels;
   /** What is left, shown at the end and flagged once negative. */
   left: number;
   /** Labels `left`, e.g. "left" or "to go". */
@@ -38,6 +40,7 @@ export function BudgetRow({
   caption,
   note,
   plannedProgress = 0,
+  barLabels,
   left,
   leftLabel = 'left',
   progress,
@@ -87,6 +90,7 @@ export function BudgetRow({
         <ProgressBar
           progress={progress / 100}
           planned={plannedProgress / 100}
+          labels={barLabels}
           warn={!goal && (warn || over)}
         />
         <AppText variant="caption" tone="muted" numberOfLines={1}>

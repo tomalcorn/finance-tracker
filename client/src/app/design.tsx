@@ -310,7 +310,10 @@ export default function DesignScreen() {
                 £64 of £120
               </AppText>
             </View>
-            <ProgressBar progress={64 / 120} />
+            <ProgressBar
+              progress={64 / 120}
+              labels={{ progress: 'Spent £64.00', rest: 'Left £56.00' }}
+            />
           </View>
           <View style={styles.budget}>
             <View style={styles.budgetHeader}>
@@ -328,7 +331,15 @@ export default function DesignScreen() {
                 £300 of £800 · £150 planned
               </AppText>
             </View>
-            <ProgressBar progress={300 / 800} planned={150 / 800} />
+            <ProgressBar
+              progress={300 / 800}
+              planned={150 / 800}
+              labels={{
+                progress: 'Saved £300.00',
+                planned: 'To bank £150.00',
+                rest: 'To go after plan £350.00',
+              }}
+            />
           </View>
         </Card>
 
