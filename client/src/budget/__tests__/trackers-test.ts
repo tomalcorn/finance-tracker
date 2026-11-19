@@ -182,25 +182,26 @@ describe('potPlan', () => {
 });
 
 describe('plansFit', () => {
-  const tracker = { ...category('9', 'One-offs'), budget: 200 };
+  // £200 budget with £60 spent so far, some of it banked into pots.
+  const tracker = { ...category('9', 'One-offs'), budget: 200, accrued: 60, remaining: 140 };
   const pot = (planned: number) => ({ ...category(String(planned), 'Pot', '9'), budget: planned });
 
-  it('says how much of the budget the plans leave', () => {
-    expect(plansFit(tracker, [pot(100), pot(50)]).summary).toBe(
-      '£150.00 planned across pots · £50.00 of the budget unplanned',
+  it('says how much of what is left the plans still to bank leave unplanned', () => {
+    expect(plansFit(tracker, [pot(100), pot(50)], 90).summary).toBe(
+      '£150.00 planned across pots · £50.00 left unplanned',
     );
   });
 
-  it('says when the plans use all of the budget', () => {
-    expect(plansFit(tracker, [pot(120), pot(80)]).summary).toBe(
-      '£200.00 planned across pots · all of the budget',
+  it('says when the plans still to bank use all of what is left', () => {
+    expect(plansFit(tracker, [pot(120), pot(80)], 140).summary).toBe(
+      '£200.00 planned across pots · nothing left unplanned',
     );
   });
 
-  it('says when the plans are more than the budget', () => {
-    expect(plansFit(tracker, [pot(180), pot(50)])).toMatchObject({
+  it('says when banking the plans would go over budget', () => {
+    expect(plansFit(tracker, [pot(180), pot(50)], 170)).toMatchObject({
       left: -30,
-      summary: '£230.00 planned across pots · £30.00 more than the budget',
+      summary: '£230.00 planned across pots · £30.00 over budget once banked',
     });
   });
 });

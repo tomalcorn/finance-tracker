@@ -74,7 +74,6 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const subcategories = childrenOf(categories.data ?? [], tracker.id);
   const adds = takesSubcategories(tracker);
   const allocated = subcategories.reduce((total, category) => total + category.budget, 0);
-  const fit = pots && subcategories.length > 0 ? plansFit(tracker, subcategories) : null;
   // Each pot's plan still to bank this month, once the payments are in to tell what is banked.
   const now = today();
   const unbanked = new Map(
@@ -84,6 +83,10 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   );
   const toBank = [...unbanked.values()].reduce((total, amount) => total + amount, 0);
   const projected = tracker.budget > 0 ? ((tracker.accrued + toBank) / tracker.budget) * 100 : 0;
+  const fit =
+    pots && subcategories.length > 0 && payments.data
+      ? plansFit(tracker, subcategories, toBank)
+      : null;
   const bankable = subcategories.filter((category) => category.budget > 0);
   const jointAccount = jointAccounts.data?.[0];
   const contributes = ownership === 'personal' && tracker.name === 'Joint' && jointAccount;

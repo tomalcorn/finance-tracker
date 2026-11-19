@@ -48,7 +48,7 @@ Make sure you actually move the money into your savings before you use **Bank it
   change the monthly plan.
 - Check the total planned against your One-offs budget before you bank, while the month’s
   allowance is still unspent. The One-offs tracker shows the total planned and how much of
-  the budget it leaves.
+  the budget is left unplanned once this month’s plans are banked.
 - The lighter end of a pot’s bar is the part of this month’s plan not banked yet, and the
   line under it says what will be left to go once it is. The One-offs bar does the same for
   the budget: its lighter end is what the pots’ plans will add once they are banked.
