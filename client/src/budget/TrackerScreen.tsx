@@ -7,7 +7,14 @@ import { BudgetRow } from '@/budget/BudgetRow';
 import { BudgetForm, CategoryForm } from '@/budget/CategoryForm';
 import { categoryDraftRow, trackerBudgetError, type CategoryDraft } from '@/budget/categoryDraft';
 import { Figure, Figures } from '@/budget/Figures';
-import { childrenOf, holdsPots, nearlySpent, takesSubcategories } from '@/budget/trackers';
+import {
+  childrenOf,
+  holdsPots,
+  nearlySpent,
+  potPlan,
+  takesSubcategories,
+  unbankedPlan,
+} from '@/budget/trackers';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -16,7 +23,7 @@ import { Screen } from '@/components/Screen';
 import { Sheet } from '@/components/Sheet';
 import { Toast, type ToastMessage } from '@/components/Toast';
 import { ContributeSheetContent } from '@/contributions/ContributeSheetContent';
-import type { OwnershipType } from '@/domain/entities';
+import { today, type OwnershipType } from '@/domain/entities';
 import type { CategoryView } from '@/domain/readModels';
 import { useRepositories, useRows } from '@/hooks/repositories';
 import { nameOptions } from '@/lookups';
@@ -37,6 +44,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const categoriesRepository = repositories.categories(ownership);
   const categories = useRows(categoriesRepository);
   const paymentsRepository = repositories.payments(ownership);
+  const payments = useRows(paymentsRepository);
   const bankAccounts = useRows(repositories.bankAccounts(ownership));
   const jointAccounts = useRows(repositories.jointAccounts());
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -65,6 +73,15 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const subcategories = childrenOf(categories.data ?? [], tracker.id);
   const adds = takesSubcategories(tracker);
   const allocated = subcategories.reduce((total, category) => total + category.budget, 0);
+  // Each pot's plan still to bank this month, once the payments are in to tell what is banked.
+  const now = today();
+  const unbanked = new Map(
+    pots && payments.data
+      ? subcategories.map((pot) => [pot.id, unbankedPlan(payments.data, pot, now)])
+      : [],
+  );
+  const toBank = [...unbanked.values()].reduce((total, amount) => total + amount, 0);
+  const projected = tracker.budget > 0 ? ((tracker.accrued + toBank) / tracker.budget) * 100 : 0;
   const bankable = subcategories.filter((category) => category.budget > 0);
   const jointAccount = jointAccounts.data?.[0];
   const contributes = ownership === 'personal' && tracker.name === 'Joint' && jointAccount;
@@ -139,10 +156,21 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
           </Figures>
           <ProgressBar
             progress={tracker.progress / 100}
-            warn={nearlySpent(tracker) || tracker.remaining < 0}
+            planned={toBank > 0 ? (projected - tracker.progress) / 100 : 0}
+            warn={nearlySpent(tracker) || tracker.remaining < 0 || toBank > tracker.remaining}
+            labels={{
+              progress: `Spent ${formatAmount(tracker.accrued)}`,
+              planned: `Plans to bank ${formatAmount(toBank)}`,
+              rest:
+                toBank > 0
+                  ? `Left after plans ${formatAmount(tracker.remaining - toBank)}`
+                  : `Left ${formatAmount(tracker.remaining)}`,
+            }}
           />
           <AppText variant="caption" tone="muted">
-            {Math.round(tracker.progress)}% used · {Math.round(tracker.split)}% of income
+            {Math.round(tracker.progress)}% used
+            {toBank > 0 ? ` · ${Math.round(projected)}% once plans are banked` : ''} ·{' '}
+            {Math.round(tracker.split)}% of income
           </AppText>
           <Button
             title="Change budget"
@@ -169,12 +197,24 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
                   : 'No subcategories yet. Add one to break this tracker down.'}
               </AppText>
             ) : (
-              subcategories.map((category) =>
-                pots ? (
+              subcategories.map((category) => {
+                const toBankHere = unbanked.get(category.id);
+                const plan =
+                  pots && toBankHere !== undefined ? potPlan(category, toBankHere) : null;
+                return pots ? (
                   <BudgetRow
                     key={category.id}
                     title={category.name}
                     caption={`${formatAmount(category.accrued)} of ${formatAmount(category.cost)} saved · ${formatAmount(category.budget)} planned`}
+                    note={plan?.summary}
+                    plannedProgress={plan?.plannedProgress}
+                    barLabels={{
+                      progress: `Saved ${formatAmount(category.accrued)}`,
+                      planned: plan ? `To bank ${formatAmount(plan.planned)}` : undefined,
+                      rest: plan
+                        ? `To go after plan ${formatAmount(plan.after)}`
+                        : `To go ${formatAmount(category.remaining)}`,
+                    }}
                     left={category.remaining}
                     leftLabel="to go"
                     goal
@@ -189,10 +229,14 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
                     left={category.remaining}
                     progress={category.progress}
                     warn={nearlySpent(category)}
+                    barLabels={{
+                      progress: `Spent ${formatAmount(category.accrued)}`,
+                      rest: `Left ${formatAmount(category.remaining)}`,
+                    }}
                     onPress={() => show(category)}
                   />
-                ),
-              )
+                );
+              })
             )}
           </Card>
         ) : null}

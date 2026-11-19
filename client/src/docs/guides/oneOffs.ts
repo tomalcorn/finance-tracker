@@ -47,7 +47,10 @@ Make sure you actually move the money into your savings before you use **Bank it
 - If a pot’s saved figure stays flat for too long, you may need to reduce the target or
   change the monthly plan.
 - Check the total planned against your One-offs budget before you bank, while the month’s
-  allowance is still unspent.
+  allowance is still unspent. The One-offs bar shows where the plans will take the budget.
+- The lighter end of a pot’s bar is the part of this month’s plan not banked yet, and the
+  line under it says what will be left to go once it is. The One-offs bar does the same for
+  the budget: its lighter end is what the pots’ plans will add once they are banked.
 
 ## Overspend from a previous month
 
