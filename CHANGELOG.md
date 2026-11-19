@@ -1,3 +1,9 @@
+## v1.48.0 (2026-11-19)
+
+### Feat
+
+- **client**: show what a pot's plan leaves to go (#361)
+
 ## v1.47.2 (2026-11-19)
 
 ### Fix
