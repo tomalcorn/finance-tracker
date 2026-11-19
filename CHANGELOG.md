@@ -1,3 +1,9 @@
+## v1.47.2 (2026-11-19)
+
+### Fix
+
+- **client**: stretch the home-screen app to the bottom edge (#360)
+
 ## v1.47.1 (2026-11-19)
 
 ### Fix
