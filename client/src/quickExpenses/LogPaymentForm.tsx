@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { AmountField } from '@/components/AmountField';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import type { SelectOption } from '@/components/SelectField';
@@ -61,14 +62,7 @@ export function LogPaymentForm({
   return (
     <>
       <TextField label="Name" value={name} onChangeText={setName} placeholder="e.g. Coffee" />
-      <TextField
-        label="Amount"
-        value={amount}
-        onChangeText={setAmount}
-        inputMode="decimal"
-        placeholder="0.00"
-        error={amountError}
-      />
+      <AmountField label="Amount" value={amount} onChangeText={setAmount} error={amountError} />
       <SelectField
         label="Bank account"
         value={bankAccountId}

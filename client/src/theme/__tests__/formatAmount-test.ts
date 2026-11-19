@@ -1,4 +1,4 @@
-import { formatAmount, formatAmountCompact, parseAmount } from '@/theme/formatAmount';
+import { formatAmount, formatAmountCompact, parseAmount, flipSign } from '@/theme/formatAmount';
 
 describe('formatAmountCompact', () => {
   it('leaves off pence when there are none', () => {
@@ -37,5 +37,24 @@ describe('formatAmount', () => {
 
   it('puts the minus sign before the pound sign', () => {
     expect(formatAmount(-10.99)).toBe('-£10.99');
+  });
+});
+
+describe('flipSign', () => {
+  it('makes a positive amount negative', () => {
+    expect(flipSign('3.40')).toBe('-3.40');
+  });
+
+  it('makes a negative amount positive', () => {
+    expect(flipSign('-3.40')).toBe('3.40');
+  });
+
+  it('turns a blank field into a minus, to type the amount after', () => {
+    expect(flipSign('')).toBe('-');
+    expect(flipSign('-')).toBe('');
+  });
+
+  it('ignores leading spaces', () => {
+    expect(flipSign('  -2')).toBe('2');
   });
 });

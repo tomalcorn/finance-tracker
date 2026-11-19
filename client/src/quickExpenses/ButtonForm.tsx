@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { AmountField } from '@/components/AmountField';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -128,12 +129,10 @@ export function ButtonForm({
         onChangeText={(paymentName) => update({ paymentName })}
         placeholder={asks ? 'Typed in when tapped' : draft.name || 'The button name'}
       />
-      <TextField
+      <AmountField
         label={`Amount${optional}`}
         value={draft.amount}
         onChangeText={(amount) => update({ amount })}
-        inputMode="decimal"
-        placeholder="0.00"
         error={shown.amount}
       />
       <SelectField

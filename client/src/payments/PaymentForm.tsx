@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AmountField } from '@/components/AmountField';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { DateField } from '@/components/DateField';
@@ -128,12 +129,10 @@ export function PaymentForm({
         placeholder={income ? 'e.g. Salary' : 'e.g. Groceries'}
         error={errors.name}
       />
-      <TextField
+      <AmountField
         label={income ? 'Amount in' : 'Amount out'}
         value={draft.amount}
         onChangeText={(amount) => change({ amount })}
-        inputMode="decimal"
-        placeholder="0.00"
         error={errors.amount}
       />
       <DateField
