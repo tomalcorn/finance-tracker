@@ -102,6 +102,9 @@ export function CategoryForm({
             placeholder="0.00"
             error={shown.cost}
           />
+          <AppText variant="caption" tone="muted">
+            The whole target, not what is left to save.
+          </AppText>
           <TextField
             label="Planned this month"
             value={draft.budget}
@@ -111,7 +114,7 @@ export function CategoryForm({
             error={shown.budget}
           />
           <AppText variant="caption" tone="muted">
-            What you mean to put towards it this month.
+            What you mean to put towards it this month. Banking it doesn’t use this up.
           </AppText>
           <TextField
             label="Already saved"
@@ -121,6 +124,9 @@ export function CategoryForm({
             placeholder="0.00"
             error={shown.startingBalance}
           />
+          <AppText variant="caption" tone="muted">
+            What you had already put by for it before adding it here.
+          </AppText>
         </>
       ) : (
         <TextField

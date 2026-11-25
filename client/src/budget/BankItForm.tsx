@@ -81,6 +81,10 @@ export function BankItForm({ pots, bankAccounts, onBank, onCancel }: BankItFormP
         options={bankAccounts}
         onChange={setBankAccountId}
       />
+      <AppText variant="caption" tone="muted">
+        Books one payment per pot out of this account. Move the money into your savings at the same
+        time.
+      </AppText>
       {failure ? <AppText tone="negative">{failure}</AppText> : null}
       <Button
         title={banking.length > 0 ? `Bank ${formatAmount(total)}` : 'Bank'}

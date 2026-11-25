@@ -170,8 +170,8 @@ export function PaymentForm({
       )}
       <AppText variant="caption" tone="muted">
         {income
-          ? 'Which income source this income goes against.'
-          : 'The budget tracker or category this comes out of.'}
+          ? 'Which income source this income goes against. Leave it as None for money from another of your own accounts.'
+          : 'The budget tracker or category this comes out of. Leave it as None for money moved to another of your own accounts.'}
       </AppText>
       <SwitchField
         label="Checked"

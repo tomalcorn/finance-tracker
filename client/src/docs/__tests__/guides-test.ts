@@ -14,12 +14,12 @@ const tokens: { slug: string; token: MarkedToken }[] = GUIDES.flatMap((guide) =>
 });
 
 describe('GUIDES', () => {
-  it('has all nine', () => {
-    expect(GUIDES).toHaveLength(9);
+  it('has all three', () => {
+    expect(GUIDES).toHaveLength(3);
   });
 
   it('runs in order', () => {
-    expect(GUIDES.map((guide) => guide.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(GUIDES.map((guide) => guide.order)).toEqual([1, 2, 3]);
   });
 
   it('gives every guide its own slug', () => {
@@ -72,7 +72,7 @@ describe('GUIDES', () => {
 
 describe('guideBySlug', () => {
   it('finds a guide', () => {
-    expect(guideBySlug('payments')?.title).toBe('Payments');
+    expect(guideBySlug('common_situations')?.title).toBe('Common situations');
   });
 
   it('finds nothing at an unknown slug', () => {

@@ -55,7 +55,7 @@ describe('docs', () => {
   it('opens a guide from the list', async () => {
     await renderAt('/docs');
 
-    await fireEvent.press(await screen.findByText('Payments'));
+    await fireEvent.press(await screen.findByText('Common situations'));
 
     expect(await screen.findByText('Moving money between your own accounts')).toBeOnTheScreen();
   });
@@ -72,13 +72,13 @@ describe('docs', () => {
   it('follows a link to another guide', async () => {
     await renderAt('/docs/getting_started');
 
-    await fireEvent.press(await screen.findByRole('link', { name: 'subscriptions' }));
+    await fireEvent.press(await screen.findByRole('link', { name: 'Common situations' }));
 
-    expect(await screen.findByText('How payments get booked')).toBeOnTheScreen();
+    expect(await screen.findByText('Ending a month overspent')).toBeOnTheScreen();
   });
 
   it('goes back from a guide opened directly to the list', async () => {
-    await renderAt('/docs/payments');
+    await renderAt('/docs/common_situations');
 
     await fireEvent.press(await screen.findByRole('link', { name: '‹ Back' }));
 
