@@ -156,7 +156,8 @@ export function SubscriptionForm({
             error={errors.jointIncomeSourceId}
           />
           <AppText variant="caption" tone="muted">
-            Each payment leaves your personal account and arrives in the joint one.
+            Each payment leaves your personal account and arrives in the joint one. Your side counts
+            against your Joint budget tracker.
           </AppText>
         </>
       ) : (

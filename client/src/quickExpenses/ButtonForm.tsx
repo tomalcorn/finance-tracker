@@ -135,6 +135,9 @@ export function ButtonForm({
         onChangeText={(amount) => update({ amount })}
         error={shown.amount}
       />
+      <AppText variant="caption" tone="muted">
+        Make it negative with ± for money coming back, like a refund.
+      </AppText>
       <SelectField
         label={`Bank account${optional}`}
         value={draft.bankAccountId}
