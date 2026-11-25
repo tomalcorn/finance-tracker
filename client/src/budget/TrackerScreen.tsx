@@ -7,9 +7,11 @@ import { BudgetRow } from '@/budget/BudgetRow';
 import { BudgetForm, CategoryForm } from '@/budget/CategoryForm';
 import { categoryDraftRow, trackerBudgetError, type CategoryDraft } from '@/budget/categoryDraft';
 import { Figure, Figures } from '@/budget/Figures';
+import { SavingsMoveForm } from '@/budget/SavingsMoveForm';
 import {
   childrenOf,
   holdsPots,
+  movesSavings,
   nearlySpent,
   potPlan,
   takesSubcategories,
@@ -31,11 +33,20 @@ import type { Contribution } from '@/ports/repositories';
 import { formatAmount, parseAmount } from '@/theme/formatAmount';
 import { SPACING } from '@/theme/tokens';
 import { bankOneOffs } from '@/useCases/bankOneOffs';
+import { moveSavings, type SavingsDirection, type SavingsMove } from '@/useCases/moveSavings';
 
 type TrackerScreenProps = { ownership: OwnershipType };
 
-/** What the sheet is for: the tracker's budget, a new subcategory, banking pots, or contributing. */
-type SheetTarget = { kind: 'budget' } | { kind: 'new' } | { kind: 'bank' } | { kind: 'contribute' };
+/**
+ * What the sheet is for: the tracker's budget, a new subcategory, banking pots, contributing, or
+ * moving money into or out of savings.
+ */
+type SheetTarget =
+  | { kind: 'budget' }
+  | { kind: 'new' }
+  | { kind: 'bank' }
+  | { kind: 'contribute' }
+  | { kind: 'savings'; direction: SavingsDirection };
 
 /** One budget tracker: its figures for the month, and the subcategories it is broken into. */
 export function TrackerScreen({ ownership }: TrackerScreenProps) {
@@ -85,6 +96,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const bankable = subcategories.filter((category) => category.budget > 0);
   const jointAccount = jointAccounts.data?.[0];
   const contributes = ownership === 'personal' && tracker.name === 'Joint' && jointAccount;
+  const savings = movesSavings(tracker);
 
   function open(target: SheetTarget) {
     setSheet((current) => ({ target, key: (current?.key ?? 0) + 1 }));
@@ -129,6 +141,17 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
     }));
   }
 
+  async function move(savingsMove: SavingsMove) {
+    if (!tracker) return;
+    await moveSavings(paymentsRepository, tracker, savingsMove);
+    closeSheet();
+    const verb = savingsMove.direction === 'deposit' ? 'deposited' : 'withdrawn';
+    setToast((current) => ({
+      id: (current?.id ?? 0) + 1,
+      text: `${formatAmount(savingsMove.amount)} ${verb}`,
+    }));
+  }
+
   const target = sheet?.target;
   const sheetTitle =
     target?.kind === 'budget'
@@ -137,9 +160,13 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
         ? 'Bank it'
         : target?.kind === 'contribute'
           ? 'Contribute'
-          : pots
-            ? 'New pot'
-            : 'New subcategory';
+          : target?.kind === 'savings'
+            ? target.direction === 'deposit'
+              ? 'Deposit'
+              : 'Withdraw'
+            : pots
+              ? 'New pot'
+              : 'New subcategory';
 
   return (
     <View style={styles.fill}>
@@ -241,6 +268,23 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
           </Card>
         ) : null}
 
+        {savings ? (
+          <View style={styles.pair}>
+            <View style={styles.half}>
+              <Button
+                title="Deposit"
+                onPress={() => open({ kind: 'savings', direction: 'deposit' })}
+              />
+            </View>
+            <View style={styles.half}>
+              <Button
+                title="Withdraw"
+                variant="secondary"
+                onPress={() => open({ kind: 'savings', direction: 'withdraw' })}
+              />
+            </View>
+          </View>
+        ) : null}
         {contributes ? (
           <Button title="Contribute" onPress={() => open({ kind: 'contribute' })} />
         ) : null}
@@ -279,6 +323,14 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
             onContribute={contribute}
             onCancel={closeSheet}
           />
+        ) : target?.kind === 'savings' ? (
+          <SavingsMoveForm
+            key={sheet?.key}
+            direction={target.direction}
+            bankAccounts={nameOptions(bankAccounts.data ?? [])}
+            onSubmit={move}
+            onCancel={closeSheet}
+          />
         ) : target ? (
           <CategoryForm
             key={sheet?.key}
@@ -299,4 +351,6 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   empty: { padding: SPACING.lg },
+  pair: { flexDirection: 'row', gap: SPACING.md },
+  half: { flex: 1 },
 });

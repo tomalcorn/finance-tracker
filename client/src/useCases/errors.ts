@@ -36,3 +36,16 @@ export class NothingToBankError extends BankOneOffsError {
     this.potName = potName;
   }
 }
+
+/** Money could not be moved into or out of savings. */
+export class MoveSavingsError extends UseCaseError {}
+
+/** A deposit or withdrawal was asked for with an amount that isn't above zero. */
+export class NonPositiveSavingsAmountError extends MoveSavingsError {
+  readonly amount: number;
+
+  constructor(amount: number) {
+    super(`An amount to move must be above zero, not ${amount}.`);
+    this.amount = amount;
+  }
+}

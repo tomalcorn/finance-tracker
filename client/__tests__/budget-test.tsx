@@ -492,3 +492,92 @@ describe('bank it', () => {
     expect(screen.getByRole('button', { name: 'Bank' })).toBeDisabled();
   });
 });
+
+describe('savings deposits and withdrawals', () => {
+  beforeEach(() => {
+    tables.bank_accounts_view = [
+      { ...OWNED, id: BANK_ACCOUNT_ID, name: 'Current', starting_balance: 0, current_balance: 0 },
+    ];
+  });
+
+  it('deposits into savings from the chosen account', async () => {
+    await renderAt(`/personal/tracker/${SAVINGS_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Deposit' }));
+    await fireEvent.changeText(screen.getByLabelText('Amount'), '50');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Deposit £50.00' }));
+    await screen.findByText('£50.00 deposited');
+
+    expect(tables.payments).toEqual([
+      expect.objectContaining({
+        name: 'Savings deposit',
+        expense: 50,
+        category_id: SAVINGS_ID,
+        bank_account_id: BANK_ACCOUNT_ID,
+      }),
+    ]);
+  });
+
+  it('withdraws from savings as a negative payment', async () => {
+    await renderAt(`/personal/tracker/${SAVINGS_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Withdraw' }));
+    await fireEvent.changeText(screen.getByLabelText('Amount'), '30');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Withdraw £30.00' }));
+    await screen.findByText('£30.00 withdrawn');
+
+    expect(tables.payments).toEqual([
+      expect.objectContaining({
+        name: 'Savings withdrawal',
+        expense: -30,
+        category_id: SAVINGS_ID,
+      }),
+    ]);
+  });
+
+  it('names the payment as typed', async () => {
+    await renderAt(`/personal/tracker/${SAVINGS_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Deposit' }));
+    await fireEvent.changeText(screen.getByLabelText('Amount'), '50');
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Bonus');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Deposit £50.00' }));
+    await screen.findByText('£50.00 deposited');
+
+    expect(tables.payments).toEqual([expect.objectContaining({ name: 'Bonus' })]);
+  });
+
+  it.each(['0', '-20'])('won’t move an amount of %s', async (amount) => {
+    await renderAt(`/personal/tracker/${SAVINGS_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Deposit' }));
+
+    await fireEvent.changeText(screen.getByLabelText('Amount'), amount);
+
+    expect(screen.getByText('Enter an amount above zero.')).toBeOnTheScreen();
+  });
+
+  it('won’t move an amount that isn’t a number', async () => {
+    await renderAt(`/personal/tracker/${SAVINGS_ID}`);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Deposit' }));
+
+    await fireEvent.changeText(screen.getByLabelText('Amount'), 'lots');
+
+    expect(screen.getByText('Enter an amount in pounds, e.g. 50.00.')).toBeOnTheScreen();
+  });
+
+  it('asks for a bank account first when there is none', async () => {
+    tables.bank_accounts_view = [];
+    await renderAt(`/personal/tracker/${SAVINGS_ID}`);
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Deposit' }));
+
+    expect(await screen.findByText('You need a bank account to deposit from.')).toBeOnTheScreen();
+  });
+
+  it('offers no deposits on other trackers', async () => {
+    await renderAt(`/personal/tracker/${EXPENSES_ID}`);
+    await screen.findByRole('button', { name: 'Change budget' });
+
+    expect(screen.queryByRole('button', { name: 'Deposit' })).not.toBeOnTheScreen();
+  });
+});
