@@ -13,13 +13,14 @@ open it.
 
 1. Add your bank accounts under **Bank accounts**, each with what it held when you started
    tracking it.
-2. Open **Expenses** under **Budget trackers** and add subcategories for how you want to split
+1. Open **Expenses** under **Budget trackers** and add subcategories for how you want to split
    your spending.
-3. Open **Income split**, add your income sources, and set each tracker’s monthly budget.
-4. Add your subscriptions, then log payments as they happen, on **Payments** or with a Quick
+1. Open **Income split**, add your income sources, and set each tracker’s monthly budget.
+1. Add your subscriptions.
+1. You're ready to start logging payments, on **Payments** or with a Quick
    Expenses button.
-5. Use **One-offs** for things you save up for over time, like a holiday or a new laptop,
-   rather than regular monthly spending.
+1. Use **One-offs** for things you save up for over time or large purchases that don't fit into 
+   a regular monthly category, like a holiday or a new laptop.
 
 ## Choosing subcategories
 

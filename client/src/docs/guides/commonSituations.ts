@@ -6,27 +6,22 @@ export const commonSituations: Guide = {
   order: 2,
   icon: { ios: 'lightbulb.fill', web: 'lightbulb' },
   body: `
-The cases where the obvious thing to do isn’t quite right.
+Some guidance in situations that require a chin scratch.
 
 ## Getting paid back
 
 Someone repaying you, like a friend covering half of a dinner or a refunded deposit, can be
-recorded two ways. Both are valid; pick by what you want the money to mean.
+recorded two ways. Both are valid; pick by what you want the repayment to be used for.
 
 **Option A: money in, against its own income source.** Create an income source for it and add
 a normal payment. It shows up in your income, so you can see it in its own right. Choose this
-when the repayment is a genuine inflow you want to track, or whenever it arrives in a
-*different month* from the original spend.
+when the repayment is a genuine inflow you want to track, or when you want to use that money to 
+lighten the load across all your expense sources.
 
 **Option B: a negative expense against the original category.** Add money out in the same
-category, made negative with the **±** button (for example -12.50). This offsets the category
+category, **but negative** (for example -12.50). This offsets the category
 directly, so it reads as though you only ever spent your own share. Choose this for one-off
 reimbursements.
-
-> **Option B only works within one calendar month.** Monthly totals count the current month’s
-> payments only, so a negative dated in a later month reduces *that* month’s total instead,
-> overstating the month you spent in and understating the month you were repaid. Across a
-> month boundary, use Option A.
 
 A Quick Expenses button can do the same, with a negative amount, if the repayment is always the
 same.
@@ -47,8 +42,8 @@ exactly what a transfer is.
 
 1. Open **Payments** and go to the month you want to review.
 2. Check each payment has the right category or income source.
-3. Compare each bank account’s balance with your banking app, and tick off the payments that
-   match. Tick up to the day *before* today, since you might spend more today.
+3. Compare each bank account’s balance with your banking app, and tick off the final payment
+on a day that matches. Tick up to the day *before* today, since you might spend more today.
 4. Bank any pots planned for this month.
 
 If an account’s balance doesn’t match, the usual causes are:
