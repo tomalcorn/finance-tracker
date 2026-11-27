@@ -1,3 +1,9 @@
+## v1.49.0 (2026-11-27)
+
+### Feat
+
+- **client**: clear a pot's plan once it is banked (#367)
+
 ## v1.48.0 (2026-11-19)
 
 ### Feat
