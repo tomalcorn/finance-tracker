@@ -114,7 +114,12 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   }
 
   async function bank(chosen: CategoryView[], bankAccountId: string) {
-    const written = await bankOneOffs(paymentsRepository, chosen, bankAccountId);
+    const written = await bankOneOffs(
+      paymentsRepository,
+      categoriesRepository,
+      chosen,
+      bankAccountId,
+    );
     closeSheet();
     const total = written.reduce((sum, payment) => sum + payment.expense, 0);
     setToast((current) => ({ id: (current?.id ?? 0) + 1, text: `${formatAmount(total)} banked` }));
