@@ -1,3 +1,9 @@
+## v1.50.0 (2026-11-28)
+
+### Feat
+
+- **client**: deposit and withdraw on the Savings tracker (#365)
+
 ## v1.49.0 (2026-11-27)
 
 ### Feat
