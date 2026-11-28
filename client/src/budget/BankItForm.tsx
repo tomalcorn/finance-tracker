@@ -4,7 +4,9 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { CheckList } from '@/components/CheckList';
 import { SelectField, type SelectOption } from '@/components/SelectField';
+import { SheetNotice } from '@/components/SheetNotice';
 import type { CategoryView } from '@/domain/readModels';
+import { useSubmit } from '@/hooks/submit';
 import { formatAmount } from '@/theme/formatAmount';
 
 type BankItFormProps = {
@@ -22,45 +24,32 @@ export function BankItForm({ pots, bankAccounts, onBank, onCancel }: BankItFormP
   const [bankAccountId, setBankAccountId] = useState<string | null>(
     bankAccounts.length === 1 ? (bankAccounts[0]?.value ?? null) : null,
   );
-  const [saving, setSaving] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit, saving, failure } = useSubmit(onBank, { once: true });
   const banking = pots.filter((pot) => chosen.includes(pot.id));
   const total = banking.reduce((sum, pot) => sum + pot.budget, 0);
 
   if (pots.length === 0) {
     return (
-      <>
-        <AppText>Nothing to bank yet.</AppText>
-        <AppText tone="muted">
-          Give a pot an amount planned for this month first, then come back to pay it in.
-        </AppText>
-        <Button title="Close" variant="plain" onPress={onCancel} />
-      </>
+      <SheetNotice
+        message="Nothing to bank yet."
+        detail="Give a pot an amount planned for this month first, then come back to pay it in."
+        onClose={onCancel}
+      />
     );
   }
 
   if (bankAccounts.length === 0) {
     return (
-      <>
-        <AppText>You need a bank account to bank from.</AppText>
-        <AppText tone="muted">
-          Add one under Bank accounts on the overview, then come back to bank your pots.
-        </AppText>
-        <Button title="Close" variant="plain" onPress={onCancel} />
-      </>
+      <SheetNotice
+        message="You need a bank account to bank from."
+        detail="Add one under Bank accounts on the overview, then come back to bank your pots."
+        onClose={onCancel}
+      />
     );
   }
 
-  async function bank() {
-    if (!bankAccountId) return;
-    setSaving(true);
-    setFailure(null);
-    try {
-      await onBank(banking, bankAccountId);
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : String(error));
-      setSaving(false);
-    }
+  function bank() {
+    if (bankAccountId) void submit(banking, bankAccountId);
   }
 
   return (
@@ -88,7 +77,7 @@ export function BankItForm({ pots, bankAccounts, onBank, onCancel }: BankItFormP
       {failure ? <AppText tone="negative">{failure}</AppText> : null}
       <Button
         title={banking.length > 0 ? `Bank ${formatAmount(total)}` : 'Bank'}
-        onPress={() => void bank()}
+        onPress={bank}
         disabled={saving || banking.length === 0 || bankAccountId === null}
       />
       <Button title="Cancel" variant="plain" onPress={onCancel} />

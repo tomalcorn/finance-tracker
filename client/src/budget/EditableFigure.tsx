@@ -4,6 +4,7 @@ import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { interactiveBackground } from '@/components/interaction';
+import { useSubmit } from '@/hooks/submit';
 import { useAppTheme } from '@/theme/theme';
 import { formatAmount, formatAmountCompact, parseAmount } from '@/theme/formatAmount';
 import { RADIUS, SPACING } from '@/theme/tokens';
@@ -46,8 +47,10 @@ export function EditableFigure({
 }: EditableFigureProps) {
   const { colors } = useAppTheme();
   const [text, setText] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit, saving, failure, clearFailure } = useSubmit(async (amount: number) => {
+    await onSave(amount);
+    stop();
+  });
   // Escape closes the input, and losing focus as it goes must not save what it held.
   const cancelled = useRef(false);
   const editing = text !== null;
@@ -55,7 +58,7 @@ export function EditableFigure({
 
   function start() {
     cancelled.current = false;
-    setFailure(null);
+    clearFailure();
     setText(value.toFixed(2));
   }
 
@@ -70,7 +73,7 @@ export function EditableFigure({
     onDraft?.(null);
   }
 
-  async function finish() {
+  function finish() {
     if (text === null || saving || cancelled.current) return;
     const amount = parseAmount(text);
     if (error || amount === null || Number.isNaN(amount)) return;
@@ -78,15 +81,7 @@ export function EditableFigure({
       stop();
       return;
     }
-    setSaving(true);
-    try {
-      await onSave(amount);
-      stop();
-    } catch (failed) {
-      setFailure(failed instanceof Error ? failed.message : String(failed));
-    } finally {
-      setSaving(false);
-    }
+    void submit(amount);
   }
 
   const message = error ?? failure ?? caption;
@@ -106,8 +101,8 @@ export function EditableFigure({
             aria-invalid={error ? true : undefined}
             value={text}
             onChangeText={type}
-            onSubmitEditing={() => void finish()}
-            onBlur={() => void finish()}
+            onSubmitEditing={finish}
+            onBlur={finish}
             onKeyPress={(event) => {
               if (event.nativeEvent.key !== 'Escape') return;
               cancelled.current = true;

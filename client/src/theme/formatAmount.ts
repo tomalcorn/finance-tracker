@@ -26,6 +26,46 @@ export function parseAmount(text: string): number | null {
   return /^-?(\d+\.?\d*|\.\d+)$/.test(cleaned) ? Number(cleaned) : NaN;
 }
 
+/** Which amounts a field takes: above zero, zero or more, any but zero, or any at all. */
+export type AmountSign = 'positive' | 'nonnegative' | 'nonzero' | 'any';
+
+/** What an amount field takes. */
+export type AmountRule = {
+  sign: AmountSign;
+  /** Leave a blank field unflagged, e.g. where it means zero or none. */
+  optional?: boolean;
+};
+
+/** Takes zero, so a blank field can be told to enter 0. */
+const TAKES_ZERO: ReadonlySet<AmountSign> = new Set(['nonnegative', 'any']);
+
+/**
+ * Check an amount as typed against what its field takes.
+ *
+ * @returns What is wrong with it, or undefined when it will do.
+ */
+export function amountError(
+  text: string,
+  { sign, optional = false }: AmountRule,
+): string | undefined {
+  const amount = parseAmount(text);
+  if (amount === null) {
+    if (optional) return undefined;
+    return TAKES_ZERO.has(sign) ? 'Enter an amount, or 0.' : 'Enter the amount.';
+  }
+  if (Number.isNaN(amount)) return 'Enter an amount in pounds, e.g. 12.50.';
+  switch (sign) {
+    case 'positive':
+      return amount > 0 ? undefined : 'Enter an amount above zero.';
+    case 'nonnegative':
+      return amount >= 0 ? undefined : 'Enter an amount of 0 or more.';
+    case 'nonzero':
+      return amount !== 0 ? undefined : 'An amount can’t be zero.';
+    case 'any':
+      return undefined;
+  }
+}
+
 /**
  * Flip the sign of an amount as typed, e.g. `3.40` to `-3.40` and back. A blank field becomes `-`,
  * so the sign can be chosen before the amount is typed.

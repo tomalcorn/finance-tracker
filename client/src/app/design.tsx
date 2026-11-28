@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BalanceChart } from '@/bankAccounts/BalanceChart';
@@ -19,7 +19,7 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { SelectField } from '@/components/SelectField';
 import { Sheet } from '@/components/Sheet';
 import { TextField } from '@/components/TextField';
-import { Toast, type ToastMessage } from '@/components/Toast';
+import { ToastProvider, useToast } from '@/components/Toast';
 import { today } from '@/domain/entities';
 import type { QuickButtonView } from '@/domain/readModels';
 import { NewButtonTile, QuickButtonTile } from '@/quickExpenses/QuickButtonTile';
@@ -118,6 +118,14 @@ const SAMPLE_CATEGORIES = [
 
 /** A gallery of the theme and every shared component, with sample data, for reviewing the design. */
 export default function DesignScreen() {
+  return (
+    <ToastProvider>
+      <DesignGallery />
+    </ToastProvider>
+  );
+}
+
+function DesignGallery() {
   const { colors } = useAppTheme();
   const [amount, setAmount] = useState('12.50');
   const [date, setDate] = useState(today);
@@ -128,291 +136,270 @@ export default function DesignScreen() {
   const [ledger, setLedger] = useState<(typeof LEDGERS)[number]['value']>('personal');
   const [bankAccount, setBankAccount] = useState<string | null>('current');
   const [category, setCategory] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
+  const { notify } = useToast();
 
   function say(text: string, actionLabel?: string) {
-    setToast((current) => ({
-      id: (current?.id ?? 0) + 1,
-      text,
-      action: actionLabel ? { label: actionLabel, onPress: () => {} } : undefined,
-    }));
+    notify(text, actionLabel ? { label: actionLabel, onPress: () => {} } : undefined);
   }
 
   return (
-    <View style={styles.fill}>
-      <Screen title="Design" back>
-        <AppText tone="muted">
-          The theme and shared components, with sample data. Switch the device to dark mode to see
-          the dark palette.
-        </AppText>
+    <Screen title="Design" back>
+      <AppText tone="muted">
+        The theme and shared components, with sample data. Switch the device to dark mode to see the
+        dark palette.
+      </AppText>
 
-        <SummaryTiles summary={SAMPLE_SUMMARY} />
+      <SummaryTiles summary={SAMPLE_SUMMARY} />
 
-        <Card title="Tab bar">
-          <View style={[styles.tabStage, { backgroundColor: colors.background }]}>
-            <Card list>
-              <ListRow
-                title="Coffee"
-                subtitle="Pret · Today"
-                trailing={<Amount value={-3.4} signed />}
-              />
-              <ListRow
-                title="Rent"
-                subtitle="Joint · 1 Nov"
-                trailing={<Amount value={-950} signed />}
-              />
-              <ListRow
-                title="Refund"
-                subtitle="Amazon · 30 Oct"
-                trailing={<Amount value={24.99} signed />}
-              />
-            </Card>
-            <GlassTabBar items={SAMPLE_TABS} selectedKey={tab} onSelect={setTab} />
-          </View>
-        </Card>
-
-        <Card title="Quick buttons">
-          <View style={styles.tiles}>
-            <QuickButtonTile
-              button={SAMPLE_BUTTONS[0]}
-              editing={false}
-              busy={false}
-              onPress={() => say('Coffee — £3.40 logged', 'Undo')}
-              onLongPress={() => {}}
-            />
-            <QuickButtonTile
-              button={SAMPLE_BUTTONS[1]}
-              editing={false}
-              busy={false}
-              onPress={() => say('Groceries asks for details first')}
-              onLongPress={() => {}}
-            />
-          </View>
-          <View style={styles.tiles}>
-            <QuickButtonTile
-              button={SAMPLE_BUTTONS[0]}
-              editing
-              busy={false}
-              onPress={() => {}}
-              onLongPress={() => {}}
-            />
-            <QuickButtonTile
-              button={{ ...SAMPLE_BUTTONS[1], icon: null }}
-              editing={false}
-              busy={false}
-              onPress={() => {}}
-              onLongPress={() => {}}
-            />
-          </View>
-          <View style={styles.tiles}>
-            <NewButtonTile onPress={() => {}} />
-            <View style={styles.fill} />
-          </View>
-        </Card>
-
-        <View style={styles.accountTiles}>
-          <BankAccountTile name="Monzo" balance={1984.2} trend={RISING_TREND} onPress={() => {}} />
-          <BankAccountTile name="Amex" balance={-812.45} trend={FALLING_TREND} onPress={() => {}} />
-          <BankAccountTile name="Saver" balance={500} trend={NEW_TREND} onPress={() => {}} />
-          <BankAccountTileSpacer />
-        </View>
-
-        <Card title="Balance chart">
-          <BalanceChart points={SAMPLE_HISTORY} />
-        </Card>
-
-        <HalfThemeProvider half="joint">
-          <Card title="Joint half">
-            <SummaryTiles summary={SAMPLE_SUMMARY} />
-            <Button title="Contribute" onPress={() => {}} />
-            <Button title="Add a bank account" variant="secondary" onPress={() => {}} />
-          </Card>
-        </HalfThemeProvider>
-
-        <Card title="Choices">
-          <SegmentedControl label="Ledger" value={ledger} options={LEDGERS} onChange={setLedger} />
-          <SelectField
-            label="Bank account"
-            value={bankAccount}
-            options={SAMPLE_BANK_ACCOUNTS}
-            onChange={setBankAccount}
-          />
-          <SelectField
-            label="Category"
-            value={category}
-            options={SAMPLE_CATEGORIES}
-            onChange={setCategory}
-            noneLabel="None"
-          />
-        </Card>
-
-        <Card title="App icon">
-          <View style={styles.icons}>
-            <AppIcon size={64} />
-            <AppIcon size={40} />
-            <AppIcon size={24} />
-          </View>
-        </Card>
-
-        <Card title="Colours">
-          <View style={styles.swatches}>
-            {(Object.keys(colors) as (keyof Palette)[]).map((name) => (
-              <View key={name} style={styles.swatch}>
-                <View
-                  style={[
-                    styles.chip,
-                    { backgroundColor: colors[name], borderColor: colors.border },
-                  ]}
-                />
-                <AppText variant="caption" tone="muted">
-                  {name}
-                </AppText>
-              </View>
-            ))}
-          </View>
-        </Card>
-
-        <Card title="Type">
-          <AppText variant="title">Title</AppText>
-          <AppText variant="heading">Heading</AppText>
-          <AppText>Body text for sentences and row titles.</AppText>
-          <AppText variant="label">Label</AppText>
-          <AppText variant="caption" tone="muted">
-            Caption, for supporting detail
-          </AppText>
-        </Card>
-
-        <Card title="This month" list>
-          <ListRow
-            title="Groceries"
-            subtitle="Tesco · 28 Oct"
-            trailing={<Amount value={-46.2} signed />}
-          />
-          <ListRow
-            title="Salary"
-            subtitle="Income · 25 Oct"
-            trailing={<Amount value={2450} signed />}
-          />
-          <ListRow
-            title="Netflix"
-            subtitle="Subscription · 21 Oct"
-            trailing={<Amount value={-10.99} signed />}
-            onPress={() => {}}
-          />
-        </Card>
-
-        <Card title="Budgets">
-          <View style={styles.budget}>
-            <View style={styles.budgetHeader}>
-              <AppText variant="label">Eating out</AppText>
-              <AppText variant="caption" tone="muted">
-                £64 of £120
-              </AppText>
-            </View>
-            <ProgressBar
-              progress={64 / 120}
-              labels={{ progress: 'Spent £64.00', rest: 'Left £56.00' }}
-            />
-          </View>
-          <View style={styles.budget}>
-            <View style={styles.budgetHeader}>
-              <AppText variant="label">Transport</AppText>
-              <AppText variant="caption" tone="muted">
-                £92 of £100
-              </AppText>
-            </View>
-            <ProgressBar progress={0.92} warn />
-          </View>
-          <View style={styles.budget}>
-            <View style={styles.budgetHeader}>
-              <AppText variant="label">Bike</AppText>
-              <AppText variant="caption" tone="muted">
-                £300 of £800 · £150 planned
-              </AppText>
-            </View>
-            <ProgressBar
-              progress={300 / 800}
-              planned={150 / 800}
-              labels={{
-                progress: 'Saved £300.00',
-                planned: 'To bank £150.00',
-                rest: 'To go after plan £350.00',
-              }}
-            />
-          </View>
-        </Card>
-
-        <Card title="Form">
-          <TextField label="Name" placeholder="e.g. Coffee" />
-          <AmountField
-            label="Amount"
-            value={amount}
-            onChangeText={setAmount}
-            error={Number.isNaN(Number(amount)) ? 'Enter an amount in pounds.' : undefined}
-          />
-          <DateField label="Date" value={date} onChange={setDate} />
-          <DateField
-            label="Ends"
-            value={endDate}
-            onChange={setEndDate}
-            optional
-            quickPicks={false}
-          />
-          <Button title="Save" onPress={() => {}} />
-          <Button title="Cancel" variant="secondary" onPress={() => {}} />
-          <Button title="Not now" variant="plain" onPress={() => {}} />
-          <Button title="Delete" variant="destructive" onPress={() => {}} />
-          <Button title="Disabled" onPress={() => {}} disabled />
-        </Card>
-
-        <Card title="Sheet">
-          <AppText variant="caption" tone="muted">
-            Tap a payment to edit it, or add a new one. On a phone the sheet slides up; on a wide
-            window it opens as a dialog.
-          </AppText>
+      <Card title="Tab bar">
+        <View style={[styles.tabStage, { backgroundColor: colors.background }]}>
           <Card list>
-            {SAMPLE_PAYMENTS.map((payment) => (
-              <ListRow
-                key={payment.id}
-                title={payment.name}
-                subtitle={`${payment.category} · ${payment.date}`}
-                trailing={<Amount value={payment.amount} signed />}
-                onPress={() => setEditing(payment)}
-              />
-            ))}
+            <ListRow
+              title="Coffee"
+              subtitle="Pret · Today"
+              trailing={<Amount value={-3.4} signed />}
+            />
+            <ListRow
+              title="Rent"
+              subtitle="Joint · 1 Nov"
+              trailing={<Amount value={-950} signed />}
+            />
+            <ListRow
+              title="Refund"
+              subtitle="Amazon · 30 Oct"
+              trailing={<Amount value={24.99} signed />}
+            />
           </Card>
-          <Button
-            title="Add a payment"
-            variant="secondary"
-            onPress={() => setEditing(NEW_PAYMENT)}
-          />
-        </Card>
+          <GlassTabBar items={SAMPLE_TABS} selectedKey={tab} onSelect={setTab} />
+        </View>
+      </Card>
 
-        <Sheet
-          visible={editing !== null}
-          onClose={() => setEditing(null)}
-          title={editing?.id ? `Edit ${editing.name}` : 'Add a payment'}
-          footer={
-            <>
-              <Button title="Save" onPress={() => setEditing(null)} />
-              <Button title="Cancel" variant="plain" onPress={() => setEditing(null)} />
-            </>
-          }
-        >
-          <TextField label="Name" defaultValue={editing?.name} placeholder="e.g. Coffee" />
-          <TextField
-            label="Amount"
-            defaultValue={editing?.id ? Math.abs(editing.amount).toFixed(2) : ''}
-            inputMode="decimal"
-            placeholder="0.00"
+      <Card title="Quick buttons">
+        <View style={styles.tiles}>
+          <QuickButtonTile
+            button={SAMPLE_BUTTONS[0]}
+            editing={false}
+            busy={false}
+            onPress={() => say('Coffee — £3.40 logged', 'Undo')}
+            onLongPress={() => {}}
           />
-          <TextField label="Category" defaultValue={editing?.category} />
-          <DateField label="Date" value={sheetDate} onChange={setSheetDate} />
-        </Sheet>
-      </Screen>
-      <Toast toast={toast} onDismiss={dismissToast} />
-    </View>
+          <QuickButtonTile
+            button={SAMPLE_BUTTONS[1]}
+            editing={false}
+            busy={false}
+            onPress={() => say('Groceries asks for details first')}
+            onLongPress={() => {}}
+          />
+        </View>
+        <View style={styles.tiles}>
+          <QuickButtonTile
+            button={SAMPLE_BUTTONS[0]}
+            editing
+            busy={false}
+            onPress={() => {}}
+            onLongPress={() => {}}
+          />
+          <QuickButtonTile
+            button={{ ...SAMPLE_BUTTONS[1], icon: null }}
+            editing={false}
+            busy={false}
+            onPress={() => {}}
+            onLongPress={() => {}}
+          />
+        </View>
+        <View style={styles.tiles}>
+          <NewButtonTile onPress={() => {}} />
+          <View style={styles.fill} />
+        </View>
+      </Card>
+
+      <View style={styles.accountTiles}>
+        <BankAccountTile name="Monzo" balance={1984.2} trend={RISING_TREND} onPress={() => {}} />
+        <BankAccountTile name="Amex" balance={-812.45} trend={FALLING_TREND} onPress={() => {}} />
+        <BankAccountTile name="Saver" balance={500} trend={NEW_TREND} onPress={() => {}} />
+        <BankAccountTileSpacer />
+      </View>
+
+      <Card title="Balance chart">
+        <BalanceChart points={SAMPLE_HISTORY} />
+      </Card>
+
+      <HalfThemeProvider half="joint">
+        <Card title="Joint half">
+          <SummaryTiles summary={SAMPLE_SUMMARY} />
+          <Button title="Contribute" onPress={() => {}} />
+          <Button title="Add a bank account" variant="secondary" onPress={() => {}} />
+        </Card>
+      </HalfThemeProvider>
+
+      <Card title="Choices">
+        <SegmentedControl label="Ledger" value={ledger} options={LEDGERS} onChange={setLedger} />
+        <SelectField
+          label="Bank account"
+          value={bankAccount}
+          options={SAMPLE_BANK_ACCOUNTS}
+          onChange={setBankAccount}
+        />
+        <SelectField
+          label="Category"
+          value={category}
+          options={SAMPLE_CATEGORIES}
+          onChange={setCategory}
+          noneLabel="None"
+        />
+      </Card>
+
+      <Card title="App icon">
+        <View style={styles.icons}>
+          <AppIcon size={64} />
+          <AppIcon size={40} />
+          <AppIcon size={24} />
+        </View>
+      </Card>
+
+      <Card title="Colours">
+        <View style={styles.swatches}>
+          {(Object.keys(colors) as (keyof Palette)[]).map((name) => (
+            <View key={name} style={styles.swatch}>
+              <View
+                style={[styles.chip, { backgroundColor: colors[name], borderColor: colors.border }]}
+              />
+              <AppText variant="caption" tone="muted">
+                {name}
+              </AppText>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      <Card title="Type">
+        <AppText variant="title">Title</AppText>
+        <AppText variant="heading">Heading</AppText>
+        <AppText>Body text for sentences and row titles.</AppText>
+        <AppText variant="label">Label</AppText>
+        <AppText variant="caption" tone="muted">
+          Caption, for supporting detail
+        </AppText>
+      </Card>
+
+      <Card title="This month" list>
+        <ListRow
+          title="Groceries"
+          subtitle="Tesco · 28 Oct"
+          trailing={<Amount value={-46.2} signed />}
+        />
+        <ListRow
+          title="Salary"
+          subtitle="Income · 25 Oct"
+          trailing={<Amount value={2450} signed />}
+        />
+        <ListRow
+          title="Netflix"
+          subtitle="Subscription · 21 Oct"
+          trailing={<Amount value={-10.99} signed />}
+          onPress={() => {}}
+        />
+      </Card>
+
+      <Card title="Budgets">
+        <View style={styles.budget}>
+          <View style={styles.budgetHeader}>
+            <AppText variant="label">Eating out</AppText>
+            <AppText variant="caption" tone="muted">
+              £64 of £120
+            </AppText>
+          </View>
+          <ProgressBar
+            progress={64 / 120}
+            labels={{ progress: 'Spent £64.00', rest: 'Left £56.00' }}
+          />
+        </View>
+        <View style={styles.budget}>
+          <View style={styles.budgetHeader}>
+            <AppText variant="label">Transport</AppText>
+            <AppText variant="caption" tone="muted">
+              £92 of £100
+            </AppText>
+          </View>
+          <ProgressBar progress={0.92} warn />
+        </View>
+        <View style={styles.budget}>
+          <View style={styles.budgetHeader}>
+            <AppText variant="label">Bike</AppText>
+            <AppText variant="caption" tone="muted">
+              £300 of £800 · £150 planned
+            </AppText>
+          </View>
+          <ProgressBar
+            progress={300 / 800}
+            planned={150 / 800}
+            labels={{
+              progress: 'Saved £300.00',
+              planned: 'To bank £150.00',
+              rest: 'To go after plan £350.00',
+            }}
+          />
+        </View>
+      </Card>
+
+      <Card title="Form">
+        <TextField label="Name" placeholder="e.g. Coffee" />
+        <AmountField
+          label="Amount"
+          value={amount}
+          onChangeText={setAmount}
+          error={Number.isNaN(Number(amount)) ? 'Enter an amount in pounds.' : undefined}
+        />
+        <DateField label="Date" value={date} onChange={setDate} />
+        <DateField label="Ends" value={endDate} onChange={setEndDate} optional quickPicks={false} />
+        <Button title="Save" onPress={() => {}} />
+        <Button title="Cancel" variant="secondary" onPress={() => {}} />
+        <Button title="Not now" variant="plain" onPress={() => {}} />
+        <Button title="Delete" variant="destructive" onPress={() => {}} />
+        <Button title="Disabled" onPress={() => {}} disabled />
+      </Card>
+
+      <Card title="Sheet">
+        <AppText variant="caption" tone="muted">
+          Tap a payment to edit it, or add a new one. On a phone the sheet slides up; on a wide
+          window it opens as a dialog.
+        </AppText>
+        <Card list>
+          {SAMPLE_PAYMENTS.map((payment) => (
+            <ListRow
+              key={payment.id}
+              title={payment.name}
+              subtitle={`${payment.category} · ${payment.date}`}
+              trailing={<Amount value={payment.amount} signed />}
+              onPress={() => setEditing(payment)}
+            />
+          ))}
+        </Card>
+        <Button title="Add a payment" variant="secondary" onPress={() => setEditing(NEW_PAYMENT)} />
+      </Card>
+
+      <Sheet
+        visible={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing?.id ? `Edit ${editing.name}` : 'Add a payment'}
+        footer={
+          <>
+            <Button title="Save" onPress={() => setEditing(null)} />
+            <Button title="Cancel" variant="plain" onPress={() => setEditing(null)} />
+          </>
+        }
+      >
+        <TextField label="Name" defaultValue={editing?.name} placeholder="e.g. Coffee" />
+        <TextField
+          label="Amount"
+          defaultValue={editing?.id ? Math.abs(editing.amount).toFixed(2) : ''}
+          inputMode="decimal"
+          placeholder="0.00"
+        />
+        <TextField label="Category" defaultValue={editing?.category} />
+        <DateField label="Date" value={sheetDate} onChange={setSheetDate} />
+      </Sheet>
+    </Screen>
   );
 }
 

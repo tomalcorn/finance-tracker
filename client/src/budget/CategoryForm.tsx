@@ -4,6 +4,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import type { CategoryView } from '@/domain/readModels';
+import { invoke, useSubmit } from '@/hooks/submit';
 import { categoryDraftErrors, categoryDraftOf, type CategoryDraft } from '@/budget/categoryDraft';
 
 type CategoryFormProps = {
@@ -20,10 +21,6 @@ type CategoryFormProps = {
   onCancel: () => void;
 };
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /**
  * A subcategory's settings. A new one takes its name and amounts: a monthly budget, or a pot's
  * target and plan. An existing one is renamed or deleted here, its amounts edited on its screen.
@@ -38,25 +35,13 @@ export function CategoryForm({
 }: CategoryFormProps) {
   const [draft, setDraft] = useState(() => categoryDraftOf(category));
   const [touched, setTouched] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit: run, saving, failure } = useSubmit(invoke, { once: true });
   const errors = categoryDraftErrors(draft, pot);
   const shown = touched ? errors : {};
 
   function update(changes: Partial<CategoryDraft>) {
     setDraft((current) => ({ ...current, ...changes }));
-  }
-
-  async function run(action: () => Promise<void>) {
-    setSaving(true);
-    setFailure(null);
-    try {
-      await action();
-    } catch (error) {
-      setFailure(messageOf(error));
-      setSaving(false);
-    }
   }
 
   function save() {
@@ -160,21 +145,13 @@ type BudgetFormProps = {
 export function BudgetForm({ tracker, onSave, validate, onCancel }: BudgetFormProps) {
   const [budget, setBudget] = useState(tracker.budget.toFixed(2));
   const [touched, setTouched] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit, saving, failure } = useSubmit(onSave, { once: true });
   const error = validate(budget);
 
-  async function save() {
+  function save() {
     setTouched(true);
     if (error) return;
-    setSaving(true);
-    setFailure(null);
-    try {
-      await onSave(budget);
-    } catch (failed) {
-      setFailure(messageOf(failed));
-      setSaving(false);
-    }
+    void submit(budget);
   }
 
   return (
@@ -191,7 +168,7 @@ export function BudgetForm({ tracker, onSave, validate, onCancel }: BudgetFormPr
         How much of each month’s income goes to {tracker.name}.
       </AppText>
       {failure ? <AppText tone="negative">{failure}</AppText> : null}
-      <Button title="Save" onPress={() => void save()} disabled={saving} />
+      <Button title="Save" onPress={save} disabled={saving} />
       <Button title="Cancel" variant="plain" onPress={onCancel} />
     </>
   );

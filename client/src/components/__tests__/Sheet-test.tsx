@@ -1,9 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, renderHook, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { Sheet } from '@/components/Sheet';
+import { Sheet, useSheet } from '@/components/Sheet';
 
 let mockKeyboardInset = 0;
 jest.mock('@/components/keyboardInset', () => ({
@@ -102,5 +102,48 @@ describe('Sheet', () => {
     );
 
     expect(screen.getByTestId('sheet-panel')).toHaveStyle({ maxHeight: 469 * 0.9 });
+  });
+});
+
+describe('useSheet', () => {
+  it('starts closed, opened for nothing', async () => {
+    const { result } = await renderHook(() => useSheet<string>());
+
+    expect(result.current).toMatchObject({ target: null, visible: false });
+  });
+
+  it('shows the sheet for what it is opened for', async () => {
+    const { result } = await renderHook(() => useSheet<string>());
+
+    await act(async () => result.current.open('Groceries'));
+
+    expect(result.current).toMatchObject({ target: 'Groceries', visible: true });
+  });
+
+  it('keeps what it was opened for while it closes', async () => {
+    const { result } = await renderHook(() => useSheet<string>());
+    await act(async () => result.current.open('Groceries'));
+
+    await act(async () => result.current.close());
+
+    expect(result.current).toMatchObject({ target: 'Groceries', visible: false });
+  });
+
+  it('gives each opening a new key, so its form starts afresh', async () => {
+    const { result } = await renderHook(() => useSheet<string>());
+    await act(async () => result.current.open('Groceries'));
+    const first = result.current.key;
+
+    await act(async () => result.current.open('Groceries'));
+
+    expect(result.current.key).not.toBe(first);
+  });
+
+  it('opens for a target with no value', async () => {
+    const { result } = await renderHook(() => useSheet<void>());
+
+    await act(async () => result.current.open());
+
+    expect(result.current.target).not.toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useS
 import type { AuthClient, AuthUser } from '@/auth/authClient';
 import { safeReturnTo } from '@/auth/returnTo';
 import { MissingProviderError } from '@/hooks/MissingProviderError';
+import { messageOf } from '@/hooks/submit';
 
 /** Where the session stands. `unavailable` means the app cannot authenticate at all. */
 export type AuthState =
@@ -19,10 +20,6 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /**
  * Resolve the session on load, finishing a login redirect if there is one.
@@ -53,7 +50,7 @@ export function AuthProvider({
         setState(user ? { status: 'signedIn', user } : { status: 'signedOut' });
         if (user && returnTo) router.replace(safeReturnTo(returnTo) as Href);
       } catch (error) {
-        if (!cancelled) setState({ status: 'signedOut', error: message(error) });
+        if (!cancelled) setState({ status: 'signedOut', error: messageOf(error) });
       }
     })();
     return () => {
@@ -66,7 +63,7 @@ export function AuthProvider({
       try {
         await auth?.login(safeReturnTo(returnTo));
       } catch (error) {
-        setState({ status: 'signedOut', error: message(error) });
+        setState({ status: 'signedOut', error: messageOf(error) });
       }
     },
     [auth],

@@ -9,6 +9,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import type { BankAccountView } from '@/domain/readModels';
+import { invoke, useSubmit } from '@/hooks/submit';
 import { formatAmount } from '@/theme/formatAmount';
 
 type BankAccountFormProps = {
@@ -27,10 +28,6 @@ type BankAccountFormProps = {
   onCancel?: () => void;
 };
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /** A bank account's name and starting balance. Delete asks to be confirmed. */
 export function BankAccountForm({
   account,
@@ -41,22 +38,9 @@ export function BankAccountForm({
 }: BankAccountFormProps) {
   const [draft, setDraft] = useState(() => bankAccountDraftOf(account));
   const [touched, setTouched] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit: run, saving, failure } = useSubmit(invoke);
   const errors = touched ? bankAccountDraftErrors(draft) : {};
-
-  async function run(action: () => Promise<void>) {
-    setSaving(true);
-    setFailure(null);
-    try {
-      await action();
-    } catch (error) {
-      setFailure(messageOf(error));
-    } finally {
-      setSaving(false);
-    }
-  }
 
   function save() {
     setTouched(true);

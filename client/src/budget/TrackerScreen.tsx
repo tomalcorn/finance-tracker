@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BankItForm } from '@/budget/BankItForm';
@@ -22,8 +22,8 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
-import { Sheet } from '@/components/Sheet';
-import { Toast, type ToastMessage } from '@/components/Toast';
+import { Sheet, useSheet } from '@/components/Sheet';
+import { useToast } from '@/components/Toast';
 import { ContributeSheetContent } from '@/contributions/ContributeSheetContent';
 import { today, type OwnershipType } from '@/domain/entities';
 import type { CategoryView } from '@/domain/readModels';
@@ -37,16 +37,36 @@ import { moveSavings, type SavingsDirection, type SavingsMove } from '@/useCases
 
 type TrackerScreenProps = { ownership: OwnershipType };
 
+/** What each kind of sheet is opened with, besides its kind. */
+type SheetOptions = {
+  budget: object;
+  new: object;
+  bank: object;
+  contribute: object;
+  savings: { direction: SavingsDirection };
+};
+
 /**
  * What the sheet is for: the tracker's budget, a new subcategory, banking pots, contributing, or
  * moving money into or out of savings.
  */
-type SheetTarget =
-  | { kind: 'budget' }
-  | { kind: 'new' }
-  | { kind: 'bank' }
-  | { kind: 'contribute' }
-  | { kind: 'savings'; direction: SavingsDirection };
+type SheetTarget<K extends keyof SheetOptions = keyof SheetOptions> = {
+  [P in K]: { kind: P } & SheetOptions[P];
+}[K];
+
+/** One kind of sheet: its title, and its content. */
+type SheetEntry<K extends keyof SheetOptions> = {
+  title: (target: SheetTarget<K>) => string;
+  render: (target: SheetTarget<K>) => ReactNode;
+};
+
+type SheetEntries = { [K in keyof SheetOptions]: SheetEntry<K> };
+
+/** The title and content of the sheet for `target`. */
+function sheetFor<K extends keyof SheetOptions>(entries: SheetEntries, target: SheetTarget<K>) {
+  const entry: SheetEntry<K> = entries[target.kind];
+  return { title: entry.title(target), content: entry.render(target) };
+}
 
 /** One budget tracker: its figures for the month, and the subcategories it is broken into. */
 export function TrackerScreen({ ownership }: TrackerScreenProps) {
@@ -58,12 +78,9 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const payments = useRows(paymentsRepository);
   const bankAccounts = useRows(repositories.bankAccounts(ownership));
   const jointAccounts = useRows(repositories.jointAccounts());
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
+  const { notify } = useToast();
   const router = useRouter();
-  const [sheet, setSheet] = useState<{ target: SheetTarget; key: number } | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const closeSheet = useCallback(() => setSheetOpen(false), []);
+  const sheet = useSheet<SheetTarget>();
 
   const tracker = categories.data?.find((category) => category.id === id);
   if (categories.error || !tracker) {
@@ -98,16 +115,11 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
   const contributes = ownership === 'personal' && tracker.name === 'Joint' && jointAccount;
   const savings = movesSavings(tracker);
 
-  function open(target: SheetTarget) {
-    setSheet((current) => ({ target, key: (current?.key ?? 0) + 1 }));
-    setSheetOpen(true);
-  }
-
   async function addCategory(draft: CategoryDraft) {
     if (!tracker) return;
     const row = categoryDraftRow(draft, tracker, pots, null);
     await categoriesRepository.save(await categoriesRepository.build([row]));
-    closeSheet();
+    sheet.close();
   }
 
   function show(category: CategoryView) {
@@ -122,7 +134,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
     if (!tracker) return;
     const row = { ...tracker, budget: parseAmount(text) ?? 0 };
     await categoriesRepository.save(await categoriesRepository.build([row]));
-    closeSheet();
+    sheet.close();
   }
 
   async function bank(chosen: CategoryView[], bankAccountId: string) {
@@ -132,49 +144,81 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
       chosen,
       bankAccountId,
     );
-    closeSheet();
+    sheet.close();
     const total = written.reduce((sum, payment) => sum + payment.expense, 0);
-    setToast((current) => ({ id: (current?.id ?? 0) + 1, text: `${formatAmount(total)} banked` }));
+    notify(`${formatAmount(total)} banked`);
   }
 
   async function contribute(contribution: Contribution) {
     await repositories.contributeToJoint(contribution);
-    closeSheet();
-    setToast((current) => ({
-      id: (current?.id ?? 0) + 1,
-      text: `${formatAmount(contribution.amount)} contributed to ${jointAccount?.name}`,
-    }));
+    sheet.close();
+    notify(`${formatAmount(contribution.amount)} contributed to ${jointAccount?.name}`);
   }
 
   async function move(savingsMove: SavingsMove) {
     if (!tracker) return;
     await moveSavings(paymentsRepository, tracker, savingsMove);
-    closeSheet();
+    sheet.close();
     const verb = savingsMove.direction === 'deposit' ? 'deposited' : 'withdrawn';
-    setToast((current) => ({
-      id: (current?.id ?? 0) + 1,
-      text: `${formatAmount(savingsMove.amount)} ${verb}`,
-    }));
+    notify(`${formatAmount(savingsMove.amount)} ${verb}`);
   }
 
-  const target = sheet?.target;
-  const sheetTitle =
-    target?.kind === 'budget'
-      ? `${tracker.name} budget`
-      : target?.kind === 'bank'
-        ? 'Bank it'
-        : target?.kind === 'contribute'
-          ? 'Contribute'
-          : target?.kind === 'savings'
-            ? target.direction === 'deposit'
-              ? 'Deposit'
-              : 'Withdraw'
-            : pots
-              ? 'New pot'
-              : 'New subcategory';
+  const sheets: SheetEntries = {
+    budget: {
+      title: () => `${tracker.name} budget`,
+      render: () => (
+        <BudgetForm
+          tracker={tracker}
+          validate={trackerBudgetError}
+          onSave={saveBudget}
+          onCancel={sheet.close}
+        />
+      ),
+    },
+    new: {
+      title: () => (pots ? 'New pot' : 'New subcategory'),
+      render: () => (
+        <CategoryForm
+          category={null}
+          root={tracker}
+          pot={pots}
+          onSave={addCategory}
+          onDelete={() => Promise.resolve()}
+          onCancel={sheet.close}
+        />
+      ),
+    },
+    bank: {
+      title: () => 'Bank it',
+      render: () => (
+        <BankItForm
+          pots={bankable}
+          bankAccounts={nameOptions(bankAccounts.data ?? [])}
+          onBank={bank}
+          onCancel={sheet.close}
+        />
+      ),
+    },
+    contribute: {
+      title: () => 'Contribute',
+      render: () => <ContributeSheetContent onContribute={contribute} onCancel={sheet.close} />,
+    },
+    savings: {
+      title: ({ direction }) => (direction === 'deposit' ? 'Deposit' : 'Withdraw'),
+      render: ({ direction }) => (
+        <SavingsMoveForm
+          direction={direction}
+          bankAccounts={nameOptions(bankAccounts.data ?? [])}
+          onSubmit={move}
+          onCancel={sheet.close}
+        />
+      ),
+    },
+  };
+  const shown = sheet.target ? sheetFor(sheets, sheet.target) : null;
 
   return (
-    <View style={styles.fill}>
+    <>
       <Screen title={tracker.name} back>
         <Card>
           <Figures>
@@ -207,7 +251,7 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
           <Button
             title="Change budget"
             variant="secondary"
-            onPress={() => open({ kind: 'budget' })}
+            onPress={() => sheet.open({ kind: 'budget' })}
           />
         </Card>
 
@@ -278,83 +322,41 @@ export function TrackerScreen({ ownership }: TrackerScreenProps) {
             <View style={styles.half}>
               <Button
                 title="Deposit"
-                onPress={() => open({ kind: 'savings', direction: 'deposit' })}
+                onPress={() => sheet.open({ kind: 'savings', direction: 'deposit' })}
               />
             </View>
             <View style={styles.half}>
               <Button
                 title="Withdraw"
                 variant="secondary"
-                onPress={() => open({ kind: 'savings', direction: 'withdraw' })}
+                onPress={() => sheet.open({ kind: 'savings', direction: 'withdraw' })}
               />
             </View>
           </View>
         ) : null}
         {contributes ? (
-          <Button title="Contribute" onPress={() => open({ kind: 'contribute' })} />
+          <Button title="Contribute" onPress={() => sheet.open({ kind: 'contribute' })} />
         ) : null}
         {pots && subcategories.length > 0 ? (
-          <Button title="Bank it" onPress={() => open({ kind: 'bank' })} />
+          <Button title="Bank it" onPress={() => sheet.open({ kind: 'bank' })} />
         ) : null}
         {adds ? (
           <Button
             title={pots ? 'Add a pot' : 'Add a subcategory'}
             variant="secondary"
-            onPress={() => open({ kind: 'new' })}
+            onPress={() => sheet.open({ kind: 'new' })}
           />
         ) : null}
       </Screen>
 
-      <Sheet visible={sheetOpen} onClose={closeSheet} title={sheetTitle}>
-        {target?.kind === 'budget' ? (
-          <BudgetForm
-            key={sheet?.key}
-            tracker={tracker}
-            validate={trackerBudgetError}
-            onSave={saveBudget}
-            onCancel={closeSheet}
-          />
-        ) : target?.kind === 'bank' ? (
-          <BankItForm
-            key={sheet?.key}
-            pots={bankable}
-            bankAccounts={nameOptions(bankAccounts.data ?? [])}
-            onBank={bank}
-            onCancel={closeSheet}
-          />
-        ) : target?.kind === 'contribute' ? (
-          <ContributeSheetContent
-            key={sheet?.key}
-            onContribute={contribute}
-            onCancel={closeSheet}
-          />
-        ) : target?.kind === 'savings' ? (
-          <SavingsMoveForm
-            key={sheet?.key}
-            direction={target.direction}
-            bankAccounts={nameOptions(bankAccounts.data ?? [])}
-            onSubmit={move}
-            onCancel={closeSheet}
-          />
-        ) : target ? (
-          <CategoryForm
-            key={sheet?.key}
-            category={null}
-            root={tracker}
-            pot={pots}
-            onSave={addCategory}
-            onDelete={() => Promise.resolve()}
-            onCancel={closeSheet}
-          />
-        ) : null}
+      <Sheet visible={sheet.visible} onClose={sheet.close} title={shown?.title ?? ''}>
+        <Fragment key={sheet.key}>{shown?.content}</Fragment>
       </Sheet>
-      <Toast toast={toast} onDismiss={dismissToast} />
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
   empty: { padding: SPACING.lg },
   pair: { flexDirection: 'row', gap: SPACING.md },
   half: { flex: 1 },

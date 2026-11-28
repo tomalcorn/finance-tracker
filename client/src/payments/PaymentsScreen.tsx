@@ -1,5 +1,5 @@
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useCallback, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Figure, Figures } from '@/budget/Figures';
@@ -8,12 +8,13 @@ import { Card } from '@/components/Card';
 import { interactiveBackground } from '@/components/interaction';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { Sheet } from '@/components/Sheet';
+import { Sheet, useSheet } from '@/components/Sheet';
 import { TextField } from '@/components/TextField';
-import { Toast, type ToastMessage } from '@/components/Toast';
+import { useToast } from '@/components/Toast';
 import { today, type OwnershipType } from '@/domain/entities';
 import type { PaymentView } from '@/domain/readModels';
 import { useRepositories, useRows } from '@/hooks/repositories';
+import { messageOf } from '@/hooks/submit';
 import { categoryOptions, nameOptions } from '@/lookups';
 import { CategoryGroup } from '@/payments/CategoryGroup';
 import { PaymentForm } from '@/payments/PaymentForm';
@@ -65,10 +66,6 @@ type PaymentsScreenProps = { ownership: OwnershipType };
 
 type SheetTarget = { payment: PaymentView | null; draft: PaymentDraft };
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /**
  * A month of payments, money out and in, grouped by day with the newest first, or the money out
  * broken down by category, the most spent first. Each payment can be ticked as checked from the
@@ -87,11 +84,8 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
   const [expanded, setExpanded] = useState<ReadonlySet<string | null>>(() => new Set());
   const [search, setSearch] = useState('');
   const searchBox = useRef<TextInput>(null);
-  const [sheet, setSheet] = useState<(SheetTarget & { key: number }) | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const closeSheet = useCallback(() => setSheetOpen(false), []);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
+  const sheet = useSheet<SheetTarget>();
+  const { notify } = useToast();
   const checks = useOptimisticChecks(
     async (payment, checked) => {
       await paymentsRepository.save(await paymentsRepository.build([{ ...payment, checked }]));
@@ -159,30 +153,25 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
     searchBox.current?.focus();
   }
 
-  function notify(text: string) {
-    setToast((current) => ({ id: (current?.id ?? 0) + 1, text }));
-  }
-
   function open(payment: PaymentView | null) {
     const draft = paymentDraftOf(payment, monthOf(today()) === month ? today() : monthDate);
-    setSheet((current) => ({ payment, draft, key: (current?.key ?? 0) + 1 }));
-    setSheetOpen(true);
+    sheet.open({ payment, draft });
   }
 
   async function save(draft: PaymentDraft) {
-    const editing = sheet?.payment ?? null;
+    const editing = sheet.target?.payment ?? null;
     const row = paymentRow(draft, editing);
     await paymentsRepository.save(await paymentsRepository.build([row]));
-    closeSheet();
+    sheet.close();
     setMonth(monthOf(draft.date));
     if (!editing) notify(`${draft.name.trim()} added`);
   }
 
   async function remove() {
-    const payment = sheet?.payment;
+    const payment = sheet.target?.payment;
     if (!payment) return;
     await paymentsRepository.delete([payment.id]);
-    closeSheet();
+    sheet.close();
     notify(`${payment.name} deleted`);
   }
 
@@ -190,7 +179,7 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
   const searching = search.trim() !== '' || (!byCategories && kind !== 'all');
 
   return (
-    <View style={styles.fill}>
+    <>
       <Screen title="Payments" back>
         <Card>
           <View style={styles.stepper}>
@@ -301,26 +290,25 @@ export function PaymentsScreen({ ownership }: PaymentsScreenProps) {
       </Screen>
 
       <Sheet
-        visible={sheetOpen}
-        onClose={closeSheet}
-        title={sheet?.payment ? `Edit ${sheet.payment.name}` : 'New payment'}
+        visible={sheet.visible}
+        onClose={sheet.close}
+        title={sheet.target?.payment ? `Edit ${sheet.target.payment.name}` : 'New payment'}
       >
-        {sheet ? (
+        {sheet.target ? (
           <PaymentForm
             key={sheet.key}
-            payment={sheet.payment}
-            initial={sheet.draft}
+            payment={sheet.target.payment}
+            initial={sheet.target.draft}
             bankAccounts={bankAccountOptions}
             categories={categoryChoices}
             incomeSources={incomeSourceOptions}
             onSave={save}
             onDelete={remove}
-            onCancel={closeSheet}
+            onCancel={sheet.close}
           />
         ) : null}
       </Sheet>
-      <Toast toast={toast} onDismiss={dismissToast} />
-    </View>
+    </>
   );
 }
 
@@ -367,7 +355,6 @@ function MonthButton({ icon, label, onPress }: MonthButtonProps) {
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
   searchRow: { flexDirection: 'row', alignItems: 'flex-end', gap: SPACING.md },
   searchField: { flex: 1 },
   addTile: {

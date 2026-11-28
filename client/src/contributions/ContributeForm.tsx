@@ -4,6 +4,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { DateField } from '@/components/DateField';
 import { SelectField, type SelectOption } from '@/components/SelectField';
+import { SheetNotice } from '@/components/SheetNotice';
 import { TextField } from '@/components/TextField';
 import {
   contributionDraftErrors,
@@ -11,6 +12,7 @@ import {
   contributionOf,
 } from '@/contributions/contributionDraft';
 import { today } from '@/domain/entities';
+import { useSubmit } from '@/hooks/submit';
 import type { Contribution } from '@/ports/repositories';
 
 type ContributeFormProps = {
@@ -40,48 +42,33 @@ export function ContributeForm({
     contributionDraftOf(today(), personalAccounts, jointAccounts, incomeSources),
   );
   const [touched, setTouched] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit, saving, failure } = useSubmit(onContribute);
   const errors = touched ? contributionDraftErrors(draft) : {};
 
   if (jointAccounts.length === 0) {
     return (
-      <>
-        <AppText>You need a joint bank account to contribute to.</AppText>
-        <AppText tone="muted">
-          Add one under Bank accounts on the Joint tab, then come back to make a contribution.
-        </AppText>
-        <Button title="Close" variant="plain" onPress={onCancel} />
-      </>
+      <SheetNotice
+        message="You need a joint bank account to contribute to."
+        detail="Add one under Bank accounts on the Joint tab, then come back to make a contribution."
+        onClose={onCancel}
+      />
     );
   }
 
   if (incomeSources.length === 0) {
     return (
-      <>
-        <AppText>You need a joint income source to contribute against.</AppText>
-        <AppText tone="muted">
-          It’s how the money shows up in the joint budget. Add one under Income split on the Joint
-          tab, then come back to make a contribution.
-        </AppText>
-        <Button title="Close" variant="plain" onPress={onCancel} />
-      </>
+      <SheetNotice
+        message="You need a joint income source to contribute against."
+        detail="It’s how the money shows up in the joint budget. Add one under Income split on the Joint tab, then come back to make a contribution."
+        onClose={onCancel}
+      />
     );
   }
 
-  async function contribute() {
+  function contribute() {
     setTouched(true);
     const contribution = contributionOf(draft);
-    if (!contribution) return;
-    setSaving(true);
-    setFailure(null);
-    try {
-      await onContribute(contribution);
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : String(error));
-    } finally {
-      setSaving(false);
-    }
+    if (contribution) void submit(contribution);
   }
 
   return (
@@ -122,7 +109,7 @@ export function ContributeForm({
         error={errors.date}
       />
       {failure ? <AppText tone="negative">{failure}</AppText> : null}
-      <Button title="Contribute" onPress={() => void contribute()} disabled={saving} />
+      <Button title="Contribute" onPress={contribute} disabled={saving} />
       <Button title="Cancel" variant="plain" onPress={onCancel} />
     </>
   );

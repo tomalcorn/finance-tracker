@@ -1,6 +1,6 @@
 import type { RawRow } from '@/domain/entities';
 import type { PaymentView } from '@/domain/readModels';
-import { parseAmount } from '@/theme/formatAmount';
+import { amountError, parseAmount } from '@/theme/formatAmount';
 import { isCalendarDate } from '@/theme/formatDate';
 
 /** Money out or money in. */
@@ -55,11 +55,9 @@ export function paymentDraftOf(payment: PaymentView | null, date: string): Payme
  */
 export function paymentDraftErrors(draft: PaymentDraft): PaymentDraftErrors {
   const errors: PaymentDraftErrors = {};
-  const amount = parseAmount(draft.amount);
   if (!draft.name.trim()) errors.name = 'Give it a name.';
-  if (amount === null) errors.amount = 'Enter the amount.';
-  else if (Number.isNaN(amount)) errors.amount = 'Enter an amount in pounds, e.g. 3.40.';
-  else if (amount === 0) errors.amount = 'An amount can’t be zero.';
+  const amount = amountError(draft.amount, { sign: 'nonzero' });
+  if (amount) errors.amount = amount;
   if (!isCalendarDate(draft.date)) errors.date = 'Enter a date, e.g. 2026-11-01.';
   if (draft.bankAccountId === null) errors.bankAccountId = 'Choose the account it moved through.';
   return errors;

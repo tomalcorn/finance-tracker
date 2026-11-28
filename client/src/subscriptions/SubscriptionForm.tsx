@@ -8,6 +8,7 @@ import { SwitchField } from '@/components/SwitchField';
 import { TextField } from '@/components/TextField';
 import type { Cadence } from '@/domain/entities';
 import type { SubscriptionView } from '@/domain/readModels';
+import { invoke, useSubmit } from '@/hooks/submit';
 import {
   CADENCES,
   subscriptionDraftErrors,
@@ -33,10 +34,6 @@ type SubscriptionFormProps = {
   onCancel: () => void;
 };
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /** A subscription's fields, or a joint contribution's. Delete asks to be confirmed. */
 export function SubscriptionForm({
   subscription,
@@ -53,9 +50,8 @@ export function SubscriptionForm({
 }: SubscriptionFormProps) {
   const [typed, setDraft] = useState(initial);
   const [touched, setTouched] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit: run, saving, failure } = useSubmit(invoke, { once: true });
   // With only one account there is nothing to choose, even once it loads after the form opens.
   const onlyAccount = bankAccounts.length === 1 ? (bankAccounts[0]?.value ?? null) : null;
   const draft = { ...typed, bankAccountId: typed.bankAccountId ?? onlyAccount };
@@ -63,17 +59,6 @@ export function SubscriptionForm({
 
   function change(fields: Partial<SubscriptionDraft>) {
     setDraft((current) => ({ ...current, ...fields }));
-  }
-
-  async function run(action: () => Promise<void>) {
-    setSaving(true);
-    setFailure(null);
-    try {
-      await action();
-    } catch (error) {
-      setFailure(messageOf(error));
-      setSaving(false);
-    }
   }
 
   function save() {

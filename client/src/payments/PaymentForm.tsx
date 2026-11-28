@@ -8,6 +8,7 @@ import { SelectField, type SelectOption } from '@/components/SelectField';
 import { SwitchField } from '@/components/SwitchField';
 import { TextField } from '@/components/TextField';
 import type { PaymentView } from '@/domain/readModels';
+import { invoke, useSubmit } from '@/hooks/submit';
 import { paymentDraftErrors, type PaymentDraft, type PaymentType } from '@/payments/paymentDraft';
 
 const TYPES: readonly { value: PaymentType; label: string }[] = [
@@ -30,10 +31,6 @@ type PaymentFormProps = {
   onCancel: () => void;
 };
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /**
  * A payment's fields. Adding one chooses money out or in first; an existing payment keeps its kind.
  * Delete asks to be confirmed.
@@ -50,9 +47,8 @@ export function PaymentForm({
 }: PaymentFormProps) {
   const [typed, setDraft] = useState(initial);
   const [touched, setTouched] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit: run, saving, failure } = useSubmit(invoke, { once: true });
   // With only one account there is nothing to choose, even once it loads after the form opens.
   const onlyAccount = bankAccounts.length === 1 ? (bankAccounts[0]?.value ?? null) : null;
   const draft = { ...typed, bankAccountId: typed.bankAccountId ?? onlyAccount };
@@ -61,17 +57,6 @@ export function PaymentForm({
 
   function change(fields: Partial<PaymentDraft>) {
     setDraft((current) => ({ ...current, ...fields }));
-  }
-
-  async function run(action: () => Promise<void>) {
-    setSaving(true);
-    setFailure(null);
-    try {
-      await action();
-    } catch (error) {
-      setFailure(messageOf(error));
-      setSaving(false);
-    }
   }
 
   function save() {

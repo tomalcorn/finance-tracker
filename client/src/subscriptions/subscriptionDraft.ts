@@ -1,6 +1,6 @@
 import type { Cadence, RawRow } from '@/domain/entities';
 import type { SubscriptionView } from '@/domain/readModels';
-import { parseAmount } from '@/theme/formatAmount';
+import { amountError, parseAmount } from '@/theme/formatAmount';
 import { isCalendarDate } from '@/theme/formatDate';
 
 /** The cadences to choose from, with how each reads. */
@@ -71,12 +71,10 @@ export function subscriptionDraftErrors(
   contribution: boolean,
 ): SubscriptionDraftErrors {
   const errors: SubscriptionDraftErrors = {};
-  const amount = parseAmount(draft.amount);
   const endDate = draft.endDate.trim();
   if (!draft.name.trim()) errors.name = 'Give it a name.';
-  if (amount === null) errors.amount = 'Enter the amount.';
-  else if (Number.isNaN(amount)) errors.amount = 'Enter an amount in pounds, e.g. 9.99.';
-  else if (amount === 0) errors.amount = 'An amount can’t be zero.';
+  const amount = amountError(draft.amount, { sign: 'nonzero' });
+  if (amount) errors.amount = amount;
   if (draft.bankAccountId === null) errors.bankAccountId = 'Choose the account it leaves from.';
   if (!isCalendarDate(draft.startDate)) errors.startDate = 'Enter a date, e.g. 2026-11-01.';
   if (endDate !== '' && !isCalendarDate(endDate)) {

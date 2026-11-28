@@ -1,16 +1,16 @@
-import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { Sheet } from '@/components/Sheet';
-import { Toast, type ToastMessage } from '@/components/Toast';
+import { Sheet, useSheet } from '@/components/Sheet';
+import { useToast } from '@/components/Toast';
 import { today, type OwnershipType } from '@/domain/entities';
 import type { SubscriptionView } from '@/domain/readModels';
 import { useReconciliation, useRepositories, useRows } from '@/hooks/repositories';
+import { messageOf } from '@/hooks/submit';
 import { categoryOptions, nameOptions } from '@/lookups';
 import { SubscriptionForm } from '@/subscriptions/SubscriptionForm';
 import { SubscriptionRow } from '@/subscriptions/SubscriptionRow';
@@ -43,10 +43,6 @@ type SubscriptionsScreenProps = { ownership: OwnershipType };
 
 type SheetTarget = { subscription: SubscriptionView | null; draft: SubscriptionDraft };
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /**
  * Recurring payments, each opening to edit or delete. On the personal half, a member of a joint
  * account also gets their joint contributions, on a tab of their own. Without one, every row is in
@@ -64,11 +60,8 @@ export function SubscriptionsScreen({ ownership }: SubscriptionsScreenProps) {
   const jointIncomeSources = useRows(repositories.incomeSources('joint'));
   const reconciliation = useReconciliation();
   const [tab, setTab] = useState<Tab>('subscriptions');
-  const [sheet, setSheet] = useState<(SheetTarget & { key: number }) | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const closeSheet = useCallback(() => setSheetOpen(false), []);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
+  const sheet = useSheet<SheetTarget>();
+  const { notify } = useToast();
 
   const now = today();
   const all = subscriptions.data ?? [];
@@ -83,14 +76,8 @@ export function SubscriptionsScreen({ ownership }: SubscriptionsScreenProps) {
   const jointCategoryId =
     categories.data?.find((row) => row.parent_id === null && row.name === 'Joint')?.id ?? null;
 
-  function notify(text: string) {
-    setToast((current) => ({ id: (current?.id ?? 0) + 1, text }));
-  }
-
   function open(subscription: SubscriptionView | null) {
-    const draft = subscriptionDraftOf(subscription, now);
-    setSheet((current) => ({ subscription, draft, key: (current?.key ?? 0) + 1 }));
-    setSheetOpen(true);
+    sheet.open({ subscription, draft: subscriptionDraftOf(subscription, now) });
   }
 
   /** Book or remove the payments a change calls for. The change itself is already saved. */
@@ -103,19 +90,19 @@ export function SubscriptionsScreen({ ownership }: SubscriptionsScreenProps) {
   }
 
   async function save(draft: SubscriptionDraft) {
-    const editing = sheet?.subscription ?? null;
+    const editing = sheet.target?.subscription ?? null;
     const row = subscriptionRow(draft, editing, onContributions, jointCategoryId);
     await subscriptionsRepository.save(await subscriptionsRepository.build([row]));
-    closeSheet();
+    sheet.close();
     if (!editing) notify(`${draft.name.trim()} added`);
     await reconcile();
   }
 
   async function remove() {
-    const subscription = sheet?.subscription;
+    const subscription = sheet.target?.subscription;
     if (!subscription) return;
     await subscriptionsRepository.delete([subscription.id]);
-    closeSheet();
+    sheet.close();
     notify(`${subscription.name} deleted`);
   }
 
@@ -138,7 +125,7 @@ export function SubscriptionsScreen({ ownership }: SubscriptionsScreenProps) {
   const noun = onContributions ? 'joint contribution' : 'subscription';
 
   return (
-    <View style={styles.fill}>
+    <>
       <Screen title="Subscriptions" back>
         {reconciliation.error ? (
           <AppText tone="negative">
@@ -206,34 +193,33 @@ export function SubscriptionsScreen({ ownership }: SubscriptionsScreenProps) {
       </Screen>
 
       <Sheet
-        visible={sheetOpen}
-        onClose={closeSheet}
-        title={sheet?.subscription ? `Edit ${sheet.subscription.name}` : `New ${noun}`}
+        visible={sheet.visible}
+        onClose={sheet.close}
+        title={
+          sheet.target?.subscription ? `Edit ${sheet.target.subscription.name}` : `New ${noun}`
+        }
       >
-        {sheet ? (
+        {sheet.target ? (
           <SubscriptionForm
             key={sheet.key}
-            subscription={sheet.subscription}
-            initial={sheet.draft}
+            subscription={sheet.target.subscription}
+            initial={sheet.target.draft}
             contribution={onContributions}
             bankAccounts={bankAccountOptions}
             categories={categoryChoices}
             jointBankAccounts={nameOptions(jointBankAccounts.data ?? [])}
             jointIncomeSources={nameOptions(jointIncomeSources.data ?? [])}
             booked={
-              sheet.subscription ? bookedCount(payments.data ?? [], sheet.subscription.id) : 0
+              sheet.target.subscription
+                ? bookedCount(payments.data ?? [], sheet.target.subscription.id)
+                : 0
             }
             onSave={save}
             onDelete={remove}
-            onCancel={closeSheet}
+            onCancel={sheet.close}
           />
         ) : null}
       </Sheet>
-      <Toast toast={toast} onDismiss={dismissToast} />
-    </View>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-});

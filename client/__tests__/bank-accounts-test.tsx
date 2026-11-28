@@ -262,7 +262,7 @@ describe('adding', () => {
     await fireEvent.changeText(screen.getByLabelText('Name'), 'Saver');
     await fireEvent.press(screen.getByRole('button', { name: 'Add' }));
 
-    expect(await screen.findByText('Enter the starting balance, or 0.')).toBeOnTheScreen();
+    expect(await screen.findByText('Enter an amount, or 0.')).toBeOnTheScreen();
   });
 
   it('writes nothing without a starting balance', async () => {
