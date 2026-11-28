@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -184,6 +184,29 @@ export function Sheet({ visible, onClose, title, children, footer }: SheetProps)
       </KeyboardAvoidingView>
     </Modal>
   );
+}
+
+/** A sheet's state: what it was last opened for, and whether it is showing. */
+export type SheetState<Target> = {
+  /** What it was last opened for; kept while it slides away, so its content stays put. */
+  target: Target | null;
+  /** Changes on every `open`, so a form keyed by it starts afresh. */
+  key: number;
+  visible: boolean;
+  open: (target: Target) => void;
+  close: () => void;
+};
+
+/** The state for a `Sheet` that is opened for one target at a time, e.g. the row being edited. */
+export function useSheet<Target>(): SheetState<Target> {
+  const [opened, setOpened] = useState<{ target: Target; key: number } | null>(null);
+  const [visible, setVisible] = useState(false);
+  const open = useCallback((target: Target) => {
+    setOpened((current) => ({ target, key: (current?.key ?? 0) + 1 }));
+    setVisible(true);
+  }, []);
+  const close = useCallback(() => setVisible(false), []);
+  return { target: opened ? opened.target : null, key: opened?.key ?? 0, visible, open, close };
 }
 
 const styles = StyleSheet.create({

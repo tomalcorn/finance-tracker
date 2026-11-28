@@ -9,6 +9,7 @@ import { SelectField, type SelectOption } from '@/components/SelectField';
 import { TextField } from '@/components/TextField';
 import type { QuickButtonMode } from '@/domain/entities';
 import type { QuickButtonView } from '@/domain/readModels';
+import { invoke, useSubmit } from '@/hooks/submit';
 import { draftErrors, draftOf, type ButtonDraft } from '@/quickExpenses/buttonDraft';
 import { SPACING } from '@/theme/tokens';
 
@@ -43,9 +44,8 @@ export function ButtonForm({
 }: ButtonFormProps) {
   const [draft, setDraft] = useState(() => draftOf(button, position));
   const [touched, setTouched] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit: run, saving, failure } = useSubmit(invoke, { once: true });
   const errors = draftErrors(draft);
   const shown = touched ? errors : {};
   const asks = draft.mode === 'prompt';
@@ -53,17 +53,6 @@ export function ButtonForm({
 
   function update(changes: Partial<ButtonDraft>) {
     setDraft((current) => ({ ...current, ...changes }));
-  }
-
-  async function run(action: () => Promise<void>) {
-    setSaving(true);
-    setFailure(null);
-    try {
-      await action();
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : String(error));
-      setSaving(false);
-    }
   }
 
   function save() {

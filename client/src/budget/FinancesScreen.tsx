@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { BankAccountsSection } from '@/bankAccounts/BankAccountsSection';
 import { AllocationBar, useTrackerColour } from '@/budget/AllocationBar';
@@ -10,7 +9,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
-import { Toast, type ToastMessage } from '@/components/Toast';
+import { useToast } from '@/components/Toast';
 import { today, type OwnershipType } from '@/domain/entities';
 import { useRepositories, useRows, useWorkspaceSetup } from '@/hooks/repositories';
 import { filterPayments, monthOf, totals, uncheckedDays } from '@/payments/paymentList';
@@ -32,14 +31,10 @@ export function FinancesScreen({ ownership }: FinancesScreenProps) {
   const jointAccounts = useRows(useRepositories().jointAccounts());
   const router = useRouter();
   const account = jointAccounts.data?.[0];
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
-  const notify = useCallback((text: string) => {
-    setToast((current) => ({ id: (current?.id ?? 0) + 1, text }));
-  }, []);
+  const { notify } = useToast();
 
   return (
-    <View style={styles.fill}>
+    <>
       <Screen title={TITLES[ownership]}>
         {ownership === 'personal' ? (
           <Overview ownership="personal" onNotify={notify} />
@@ -69,8 +64,7 @@ export function FinancesScreen({ ownership }: FinancesScreenProps) {
           </Card>
         )}
       </Screen>
-      <Toast toast={toast} onDismiss={dismissToast} />
-    </View>
+    </>
   );
 }
 
@@ -221,6 +215,5 @@ function SubscriptionsCard({ ownership, onPress }: FinancesScreenProps & { onPre
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
   empty: { padding: SPACING.lg },
 });

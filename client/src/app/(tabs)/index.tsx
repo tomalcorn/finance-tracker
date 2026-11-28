@@ -1,15 +1,16 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { Sheet } from '@/components/Sheet';
-import { Toast, type ToastMessage } from '@/components/Toast';
+import { Sheet, useSheet } from '@/components/Sheet';
+import { useToast } from '@/components/Toast';
 import type { OwnershipType } from '@/domain/entities';
 import type { QuickButtonView } from '@/domain/readModels';
 import { useRepositories, useRows } from '@/hooks/repositories';
+import { messageOf } from '@/hooks/submit';
 import { categoryOptions, nameOptions } from '@/lookups';
 import { ButtonForm } from '@/quickExpenses/ButtonForm';
 import { draftRow, nextPosition, ordered, type ButtonDraft } from '@/quickExpenses/buttonDraft';
@@ -39,10 +40,6 @@ function rowsOf<T>(items: readonly T[]): T[][] {
   return rows;
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /** Log a preset expense in one tap, and manage the buttons that do it. */
 export default function QuickExpensesScreen() {
   const repositories = useRepositories();
@@ -61,30 +58,18 @@ export default function QuickExpensesScreen() {
   const shown = ordered(buttons.data ?? []);
 
   const [editing, setEditing] = useState(false);
-  const [sheet, setSheet] = useState<{ target: SheetTarget; key: number } | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheet = useSheet<SheetTarget>();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
-  const closeSheet = useCallback(() => setSheetOpen(false), []);
-
-  function open(target: SheetTarget) {
-    setSheet((current) => ({ target, key: (current?.key ?? 0) + 1 }));
-    setSheetOpen(true);
-  }
-
-  function say(text: string, action?: ToastMessage['action']) {
-    setToast((current) => ({ id: (current?.id ?? 0) + 1, text, action }));
-  }
+  const { notify } = useToast();
 
   async function log(button: QuickButtonView, overrides?: PaymentOverrides) {
     const payment = await logQuickPayment(payments, button, overrides);
-    say(`${payment.name} — ${formatAmount(payment.expense)} logged`, {
+    notify(`${payment.name} — ${formatAmount(payment.expense)} logged`, {
       label: 'Undo',
       onPress: () => {
         payments.delete([payment.id]).then(
-          () => say('Payment removed'),
-          (error: unknown) => say(`Could not undo: ${messageOf(error)}`),
+          () => notify('Payment removed'),
+          (error: unknown) => notify(`Could not undo: ${messageOf(error)}`),
         );
       },
     });
@@ -92,18 +77,18 @@ export default function QuickExpensesScreen() {
 
   async function tap(button: QuickButtonView) {
     if (editing) {
-      open({ kind: 'edit', button });
+      sheet.open({ kind: 'edit', button });
       return;
     }
     if (button.mode === 'prompt') {
-      open({ kind: 'log', button });
+      sheet.open({ kind: 'log', button });
       return;
     }
     setBusyId(button.id);
     try {
       await log(button);
     } catch (error) {
-      say(messageOf(error));
+      notify(messageOf(error));
     } finally {
       setBusyId(null);
     }
@@ -111,17 +96,17 @@ export default function QuickExpensesScreen() {
 
   async function saveButton(draft: ButtonDraft, button: QuickButtonView | null) {
     await quickButtons.save(await quickButtons.build([draftRow(draft, button)]));
-    closeSheet();
-    say(button ? `${draft.name.trim()} saved` : `${draft.name.trim()} added`);
+    sheet.close();
+    notify(button ? `${draft.name.trim()} saved` : `${draft.name.trim()} added`);
   }
 
   async function removeButton(button: QuickButtonView) {
     await quickButtons.delete([button.id]);
-    closeSheet();
-    say(`${button.name} removed`);
+    sheet.close();
+    notify(`${button.name} removed`);
   }
 
-  const target = sheet?.target;
+  const { target } = sheet;
   const sheetTitle =
     target?.kind === 'log'
       ? `Log ${target.button.name}`
@@ -130,7 +115,7 @@ export default function QuickExpensesScreen() {
         : 'New quick button';
 
   return (
-    <View style={styles.fill}>
+    <>
       <Screen
         title="Quick Expenses"
         action={
@@ -172,7 +157,7 @@ export default function QuickExpensesScreen() {
             </AppText>
             <Button
               title="Add a quick button"
-              onPress={() => open({ kind: 'edit', button: null })}
+              onPress={() => sheet.open({ kind: 'edit', button: null })}
             />
           </View>
         ) : (
@@ -187,10 +172,13 @@ export default function QuickExpensesScreen() {
                       editing={editing}
                       busy={busyId === button.id}
                       onPress={() => void tap(button)}
-                      onLongPress={() => open({ kind: 'edit', button })}
+                      onLongPress={() => sheet.open({ kind: 'edit', button })}
                     />
                   ) : (
-                    <NewButtonTile key="new" onPress={() => open({ kind: 'edit', button: null })} />
+                    <NewButtonTile
+                      key="new"
+                      onPress={() => sheet.open({ kind: 'edit', button: null })}
+                    />
                   ),
                 )}
                 {row.length < COLUMNS ? <View style={styles.spacer} /> : null}
@@ -200,40 +188,37 @@ export default function QuickExpensesScreen() {
         )}
       </Screen>
 
-      <Sheet visible={sheetOpen} onClose={closeSheet} title={sheetTitle}>
+      <Sheet visible={sheet.visible} onClose={sheet.close} title={sheetTitle}>
         {target?.kind === 'log' ? (
           <LogPaymentForm
-            key={sheet?.key}
+            key={sheet.key}
             button={target.button}
             bankAccounts={bankAccountOptions}
             categories={categoryChoices}
             onSubmit={async (overrides) => {
               await log(target.button, overrides);
-              closeSheet();
+              sheet.close();
             }}
-            onCancel={closeSheet}
+            onCancel={sheet.close}
           />
         ) : target ? (
           <ButtonForm
-            key={sheet?.key}
+            key={sheet.key}
             button={target.button}
             position={nextPosition(shown)}
             bankAccounts={bankAccountOptions}
             categories={categoryChoices}
             onSave={(draft) => saveButton(draft, target.button)}
             onRemove={() => (target.button ? removeButton(target.button) : Promise.resolve())}
-            onCancel={closeSheet}
+            onCancel={sheet.close}
           />
         ) : null}
       </Sheet>
-
-      <Toast toast={toast} onDismiss={dismissToast} />
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
   grid: { gap: SPACING.md },
   row: { flexDirection: 'row', gap: SPACING.md },
   spacer: { flex: 1 },

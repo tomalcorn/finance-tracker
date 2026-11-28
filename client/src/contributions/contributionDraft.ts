@@ -1,6 +1,6 @@
 import type { SelectOption } from '@/components/SelectField';
 import type { Contribution } from '@/ports/repositories';
-import { parseAmount } from '@/theme/formatAmount';
+import { amountError, parseAmount } from '@/theme/formatAmount';
 import { isCalendarDate } from '@/theme/formatDate';
 
 /** The contribution form's fields, as typed. */
@@ -39,10 +39,8 @@ export function contributionDraftOf(
 /** Check a draft: an amount above zero, a date, and all three choices made. */
 export function contributionDraftErrors(draft: ContributionDraft): ContributionDraftErrors {
   const errors: ContributionDraftErrors = {};
-  const amount = parseAmount(draft.amount);
-  if (amount === null) errors.amount = 'Enter the amount.';
-  else if (Number.isNaN(amount)) errors.amount = 'Enter an amount in pounds, e.g. 150.';
-  else if (amount <= 0) errors.amount = 'A contribution must be more than zero.';
+  const amount = amountError(draft.amount, { sign: 'positive' });
+  if (amount) errors.amount = amount;
   if (!isCalendarDate(draft.date)) errors.date = 'Enter a date, e.g. 2026-11-01.';
   if (draft.fromBankAccountId === null) {
     errors.fromBankAccountId = 'Choose the account it leaves.';

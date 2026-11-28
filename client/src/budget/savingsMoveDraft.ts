@@ -1,5 +1,5 @@
 import type { SelectOption } from '@/components/SelectField';
-import { parseAmount } from '@/theme/formatAmount';
+import { amountError, parseAmount } from '@/theme/formatAmount';
 import { isCalendarDate } from '@/theme/formatDate';
 import type { SavingsDirection, SavingsMove } from '@/useCases/moveSavings';
 
@@ -35,9 +35,8 @@ export function savingsMoveDraftOf(
  */
 export function savingsMoveDraftErrors(draft: SavingsMoveDraft): SavingsMoveDraftErrors {
   const errors: SavingsMoveDraftErrors = {};
-  const amount = parseAmount(draft.amount);
-  if (Number.isNaN(amount)) errors.amount = 'Enter an amount in pounds, e.g. 50.00.';
-  else if (amount !== null && amount <= 0) errors.amount = 'Enter an amount above zero.';
+  const amount = amountError(draft.amount, { sign: 'positive', optional: true });
+  if (amount) errors.amount = amount;
   if (draft.bankAccountId === null) errors.bankAccountId = 'Choose an account.';
   if (!isCalendarDate(draft.date)) errors.date = 'Enter a date, e.g. 2026-11-01.';
   return errors;

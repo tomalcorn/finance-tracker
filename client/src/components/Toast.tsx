@@ -1,9 +1,18 @@
-import { useEffect, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { useTabBarClearance } from '@/components/GlassTabBar';
+import { MissingProviderError } from '@/hooks/MissingProviderError';
 import { useAppTheme } from '@/theme/theme';
 import { RADIUS, SPACING } from '@/theme/tokens';
 
@@ -27,8 +36,8 @@ export const TOAST_MS = 4000;
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 /**
- * A message floating at the bottom of the screen, above the tab bar, that dismisses itself. Place
- * it after the screen's content, in a container that fills the screen.
+ * A message floating at the bottom of the screen, above the tab bar, that dismisses itself. Screens
+ * show one through `useToast`; `ToastProvider` places it after their content.
  */
 export function Toast({ toast, onDismiss }: ToastProps) {
   const { colors } = useAppTheme();
@@ -86,7 +95,46 @@ export function Toast({ toast, onDismiss }: ToastProps) {
   );
 }
 
+type ToastContextValue = {
+  /** Show a toast, in place of any already up. */
+  notify: (text: string, action?: ToastMessage['action']) => void;
+};
+
+const ToastContext = createContext<ToastContextValue | null>(null);
+
+/** Shows the toasts its screens ask for, over them. Fills the space it is given. */
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const dismiss = useCallback(() => setToast(null), []);
+  const notify = useCallback<ToastContextValue['notify']>(
+    (text, action) => setToast((current) => ({ id: (current?.id ?? 0) + 1, text, action })),
+    [],
+  );
+  const value = useMemo(() => ({ notify }), [notify]);
+
+  return (
+    <ToastContext.Provider value={value}>
+      <View style={styles.fill}>
+        {children}
+        <Toast toast={toast} onDismiss={dismiss} />
+      </View>
+    </ToastContext.Provider>
+  );
+}
+
+/**
+ * Show toasts from the nearest `ToastProvider`.
+ *
+ * @throws {MissingProviderError} when called outside a `ToastProvider`.
+ */
+export function useToast(): ToastContextValue {
+  const value = useContext(ToastContext);
+  if (!value) throw new MissingProviderError('useToast', 'ToastProvider');
+  return value;
+}
+
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   layer: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   toast: {
     maxWidth: 480,

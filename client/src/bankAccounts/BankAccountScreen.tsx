@@ -1,6 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { BalanceChart } from '@/bankAccounts/BalanceChart';
 import { dailyBalances, TREND_MONTHS } from '@/bankAccounts/balanceTrend';
@@ -10,7 +9,7 @@ import { isInUse } from '@/bankAccounts/bankAccountList';
 import { AppText } from '@/components/AppText';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
-import { Toast, type ToastMessage } from '@/components/Toast';
+import { useToast } from '@/components/Toast';
 import { today, type OwnershipType } from '@/domain/entities';
 import { useRepositories, useRows } from '@/hooks/repositories';
 import { formatAmount } from '@/theme/formatAmount';
@@ -29,8 +28,7 @@ export function BankAccountScreen({ ownership }: BankAccountScreenProps) {
   // A personal contribution's income leg can arrive in a joint account.
   const personalSubscriptions = useRows(repositories.subscriptions('personal'));
   const quickButtons = useRows(repositories.quickButtons(ownership));
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
+  const { notify } = useToast();
 
   const account = accounts.data?.find((row) => row.id === id);
   if (accounts.error || !account) {
@@ -58,7 +56,7 @@ export function BankAccountScreen({ ownership }: BankAccountScreenProps) {
   async function save(draft: BankAccountDraft) {
     const row = bankAccountRow(draft, current);
     await accountsRepository.save(await accountsRepository.build([row]));
-    setToast((shown) => ({ id: (shown?.id ?? 0) + 1, text: 'Saved' }));
+    notify('Saved');
   }
 
   async function remove() {
@@ -67,7 +65,7 @@ export function BankAccountScreen({ ownership }: BankAccountScreenProps) {
   }
 
   return (
-    <View style={styles.fill}>
+    <>
       <Screen title={current.name} back>
         <Card title={`Balance over the last ${TREND_MONTHS} months`}>
           {payments.data ? (
@@ -99,12 +97,10 @@ export function BankAccountScreen({ ownership }: BankAccountScreenProps) {
           />
         </Card>
       </Screen>
-      <Toast toast={toast} onDismiss={dismissToast} />
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
   figure: { fontVariant: ['tabular-nums'] },
 });

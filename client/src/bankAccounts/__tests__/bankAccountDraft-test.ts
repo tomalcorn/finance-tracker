@@ -46,13 +46,13 @@ describe('bankAccountDraftErrors', () => {
   it('needs a balance', () => {
     const errors = bankAccountDraftErrors({ name: 'Monzo', startingBalance: '' });
 
-    expect(errors.startingBalance).toBe('Enter the starting balance, or 0.');
+    expect(errors.startingBalance).toBe('Enter an amount, or 0.');
   });
 
   it('refuses a balance that isn’t an amount', () => {
     const errors = bankAccountDraftErrors({ name: 'Monzo', startingBalance: 'lots' });
 
-    expect(errors.startingBalance).toBe('Enter an amount in pounds, e.g. 1200.50.');
+    expect(errors.startingBalance).toBe('Enter an amount in pounds, e.g. 12.50.');
   });
 });
 

@@ -10,8 +10,10 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { DateField } from '@/components/DateField';
 import { SelectField, type SelectOption } from '@/components/SelectField';
+import { SheetNotice } from '@/components/SheetNotice';
 import { TextField } from '@/components/TextField';
 import { today } from '@/domain/entities';
+import { useSubmit } from '@/hooks/submit';
 import { formatAmount } from '@/theme/formatAmount';
 import type { SavingsDirection, SavingsMove } from '@/useCases/moveSavings';
 
@@ -31,36 +33,21 @@ export function SavingsMoveForm({
   onCancel,
 }: SavingsMoveFormProps) {
   const [draft, setDraft] = useState(() => savingsMoveDraftOf(today(), bankAccounts));
-  const [saving, setSaving] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit, saving, failure } = useSubmit(onSubmit, { once: true });
   const deposit = direction === 'deposit';
 
   if (bankAccounts.length === 0) {
     return (
-      <>
-        <AppText>You need a bank account to {deposit ? 'deposit from' : 'withdraw into'}.</AppText>
-        <AppText tone="muted">
-          Add one under Bank accounts on the overview, then come back to move your savings.
-        </AppText>
-        <Button title="Close" variant="plain" onPress={onCancel} />
-      </>
+      <SheetNotice
+        message={`You need a bank account to ${deposit ? 'deposit from' : 'withdraw into'}.`}
+        detail="Add one under Bank accounts on the overview, then come back to move your savings."
+        onClose={onCancel}
+      />
     );
   }
 
   const errors = savingsMoveDraftErrors(draft);
   const move = savingsMoveOf(draft, direction);
-
-  async function submit() {
-    if (!move) return;
-    setSaving(true);
-    setFailure(null);
-    try {
-      await onSubmit(move);
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : String(error));
-      setSaving(false);
-    }
-  }
 
   const verb = deposit ? 'Deposit' : 'Withdraw';
   return (
@@ -100,7 +87,9 @@ export function SavingsMoveForm({
       {failure ? <AppText tone="negative">{failure}</AppText> : null}
       <Button
         title={move ? `${verb} ${formatAmount(move.amount)}` : verb}
-        onPress={() => void submit()}
+        onPress={() => {
+          if (move) void submit(move);
+        }}
         disabled={!move || saving}
       />
       <Button title="Cancel" variant="plain" onPress={onCancel} />

@@ -11,6 +11,7 @@ import {
   tabBarClearance,
   type GlassTabItem,
 } from '@/components/GlassTabBar';
+import { ToastProvider } from '@/components/Toast';
 import { DataProvider } from '@/composition/DataProvider';
 import { HalfThemeProvider } from '@/theme/theme';
 
@@ -48,7 +49,9 @@ export default function TabsLayout() {
     <Tabs
       screenLayout={({ children }) => (
         <TabBarClearanceContext.Provider value={signedIn ? tabBarClearance(insets.bottom) : 0}>
-          <SignedInOnly>{children}</SignedInOnly>
+          <ToastProvider>
+            <SignedInOnly>{children}</SignedInOnly>
+          </ToastProvider>
         </TabBarClearanceContext.Provider>
       )}
       screenOptions={{ headerShown: false }}

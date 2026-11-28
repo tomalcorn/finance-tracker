@@ -1,6 +1,6 @@
 import type { QuickButtonMode, RawRow } from '@/domain/entities';
 import type { QuickButtonView } from '@/domain/readModels';
-import { parseAmount } from '@/theme/formatAmount';
+import { amountError, parseAmount } from '@/theme/formatAmount';
 
 /** The quick-button form's fields, as typed. */
 export type ButtonDraft = {
@@ -50,11 +50,10 @@ export function draftOf(button: QuickButtonView | null, position: number): Butto
  */
 export function draftErrors(draft: ButtonDraft): DraftErrors {
   const errors: DraftErrors = {};
-  const amount = parseAmount(draft.amount);
   if (!draft.name.trim()) errors.name = 'Give the button a name.';
-  if (Number.isNaN(amount)) errors.amount = 'Enter an amount in pounds, e.g. 3.40.';
-  else if (amount === 0) errors.amount = 'An amount can’t be zero. Leave it blank instead.';
-  else if (amount === null && draft.mode === 'log') {
+  const amount = amountError(draft.amount, { sign: 'nonzero', optional: true });
+  if (amount) errors.amount = amount;
+  else if (draft.mode === 'log' && parseAmount(draft.amount) === null) {
     errors.amount = 'A button that logs at once needs an amount.';
   }
   if (draft.bankAccountId === null && draft.mode === 'log') {

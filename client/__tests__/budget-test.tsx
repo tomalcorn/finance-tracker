@@ -562,7 +562,7 @@ describe('savings deposits and withdrawals', () => {
 
     await fireEvent.changeText(screen.getByLabelText('Amount'), 'lots');
 
-    expect(screen.getByText('Enter an amount in pounds, e.g. 50.00.')).toBeOnTheScreen();
+    expect(screen.getByText('Enter an amount in pounds, e.g. 12.50.')).toBeOnTheScreen();
   });
 
   it('asks for a bank account first when there is none', async () => {

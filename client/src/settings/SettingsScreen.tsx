@@ -1,14 +1,11 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-
 import { useAuth } from '@/auth/AuthProvider';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { ListRow } from '@/components/ListRow';
 import { Screen } from '@/components/Screen';
-import { Toast, type ToastMessage } from '@/components/Toast';
+import { useToast } from '@/components/Toast';
 import { useRepositories, useRows } from '@/hooks/repositories';
 import { IncomeMonthSetting } from '@/settings/IncomeMonthSetting';
 import { HalfThemeProvider } from '@/theme/theme';
@@ -18,16 +15,12 @@ export function SettingsScreen() {
   const { state, logout } = useAuth();
   const router = useRouter();
   const jointAccounts = useRows(useRepositories().jointAccounts());
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
-  const notify = useCallback((text: string) => {
-    setToast((current) => ({ id: (current?.id ?? 0) + 1, text }));
-  }, []);
+  const { notify } = useToast();
   const user = state.status === 'signedIn' ? state.user : null;
   const jointAccount = jointAccounts.data?.[0];
 
   return (
-    <View style={styles.fill}>
+    <>
       <Screen title="Settings">
         <Card title="Personal">
           <IncomeMonthSetting ownership="personal" onSaved={notify} />
@@ -75,11 +68,6 @@ export function SettingsScreen() {
         </Card>
         <Button title="Log out" variant="destructive" onPress={logout} />
       </Screen>
-      <Toast toast={toast} onDismiss={dismissToast} />
-    </View>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-});

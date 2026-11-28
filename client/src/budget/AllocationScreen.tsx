@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { useTrackerColour } from '@/budget/AllocationBar';
@@ -15,11 +15,12 @@ import { Card } from '@/components/Card';
 import { NO_FOCUS_RING, fieldBorderColor, useFieldFocus } from '@/components/fieldFocus';
 import { ListRow } from '@/components/ListRow';
 import { Screen } from '@/components/Screen';
-import { Sheet } from '@/components/Sheet';
-import { Toast, type ToastMessage } from '@/components/Toast';
-import type { OwnershipType } from '@/domain/entities';
+import { Sheet, useSheet } from '@/components/Sheet';
+import { useToast } from '@/components/Toast';
+import type { OwnershipType, RawRow } from '@/domain/entities';
 import type { CategoryView } from '@/domain/readModels';
 import { useRepositories, useRows } from '@/hooks/repositories';
+import { useSubmit } from '@/hooks/submit';
 import { useAppTheme } from '@/theme/theme';
 import { formatAmount } from '@/theme/formatAmount';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/theme/tokens';
@@ -38,14 +39,18 @@ export function AllocationScreen({ ownership }: AllocationScreenProps) {
   const sourcesRepository = repositories.incomeSources(ownership);
   const incomeSources = useRows(sourcesRepository);
   const router = useRouter();
-  const [sourceKey, setSourceKey] = useState<number | null>(null);
-  const [sourceOpen, setSourceOpen] = useState(false);
-  const closeSource = useCallback(() => setSourceOpen(false), []);
+  const sourceSheet = useSheet<void>();
   const [edits, setEdits] = useState<BudgetEdits>({});
-  const [saving, setSaving] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
+  const { notify } = useToast();
+  const {
+    submit: save,
+    saving,
+    failure,
+  } = useSubmit(async (rows: RawRow[]) => {
+    await categoriesRepository.save(await categoriesRepository.build(rows));
+    setEdits({});
+    notify('Budgets saved');
+  });
 
   if (categories.error || incomeSources.error) {
     const error = categories.error ?? incomeSources.error;
@@ -83,33 +88,14 @@ export function AllocationScreen({ ownership }: AllocationScreenProps) {
     );
   }
 
-  function addSource() {
-    setSourceKey((current) => (current ?? 0) + 1);
-    setSourceOpen(true);
-  }
-
   async function saveSource(draft: IncomeSourceDraft) {
     await sourcesRepository.save(await sourcesRepository.build([incomeSourceRow(draft, null)]));
-    closeSource();
-    setToast((current) => ({ id: (current?.id ?? 0) + 1, text: `${draft.name.trim()} added` }));
-  }
-
-  async function save() {
-    setSaving(true);
-    setFailure(null);
-    try {
-      await categoriesRepository.save(await categoriesRepository.build(changes));
-      setEdits({});
-      setToast((current) => ({ id: (current?.id ?? 0) + 1, text: 'Budgets saved' }));
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : String(error));
-    } finally {
-      setSaving(false);
-    }
+    sourceSheet.close();
+    notify(`${draft.name.trim()} added`);
   }
 
   return (
-    <View style={styles.fill}>
+    <>
       <Screen title="Income split" back>
         <AppText variant="heading">
           {formatAmount(income)}{' '}
@@ -134,7 +120,7 @@ export function AllocationScreen({ ownership }: AllocationScreenProps) {
         {failure ? <AppText tone="negative">{failure}</AppText> : null}
         <Button
           title="Save budgets"
-          onPress={() => void save()}
+          onPress={() => void save(changes)}
           disabled={saving || changes.length === 0 || Object.keys(errors).length > 0}
         />
         {editing ? (
@@ -163,24 +149,27 @@ export function AllocationScreen({ ownership }: AllocationScreenProps) {
               })
           )}
         </Card>
-        <Button title="Add an income source" variant="secondary" onPress={addSource} />
+        <Button
+          title="Add an income source"
+          variant="secondary"
+          onPress={() => sourceSheet.open()}
+        />
       </Screen>
 
-      <Sheet visible={sourceOpen} onClose={closeSource} title="New income source">
-        {sourceKey !== null ? (
+      <Sheet visible={sourceSheet.visible} onClose={sourceSheet.close} title="New income source">
+        {sourceSheet.target !== null ? (
           <IncomeSourceForm
-            key={sourceKey}
+            key={sourceSheet.key}
             source={null}
             trackers={trackers}
             deletable={false}
             onSave={saveSource}
             onDelete={() => Promise.resolve()}
-            onCancel={closeSource}
+            onCancel={sourceSheet.close}
           />
         ) : null}
       </Sheet>
-      <Toast toast={toast} onDismiss={dismissToast} />
-    </View>
+    </>
   );
 }
 
@@ -235,7 +224,6 @@ function BudgetLine({ tracker, text, budget, income, error, onChange }: BudgetLi
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
   message: { padding: SPACING.lg },
   line: {
     flexDirection: 'row',

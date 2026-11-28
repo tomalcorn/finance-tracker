@@ -1,6 +1,6 @@
 import type { RawRow } from '@/domain/entities';
 import type { CategoryView } from '@/domain/readModels';
-import { parseAmount } from '@/theme/formatAmount';
+import { amountError, parseAmount, type AmountRule } from '@/theme/formatAmount';
 
 /** The subcategory form's fields, as typed. A monthly subcategory uses only `name` and `budget`. */
 export type CategoryDraft = {
@@ -29,26 +29,20 @@ export function categoryDraftOf(category: CategoryView | null): CategoryDraft {
   };
 }
 
-/** Check a non-negative amount where blank means zero. */
-function nonNegative(text: string): string | undefined {
-  const amount = parseAmount(text);
-  if (Number.isNaN(amount)) return 'Enter an amount in pounds, e.g. 120.';
-  if (amount !== null && amount < 0) return 'Enter an amount of 0 or more.';
-  return undefined;
-}
+/** A budget or a pot's target: zero or more, blank meaning zero. */
+const PLANNED: AmountRule = { sign: 'nonnegative', optional: true };
 
 /** Check a draft by the rules a category is saved under; a pot's fields only when it is one. */
 export function categoryDraftErrors(draft: CategoryDraft, pot: boolean): CategoryDraftErrors {
   const errors: CategoryDraftErrors = {};
   if (!draft.name.trim()) errors.name = 'Give it a name.';
-  const budget = nonNegative(draft.budget);
+  const budget = amountError(draft.budget, PLANNED);
   if (budget) errors.budget = budget;
   if (pot) {
-    const cost = nonNegative(draft.cost);
+    const cost = amountError(draft.cost, PLANNED);
     if (cost) errors.cost = cost;
-    if (Number.isNaN(parseAmount(draft.startingBalance))) {
-      errors.startingBalance = 'Enter an amount in pounds, e.g. 50.';
-    }
+    const startingBalance = amountError(draft.startingBalance, { sign: 'any', optional: true });
+    if (startingBalance) errors.startingBalance = startingBalance;
   }
   return errors;
 }
@@ -78,14 +72,10 @@ export function categoryDraftRow(
 
 /** Check a tracker's monthly budget as typed. */
 export function trackerBudgetError(text: string): string | undefined {
-  if (parseAmount(text) === null) return 'Enter a budget, or 0.';
-  return nonNegative(text);
+  return amountError(text, { sign: 'nonnegative' });
 }
 
 /** Check an amount as typed that may be negative, e.g. a pot's starting balance. */
 export function signedAmountError(text: string): string | undefined {
-  const amount = parseAmount(text);
-  if (amount === null) return 'Enter an amount, or 0.';
-  if (Number.isNaN(amount)) return 'Enter an amount in pounds, e.g. 50.';
-  return undefined;
+  return amountError(text, { sign: 'any' });
 }

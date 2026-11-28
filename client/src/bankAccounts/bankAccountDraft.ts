@@ -1,6 +1,6 @@
 import type { RawRow } from '@/domain/entities';
 import type { BankAccountView } from '@/domain/readModels';
-import { parseAmount } from '@/theme/formatAmount';
+import { amountError, parseAmount } from '@/theme/formatAmount';
 
 /** The bank account form's fields, as typed. */
 export type BankAccountDraft = { name: string; startingBalance: string };
@@ -19,12 +19,9 @@ export function bankAccountDraftOf(account: BankAccountView | null): BankAccount
 /** Check a draft: an account needs a name and a starting balance, which may be below zero. */
 export function bankAccountDraftErrors(draft: BankAccountDraft): BankAccountDraftErrors {
   const errors: BankAccountDraftErrors = {};
-  const balance = parseAmount(draft.startingBalance);
   if (!draft.name.trim()) errors.name = 'Give it a name.';
-  if (balance === null) errors.startingBalance = 'Enter the starting balance, or 0.';
-  else if (Number.isNaN(balance)) {
-    errors.startingBalance = 'Enter an amount in pounds, e.g. 1200.50.';
-  }
+  const startingBalance = amountError(draft.startingBalance, { sign: 'any' });
+  if (startingBalance) errors.startingBalance = startingBalance;
   return errors;
 }
 

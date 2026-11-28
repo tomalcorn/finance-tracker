@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { CheckList } from '@/components/CheckList';
 import { TextField } from '@/components/TextField';
 import type { CategoryView, IncomeSourceView } from '@/domain/readModels';
+import { invoke, useSubmit } from '@/hooks/submit';
 
 type IncomeSourceFormProps = {
   /** The source being edited, or null to add one. */
@@ -21,10 +22,6 @@ type IncomeSourceFormProps = {
   onCancel: () => void;
 };
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /** An income source's settings: its name, and which budget trackers it funds. */
 export function IncomeSourceForm({
   source,
@@ -36,21 +33,9 @@ export function IncomeSourceForm({
 }: IncomeSourceFormProps) {
   const [draft, setDraft] = useState(() => incomeSourceDraftOf(source));
   const [touched, setTouched] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const { submit: run, saving, failure } = useSubmit(invoke, { once: true });
   const nameError = draft.name.trim() ? undefined : 'Give it a name.';
-
-  async function run(action: () => Promise<void>) {
-    setSaving(true);
-    setFailure(null);
-    try {
-      await action();
-    } catch (error) {
-      setFailure(messageOf(error));
-      setSaving(false);
-    }
-  }
 
   function save() {
     setTouched(true);
