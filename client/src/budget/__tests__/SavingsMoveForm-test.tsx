@@ -5,6 +5,19 @@ import { SavingsMoveForm } from '@/budget/SavingsMoveForm';
 const BANK_ACCOUNTS = [{ value: '3c4d5e6f-0000-4000-8000-000000000001', label: 'Current' }];
 
 describe('SavingsMoveForm', () => {
+  it('offers no ± button, since the direction comes from the button pressed', async () => {
+    await render(
+      <SavingsMoveForm
+        direction="withdraw"
+        bankAccounts={BANK_ACCOUNTS}
+        onSubmit={() => Promise.resolve()}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Make negative' })).not.toBeOnTheScreen();
+  });
+
   it('shows why the move failed, keeping the sheet open', async () => {
     await render(
       <SavingsMoveForm

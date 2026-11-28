@@ -1,13 +1,18 @@
 import { useState } from 'react';
 
-import { AmountField } from '@/components/AmountField';
+import {
+  SAVINGS_MOVE_NAMES,
+  savingsMoveDraftErrors,
+  savingsMoveDraftOf,
+  savingsMoveOf,
+} from '@/budget/savingsMoveDraft';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { DateField } from '@/components/DateField';
 import { SelectField, type SelectOption } from '@/components/SelectField';
 import { TextField } from '@/components/TextField';
 import { today } from '@/domain/entities';
-import { formatAmount, parseAmount } from '@/theme/formatAmount';
+import { formatAmount } from '@/theme/formatAmount';
 import type { SavingsDirection, SavingsMove } from '@/useCases/moveSavings';
 
 type SavingsMoveFormProps = {
@@ -25,10 +30,7 @@ export function SavingsMoveForm({
   onSubmit,
   onCancel,
 }: SavingsMoveFormProps) {
-  const [amount, setAmount] = useState('');
-  const [bankAccountId, setBankAccountId] = useState<string | null>(bankAccounts[0]?.value ?? null);
-  const [paymentDate, setPaymentDate] = useState(today);
-  const [name, setName] = useState('');
+  const [draft, setDraft] = useState(() => savingsMoveDraftOf(today(), bankAccounts));
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const deposit = direction === 'deposit';
@@ -45,23 +47,15 @@ export function SavingsMoveForm({
     );
   }
 
-  const parsed = parseAmount(amount);
-  const amountError =
-    parsed === null
-      ? undefined
-      : Number.isNaN(parsed)
-        ? 'Enter an amount in pounds, e.g. 50.00.'
-        : parsed <= 0
-          ? 'Enter an amount above zero.'
-          : undefined;
-  const complete = parsed !== null && !amountError && bankAccountId !== null && paymentDate !== '';
+  const errors = savingsMoveDraftErrors(draft);
+  const move = savingsMoveOf(draft, direction);
 
   async function submit() {
-    if (parsed === null || bankAccountId === null) return;
+    if (!move) return;
     setSaving(true);
     setFailure(null);
     try {
-      await onSubmit({ direction, amount: parsed, bankAccountId, paymentDate, name });
+      await onSubmit(move);
     } catch (error) {
       setFailure(error instanceof Error ? error.message : String(error));
       setSaving(false);
@@ -71,19 +65,32 @@ export function SavingsMoveForm({
   const verb = deposit ? 'Deposit' : 'Withdraw';
   return (
     <>
-      <AmountField label="Amount" value={amount} onChangeText={setAmount} error={amountError} />
+      <TextField
+        label="Amount"
+        value={draft.amount}
+        onChangeText={(amount) => setDraft((current) => ({ ...current, amount }))}
+        inputMode="decimal"
+        placeholder="0.00"
+        error={errors.amount}
+      />
       <SelectField
         label={deposit ? 'From' : 'Into'}
-        value={bankAccountId}
+        value={draft.bankAccountId}
         options={bankAccounts}
-        onChange={setBankAccountId}
+        onChange={(bankAccountId) => setDraft((current) => ({ ...current, bankAccountId }))}
+        error={errors.bankAccountId}
       />
-      <DateField label="Date" value={paymentDate} onChange={setPaymentDate} />
+      <DateField
+        label="Date"
+        value={draft.date}
+        onChange={(date) => setDraft((current) => ({ ...current, date }))}
+        error={errors.date}
+      />
       <TextField
         label="Name"
-        value={name}
-        onChangeText={setName}
-        placeholder={deposit ? 'Savings deposit' : 'Savings withdrawal'}
+        value={draft.name}
+        onChangeText={(name) => setDraft((current) => ({ ...current, name }))}
+        placeholder={SAVINGS_MOVE_NAMES[direction]}
       />
       <AppText variant="caption" tone="muted">
         {deposit
@@ -92,9 +99,9 @@ export function SavingsMoveForm({
       </AppText>
       {failure ? <AppText tone="negative">{failure}</AppText> : null}
       <Button
-        title={complete && parsed !== null ? `${verb} ${formatAmount(parsed)}` : verb}
+        title={move ? `${verb} ${formatAmount(move.amount)}` : verb}
         onPress={() => void submit()}
-        disabled={!complete || saving}
+        disabled={!move || saving}
       />
       <Button title="Cancel" variant="plain" onPress={onCancel} />
     </>

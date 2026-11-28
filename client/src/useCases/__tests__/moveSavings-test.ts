@@ -2,8 +2,8 @@ import { PaymentSchema, type Payment, type RawRow } from '@/domain/entities';
 import type { CategoryView, PaymentView } from '@/domain/readModels';
 import { RepositoryError } from '@/ports/errors';
 import type { Repository } from '@/ports/repository';
-import { MoveSavingsError, NonPositiveSavingsAmountError } from '@/useCases/errors';
-import { moveSavings } from '@/useCases/moveSavings';
+import { MoveSavingsError } from '@/useCases/errors';
+import { moveSavings, type SavingsMove } from '@/useCases/moveSavings';
 
 const USER_ID = 'auth0|65f0c2a1b3d4e5f6a7b8c9d0';
 const BANK_ACCOUNT_ID = '0c4e7a2d-1b5f-4e8a-a3c6-9d2f8b1e4a07';
@@ -48,6 +48,14 @@ class StubPayments implements Repository<Payment, PaymentView> {
   async delete() {}
 }
 
+const DEPOSIT: SavingsMove = {
+  direction: 'deposit',
+  amount: 50,
+  bankAccountId: BANK_ACCOUNT_ID,
+  paymentDate: '2026-11-01',
+  name: 'Savings deposit',
+};
+
 let payments: StubPayments;
 
 beforeEach(() => {
@@ -56,11 +64,7 @@ beforeEach(() => {
 
 describe('moveSavings', () => {
   it('books a deposit as an expense to savings, from the chosen account', async () => {
-    await moveSavings(payments, SAVINGS, {
-      direction: 'deposit',
-      amount: 50,
-      bankAccountId: BANK_ACCOUNT_ID,
-    });
+    await moveSavings(payments, SAVINGS, DEPOSIT);
 
     expect(payments.saved).toEqual([
       expect.objectContaining({
@@ -74,84 +78,32 @@ describe('moveSavings', () => {
   });
 
   it('books a withdrawal as a negative expense to savings', async () => {
-    await moveSavings(payments, SAVINGS, {
-      direction: 'withdraw',
-      amount: 30,
-      bankAccountId: BANK_ACCOUNT_ID,
-    });
+    await moveSavings(payments, SAVINGS, { ...DEPOSIT, direction: 'withdraw', amount: 30 });
 
     expect(payments.saved).toEqual([
-      expect.objectContaining({
-        name: 'Savings withdrawal',
-        expense: -30,
-        category_id: SAVINGS.id,
-      }),
+      expect.objectContaining({ expense: -30, category_id: SAVINGS.id }),
     ]);
   });
 
   it('dates the payment as asked', async () => {
-    const written = await moveSavings(payments, SAVINGS, {
-      direction: 'deposit',
-      amount: 50,
-      bankAccountId: BANK_ACCOUNT_ID,
-      paymentDate: '2026-11-01',
-    });
+    const written = await moveSavings(payments, SAVINGS, { ...DEPOSIT, paymentDate: '2026-10-15' });
 
-    expect(written.payment_date).toBe('2026-11-01');
+    expect(written.payment_date).toBe('2026-10-15');
   });
 
-  it('names the payment as asked, trimmed', async () => {
-    const written = await moveSavings(payments, SAVINGS, {
-      direction: 'deposit',
-      amount: 50,
-      bankAccountId: BANK_ACCOUNT_ID,
-      name: '  Bonus  ',
-    });
+  it('names the payment as asked', async () => {
+    const written = await moveSavings(payments, SAVINGS, { ...DEPOSIT, name: 'Bonus' });
 
     expect(written.name).toBe('Bonus');
-  });
-
-  it('falls back to the default name for a blank one', async () => {
-    const written = await moveSavings(payments, SAVINGS, {
-      direction: 'withdraw',
-      amount: 50,
-      bankAccountId: BANK_ACCOUNT_ID,
-      name: '   ',
-    });
-
-    expect(written.name).toBe('Savings withdrawal');
-  });
-
-  it.each([0, -5, Number.NaN])('refuses an amount of %p, keeping it', async (amount) => {
-    await expect(
-      moveSavings(payments, SAVINGS, {
-        direction: 'deposit',
-        amount,
-        bankAccountId: BANK_ACCOUNT_ID,
-      }),
-    ).rejects.toMatchObject({ constructor: NonPositiveSavingsAmountError, amount });
-  });
-
-  it('writes nothing for an amount that isn’t above zero', async () => {
-    await moveSavings(payments, SAVINGS, {
-      direction: 'deposit',
-      amount: 0,
-      bankAccountId: BANK_ACCOUNT_ID,
-    }).catch(() => {});
-
-    expect(payments.saved).toEqual([]);
   });
 
   it('reports a failed write as a savings error, keeping the cause', async () => {
     const cause = new RepositoryError('network down');
     payments.failWith = cause;
 
-    await expect(
-      moveSavings(payments, SAVINGS, {
-        direction: 'deposit',
-        amount: 50,
-        bankAccountId: BANK_ACCOUNT_ID,
-      }),
-    ).rejects.toMatchObject({ constructor: MoveSavingsError, cause });
+    await expect(moveSavings(payments, SAVINGS, DEPOSIT)).rejects.toMatchObject({
+      constructor: MoveSavingsError,
+      cause,
+    });
   });
 });
