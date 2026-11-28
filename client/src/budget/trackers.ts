@@ -49,6 +49,11 @@ export function takesSubcategories(root: CategoryView): boolean {
   return root.name !== 'Joint' && root.name !== 'Savings';
 }
 
+/** Whether a tracker is the one money is deposited into and withdrawn from. */
+export function movesSavings(root: CategoryView): boolean {
+  return root.name === 'Savings';
+}
+
 /** What the tracker budgets are split out of: the income sources' totals for the roll-up month. */
 export function totalIncome(incomeSources: readonly IncomeSourceView[]): number {
   return incomeSources.reduce((total, source) => total + source.current_month, 0);

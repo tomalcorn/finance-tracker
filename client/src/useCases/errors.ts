@@ -36,3 +36,6 @@ export class NothingToBankError extends BankOneOffsError {
     this.potName = potName;
   }
 }
+
+/** Money could not be moved into or out of savings. */
+export class MoveSavingsError extends UseCaseError {}
