@@ -1,3 +1,9 @@
+## v1.50.1 (2026-11-28)
+
+### Refactor
+
+- **client**: share the sheet, toast and submit scaffolding (#378)
+
 ## v1.50.0 (2026-11-28)
 
 ### Feat
